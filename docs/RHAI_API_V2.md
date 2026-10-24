@@ -172,6 +172,15 @@ Use `// @test tags=unit timeout=1000 seed=42 cases=a|b` before `fn test_*`. The 
 - `character_drop_through([seconds])` — Lets the character fall through one-way platforms (0.25 s by default; it keeps passing while it still overlaps one).
 
   Example: `character_drop_through();`
+- `joint_servo(target)` — Drives the revolute (degrees) or prismatic (units) joint on this object to a target with its motor; measured like the joint limits (the connected body relative to this one).
+
+  Example: `joint_servo(45.0);`
+- `joint_servo_off()` — Stops the servo and switches its motor off; the joint moves freely again.
+
+  Example: `joint_servo_off();`
+- `explode(x, y, radius, impulse)` — Pushes every dynamic body near a point away from it, fading to nothing at the radius.
+
+  Example: `explode(position_x(), position_y(), 4.0, 30.0);`
 
 ## object
 
@@ -448,6 +457,15 @@ Use `// @test tags=unit timeout=1000 seed=42 cases=a|b` before `fn test_*`. The 
 - `session_set(key, value)` — Writes a bounded serializable session value.
 
   Example: `session_set("wave", 2);`
+- `post_set(name, value, seconds)` — Sets a post-processing value (exposure, contrast, saturation, vignette, bloom, blur) for this play session; seconds tweens to it. Post-processing must be enabled.
+
+  Example: `post_set("vignette", 0.6, 0.5);`
+- `post_pulse(name, amount, seconds)` — Adds a post-processing amount that fades out over seconds (beat flashes, hits).
+
+  Example: `post_pulse("bloom", 0.6, 0.25);`
+- `post_reset()` — Returns post-processing to the project settings.
+
+  Example: `post_reset();`
 
 ## ui
 
@@ -634,6 +652,99 @@ Use `// @test tags=unit timeout=1000 seed=42 cases=a|b` before `fn test_*`. The 
 - `random_range(minimum, maximum) -> float` — Returns a deterministic value in a finite range.
 
   Example: `let x = random_range(-2.0, 2.0);`
+
+## rhythm
+
+- `rhythm_play(start_seconds)` — Starts this object's RhythmChart2D (else the first chart in the scene); start_seconds is optional chart time.
+
+  Example: `rhythm_play();`
+- `rhythm_pause()` — Pauses the chart and its music.
+
+  Example: `rhythm_pause();`
+- `rhythm_resume()` — Resumes a paused chart one second early so the player finds the beat again.
+
+  Example: `rhythm_resume();`
+- `rhythm_stop()` — Stops the chart and its music.
+
+  Example: `rhythm_stop();`
+- `rhythm_restart()` — Plays the chart again from the start (new score).
+
+  Example: `rhythm_restart();`
+- `rhythm_seek(seconds)` — Jumps to a chart time; earlier notes are skipped, not missed (practice).
+
+  Example: `rhythm_seek(30.0);`
+- `rhythm_set_offset(milliseconds)` — Sets the chart's audio offset (positive: notes later).
+
+  Example: `rhythm_set_offset(15.0);`
+- `rhythm_set_autoplay(enabled)` — Turns autoplay (perfect bot play with scheduled hit sounds) on or off.
+
+  Example: `rhythm_set_autoplay(true);`
+- `rhythm_set_speed(speed)` — Sets the note scroll speed (chart units per second at speed 1).
+
+  Example: `rhythm_set_speed(10.0);`
+- `rhythm_set_calibration(milliseconds)` — Stores this device's audio calibration (positive: the music is heard later); applies from the next play.
+
+  Example: `rhythm_set_calibration(-24.0);`
+- `rhythm_calibration() -> float` — The stored device calibration in milliseconds.
+
+  Example: `let offset = rhythm_calibration();`
+- `rhythm_time() -> float` — Chart time in seconds (negative during the lead-in), on the audio clock.
+
+  Example: `let t = rhythm_time();`
+- `rhythm_beat() -> float` — The current beat (fractional) through the chart's tempo map.
+
+  Example: `if rhythm_beat() >= 16.0 { }`
+- `rhythm_bpm() -> float` — Tempo at the current chart time.
+
+  Example: `let bpm = rhythm_bpm();`
+- `rhythm_score() -> int` — Score out of 1,000,000 (900,000 accuracy + 100,000 max combo).
+
+  Example: `ui_set_text(\`${rhythm_score()}\`);`
+- `rhythm_combo() -> int` — The current combo.
+
+  Example: `if rhythm_combo() >= 100 { }`
+- `rhythm_max_combo() -> int` — The longest combo so far.
+
+  Example: `let best = rhythm_max_combo();`
+- `rhythm_accuracy() -> float` — Accuracy 0..1 over the judged notes (perfect 1, great 0.8, good 0.5).
+
+  Example: `let percent = rhythm_accuracy() * 100.0;`
+- `rhythm_progress() -> float` — Progress 0..1 through the chart.
+
+  Example: `let p = rhythm_progress();`
+- `rhythm_state() -> string` — idle, loading, ready, countdown, playing, paused, finished or error.
+
+  Example: `if rhythm_state() == "finished" { }`
+- `rhythm_judgement() -> string` — The latest judgement: perfect, great, good, bad or miss.
+
+  Example: `let last = rhythm_judgement();`
+- `rhythm_playing() -> bool` — True while the chart runs (lead-in included).
+
+  Example: `if rhythm_playing() { }`
+- `rhythm_finished() -> bool` — True once every note is judged and the chart ended.
+
+  Example: `if rhythm_finished() { }`
+- `rhythm_full_combo() -> bool` — True when a finished chart had no bad or miss.
+
+  Example: `if rhythm_full_combo() { }`
+- `rhythm_count(name) -> int` — Count of perfect, great, good, bad, miss, early, late, judged or total notes.
+
+  Example: `let misses = rhythm_count("miss");`
+- `rhythm_judge(note, judgement_or_offset_ms)` — Judges a note (custom note types, from rhythm.touch): "perfect" … "miss", or an offset in milliseconds that the note type's windows classify. Ignored when the note is already judged.
+
+  Example: `rhythm_judge(payload.note, "miss");`
+- `rhythm_my_note() -> map` — On an object that shows a note (a note type with a prefab): id, type, beat, time, lane, line, x and data of that note; () elsewhere.
+
+  Example: `let note = rhythm_my_note();`
+- `rhythm_visual_offset() -> float` — The device picture offset in milliseconds (notes are drawn this much earlier; judgement unchanged).
+
+  Example: `let picture = rhythm_visual_offset();`
+- `rhythm_set_visual_offset(milliseconds)` — Stores this device's picture offset (−500 … 500 ms); applies at once.
+
+  Example: `rhythm_set_visual_offset(20.0);`
+- `rhythm_stats() -> map` — Every statistic in one map (score, counts, accuracy, mean_offset_ms, full_combo …).
+
+  Example: `let stats = rhythm_stats();`
 
 ## save
 

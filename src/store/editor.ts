@@ -8,7 +8,9 @@ import { scriptProjectSettings } from '../runtime/scriptSettings'
 
 export type EditorPage = 'scene' | 'game' | 'script' | 'settings' | 'manage'
 export type EditorWorkspace = 'design' | 'script' | 'animation' | 'ui' | 'debug' | 'manage' | 'custom'
-export type BottomPanelTab = 'assets' | 'packages' | 'console' | 'animation' | 'audio' | 'worldProduction' | 'networkStudio' | 'ecosystem' | 'tilemap' | 'presentation' | 'profiler' | 'rendering' | 'project' | 'build'
+export type BottomPanelTab = 'assets' | 'packages' | 'console' | 'animation' | 'audio' | 'worldProduction' | 'networkStudio' | 'ecosystem' | 'tilemap' | 'chart' | 'presentation' | 'profiler' | 'rendering' | 'project' | 'build'
+/** 26.46: the chart open in the chart editor (asset reference, and the RhythmChart2D that opened it). */
+export interface ChartEditorTarget { chartAsset: string; entityUuid: string; componentUuid: string; revision: number }
 export type ManageSection = 'learn' | 'settings' | 'automation' | 'packages' | 'project' | 'rendering' | 'build'
 export type InspectorCategory = 'all' | 'general' | 'transform' | 'render' | 'physics' | 'gameplay' | 'ui'
 type ContextMenuType = 'sidebar-entity' | 'layer' | 'grid-entity' | 'none'
@@ -68,6 +70,7 @@ export const editorState = reactive({
   bottomPanelOpen: false,
   bottomPanelHeight: 280,
   bottomPanelTab: 'assets' as BottomPanelTab,
+  chartEditor: null as ChartEditorTarget | null,
   bottomPanelPinned: true,
   physicsMonitorOpen: false,
   renameRequestId: null as number | null,

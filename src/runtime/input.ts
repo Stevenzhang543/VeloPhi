@@ -75,6 +75,25 @@ export interface InputSnapshot {
 
 export interface InputActionEdge { action: string; down: boolean; sequence: number; timeMs: number }
 export const INPUT_EDGE_CAPACITY = 256
+/** 26.46 rhythm input: one press, release or move with the browser's event time (performance.now()
+ * timebase), so judgement does not depend on when the frame ran. Pointers cover mouse, touch and pen. */
+export interface TimedInputEvent {
+  kind: 'press' | 'release' | 'move'
+  device: 'key' | 'pointer'
+  /** KeyboardEvent.code for keys, the pointer type for pointers. */
+  code: string
+  /** Pointer id (keys use -1 - index of the code, stable while the key is held). */
+  id: number
+  clientX: number
+  clientY: number
+  /** Milliseconds in the performance.now() timebase. */
+  timeMs: number
+}
+export const TIMED_INPUT_CAPACITY = 1024
+/** Event time in the performance.now() timebase; a missing or implausible timeStamp falls back to now. */
+export function eventTimeMs(timeStamp: number, now: number): number {
+  return Number.isFinite(timeStamp) && timeStamp > 0 && timeStamp <= now + 1 && now - timeStamp < 1000 ? timeStamp : now
+}
 type DigitalInputEdge = { device: 'key' | 'mouse' | 'release'; code: string; key: string; button: number; down: boolean; modifiers: InputModifier[]; sequence: number; timeMs: number }
 
 export type InputObservationResetReason = 'observer-attached' | 'observer-disposed' | 'release' | 'blur' | 'hidden' | 'focus' | 'overflow' | 'stop' | 'session' | 'pause' | 'resume' | 'replay'
@@ -354,6 +373,47 @@ export class InputManager {
   private replay: { recording: InputRecording; startedAt: number; index: number; loop: boolean } | null = null
   // 26.45: rebinding capture: the next key, mouse button or gamepad button pressed (Escape cancels).
   private capture: { result: Pick<InputBinding, 'device' | 'code'> | 'cancelled' | null; heldButtons: Set<string> | null } | null = null
+  // 26.46: timed press/release/move events for rhythm judgement, only collected while a reader is open.
+  private timedReaders = 0
+  private timedEvents: TimedInputEvent[] = []
+  private timedPointers = new Set<number>()
+  private timedKeyIds = new Map<string, number>()
+  readonly timedDiagnostics = { dropped: 0, collected: 0 }
+
+  /** Starts collecting timed input; call the returned function to stop (readers are counted). */
+  openTimedInput(): () => void {
+    this.timedReaders++
+    let open = true
+    return () => { if (!open) return; open = false; this.timedReaders = Math.max(0, this.timedReaders - 1); if (!this.timedReaders) { this.timedEvents = []; this.timedPointers.clear() } }
+  }
+  /** Timed events since the last call, oldest first. */
+  takeTimedInput(): TimedInputEvent[] { const events = this.timedEvents; this.timedEvents = []; return events }
+  get collectingTimedInput(): boolean { return this.timedReaders > 0 }
+  private pushTimed(event: TimedInputEvent): void {
+    if (!this.timedReaders) return
+    if (this.timedEvents.length >= TIMED_INPUT_CAPACITY) { this.timedEvents.shift(); this.timedDiagnostics.dropped++ }
+    this.timedEvents.push(event); this.timedDiagnostics.collected++
+  }
+  private timedKeyId(code: string): number { let id = this.timedKeyIds.get(code); if (id === undefined) { id = -1 - this.timedKeyIds.size; this.timedKeyIds.set(code, id) } return id }
+  private timedKey(event: KeyboardEvent, down: boolean): void {
+    if (!this.timedReaders || event.repeat || event.isComposing || this.isTypingTarget(event.target)) return
+    const now = performance.now()
+    this.pushTimed({ kind: down ? 'press' : 'release', device: 'key', code: event.code || event.key, id: this.timedKeyId(event.code || event.key), clientX: this.clientX, clientY: this.clientY, timeMs: eventTimeMs(event.timeStamp, now) })
+  }
+  /** Pointers count on the game surface only, so editor panels and native controls never judge notes. */
+  private timedPointer(event: PointerEvent, kind: TimedInputEvent['kind']): void {
+    if (!this.timedReaders) return
+    if (kind === 'press') {
+      if (typeof Element !== 'undefined' && event.target instanceof Element && !event.target.closest('[data-game-input-surface]')) return
+      if (event.pointerType === 'mouse' && event.button !== 0) return
+      this.timedPointers.add(event.pointerId)
+    } else if (!this.timedPointers.has(event.pointerId)) return
+    if (kind === 'release') this.timedPointers.delete(event.pointerId)
+    const now = performance.now()
+    // Coalesced moves keep fast flicks accurate when the browser batches pointer events per frame.
+    const samples = kind === 'move' && typeof event.getCoalescedEvents === 'function' ? event.getCoalescedEvents() : []
+    for (const sample of samples.length ? samples : [event]) this.pushTimed({ kind, device: 'pointer', code: event.pointerType || 'mouse', id: event.pointerId, clientX: sample.clientX, clientY: sample.clientY, timeMs: eventTimeMs(sample.timeStamp, now) })
+  }
 
   /** 26.45: starts listening for the next key, mouse button or gamepad button (for rebinding). */
   beginBindingCapture(): void { this.capture = { result: null, heldButtons: null } }
@@ -379,6 +439,7 @@ export class InputManager {
     if (this.capture && !this.capture.result && !event.repeat && !event.isComposing && !this.isTypingTarget(event.target)) {
       this.capture.result = event.code === 'Escape' ? 'cancelled' : { device: 'keyboard', code: event.code || event.key }
     }
+    if (!event.defaultPrevented && event.keyCode !== 229) this.timedKey(event, true)
     if (!event.defaultPrevented && !event.isComposing && event.keyCode !== 229 && !this.isTypingTarget(event.target) && !this.edgeOverflowed) {
       const changed = !this.keyboard.has(event.code)
       this.keyboard.add(event.code); this.logicalKeys.add(logicalKey(event.key)); this.updateModifiers(event)
@@ -386,7 +447,7 @@ export class InputManager {
       if (!event.repeat) setInputModality('keyboard')
     }
   }
-  readonly onKeyUp = (event: KeyboardEvent) => { const changed = this.keyboard.delete(event.code); this.logicalKeys.delete(logicalKey(event.key)); this.updateModifiers(event); if (changed && latencyProbe.enabled) latencyProbe.inputReceived('key', event.code, false, event.timeStamp); if (changed) this.recordDigitalEdge('key', event.code, logicalKey(event.key), 0, false, !this.observation || !event.defaultPrevented && !event.isComposing && event.keyCode !== 229 && !this.isTypingTarget(event.target)) }
+  readonly onKeyUp = (event: KeyboardEvent) => { this.timedKey(event, false); const changed = this.keyboard.delete(event.code); this.logicalKeys.delete(logicalKey(event.key)); this.updateModifiers(event); if (changed && latencyProbe.enabled) latencyProbe.inputReceived('key', event.code, false, event.timeStamp); if (changed) this.recordDigitalEdge('key', event.code, logicalKey(event.key), 0, false, !this.observation || !event.defaultPrevented && !event.isComposing && event.keyCode !== 229 && !this.isTypingTarget(event.target)) }
   readonly onMouseDown = (event: MouseEvent) => { if (this.capture && !this.capture.result && this.acceptMouse(event)) this.capture.result = { device: 'mouse-button', code: String(event.button) }; if (this.acceptMouse(event) && !this.edgeOverflowed) { const changed = !this.mouseButtons.has(event.button); this.mouseButtons.add(event.button); if (changed && latencyProbe.enabled) latencyProbe.inputReceived('mouse-button', String(event.button), true, event.timeStamp); if (changed) this.recordDigitalEdge('mouse', '', '', event.button, true, !this.observation || !event.defaultPrevented && !this.isTypingTarget(event.target)); setInputModality('mouse') } }
   readonly onMouseUp = (event: MouseEvent) => { if (this.acceptMouse(event) && this.mouseButtons.delete(event.button)) this.recordDigitalEdge('mouse', '', '', event.button, false, !this.observation || !event.defaultPrevented && !this.isTypingTarget(event.target)) }
   readonly onMouseMove = /** 结构说明（自动提取）：匿名回调；输入 event；直接调用 acceptMouse、Math.abs、setInputModality；写入 clientX、clientY、movementX、movementY。 */ (event: MouseEvent) => { if (!this.acceptMouse(event)) return; this.clientX = event.clientX; this.clientY = event.clientY; this.movementX += event.movementX; this.movementY += event.movementY; if (Math.abs(event.movementX) + Math.abs(event.movementY) >= 1) setInputModality('mouse') }
@@ -435,18 +496,20 @@ export class InputManager {
     this.resetPairGesture()
   }
   readonly onPointerDown = /** 结构说明（自动提取）：匿名回调；输入 event；直接调用 updatePen、setInputModality。 */ (event: PointerEvent) => {
+    this.timedPointer(event, 'press')
     if (event.pointerType !== 'pen') return
     this.updatePen(event)
     setInputModality('pen')
   }
   readonly onPointerMove = /** 结构说明（自动提取）：匿名回调；输入 event；直接调用 pens.get、Math.abs、updatePen、setInputModality。 */ (event: PointerEvent) => {
+    this.timedPointer(event, 'move')
     if (event.pointerType !== 'pen') return
     const previous = this.pens.get(event.pointerId), moved = !previous || Math.abs(event.clientX - previous.x) + Math.abs(event.clientY - previous.y) >= 1 || Math.abs(event.pressure - previous.pressure) >= .01 || Math.abs(event.tiltX - previous.tiltX) + Math.abs(event.tiltY - previous.tiltY) >= 1 || event.twist !== previous.twist
     this.updatePen(event)
     if (moved) setInputModality('pen')
   }
-  readonly onPointerUp = /** 结构说明（自动提取）：匿名回调；输入 event；直接调用 releasePen。 */ (event: PointerEvent) => { if (event.pointerType === 'pen') this.releasePen(event.pointerId, event.clientX, event.clientY) }
-  readonly onPointerCancel = /** 结构说明（自动提取）：匿名回调；输入 event；直接调用 releasePen。 */ (event: PointerEvent) => { if (event.pointerType === 'pen') this.releasePen(event.pointerId, event.clientX, event.clientY) }
+  readonly onPointerUp = /** 结构说明（自动提取）：匿名回调；输入 event；直接调用 releasePen。 */ (event: PointerEvent) => { this.timedPointer(event, 'release'); if (event.pointerType === 'pen') this.releasePen(event.pointerId, event.clientX, event.clientY) }
+  readonly onPointerCancel = /** 结构说明（自动提取）：匿名回调；输入 event；直接调用 releasePen。 */ (event: PointerEvent) => { this.timedPointer(event, 'release'); if (event.pointerType === 'pen') this.releasePen(event.pointerId, event.clientX, event.clientY) }
   readonly onGamepadConnected = /* 调用 this.updateGamepad(event.gamepad, true) 并返回调用结果。 */ (event: GamepadEvent) => this.updateGamepad(event.gamepad, true)
   readonly onGamepadDisconnected = /* 调用 this.updateGamepad(event.gamepad, false) 并返回调用结果。 */ (event: GamepadEvent) => this.updateGamepad(event.gamepad, false)
 
@@ -703,6 +766,13 @@ export class InputManager {
     // down/up pulse on resume. Keep sampled history so held actions still release.
     if (reason === 'hidden' || reason === 'pause' || reason === 'resume' || reason === 'stop') { this.digitalEdges = []; this.edgeDiagnostics.queued = 0; this.edgeOverflowed = false }
     this.recordDigitalEdge('release', '', '', 0, false)
+    if (this.timedReaders) {
+      // Held keys and pointers end here (blur, hidden tab, typing focus), so a hold note is not stuck down.
+      const now = performance.now()
+      for (const code of this.keyboard) this.pushTimed({ kind: 'release', device: 'key', code, id: this.timedKeyId(code), clientX: this.clientX, clientY: this.clientY, timeMs: now })
+      for (const id of this.timedPointers) this.pushTimed({ kind: 'release', device: 'pointer', code: 'pointer', id, clientX: this.clientX, clientY: this.clientY, timeMs: now })
+      this.timedPointers.clear()
+    }
     this.clearHeldInputs()
   }
 

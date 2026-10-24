@@ -3,8 +3,17 @@ import { reactive } from 'vue'
 import type { ComponentKind } from '../world/components'
 import { componentDescriptor } from '../world/componentRegistry'
 
-export type ComponentPaletteCategory = 'Core' | '2D' | 'Physics' | 'Gameplay' | 'UI' | 'Audio' | 'Camera' | 'Navigation' | 'Script' | 'Packages'
-export interface ComponentPaletteMetadata { category: ComponentPaletteCategory; compatibility: 'Stable' | 'Experimental' | 'Package'; required: ComponentKind[]; summary: string }
+export type ComponentPaletteCategory = 'Rhythm' | 'Core' | '2D' | 'Physics' | 'Gameplay' | 'UI' | 'Audio' | 'Camera' | 'Navigation' | 'Script' | 'Packages' | 'World'
+export interface ComponentPaletteMetadata { category: ComponentPaletteCategory; compatibility: 'Stable' | 'Experimental' | 'Package' | 'Deprecated'; required: ComponentKind[]; summary: string }
+
+/** 26.47 (rhythm engine): the Add Component list shows these groups first; the classic groups follow under
+ * "More", and deprecated components (planned for removal) only when searched for or with "Show all". */
+export const RHYTHM_FIRST_CATEGORIES: readonly ComponentPaletteCategory[] = ['Rhythm', 'Core', '2D', 'Audio', 'UI', 'Camera', 'Script']
+export const CLASSIC_CATEGORIES: readonly ComponentPaletteCategory[] = ['Gameplay', 'Physics', 'World', 'Packages', 'Navigation']
+/** Planned for removal in the rhythm-engine roadmap (26.48: world streaming; 26.49: navigation and behaviour trees). */
+export const DEPRECATED_COMPONENTS: ReadonlySet<ComponentKind> = new Set<ComponentKind>(['WorldChunk2D', 'Portal2D', 'NavigationRegion2D', 'NavigationObstacle2D', 'NavigationAgent2D', 'BehaviorTree2D'])
+const rhythm = new Set<ComponentKind>(['RhythmChart2D'])
+const world = new Set<ComponentKind>(['TileMap2D', 'WorldChunk2D', 'Portal2D'])
 export interface ComponentPreset { id: string; name: string; kind: ComponentKind; values: Record<string, unknown>; createdAt: string }
 
 const physics = new Set<ComponentKind>(['RigidBody2D', 'BoxCollider2D', 'EllipseCollider2D', 'PolygonCollider2D', 'FixedJoint2D', 'WeldJoint2D', 'DistanceJoint2D', 'RopeJoint2D', 'RevoluteJoint2D', 'MotorJoint2D', 'PrismaticJoint2D', 'SpringJoint2D', 'WheelJoint2D', 'TargetJoint2D', 'Rope2D', 'Area2D'])
@@ -15,9 +24,9 @@ const packages = new Set<ComponentKind>(['BehaviorTree2D', 'StateMachine2D'])
 const gameplay = new Set<ComponentKind>(['CharacterBody2D', 'GridMover2D', 'PlatformController2D', 'TopDownController2D', 'Health2D', 'DamageHitbox2D', 'Collectible2D', 'Projectile2D', 'Spawner2D', 'Cooldown2D', 'Lifetime2D', 'MouseFollower2D', 'CameraFollow2D', 'ObjectPool2D'])
 
 /** 按组件种类生成分类、兼容标记、依赖及注册摘要，供组件选择器显示。 */ export function componentPaletteMetadata(kind: ComponentKind): ComponentPaletteMetadata {
-  const category: ComponentPaletteCategory = kind === 'Transform2D' ? 'Core' : kind === 'Camera2D' ? 'Camera' : kind === 'Script2D' ? 'Script' : physics.has(kind) ? 'Physics' : gameplay.has(kind) ? 'Gameplay' : ui.has(kind) ? 'UI' : audio.has(kind) ? 'Audio' : navigation.has(kind) ? 'Navigation' : packages.has(kind) ? 'Packages' : '2D'
+  const category: ComponentPaletteCategory = kind === 'Transform2D' ? 'Core' : kind === 'Camera2D' ? 'Camera' : kind === 'Script2D' ? 'Script' : rhythm.has(kind) ? 'Rhythm' : physics.has(kind) ? 'Physics' : gameplay.has(kind) ? 'Gameplay' : ui.has(kind) ? 'UI' : audio.has(kind) ? 'Audio' : navigation.has(kind) ? 'Navigation' : packages.has(kind) ? 'Packages' : world.has(kind) ? 'World' : '2D'
   const required: ComponentKind[] = kind.endsWith('Joint2D') || kind === 'CharacterBody2D' ? ['RigidBody2D'] : kind === 'AreaEffector2D' ? ['Area2D'] : kind !== 'RectTransform' && ui.has(kind) && kind !== 'Canvas' ? ['RectTransform'] : []
-  return { category, compatibility: packages.has(kind) ? 'Package' : ['NavigationRegion2D', 'NavigationObstacle2D', 'NavigationAgent2D'].includes(kind) ? 'Experimental' : 'Stable', required, summary: componentDescriptor(kind)?.summary ?? `${kind} component.` }
+  return { category, compatibility: DEPRECATED_COMPONENTS.has(kind) ? 'Deprecated' : packages.has(kind) ? 'Package' : 'Stable', required, summary: componentDescriptor(kind)?.summary ?? `${kind} component.` }
 }
 
 const STORAGE_KEY = 'nova-a-component-palette-v1'

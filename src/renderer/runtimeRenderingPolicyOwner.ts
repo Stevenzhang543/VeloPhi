@@ -1,4 +1,5 @@
 /** Per-surface rendering policy. Hosts own the values; this module creates no environment, clock or quality adaptation. */
+import { applyScriptPostValues } from './postProcessOverrides'
 import { DEFAULT_RENDERING_SETTINGS, GPU_TEXTURE_MEMORY_LIMIT_MB, normalizeRenderingSettings, postValues, type PostProcessValues, type RenderingSettings, type RenderQualityPreset, type ShadowQuality } from './renderSettingsSchema'
 
 export interface RuntimeActiveRenderQuality {
@@ -45,7 +46,8 @@ function updateActivePostProcess(position = { x: 0, y: 0 }): PostProcessValues {
     result = blendPost(result, settings.presets.find(/* 比较 item.id 与 volume.presetId，返回严格相等的判断结果。 */ item => item.id === volume.presetId)!.values, weight)
     break
   }
-  Object.assign(activePostProcessing, postValues(result)); return activePostProcessing
+  // 26.46: values set or pulsed by scripts while playing go on top of the preset and volumes.
+  Object.assign(activePostProcessing, applyScriptPostValues(postValues(result))); return activePostProcessing
 }
 
 /* 返回指定质量预设的像素比、粒子预算和阴影质量默认值。 */

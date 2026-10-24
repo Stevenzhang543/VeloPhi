@@ -392,6 +392,7 @@ const ProfilerPanel = defineAsyncComponent(/* 调用 import('./ProfilerPanel.vue
 const NetworkStudioPanel = defineAsyncComponent(/* 调用 import('./NetworkStudioPanel.vue') 并返回调用结果。 */ () => import('./NetworkStudioPanel.vue'))
 const EcosystemStudioPanel = defineAsyncComponent(/* 调用 import('./EcosystemStudioPanel.vue') 并返回调用结果。 */ () => import('./EcosystemStudioPanel.vue'))
 const TilemapPanel = defineAsyncComponent(/* 调用 import('./TilemapPanel.vue') 并返回调用结果。 */ () => import('./TilemapPanel.vue'))
+const ChartEditorPanel = defineAsyncComponent(() => import('./ChartEditorPanel.vue'))
 const WorldToolsPanel = defineAsyncComponent(/* 调用 import('./WorldToolsPanel.vue') 并返回调用结果。 */ () => import('./WorldToolsPanel.vue'))
 
 const permanentTabs = [
@@ -399,12 +400,14 @@ const permanentTabs = [
   { id: 'animation' as const, icon: 'animation' as const, label: 'animation' as const }, { id: 'audio' as const, icon: 'audio' as const, label: 'audioMixer' as const }, { id: 'worldProduction' as const, icon: 'world' as const, label: 'worldStudio' as const }, { id: 'networkStudio' as const, icon: 'network' as const, label: 'networkStudio' as const }, { id: 'ecosystem' as const, icon: 'ecosystem' as const, label: 'ecosystemStudio' as const }, { id: 'profiler' as const, icon: 'profiler' as const, label: 'profiler' as const }
 ]
 const pluginAssetContributions = computed(/* 调用 pluginState.contributions.filter(item => item.kind === 'importers' || item.kind === 'assetEditors') 并返回调用结果。 */ () => pluginState.contributions.filter(/* 先计算 item.kind === 'importers'；仅当其为假值时求右侧 item.kind === 'assetEditors'，返回短路求值结果。 */ item => item.kind === 'importers' || item.kind === 'assetEditors'))
-const toolComponents = { console:ConsolePanel, profiler:ProfilerPanel, animation:AnimationPanel, audio:AudioSystemPanel, worldProduction:WorldToolsPanel, networkStudio:NetworkStudioPanel, ecosystem:EcosystemStudioPanel, tilemap:TilemapPanel }
+const toolComponents = { console:ConsolePanel, profiler:ProfilerPanel, animation:AnimationPanel, audio:AudioSystemPanel, worldProduction:WorldToolsPanel, networkStudio:NetworkStudioPanel, ecosystem:EcosystemStudioPanel, tilemap:TilemapPanel, chart:ChartEditorPanel }
 const activeTool = computed(()=>toolComponents[estate.bottomPanelTab as keyof typeof toolComponents] ?? null)
 watch(()=>projectSessionState.id,()=>{cancelAssetBatch();assetDetailMode.value=false;assetFullPage.value=false;finishBottomDrag()})
 const tabs = computed(/** 根据是否选中瓦片实体追加上下文标签，再按保存的标签顺序排列。 */ () => {
   const selected = state.world.entities.find(/* 比较 entity.id 与 state.selectedEntityId，返回严格相等的判断结果。 */ entity => entity.id === state.selectedEntityId)
-  const contextual = selected?.hasComponent('TileMap2D') ? [{ id: 'tilemap' as const, icon: 'grid' as const, label: 'tilemap' as const }] : []
+  const contextual: Array<{ id: 'tilemap' | 'chart'; icon: 'grid' | 'audio'; label: 'tilemap' | 'chartEditor' }> = selected?.hasComponent('TileMap2D') ? [{ id: 'tilemap', icon: 'grid', label: 'tilemap' }] : []
+  // 26.46: the chart editor appears for a selected RhythmChart2D or while a chart is open.
+  if (selected?.hasComponent('RhythmChart2D') || estate.chartEditor || estate.bottomPanelTab === 'chart') contextual.push({ id: 'chart', icon: 'audio', label: 'chartEditor' })
   const available = [...permanentTabs, ...contextual]
   return [...available].sort(/* 计算表达式 workspaceState.bottomTabOrder.indexOf(a.id) - workspaceState.bottomTabOrder.indexOf(b.id) 并返回结果，沿用操作数的原有类型规则。 */ (a, b) => workspaceState.bottomTabOrder.indexOf(a.id) - workspaceState.bottomTabOrder.indexOf(b.id))
 })
@@ -553,7 +556,7 @@ const filterMenuOpen = ref(false), filterQuery = ref(''), savedFilterName = ref(
 const importerTabs = ['source', 'import', 'dependencies', 'provenance', 'platform'] as const
 const inspectorTab = ref<(typeof importerTabs)[number]>('source')
 const previousPipeline = ref<AssetPipelineMetadata | null>(null), importComparisonText = ref('')
-const draggedTab = ref<(typeof permanentTabs)[number]['id'] | 'tilemap' | null>(null)
+const draggedTab = ref<(typeof permanentTabs)[number]['id'] | 'tilemap' | 'chart' | null>(null)
 const tabStrip = ref<HTMLElement | null>(null)
 const dropTabTarget = ref<typeof draggedTab.value>(null)
 const draggedAssetGuid = ref(''), dropFolder = ref(''), folderDropValid = ref(false)
@@ -617,9 +620,9 @@ onBeforeUnmount(/* 关闭底栏组件时释放全部元素观察，避免保留�
   return value ? JSON.parse(JSON.stringify(value)) as AssetPipelineMetadata : null
 }
 watch(/* 返回 selectedAsset.value?.uuid 的当前值。 */ () => selectedAsset.value?.uuid, /** 选择变化时重置资源检查标签和导入比较，保存当前流水线基线。 */ () => { inspectorTab.value = 'source'; importComparisonText.value = ''; previousPipeline.value = clonePipelineMetadata(selectedAsset.value?.pipeline) })
-/** 切换指定底部标签并展开面板。 */ function openTab(id: (typeof permanentTabs)[number]['id'] | 'tilemap') { estate.bottomPanelTab = id; estate.bottomPanelOpen = true }
-/** 按资源、动画、音频或瓦片标签映射项目未保存范围。 */ function tabDirty(id:(typeof permanentTabs)[number]['id']|'tilemap'){return id==='assets'?projectScopeDirty('asset'):id==='animation'?projectScopeDirty('animation'):id==='audio'?projectScopeDirty('settings'):id==='tilemap'?projectScopeDirty('scene'):false}
-/** Commit tab order immediately; only the mounted neighbors settle afterward. */ function dropTab(event: DragEvent, target: (typeof permanentTabs)[number]['id'] | 'tilemap') {
+/** 切换指定底部标签并展开面板。 */ function openTab(id: (typeof permanentTabs)[number]['id'] | 'tilemap' | 'chart') { estate.bottomPanelTab = id; estate.bottomPanelOpen = true }
+/** 按资源、动画、音频或瓦片标签映射项目未保存范围。 */ function tabDirty(id:(typeof permanentTabs)[number]['id']|'tilemap'|'chart'){return id==='assets'?projectScopeDirty('asset'):id==='animation'?projectScopeDirty('animation'):id==='audio'?projectScopeDirty('settings'):id==='tilemap'?projectScopeDirty('scene'):false}
+/** Commit tab order immediately; only the mounted neighbors settle afterward. */ function dropTab(event: DragEvent, target: (typeof permanentTabs)[number]['id'] | 'tilemap' | 'chart') {
   if (!draggedTab.value || draggedTab.value === target) return
   event.preventDefault()
   const before = captureRects(tabElements())

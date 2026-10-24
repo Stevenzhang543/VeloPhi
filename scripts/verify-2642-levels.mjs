@@ -25,10 +25,10 @@ try {
   const ids = ['platformer-trilogy', 'pendulum-post', 'reflex-lab']
   const projects = {}
 
-  await check('catalogue: 43 unique ids, three new entries localized and discoverable', () => {
+  await check('catalogue: 46 unique ids (two rhythm starters since 26.46, Rhythm Lab since 26.47), three new entries localized and discoverable', () => {
     const catalog = templates.PROJECT_TEMPLATES
-    assert.equal(catalog.length, 43)
-    assert.equal(new Set(catalog.map(item => item.id)).size, 43)
+    assert.equal(catalog.length, 46)
+    assert.equal(new Set(catalog.map(item => item.id)).size, 46)
     for (const id of ids) {
       const item = catalog.find(value => value.id === id)
       assert.ok(item, id)

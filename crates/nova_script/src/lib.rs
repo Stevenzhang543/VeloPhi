@@ -197,6 +197,46 @@ pub struct GameFlowSnapshot {
     pub checkpoints: Vec<String>,
 }
 
+/// 26.46: the rhythm chart the script sees (its own RhythmChart2D, else the first chart in the scene).
+#[derive(Clone, Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct RhythmSnapshot {
+    pub active: bool,
+    pub entity: String,
+    pub state: String,
+    pub time: f64,
+    pub beat: f64,
+    pub bpm: f64,
+    pub score: f64,
+    pub combo: f64,
+    pub max_combo: f64,
+    pub accuracy: f64,
+    pub perfect: f64,
+    pub great: f64,
+    pub good: f64,
+    pub bad: f64,
+    pub miss: f64,
+    pub judged: f64,
+    pub total: f64,
+    pub early: f64,
+    pub late: f64,
+    pub mean_offset_ms: f64,
+    pub last_judgement: String,
+    pub finished: bool,
+    pub full_combo: bool,
+    pub all_perfect: bool,
+    pub progress: f64,
+    pub length: f64,
+    pub offset_ms: f64,
+    pub autoplay: bool,
+    pub title: String,
+    pub calibration_ms: f64,
+    /// 26.47: the player's picture offset in milliseconds (notes are drawn this much earlier).
+    pub visual_offset_ms: f64,
+    /// 26.47: on an object that shows a chart note (a prefab note type), that note.
+    pub note: Option<Value>,
+}
+
 #[derive(Clone, Debug, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NetworkSnapshot {
@@ -348,6 +388,8 @@ pub struct ScriptContext {
     pub game_flow: GameFlowSnapshot,
     #[serde(default)]
     pub networking: NetworkSnapshot,
+    #[serde(default)]
+    pub rhythm: RhythmSnapshot,
     #[serde(default)]
     pub editor_automation: bool,
     #[serde(default)]
@@ -736,6 +778,43 @@ pub enum ScriptCommand {
         looped: bool,
     },
     StopVideo,
+    /// 26.46 rhythm chart control: play, pause, resume, stop, restart, seek, offset, autoplay, speed,
+    /// calibration (the device offset in milliseconds).
+    Rhythm {
+        action: String,
+        value: f64,
+    },
+    /// 26.47: the game judges a note (custom note types): a judgement name, or "" with an offset in
+    /// milliseconds that the note's windows classify.
+    RhythmJudge {
+        note: i64,
+        judgement: String,
+        offset_ms: f64,
+    },
+    /// 26.46 script post-processing: set (tweened over `seconds`), pulse (decays over `seconds`) or reset.
+    PostSet {
+        name: String,
+        value: f64,
+        seconds: f64,
+    },
+    PostPulse {
+        name: String,
+        amount: f64,
+        seconds: f64,
+    },
+    PostReset,
+    /// 26.46 joint servo on this object's revolute or prismatic joint (degrees or units along the axis).
+    JointServo {
+        enabled: bool,
+        target: f64,
+    },
+    /// 26.46 radial impulse on the dynamic bodies around a point, falling off to zero at `radius`.
+    Explode {
+        x: f64,
+        y: f64,
+        radius: f64,
+        impulse: f64,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -2121,6 +2200,8 @@ fn build_host_engine(output: Rc<RefCell<HostOutput>>, states: &HostCallStates) -
     register_save_api(&mut engine, Rc::clone(&output));
     register_editor_automation_api(&mut engine, Rc::clone(&output));
     register_link_and_media_api(&mut engine, Rc::clone(&output));
+    register_rhythm_api(&mut engine, Rc::clone(&output));
+    register_effects_api(&mut engine, Rc::clone(&output));
     register_command_api(&mut engine, output, states);
     engine
 }
@@ -2833,6 +2914,269 @@ fn register_game_flow_api(engine: &mut Engine) {
             .get(key)
             .and_then(json_to_dynamic)
             .unwrap_or(fallback)
+    });
+}
+
+// 26.46: post-processing values, joint servos and explosions (queued commands).
+fn register_effects_api(engine: &mut Engine, output: Rc<RefCell<HostOutput>>) {
+    let clean_name = |name: &str| bounded_text(name.trim(), 32).to_ascii_lowercase();
+    let seconds = |value: FLOAT| {
+        if value.is_finite() {
+            value.clamp(0.0, 60.0)
+        } else {
+            0.0
+        }
+    };
+    let commands = Rc::clone(&output);
+    let push_set = move |name: &str, value: FLOAT, fade: FLOAT| {
+        if !value.is_finite() {
+            return;
+        }
+        commands.borrow_mut().commands.push(ScriptCommand::PostSet {
+            name: clean_name(name),
+            value,
+            seconds: seconds(fade),
+        })
+    };
+    let set = push_set.clone();
+    engine.register_fn("post_set", move |name: &str, value: FLOAT| {
+        set(name, value, 0.0)
+    });
+    engine.register_fn("post_set", move |name: &str, value: FLOAT, fade: FLOAT| {
+        push_set(name, value, fade)
+    });
+    let commands = Rc::clone(&output);
+    engine.register_fn(
+        "post_pulse",
+        move |name: &str, amount: FLOAT, fade: FLOAT| {
+            if !amount.is_finite() || !fade.is_finite() || fade <= 0.0 {
+                return;
+            }
+            commands
+                .borrow_mut()
+                .commands
+                .push(ScriptCommand::PostPulse {
+                    name: clean_name(name),
+                    amount,
+                    seconds: fade.min(30.0),
+                })
+        },
+    );
+    let commands = Rc::clone(&output);
+    engine.register_fn("post_reset", move || {
+        commands
+            .borrow_mut()
+            .commands
+            .push(ScriptCommand::PostReset)
+    });
+    let commands = Rc::clone(&output);
+    engine.register_fn("joint_servo", move |target: FLOAT| {
+        if !target.is_finite() {
+            return;
+        }
+        commands
+            .borrow_mut()
+            .commands
+            .push(ScriptCommand::JointServo {
+                enabled: true,
+                target,
+            })
+    });
+    let commands = Rc::clone(&output);
+    engine.register_fn("joint_servo_off", move || {
+        commands
+            .borrow_mut()
+            .commands
+            .push(ScriptCommand::JointServo {
+                enabled: false,
+                target: 0.0,
+            })
+    });
+    engine.register_fn(
+        "explode",
+        move |x: FLOAT, y: FLOAT, radius: FLOAT, impulse: FLOAT| {
+            if !(x.is_finite() && y.is_finite() && radius.is_finite() && impulse.is_finite())
+                || radius <= 0.0
+            {
+                return;
+            }
+            output.borrow_mut().commands.push(ScriptCommand::Explode {
+                x,
+                y,
+                radius: radius.min(1.0e4),
+                impulse: impulse.clamp(-1.0e7, 1.0e7),
+            })
+        },
+    );
+}
+
+// 26.46: rhythm chart state (read from the snapshot) and control (queued commands).
+fn register_rhythm_api(engine: &mut Engine, output: Rc<RefCell<HostOutput>>) {
+    let rhythm = live!(rhythm);
+    engine.register_fn("rhythm_time", move || rhythm.time);
+    let rhythm = live!(rhythm);
+    engine.register_fn("rhythm_beat", move || rhythm.beat);
+    let rhythm = live!(rhythm);
+    engine.register_fn("rhythm_bpm", move || rhythm.bpm);
+    let rhythm = live!(rhythm);
+    engine.register_fn("rhythm_score", move || rhythm.score.round() as INT);
+    let rhythm = live!(rhythm);
+    engine.register_fn("rhythm_combo", move || rhythm.combo.round() as INT);
+    let rhythm = live!(rhythm);
+    engine.register_fn("rhythm_max_combo", move || rhythm.max_combo.round() as INT);
+    let rhythm = live!(rhythm);
+    engine.register_fn("rhythm_accuracy", move || rhythm.accuracy);
+    let rhythm = live!(rhythm);
+    engine.register_fn("rhythm_progress", move || rhythm.progress);
+    let rhythm = live!(rhythm);
+    engine.register_fn("rhythm_state", move || {
+        if rhythm.state.is_empty() {
+            "idle".to_string()
+        } else {
+            rhythm.state.clone()
+        }
+    });
+    let rhythm = live!(rhythm);
+    engine.register_fn("rhythm_judgement", move || rhythm.last_judgement.clone());
+    let rhythm = live!(rhythm);
+    engine.register_fn("rhythm_playing", move || rhythm.active);
+    let rhythm = live!(rhythm);
+    engine.register_fn("rhythm_finished", move || rhythm.finished);
+    let rhythm = live!(rhythm);
+    engine.register_fn("rhythm_full_combo", move || rhythm.full_combo);
+    let rhythm = live!(rhythm);
+    engine.register_fn("rhythm_calibration", move || rhythm.calibration_ms);
+    let rhythm = live!(rhythm);
+    engine.register_fn("rhythm_count", move |name: &str| {
+        let value = match name.trim().to_ascii_lowercase().as_str() {
+            "perfect" => rhythm.perfect,
+            "great" => rhythm.great,
+            "good" => rhythm.good,
+            "bad" => rhythm.bad,
+            "miss" => rhythm.miss,
+            "early" => rhythm.early,
+            "late" => rhythm.late,
+            "judged" => rhythm.judged,
+            "total" | "notes" => rhythm.total,
+            _ => 0.0,
+        };
+        value.round() as INT
+    });
+    let rhythm = live!(rhythm);
+    engine.register_fn("rhythm_stats", move || {
+        let mut map = Map::new();
+        for (key, value) in [
+            ("score", rhythm.score),
+            ("combo", rhythm.combo),
+            ("max_combo", rhythm.max_combo),
+            ("perfect", rhythm.perfect),
+            ("great", rhythm.great),
+            ("good", rhythm.good),
+            ("bad", rhythm.bad),
+            ("miss", rhythm.miss),
+            ("early", rhythm.early),
+            ("late", rhythm.late),
+            ("judged", rhythm.judged),
+            ("total", rhythm.total),
+        ] {
+            map.insert(key.into(), Dynamic::from_int(value.round() as INT));
+        }
+        map.insert("accuracy".into(), Dynamic::from_float(rhythm.accuracy));
+        map.insert(
+            "mean_offset_ms".into(),
+            Dynamic::from_float(rhythm.mean_offset_ms),
+        );
+        map.insert("time".into(), Dynamic::from_float(rhythm.time));
+        map.insert("length".into(), Dynamic::from_float(rhythm.length));
+        map.insert("state".into(), rhythm.state.clone().into());
+        map.insert("title".into(), rhythm.title.clone().into());
+        map.insert("full_combo".into(), Dynamic::from_bool(rhythm.full_combo));
+        map.insert("all_perfect".into(), Dynamic::from_bool(rhythm.all_perfect));
+        map
+    });
+    let judge_output = Rc::clone(&output);
+    let push = move |action: &str, value: f64| {
+        output.borrow_mut().commands.push(ScriptCommand::Rhythm {
+            action: action.into(),
+            value: if value.is_finite() { value } else { 0.0 },
+        })
+    };
+    let command = push.clone();
+    engine.register_fn("rhythm_play", move || command("play", 0.0));
+    let command = push.clone();
+    engine.register_fn("rhythm_play", move |start: FLOAT| command("play", start));
+    let command = push.clone();
+    engine.register_fn("rhythm_pause", move || command("pause", 0.0));
+    let command = push.clone();
+    engine.register_fn("rhythm_resume", move || command("resume", 0.0));
+    let command = push.clone();
+    engine.register_fn("rhythm_stop", move || command("stop", 0.0));
+    let command = push.clone();
+    engine.register_fn("rhythm_restart", move || command("restart", 0.0));
+    let command = push.clone();
+    engine.register_fn("rhythm_seek", move |seconds: FLOAT| {
+        command("seek", seconds)
+    });
+    let command = push.clone();
+    engine.register_fn("rhythm_set_offset", move |milliseconds: FLOAT| {
+        command("offset", milliseconds.clamp(-1000.0, 1000.0))
+    });
+    let command = push.clone();
+    engine.register_fn("rhythm_set_autoplay", move |enabled: bool| {
+        command("autoplay", if enabled { 1.0 } else { 0.0 })
+    });
+    let command = push.clone();
+    engine.register_fn("rhythm_set_speed", move |speed: FLOAT| {
+        command("speed", speed)
+    });
+    let command = push.clone();
+    engine.register_fn("rhythm_set_calibration", move |milliseconds: FLOAT| {
+        command("calibration", milliseconds.clamp(-500.0, 500.0))
+    });
+    engine.register_fn("rhythm_set_visual_offset", move |milliseconds: FLOAT| {
+        push("visual", milliseconds.clamp(-500.0, 500.0))
+    });
+    let rhythm = live!(rhythm);
+    engine.register_fn("rhythm_visual_offset", move || rhythm.visual_offset_ms);
+    // 26.47: the note an object shows (prefab note types): id, type, beat, time, lane, line, x, data.
+    let rhythm = live!(rhythm);
+    engine.register_fn("rhythm_my_note", move || {
+        rhythm
+            .note
+            .as_ref()
+            .and_then(json_to_dynamic)
+            .unwrap_or(Dynamic::UNIT)
+    });
+    let judge = Rc::clone(&judge_output);
+    engine.register_fn("rhythm_judge", move |note: INT, judgement: &str| {
+        let name = judgement.trim().to_ascii_lowercase();
+        let name = match name.as_str() {
+            "perfect" | "great" | "good" | "bad" | "miss" => name,
+            _ => "miss".to_string(),
+        };
+        judge
+            .borrow_mut()
+            .commands
+            .push(ScriptCommand::RhythmJudge {
+                note,
+                judgement: name,
+                offset_ms: 0.0,
+            })
+    });
+    let judge = judge_output;
+    engine.register_fn("rhythm_judge", move |note: INT, offset_ms: FLOAT| {
+        judge
+            .borrow_mut()
+            .commands
+            .push(ScriptCommand::RhythmJudge {
+                note,
+                judgement: String::new(),
+                offset_ms: if offset_ms.is_finite() {
+                    offset_ms.clamp(-10_000.0, 10_000.0)
+                } else {
+                    10_000.0
+                },
+            })
     });
 }
 
@@ -6240,6 +6584,181 @@ mod tests {
         );
         let json = serde_json::to_string(&execution.commands[0]).unwrap();
         assert_eq!(json, r#"{"type":"targetJointMove","x":2.5,"y":-1.0}"#);
+    }
+
+    // 26.46: post-processing values, servos and explosions become commands; bad input is dropped.
+    #[test]
+    fn effects_servo_and_explosion_commands() {
+        let source = r#"
+            fn update(dt) {
+                post_set("Bloom", 0.8);
+                post_set("vignette", 0.4, 120.0);
+                post_pulse("exposure", 0.5, 0.25);
+                post_pulse("exposure", 0.5, 0.0);
+                post_reset();
+                joint_servo(45.0);
+                joint_servo_off();
+                explode(1.0, 2.0, 3.0, 40.0);
+                explode(1.0, 2.0, -3.0, 40.0);
+            }
+        "#;
+        let execution = ScriptRuntime::new()
+            .execute(source, "update", context())
+            .unwrap();
+        assert_eq!(
+            execution.commands,
+            vec![
+                ScriptCommand::PostSet {
+                    name: "bloom".into(),
+                    value: 0.8,
+                    seconds: 0.0
+                },
+                ScriptCommand::PostSet {
+                    name: "vignette".into(),
+                    value: 0.4,
+                    seconds: 60.0
+                },
+                ScriptCommand::PostPulse {
+                    name: "exposure".into(),
+                    amount: 0.5,
+                    seconds: 0.25
+                },
+                ScriptCommand::PostReset,
+                ScriptCommand::JointServo {
+                    enabled: true,
+                    target: 45.0
+                },
+                ScriptCommand::JointServo {
+                    enabled: false,
+                    target: 0.0
+                },
+                ScriptCommand::Explode {
+                    x: 1.0,
+                    y: 2.0,
+                    radius: 3.0,
+                    impulse: 40.0
+                },
+            ]
+        );
+        let json = serde_json::to_string(&execution.commands[6]).unwrap();
+        assert_eq!(
+            json,
+            r#"{"type":"explode","x":1.0,"y":2.0,"radius":3.0,"impulse":40.0}"#
+        );
+    }
+
+    // 26.46: rhythm charts — the snapshot is readable and control calls become commands.
+    #[test]
+    fn rhythm_snapshot_and_commands() {
+        let source = r#"
+            fn update(dt) {
+                if rhythm_combo() == 42 && rhythm_state() == "playing" && rhythm_count("perfect") == 40 {
+                    rhythm_pause();
+                }
+                let stats = rhythm_stats();
+                if stats.full_combo == false && stats.miss == 2 { rhythm_seek(12.5); }
+                rhythm_set_offset(5000.0);
+                rhythm_set_autoplay(true);
+                rhythm_play();
+                rhythm_set_calibration(-32.0);
+                rhythm_seek(1.0 / 0.0);
+            }
+        "#;
+        let mut context = context();
+        context.rhythm.state = "playing".into();
+        context.rhythm.combo = 42.0;
+        context.rhythm.perfect = 40.0;
+        context.rhythm.miss = 2.0;
+        let execution = ScriptRuntime::new()
+            .execute(source, "update", context)
+            .unwrap();
+        let rhythm = |action: &str, value: f64| ScriptCommand::Rhythm {
+            action: action.into(),
+            value,
+        };
+        assert_eq!(
+            execution.commands,
+            vec![
+                rhythm("pause", 0.0),
+                rhythm("seek", 12.5),
+                rhythm("offset", 1000.0),
+                rhythm("autoplay", 1.0),
+                rhythm("play", 0.0),
+                rhythm("calibration", -32.0),
+                rhythm("seek", 0.0),
+            ]
+        );
+        let json = serde_json::to_string(&execution.commands[0]).unwrap();
+        assert_eq!(json, r#"{"type":"rhythm","action":"pause","value":0.0}"#);
+        // A script without a chart reads an idle, empty snapshot.
+        let idle = ScriptRuntime::new()
+            .execute(
+                "fn update(dt) { if rhythm_state() == \"idle\" && rhythm_score() == 0 { rhythm_stop(); } }",
+                "update",
+                super::tests::context(),
+            )
+            .unwrap();
+        assert_eq!(idle.commands, vec![rhythm("stop", 0.0)]);
+    }
+
+    // 26.47: a note's object reads its note; the game judges custom notes.
+    #[test]
+    fn rhythm_notes_and_judgements() {
+        let source = r#"
+            fn update(dt) {
+                let note = rhythm_my_note();
+                if note != () && note.type == "mine" && note.data.damage == 3 {
+                    rhythm_judge(note.id, "MISS");
+                    rhythm_judge(note.id + 1, 25.5);
+                    rhythm_judge(9, "nonsense");
+                    rhythm_set_visual_offset(900.0);
+                    if rhythm_visual_offset() == 12.0 { rhythm_judge(10, 1.0 / 0.0); }
+                }
+            }
+        "#;
+        let mut context = context();
+        context.rhythm.visual_offset_ms = 12.0;
+        context.rhythm.note = Some(
+            serde_json::json!({ "id": 4, "type": "mine", "beat": 6.0, "data": { "damage": 3 } }),
+        );
+        let execution = ScriptRuntime::new()
+            .execute(source, "update", context)
+            .unwrap();
+        let judge = |note: i64, judgement: &str, offset_ms: f64| ScriptCommand::RhythmJudge {
+            note,
+            judgement: judgement.into(),
+            offset_ms,
+        };
+        assert_eq!(
+            execution.commands,
+            vec![
+                judge(4, "miss", 0.0),
+                judge(5, "", 25.5),
+                judge(9, "miss", 0.0),
+                ScriptCommand::Rhythm {
+                    action: "visual".into(),
+                    value: 500.0
+                },
+                judge(10, "", 10_000.0),
+            ]
+        );
+        assert_eq!(
+            serde_json::to_string(&execution.commands[1]).unwrap(),
+            r#"{"type":"rhythmJudge","note":5,"judgement":"","offsetMs":25.5}"#
+        );
+        // An object that is not a note reads ().
+        let plain = ScriptRuntime::new()
+            .execute(
+                "fn update(dt) { if rhythm_my_note() == () { rhythm_stop(); } }",
+                "update",
+                context_plain(),
+            )
+            .unwrap();
+        assert_eq!(plain.commands.len(), 1);
+    }
+
+    fn context_plain() -> ScriptContext {
+        context()
     }
 
     // 26.45: camera and screen effects.

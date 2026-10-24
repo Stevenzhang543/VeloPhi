@@ -6,6 +6,7 @@ members = [
   "crates/nova_runtime",
   "crates/nova_script",
   "crates/nova_format",
+  "crates/nova_rhythm",
   "crates/nova_wasm",
   "crates/nova_headless",
 ]
@@ -13,7 +14,7 @@ exclude = ["src-tauri"]
 resolver = "2"
 
 [workspace.package]
-version = "26.45.0"
+version = "26.47.0"
 edition = "2021"
 rust-version = "1.77"
 license = "MIT"

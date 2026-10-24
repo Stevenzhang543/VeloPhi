@@ -1,6 +1,6 @@
 [package]
 name = "nova_a"
-version = "26.45.0"
+version = "26.47.0"
 description = "Nova_A open-source 2D physics and rendering engine."
 authors = ["Whitelist"]
 repository = "https://github.com/Stevenzhang543/Nova_A"

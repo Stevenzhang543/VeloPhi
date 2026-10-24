@@ -40,7 +40,16 @@ import { playSimulation as runPlay, pauseSimulation as runPause, stepSimulation 
 // 播放/暂停/单步/停止的顺序由 editor/runCommands 唯一定义；此处只提供本界面的就绪与预检钩子，
 // 不再自行拼接顺序（§22.2：一个命令一个处理器）。
 /** 加载与预检通过后启动仿真和游戏会话。 */
-async function playSimulation() { setEnsurePhysicsHook(ensurePhysics); await runPlay(simulationPreflight) }
+async function playSimulation() {
+  setEnsurePhysicsHook(ensurePhysics)
+  const started = await runPlay(simulationPreflight)
+  // 26.46: the Play button kept keyboard focus, and game input ignores keys aimed at a focused button, so
+  // the first key presses after Play (lane keys, Jump …) were lost until the view was clicked.
+  if (started && document.activeElement instanceof HTMLElement && document.activeElement.closest('.actionbar')) {
+    const surface = document.querySelector<HTMLElement>('[data-game-input-surface]')
+    if (surface) surface.focus({ preventScroll: true }); else document.activeElement.blur()
+  }
+}
 
 /** 暂停仿真并记录状态。 */
 function pauseSimulation() { runPause() }

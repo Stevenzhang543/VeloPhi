@@ -12,7 +12,7 @@ pub const PROJECT_FORMAT_NAME: &str = "Nova_A Project Format 2";
 pub const PROJECT_FORMAT_MAJOR: u32 = 2;
 pub const CURRENT_FORMAT_VERSION: u32 = 29;
 pub const MINIMUM_SUPPORTED_FORMAT_VERSION: u32 = 5;
-pub const CURRENT_ENGINE_VERSION: &str = "26.45.0";
+pub const CURRENT_ENGINE_VERSION: &str = "26.47.0";
 
 // 建立默认命名物理层，同时保留各层既有位掩码。
 fn default_named_physics_layers() -> Value {
@@ -1406,6 +1406,22 @@ pub fn validate_project(project: &ProjectFile) -> Result<(), FormatError> {
                         "font",
                         &asset_types,
                     )?;
+                } else if component.kind == "RhythmChart2D" {
+                    validate_asset_reference(
+                        component.data.get("chartAsset"),
+                        "chart",
+                        &asset_types,
+                    )?;
+                    validate_asset_reference(
+                        component.data.get("audioAsset"),
+                        "audio",
+                        &asset_types,
+                    )?;
+                    validate_asset_reference(
+                        component.data.get("hitSoundAsset"),
+                        "audio",
+                        &asset_types,
+                    )?;
                 } else if component.kind == "Animator" {
                     validate_asset_reference(
                         component.data.get("controllerAsset"),
@@ -1642,6 +1658,8 @@ fn is_standard_component_kind(kind: &str) -> bool {
             | "MotorJoint2D"
             | "PrismaticJoint2D"
             | "SpringJoint2D"
+            | "WheelJoint2D"
+            | "TargetJoint2D"
             | "Rope2D"
             | "Script2D"
             | "Animator"
@@ -1686,6 +1704,7 @@ fn is_standard_component_kind(kind: &str) -> bool {
             | "WorldChunk2D"
             | "Portal2D"
             | "ObjectPool2D"
+            | "RhythmChart2D"
     )
 }
 
@@ -3999,6 +4018,25 @@ fn valid_content_hash(value: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // 26.46: every component kind the editor registers must be a valid project component (26.45 added
+    // WheelJoint2D and TargetJoint2D to the editor but not here, so migrating such a project failed).
+    #[test]
+    fn every_editor_component_kind_is_a_standard_kind() {
+        let registry = include_str!("../../../src/world/componentRegistry.ts");
+        let mut seen = 0;
+        for line in registry.lines() {
+            if let Some(rest) = line.split("kind: '").nth(1) {
+                let kind = rest.split('\'').next().unwrap();
+                assert!(
+                    is_standard_component_kind(kind),
+                    "{kind} is registered in the editor but rejected by the project format"
+                );
+                seen += 1;
+            }
+        }
+        assert!(seen >= 60, "read {seen} kinds from the registry");
+    }
 
     // 检查每个公开历史结构迁移后均符合固定的当前格式投影。
     #[test]

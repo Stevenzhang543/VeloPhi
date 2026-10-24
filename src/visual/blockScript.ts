@@ -97,11 +97,13 @@ export const BLOCK_STATEMENTS: readonly BlockStatementSpec[] = [
   { type: 'glideBy', category: 'motion', fields: [field('x', 'number', '2'), field('y', 'number', '0'), field('seconds', 'number', '1'), field('easing', 'easing', 'sine_in_out')] },
   { type: 'spinBy', category: 'motion', fields: [field('degrees', 'number', '360'), field('seconds', 'number', '1'), field('easing', 'easing', 'linear')] },
   { type: 'dropThrough', category: 'motion', fields: [] },
+  { type: 'jointServo', category: 'motion', fields: [field('target', 'number', '45')] },
   // Looks
   { type: 'playAnimation', category: 'looks', fields: [field('state', 'state', 'Run')] },
   { type: 'blendAnimation', category: 'looks', fields: [field('state', 'state', 'Run'), field('seconds', 'number', '0.2')] },
   { type: 'fadeTo', category: 'looks', fields: [field('opacity', 'number', '0'), field('seconds', 'number', '0.5')] },
   { type: 'growTo', category: 'looks', fields: [field('scale', 'number', '1.5'), field('seconds', 'number', '0.3'), field('easing', 'easing', 'back_out')] },
+  { type: 'postPulse', category: 'looks', fields: [field('effect', 'name', 'bloom'), field('amount', 'number', '0.6'), field('seconds', 'number', '0.25')] },
   { type: 'setText', category: 'looks', fields: [field('text', 'text', 'Score: {score}')] },
   { type: 'setTextOn', category: 'looks', fields: [field('object', 'object', 'ScoreLabel'), field('text', 'text', 'Score: {score}')] },
   { type: 'show', category: 'looks', fields: [field('object', 'object', '')] },
@@ -112,6 +114,15 @@ export const BLOCK_STATEMENTS: readonly BlockStatementSpec[] = [
   { type: 'stopMusic', category: 'sound', fields: [field('fade', 'number', '1')] },
   { type: 'busVolume', category: 'sound', fields: [field('bus', 'bus', 'Music'), field('volume', 'number', '0.5')] },
   { type: 'playVideo', category: 'sound', fields: [field('asset', 'video', ''), field('skippable', 'bool', true)] },
+  // 26.46 rhythm charts (the chart on this object, else the first in the scene).
+  { type: 'rhythmPlay', category: 'sound', fields: [] },
+  { type: 'rhythmPause', category: 'sound', fields: [] },
+  { type: 'rhythmResume', category: 'sound', fields: [] },
+  { type: 'rhythmRestart', category: 'sound', fields: [] },
+  { type: 'rhythmAutoplay', category: 'sound', fields: [field('enabled', 'bool', true)] },
+  { type: 'rhythmSpeed', category: 'sound', fields: [field('speed', 'number', '8')] },
+  // 26.47: on a prefab note's object (a note type with a prefab): judge the note it shows.
+  { type: 'rhythmJudgeMyNote', category: 'sound', fields: [field('judgement', 'name', 'perfect')] },
   // Control
   { type: 'if', category: 'control', fields: [], container: 'if' },
   { type: 'repeat', category: 'control', fields: [field('times', 'number', '3')], container: 'body' },
@@ -127,6 +138,7 @@ export const BLOCK_STATEMENTS: readonly BlockStatementSpec[] = [
   // Game
   { type: 'spawnHere', category: 'game', fields: [field('prefab', 'prefab', '')] },
   { type: 'spawnAt', category: 'game', fields: [field('prefab', 'prefab', ''), field('x', 'number', '0'), field('y', 'number', '0')] },
+  { type: 'explodeHere', category: 'game', fields: [field('radius', 'number', '4'), field('impulse', 'number', '30')] },
   { type: 'destroySelf', category: 'game', fields: [] },
   { type: 'destroyOther', category: 'game', fields: [], needs: ['other'] },
   { type: 'loadScene', category: 'game', fields: [field('scene', 'scene', '')] },
@@ -152,6 +164,8 @@ export const BLOCK_CONDITIONS: readonly BlockConditionSpec[] = [
   { type: 'compare', fields: [field('a', 'number', '0'), field('op', 'op', '>'), field('b', 'number', '0')] },
   { type: 'otherHasTag', fields: [field('tag', 'name', 'coin')], needs: ['other'] },
   { type: 'chance', fields: [field('percent', 'number', '50')] },
+  { type: 'rhythmState', fields: [field('state', 'name', 'finished')] },
+  { type: 'rhythmCombo', fields: [field('op', 'op', '>='), field('value', 'number', '50')] },
   { type: 'expression', fields: [field('code', 'code', 'true')] }
 ]
 
@@ -370,6 +384,8 @@ function conditionExpression(condition: BlockCondition, state: CompileState, sco
     }
     case 'otherHasTag': expression = scope.other ? `entity_has_tag(other, ${stringField(f.tag)})` : 'false'; break
     case 'chance': expression = `random() < ${numberExpression(f.percent, state, ownerId, scope)} / 100.0`; break
+    case 'rhythmState': expression = `rhythm_state() == ${stringField(f.state)}`; break
+    case 'rhythmCombo': expression = `rhythm_combo() ${['<', '<=', '==', '!=', '>=', '>'].includes(String(f.op)) ? String(f.op) : '>='} ${numberExpression(f.value, state, ownerId, scope)}`; break
     case 'expression': expression = String(f.code ?? '').trim() || 'false'; break
   }
   return condition.negate ? `!(${expression})` : `(${expression})`
@@ -443,6 +459,9 @@ function compileBlock(node: BlockNode, spec: BlockStatementSpec, lines: string[]
       case 'glideBy': lines.push(`tween("x", ${num('x')}, ${num('seconds')}, ${easingField(f.easing)}, #{ relative: true });`, `tween("y", ${num('y')}, ${num('seconds')}, ${easingField(f.easing)}, #{ relative: true });`); break
       case 'spinBy': lines.push(`tween("rotation_degrees", ${num('degrees')}, ${num('seconds')}, ${easingField(f.easing)}, #{ relative: true });`); break
       case 'dropThrough': lines.push('character_drop_through();'); break
+      case 'jointServo': lines.push(`joint_servo(${num('target')});`); break
+      case 'postPulse': lines.push(`post_pulse(${stringField(f.effect)}, ${num('amount')}, ${num('seconds')});`); break
+      case 'explodeHere': lines.push(`explode(transform().position_x, transform().position_y, ${num('radius')}, ${num('impulse')});`); break
       case 'setText': lines.push(`ui_set_text(${textExpression(f.text, state, node.id, scope)});`); break
       case 'setTextOn': lines.push(`ui_set_text_on(find_entity_handle(${stringField(f.object)}), ${textExpression(f.text, state, node.id, scope)});`); break
       case 'show': case 'hide': {
@@ -455,6 +474,13 @@ function compileBlock(node: BlockNode, spec: BlockStatementSpec, lines: string[]
       case 'stopMusic': lines.push(`stop_music(${num('fade')});`); break
       case 'busVolume': lines.push(`set_bus_volume(${stringField(f.bus)}, ${num('volume')});`); break
       case 'playVideo': lines.push(`play_video(${stringField(f.asset)}, #{ skippable: ${f.skippable === true} });`); break
+      case 'rhythmPlay': lines.push('rhythm_play();'); break
+      case 'rhythmPause': lines.push('rhythm_pause();'); break
+      case 'rhythmResume': lines.push('rhythm_resume();'); break
+      case 'rhythmRestart': lines.push('rhythm_restart();'); break
+      case 'rhythmAutoplay': lines.push(`rhythm_set_autoplay(${f.enabled === true});`); break
+      case 'rhythmSpeed': lines.push(`rhythm_set_speed(${num('speed')});`); break
+      case 'rhythmJudgeMyNote': lines.push(`{ let my_note = rhythm_my_note(); if my_note != () { rhythm_judge(my_note.id, ${stringField(f.judgement)}); } }`); break
       case 'if': {
         const conditions = (node.conditions ?? []).map(condition => conditionExpression(condition, state, scope, node.id))
         const test = conditions.length ? conditions.join(node.mode === 'any' ? ' || ' : ' && ') : 'false'

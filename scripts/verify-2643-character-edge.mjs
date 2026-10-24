@@ -28,7 +28,7 @@ Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { ge
 const runs = []
 try {
   const entries = {
-    'src/runtime/GameplayRuntime.ts': 'gameplayRuntime',
+    'src/editor/gameplayRuntime.ts': 'gameplayRuntime',
     'src/store/physics.ts': 'physicsState',
     'src/assets/AssetDatabase.ts': 'assetState',
     'src/assets/types.ts': 'defaultScriptMetadata',

@@ -1,7 +1,7 @@
 <!-- 虚拟输入覆盖层：处理触摸和键盘按钮或摇杆输入，合并动作并负责释放。 -->
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, watch } from 'vue'
-import { gameplayRuntime } from '../runtime/GameplayRuntime'
+import { gameplayRuntime } from '../editor/gameplayRuntime'
 import { automaticVirtualControls, deviceInputSettings, deviceRuntimeState, performHaptic, refreshDeviceCapabilities, type VirtualControlSettings } from '../runtime/deviceInput'
 import { physicsState } from '../store/physics'
 import { createVirtualControlsInputOwner, type VirtualControlsRuntime } from '../runtime/virtualControlsInputOwner'

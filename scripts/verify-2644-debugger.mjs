@@ -22,7 +22,7 @@ for (const name of ['HTMLElement', 'HTMLInputElement', 'HTMLTextAreaElement', 'H
 Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { getGamepads: () => [], maxTouchPoints: 0, platform: 'Win32' } })
 try {
   const entries = {
-    'src/runtime/GameplayRuntime.ts': 'gameplayRuntime',
+    'src/editor/gameplayRuntime.ts': 'gameplayRuntime',
     'src/store/physics.ts': 'physicsState',
     'src/assets/AssetDatabase.ts': 'assetState',
     'src/assets/types.ts': 'defaultScriptMetadata',

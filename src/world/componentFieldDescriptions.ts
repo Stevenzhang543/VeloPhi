@@ -532,6 +532,219 @@ export const componentFieldDescriptions: Readonly<Record<string, Readonly<Record
       "default": false
     }
   },
+  "RhythmChart2D": {
+    "enabled": {
+      "types": [
+        "boolean"
+      ],
+      "optional": false
+    },
+    "chartAsset": {
+      "types": [
+        "null",
+        "string"
+      ],
+      "optional": false,
+      "default": null
+    },
+    "audioAsset": {
+      "types": [
+        "null",
+        "string"
+      ],
+      "optional": false,
+      "default": null
+    },
+    "playOnStart": {
+      "types": [
+        "boolean"
+      ],
+      "optional": false,
+      "default": true
+    },
+    "botPlay": {
+      "types": [
+        "boolean"
+      ],
+      "optional": false,
+      "default": false
+    },
+    "leadInSeconds": {
+      "types": [
+        "number"
+      ],
+      "optional": false,
+      "default": 2
+    },
+    "unitScale": {
+      "types": [
+        "number"
+      ],
+      "optional": false,
+      "default": 1
+    },
+    "scrollSpeed": {
+      "types": [
+        "number"
+      ],
+      "optional": false,
+      "default": 8
+    },
+    "laneWidth": {
+      "types": [
+        "number"
+      ],
+      "optional": false,
+      "default": 1.6
+    },
+    "judgeY": {
+      "types": [
+        "number"
+      ],
+      "optional": false,
+      "default": -3.5
+    },
+    "hitWidth": {
+      "types": [
+        "number"
+      ],
+      "optional": false,
+      "default": 1.6
+    },
+    "flickSpeed": {
+      "types": [
+        "number"
+      ],
+      "optional": false,
+      "default": 18
+    },
+    "perfectMs": {
+      "types": [
+        "number"
+      ],
+      "optional": false,
+      "default": 45
+    },
+    "greatMs": {
+      "types": [
+        "number"
+      ],
+      "optional": false,
+      "default": 90
+    },
+    "goodMs": {
+      "types": [
+        "number"
+      ],
+      "optional": false,
+      "default": 135
+    },
+    "badMs": {
+      "types": [
+        "number"
+      ],
+      "optional": false,
+      "default": 180
+    },
+    "offsetMs": {
+      "types": [
+        "number"
+      ],
+      "optional": false,
+      "default": 0
+    },
+    "volume": {
+      "types": [
+        "number"
+      ],
+      "optional": false,
+      "default": 1
+    },
+    "bus": {
+      "types": [
+        "string"
+      ],
+      "optional": false
+    },
+    "hitSound": {
+      "types": [
+        "boolean"
+      ],
+      "optional": false,
+      "default": true
+    },
+    "hitSoundAsset": {
+      "types": [
+        "null",
+        "string"
+      ],
+      "optional": false,
+      "default": null
+    },
+    "hitSoundVolume": {
+      "types": [
+        "number"
+      ],
+      "optional": false,
+      "default": 0.5
+    },
+    "laneKeys": {
+      "types": [
+        "string"
+      ],
+      "optional": false,
+      "default": ""
+    },
+    "showLanes": {
+      "types": [
+        "boolean"
+      ],
+      "optional": false,
+      "default": true
+    },
+    "showJudgements": {
+      "types": [
+        "boolean"
+      ],
+      "optional": false,
+      "default": true
+    },
+    "showCombo": {
+      "types": [
+        "boolean"
+      ],
+      "optional": false,
+      "default": true
+    },
+    "hitEffects": {
+      "types": [
+        "boolean"
+      ],
+      "optional": false,
+      "default": true
+    },
+    "showErrorBar": {
+      "types": [
+        "boolean"
+      ],
+      "optional": false,
+      "default": false
+    },
+    "sortingLayer": {
+      "types": [
+        "number"
+      ],
+      "optional": false,
+      "default": 10
+    },
+    "orderInLayer": {
+      "types": [
+        "number"
+      ],
+      "optional": false,
+      "default": 0
+    }
+  },
   "AudioSource": {
     "enabled": {
       "types": [
@@ -3202,6 +3415,34 @@ export const componentFieldDescriptions: Readonly<Record<string, Readonly<Record
       ],
       "optional": false,
       "default": false
+    },
+    "servoEnabled": {
+      "types": [
+        "boolean"
+      ],
+      "optional": false,
+      "default": false
+    },
+    "servoTarget": {
+      "types": [
+        "number"
+      ],
+      "optional": false,
+      "default": 0
+    },
+    "servoGain": {
+      "types": [
+        "number"
+      ],
+      "optional": false,
+      "default": 8
+    },
+    "servoMaxSpeed": {
+      "types": [
+        "number"
+      ],
+      "optional": false,
+      "default": 6
     }
   },
   "WeldJoint2D": {
@@ -3342,6 +3583,34 @@ export const componentFieldDescriptions: Readonly<Record<string, Readonly<Record
       ],
       "optional": false,
       "default": false
+    },
+    "servoEnabled": {
+      "types": [
+        "boolean"
+      ],
+      "optional": false,
+      "default": false
+    },
+    "servoTarget": {
+      "types": [
+        "number"
+      ],
+      "optional": false,
+      "default": 0
+    },
+    "servoGain": {
+      "types": [
+        "number"
+      ],
+      "optional": false,
+      "default": 8
+    },
+    "servoMaxSpeed": {
+      "types": [
+        "number"
+      ],
+      "optional": false,
+      "default": 6
     }
   },
   "DistanceJoint2D": {
@@ -3482,6 +3751,34 @@ export const componentFieldDescriptions: Readonly<Record<string, Readonly<Record
       ],
       "optional": false,
       "default": false
+    },
+    "servoEnabled": {
+      "types": [
+        "boolean"
+      ],
+      "optional": false,
+      "default": false
+    },
+    "servoTarget": {
+      "types": [
+        "number"
+      ],
+      "optional": false,
+      "default": 0
+    },
+    "servoGain": {
+      "types": [
+        "number"
+      ],
+      "optional": false,
+      "default": 8
+    },
+    "servoMaxSpeed": {
+      "types": [
+        "number"
+      ],
+      "optional": false,
+      "default": 6
     }
   },
   "RopeJoint2D": {
@@ -3622,6 +3919,34 @@ export const componentFieldDescriptions: Readonly<Record<string, Readonly<Record
       ],
       "optional": false,
       "default": false
+    },
+    "servoEnabled": {
+      "types": [
+        "boolean"
+      ],
+      "optional": false,
+      "default": false
+    },
+    "servoTarget": {
+      "types": [
+        "number"
+      ],
+      "optional": false,
+      "default": 0
+    },
+    "servoGain": {
+      "types": [
+        "number"
+      ],
+      "optional": false,
+      "default": 8
+    },
+    "servoMaxSpeed": {
+      "types": [
+        "number"
+      ],
+      "optional": false,
+      "default": 6
     }
   },
   "RevoluteJoint2D": {
@@ -3762,6 +4087,34 @@ export const componentFieldDescriptions: Readonly<Record<string, Readonly<Record
       ],
       "optional": false,
       "default": false
+    },
+    "servoEnabled": {
+      "types": [
+        "boolean"
+      ],
+      "optional": false,
+      "default": false
+    },
+    "servoTarget": {
+      "types": [
+        "number"
+      ],
+      "optional": false,
+      "default": 0
+    },
+    "servoGain": {
+      "types": [
+        "number"
+      ],
+      "optional": false,
+      "default": 8
+    },
+    "servoMaxSpeed": {
+      "types": [
+        "number"
+      ],
+      "optional": false,
+      "default": 6
     }
   },
   "MotorJoint2D": {
@@ -3902,6 +4255,34 @@ export const componentFieldDescriptions: Readonly<Record<string, Readonly<Record
       ],
       "optional": false,
       "default": false
+    },
+    "servoEnabled": {
+      "types": [
+        "boolean"
+      ],
+      "optional": false,
+      "default": false
+    },
+    "servoTarget": {
+      "types": [
+        "number"
+      ],
+      "optional": false,
+      "default": 0
+    },
+    "servoGain": {
+      "types": [
+        "number"
+      ],
+      "optional": false,
+      "default": 8
+    },
+    "servoMaxSpeed": {
+      "types": [
+        "number"
+      ],
+      "optional": false,
+      "default": 6
     }
   },
   "PrismaticJoint2D": {
@@ -4042,6 +4423,34 @@ export const componentFieldDescriptions: Readonly<Record<string, Readonly<Record
       ],
       "optional": false,
       "default": false
+    },
+    "servoEnabled": {
+      "types": [
+        "boolean"
+      ],
+      "optional": false,
+      "default": false
+    },
+    "servoTarget": {
+      "types": [
+        "number"
+      ],
+      "optional": false,
+      "default": 0
+    },
+    "servoGain": {
+      "types": [
+        "number"
+      ],
+      "optional": false,
+      "default": 8
+    },
+    "servoMaxSpeed": {
+      "types": [
+        "number"
+      ],
+      "optional": false,
+      "default": 6
     }
   },
   "SpringJoint2D": {
@@ -4182,6 +4591,34 @@ export const componentFieldDescriptions: Readonly<Record<string, Readonly<Record
       ],
       "optional": false,
       "default": false
+    },
+    "servoEnabled": {
+      "types": [
+        "boolean"
+      ],
+      "optional": false,
+      "default": false
+    },
+    "servoTarget": {
+      "types": [
+        "number"
+      ],
+      "optional": false,
+      "default": 0
+    },
+    "servoGain": {
+      "types": [
+        "number"
+      ],
+      "optional": false,
+      "default": 8
+    },
+    "servoMaxSpeed": {
+      "types": [
+        "number"
+      ],
+      "optional": false,
+      "default": 6
     }
   },
   "WheelJoint2D": {
@@ -4322,6 +4759,34 @@ export const componentFieldDescriptions: Readonly<Record<string, Readonly<Record
       ],
       "optional": false,
       "default": false
+    },
+    "servoEnabled": {
+      "types": [
+        "boolean"
+      ],
+      "optional": false,
+      "default": false
+    },
+    "servoTarget": {
+      "types": [
+        "number"
+      ],
+      "optional": false,
+      "default": 0
+    },
+    "servoGain": {
+      "types": [
+        "number"
+      ],
+      "optional": false,
+      "default": 8
+    },
+    "servoMaxSpeed": {
+      "types": [
+        "number"
+      ],
+      "optional": false,
+      "default": 6
     }
   },
   "TargetJoint2D": {

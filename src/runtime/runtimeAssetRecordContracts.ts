@@ -12,8 +12,8 @@ export type AssetType =
   | 'behaviorTree' | 'stateMachine' | 'tilePalette' | 'brushPreset' | 'terrainRules'
   | 'dataSchema' | 'dataTable' | 'replay' | 'path'
   | 'particleSystem' | 'visualScript' | 'eventSheet' | 'objectBlueprint'
-  | 'resource' | 'video'
-export type TextAssetType = Extract<AssetType, 'script' | 'visualScript' | 'eventSheet' | 'objectBlueprint' | 'prefab' | 'scene' | 'material' | 'animation' | 'controller' | 'animationMask' | 'rig' | 'skin' | 'timeline' | 'tileset' | 'atlas' | 'shader' | 'localization' | 'uiTheme' | 'behaviorTree' | 'stateMachine' | 'tilePalette' | 'brushPreset' | 'terrainRules' | 'dataSchema' | 'dataTable' | 'replay' | 'path' | 'particleSystem' | 'resource' | 'other'>
+  | 'resource' | 'video' | 'chart'
+export type TextAssetType = Extract<AssetType, 'script' | 'visualScript' | 'eventSheet' | 'objectBlueprint' | 'prefab' | 'scene' | 'material' | 'animation' | 'controller' | 'animationMask' | 'rig' | 'skin' | 'timeline' | 'tileset' | 'atlas' | 'shader' | 'localization' | 'uiTheme' | 'behaviorTree' | 'stateMachine' | 'tilePalette' | 'brushPreset' | 'terrainRules' | 'dataSchema' | 'dataTable' | 'replay' | 'path' | 'particleSystem' | 'resource' | 'chart' | 'other'>
 export type AssetCompression = 'None' | 'Lossless' | 'Optimized'
 export type TextureImportProfile = 'General' | 'PixelArt' | 'UI' | 'NormalMap'
 export type AudioImportProfile = 'SoundEffect' | 'Music' | 'Voice' | 'Streaming'

@@ -1,6 +1,74 @@
-# Nova_A 26.45 – Vollständiges Handbuch
+# Nova_A 26.47 – Vollständiges Handbuch
 
-Engine: **26.45.0** · Project Format 2/schema 29.
+Engine: **26.47.0** · Project Format 2/schema 29.
+
+<!-- NOVA_V2647_RELEASES -->
+<a id="v2647-releases"></a>
+## 26.47 — Eine offene Rhythmus-Engine
+
+Engine: **26.47.0** · Project Format 2/schema 29 (unverändert). Projekte ab 26.38 öffnen ohne Migration; nur der Engine-Stempel ändert sich. Charts aus 26.46 öffnen und werten wie bisher; ein Chart mit den neuen Funktionen wird als Chart-Version 2 gespeichert, die 26.46 nicht lesen kann.
+
+Nova_A ist jetzt eine Engine für Rhythmusspiele. Die eingebauten Bahnen und Urteilslinien bleiben; was eine Note ist, wie sie bewertet wird und was sich mit der Musik bewegt, entscheidet jetzt das Spiel.
+
+- **Eigene Notentypen des Charts.** Ein Notentyp hat ein Grundverhalten (Tippen, Halten, Ziehen, Wischen oder **Per Skript bewertet**), eigene Urteilsfenster, ein Punktgewicht (0: zählt nicht), ob er für die Combo zählt, was aus einer unberührten Note wird (Miss oder Perfect für Noten zum Ausweichen), einen Trefferbereich (Breite und Höhe) und ein Aussehen: eine Form (Balken, Kreis, Raute, Quadrat, Ring) und Farbe oder ein **Prefab**, das auf jeder Note des Typs erscheint, dazu ein eigenes Treffergeräusch und einen Effekt. Noten haben eine Größe und beliebige `data`, die Skripte lesen.
+- **Prefab-Noten.** Das Chart setzt das Prefab in jedem Frame auf seine Note und verwendet die Objekte wieder (ein Pool). Ein Skript im Prefab liest seine Note mit `rhythm_my_note()` und erhält `rhythm.note_hit` oder `rhythm.note_miss`.
+- **Per Skript bewertete Noten.** Ein Druck im Fenster und Trefferbereich einer solchen Note sendet `rhythm.touch` (Note, Typ, Versatz, Position, Daten); das Skript bewertet mit `rhythm_judge(note, "perfect" … "miss")` oder `rhythm_judge(note, versatz_ms)`. Die Bewertung zählt wie jede andere. `rhythm.hit` und `rhythm.miss` nennen jetzt auch Typ, Position und Daten der Note.
+- **Die Master-Zeitleiste.** Spuren im Chart animieren ein Szenenobjekt (nach Name: x, y, rotation, scaleX, scaleY, scale, alpha), die Kamera (x, y, zoom, rotation) oder die Nachbearbeitung (exposure, contrast, saturation, vignette, bloom, blur) über Schläge mit den 32 Kurven. Vor ihrem ersten Ereignis lässt eine Spur das Objekt in Ruhe; nach einem Sprung zurück erhält das Objekt seinen eigenen Wert wieder. **Auslöser** sind benannte Momente, die `rhythm.trigger` (Name, Wert, Schlag) an jedes Objekt senden, einmal je Durchlauf.
+- **Chart-Editor:** ein Bereich Notentypen, das Werkzeug Eigener Typ (7), ein Bereich Zeitleiste mit Spuren, Ereignissen und Auslösern; Auslöser werden im Raster gezeichnet.
+- **Bildversatz.** Bildschirme zeigen Bilder verspätet; der neue Bildversatz zeichnet die Noten entsprechend früher, ohne die Bewertung zu ändern. Der Kalibrierungsdialog hat einen Bildtest (im Takt der Blitze tippen); Skripte nutzen `rhythm_visual_offset()` und `rhythm_set_visual_offset(ms)`. Die **Trefferabweichung** der Komponente zeigt, wie früh oder spät die letzten Treffer waren, und `rhythm.finished` schlägt nach einem gespielten Chart eine bessere Audio-Kalibrierung vor.
+- **Schlankere Laufzeit:** Eine Szene ohne Starrkörper, Kachelkollision oder Gelenke überspringt die Synchronisierung des Physik-Lösers, und die Zustandsprüfsumme wird nur berechnet, während eine Aufzeichnung läuft oder abgespielt wird oder eine Netzwerksitzung läuft. Komponente hinzufügen listet Rhythmus zuerst; die klassischen Gruppen folgen unter Weitere, und Komponenten, die entfernt werden (Welt-Streaming, Navigation, Verhaltensbäume), erscheinen nur bei Suche oder mit „Alle zeigen“. Der Projektmanager listet die Rhythmus-Vorlagen zuerst und markiert die klassischen Beispiele.
+- **Neue Vorlage: Rhythmus-Labor** — der 120-BPM-Song „Prism Pulse“ mit drehenden Sternnoten (ein Prefab, doppelte Punkte), roten Minen, die das Skript des Labors bewertet, und einem Drop, in dem die Kamera zoomt, das Hintergrundprisma sich dreht und in jedem Takt pulsiert und Bloom aufleuchtet.
+- Block „Meine Note als … bewerten“ (Ton) für Prefab-Noten.
+
+<a id="v2647-note-types"></a>
+## Eigene Noten und die Master-Zeitleiste
+
+Etwa 25 Minuten, ausgehend vom Rhythmus-Labor (oder einem eigenen Chart).
+
+1. **Das Labor ansehen.** Projektmanager → Neues Projekt → Rhythmus-Labor → Abspielen. B schaltet Autoplay ein. Stoppen, „Rhythm Chart“ auswählen und Chart bearbeiten wählen: Die Seitenleiste listet die Notentypen (star, mine) und die Zeitleiste (fünf Spuren, drei Auslöser).
+2. **Einen Notentyp anlegen.** Unter Notentypen Notentyp hinzufügen wählen. Kennung (steht in der Chart-Datei), Verhalten, Farbe und Form festlegen. Punktgewicht 2 zählt doppelt; Unberührt → Perfect macht eine Note zum Ausweichen; Eigene Urteilsfenster setzt engere oder weitere Fenster; Trefferbreite und -höhe geben einen kastenförmigen Trefferbereich.
+3. **Setzen.** Das Werkzeug Eigener Typ (7) wählen, den Typ neben den Werkzeugen auswählen und wie mit den anderen Werkzeugen ins Raster klicken. Eine Note behält ihren Typ beim Verschieben, Kopieren und Spiegeln; der Typ der Auswahl lässt sich in der Seitenleiste ändern.
+4. **Ein Prefab geben.** Das Aussehen als Objekt bauen (Formen, Sprites, Partikel, ein Skript), daraus ein Prefab machen und es als Prefab des Typs wählen. Form Keine zeigt nur das Prefab. Im Skript des Prefabs liefert `rhythm_my_note()` die Note (id, type, beat, time, lane, line, x, data); `on_signal` erhält `rhythm.note_hit` und `rhythm.note_miss`. Objekte bleiben eine Fünftelsekunde dort, wo sie bewertet wurden, bevor sie in den Pool zurückgehen.
+5. **Selbst bewerten.** Das Verhalten Per Skript bewertet wählen. In einem Skript am Chart-Objekt `rhythm.touch` behandeln: `if payload.type == "mine" { rhythm_judge(payload.note, "miss"); }`. Statt eines Namens einen Versatz in Millisekunden übergeben, damit die Fenster des Typs entscheiden. Eine Note, die kein Skript bewertet, ist nach ihrem Fenster ein Miss (oder Perfect mit Unberührt → Perfect).
+6. **Die Szene animieren.** Unter Zeitleiste Spur am Cursor wählen, das Ziel (ein Objekt nach Name, die Kamera oder die Nachbearbeitung) und die Eigenschaft wählen und Ereignisse hinzufügen (Start- und Endschlag, Von, Bis, Kurve). Für Nachbearbeitungsspuren die Nachbearbeitung in Projekteinstellungen → Rendering einschalten.
+7. **Momente markieren.** Auslöser am Cursor benennt einen Schlag. `on_signal` jedes Objekts erhält `rhythm.trigger` mit `payload.name`, `payload.value` und `payload.beat` — HUD ändern, Partikel starten oder einen Abschnitt wechseln.
+8. **Das Bild kalibrieren.** Kalibrieren… → Bildtest: im Takt der Blitze tippen. Der Unterschied zur Audio-Kalibrierung wird als Bildversatz vorgeschlagen; übernehmen oder einen Wert eintippen.
+
+Grenzen in 26.47: Urteilsbereiche sind noch die Bahnen und Linien (freie Bereiche, Gesten und Notenpfade kommen mit 26.48); eine Spur findet Objekte nach Namen (das erste Objekt mit dem Namen); ein Prefab-Objekt je sichtbarer Note (höchstens 256 gleichzeitig).
+
+
+<!-- NOVA_V2646_RELEASES -->
+<a id="v2646-releases"></a>
+## 26.46 — Rhythmusspiele
+
+Engine: **26.46.0** · Project Format 2/schema 29 (unverändert). Projekte ab 26.38 öffnen ohne Migration; nur der Engine-Stempel ändert sich.
+
+- **Rhythmus-Chart 2D** spielt ein Chart in einem von zwei Stilen mit gemeinsamem Kern: fallende **Bahnen** (1–8 Bahnen mit je einer Taste, wie osu!mania) oder bewegte **Urteilslinien** (Noten laufen auf Linien zu, die sich bewegen, drehen und ausblenden; gespielt mit dem Zeiger oder jeder Buchstabentaste, wie Phigros). Notenarten: Tippen, Halten, Ziehen und Wischen.
+- **Timing auf der Audio-Uhr.** Der Song wird vollständig dekodiert und auf der Web-Audio-Uhr geplant; die Chartzeit folgt dem hörbaren Ton (mit Ausgabelatenz), und jeder Tastendruck und jede Berührung wird nach dem eigenen Ereigniszeitpunkt beurteilt, nicht nach dem Bild, in dem er ankommt. Die Urteilsfenster (Perfect, Great, Good, Bad; Standard ±45, 90, 135, 180 ms) stehen an der Komponente. Eine **Kalibrierung** je Gerät wird im Chart-Editor gemessen und für den Spieler gespeichert.
+- **Punkte** bis 1.000.000: 900.000 für Genauigkeit (Perfect 1, Great 0,8, Good 0,5) und 100.000 für die längste Combo. Ränge: P (alles Perfect), S ab 950.000, A ab 900.000, B ab 800.000, C ab 700.000, sonst D. Signale: `rhythm.started`, `rhythm.hit`, `rhythm.miss`, `rhythm.beat`, `rhythm.finished` (Punkte, Genauigkeit, höchste Combo, Zähler, Full Combo, All Perfect, Rang, mittlere Abweichung).
+- **Chart-Editor** (unteres Panel → Chart-Editor): der Song als Wellenform, ein Schlagraster von 1/1 bis 1/16, Werkzeuge, Metronom und Notenklicks, Wiedergabe mit 0,5–1×, Rückgängig, Tempowechsel mit BPM tippen, Urteilslinien mit Ereignissen und Kurven, sowie Ab hier testen.
+- **Chart-Dateien** (`.nova-chart`) sind JSON (`"format": "nova-chart"`, Version 1) mit einer Note pro Zeile – leicht zu lesen und zu vergleichen.
+- **Skripte und Blöcke:** `rhythm_play()`, `rhythm_pause()`, `rhythm_resume()`, `rhythm_restart()`, `rhythm_seek(seconds)`, `rhythm_set_autoplay(on)`, `rhythm_set_speed(speed)`, `rhythm_set_offset(ms)`; Abfragen wie `rhythm_time()`, `rhythm_beat()`, `rhythm_score()`, `rhythm_combo()`, `rhythm_accuracy()`, `rhythm_state()` und `rhythm_stats()`. Die Kategorie Ton hat Rhythmus-Blöcke (abspielen, pausieren, fortsetzen, neu starten, Autoplay, Notengeschwindigkeit) und zwei Bedingungen (Chart-Zustand, Combo).
+- **Zwei Starter:** Rhythmus-Bahnen (vier Bahnen, der eigene Song „Neon Step“ mit 128 BPM, 173 Noten) und Rhythmus-Linien (zwei bewegte Urteilslinien, „Skyline Drift“ mit 100 BPM, 129 Noten). Beide haben Pause, Neustart, Autoplay und einen gespeicherten Bestwert.
+- **Physik und Effekte:** Gelenk-**Servos** – ein Dreh- oder Schubgelenk hält mit seinem Motor einen Zielwinkel oder Zielabstand (`joint_servo(target)`, `joint_servo_off()`, Block „Mein Gelenk auf … drehen“); das Ziel wird wie die Gelenkgrenzen gemessen, als verbundener Körper relativ zum Körper mit dem Gelenk – das Gelenk also an die Basis setzen und das bewegte Teil verbinden. `explode(x, y, radius, impulse)` stößt nahe Körper mit Abfall weg (Block „Hier explodieren“). Skripte ändern die Nachbearbeitung für die Sitzung: `post_set(name, value[, seconds])`, `post_pulse(name, amount, seconds)`, `post_reset()` (Block „… um … für … s aufblitzen“); Stopp setzt sie zurück.
+- Behoben: Nach einem Klick auf Abspielen erreichen Tasten das Spiel sofort (die Abspielen-Taste behält den Tastaturfokus nicht mehr). Der Spielsitzungscode des Editors liegt nicht mehr im Runtime-Ordner; die Prüfung der Engine-Grenzen besteht ohne Ausnahmen.
+
+<a id="v2646-rhythm"></a>
+## Ein Rhythmusspiel bauen
+
+Etwa 20 Minuten. Man braucht einen Song, den man verwenden darf (eigener Song oder mit passender Lizenz).
+
+1. **Mit einem Starter beginnen.** Projektmanager → Neues Projekt → Rhythmus-Bahnen (oder Rhythmus-Linien). Abspielen: Die Noten fallen zur Linie; im Takt D, F, J und K drücken. B schaltet Autoplay ein, P oder Escape pausiert, R startet neu. Der Bestwert wird gespeichert.
+2. **Eigenen Song hinzufügen.** Eine Audiodatei, die der Browser dekodieren kann (WAV, MP3, OGG; höchstens 64 MB), in Assets importieren. Das Objekt „Rhythm Chart“ wählen, im Inspektor Neues Chart wählen (es entsteht in Assets/Charts), dann Chart bearbeiten und im Feld Song des Charts den Song wählen.
+3. **Tempo und Versatz.** Im Chart-Editor mit Leertaste abspielen und im Takt auf BPM tippen klicken, um das Tempo zu messen; die BPM eintragen. Den Versatz ändern, bis die Metronomklicks auf den Schlägen der Wellenform liegen. Wo der Song das Tempo ändert, Tempowechsel hier verwenden.
+4. **Noten setzen.** Werkzeuge: 1 Auswahl, 2 Tippen, 3 Halten (für die Länge nach unten ziehen), 4 Ziehen, 5 Wischen, 6 Löschen. In eine Bahn im Raster klicken; Raster legt die Teilung fest (1/4 ist im 4/4-Takt eine Sechzehntel). Rechtsklick löscht. Mit Auswahl ein Rechteck ziehen, Noten zum Verschieben ziehen, Pfeiltasten verschieben um einen Schritt oder eine Bahn, M spiegelt, Strg+C und Strg+V kopieren an den Cursor, Strg+Z und Strg+Y. Das Mausrad blättert, Strg+Mausrad zoomt, ein Klick in die Wellenform springt dorthin. Strg+S speichert. Die Statuszeile zeigt Noten, Länge und Noten pro Sekunde.
+5. **Urteilslinien** (Linien-Charts): Linie hinzufügen, dann X, Y, Drehung, Deckkraft und Geschwindigkeit setzen und Ereignisse (Startschlag, Endschlag, von, bis, Kurve) hinzufügen, damit sich die Linien bewegen. Noten kommen von oberhalb oder unterhalb der Linie. Trefferbreite und Wischgeschwindigkeit stehen an der Komponente.
+6. **Testen.** Ab hier testen startet das Spiel am Cursor. Kalibrieren… spielt 20 Klicks: mittippen; das Ergebnis wird für dieses Gerät gespeichert (positiv: der Ton ist später zu hören). Skripte lesen es mit `rhythm_calibration()` und ändern es mit `rhythm_set_calibration(ms)`.
+7. **Ergebnisse und Effekte.** Das Steuerskript des Starters reagiert auf `rhythm.finished` und speichert den Bestwert mit `save_set` und `save_commit`. Für einen Blitz auf jedem Schlag bei `rhythm.beat` `post_pulse("bloom", 0.4, 0.2)` aufrufen (Nachbearbeitung in den Projekteinstellungen → Rendering einschalten).
+8. **Exportieren** wie gewohnt (Build → Web oder Windows). Die Kalibrierung jedes Spielers behält der Player auf dessen Gerät.
+
+Grenzen in 26.46: Spielen per Berührung funktioniert, ist aber noch nicht für Telefone und Tablets abgestimmt; Zeigereingaben zählen nur in der Spielansicht; die Physikaufzeichnung spult die Musik nicht zurück; Songs über 64 MB (oder 256 MB dekodiert) werden abgelehnt.
+
 
 <!-- NOVA_V2645_RELEASES -->
 ## 26.39–26.45 — Was sich seit 26.38 geändert hat
@@ -263,7 +331,7 @@ Entwicklungsleitfaden zur Abnahme. Die Beispiele verwenden Engine 26.22.0 und Pr
 
 ### Referenz öffnen
 
-Öffnen Sie `creator-v2622-code-game`, `creator-v2622-blocks-game` oder `creator-v2622-mixed-game`. Bewegen Sie sich mit WASD/Pfeiltasten, sammeln Sie Kontrollpunkte und starten Sie mit R neu. Animationen und Render-Effekte bleiben eingeschaltet. Die Referenzen für Ausgabequalität, animierte Menüs und den autoritativen Server behalten ihre bisherigen Abläufe.
+Öffnen Sie `creator-v2624-code-game`, `creator-v2624-blocks-game` oder `creator-v2638-mixed-game`. Bewegen Sie sich mit WASD/Pfeiltasten, sammeln Sie Kontrollpunkte und starten Sie mit R neu. Animationen und Render-Effekte bleiben eingeschaltet. Die Referenzen für Ausgabequalität, animierte Menüs und den autoritativen Server behalten ihre bisherigen Abläufe.
 
 ### Bearbeiten und rückgängig machen
 
@@ -302,7 +370,7 @@ Engine: **26.21.0** · Project Format 2/schema 29.
 ### Nova_A 26.21 — lesbare Bearbeitung und verlässlicher Verlauf
 
 ### Öffnen und spielen
-Öffnen Sie creator-v2621-code-game, creator-v2621-blocks-game oder creator-v2621-mixed-game. Bewegen Sie die Figur mit WASD oder Pfeiltasten, sammeln Sie Kontrollpunkte und starten Sie mit R neu. Animationen und Effekte bleiben eingeschaltet.
+Öffnen Sie creator-v2624-code-game, creator-v2624-blocks-game oder creator-v2638-mixed-game. Bewegen Sie die Figur mit WASD oder Pfeiltasten, sammeln Sie Kontrollpunkte und starten Sie mit R neu. Animationen und Effekte bleiben eingeschaltet.
 
 ### Lesbare Felder
 Öffnen Sie Manage → Einstellungen. Wählen Sie automatische Feldbeschriftungen oder Beschriftungen oberhalb der Felder. Prüfen Sie 100, 150 und 200 Prozent Textgröße sowie einen schmalen und maximierten Inspektor. Automatische Beschriftungen richten sich nach der tatsächlichen Panelbreite. Zahlenpaare dürfen umbrechen. Zeigen Sie auf eine Auswahlliste oder fokussieren Sie diese mit der Tastatur: Der vollständige Wert erscheint als mehrzeiliger Hinweis. Escape schließt den Hinweis; die native Auswahl bleibt erhalten.
@@ -333,7 +401,7 @@ Hintergrund, Oberfläche, Primärfarbe, Sekundärfarbe, Akzent und Haupttext ent
 
 ### Dasselbe Spiel mit Code, Blöcken und gemischt erstellen
 
-Die passende Referenz creator-v2620-code-game, creator-v2620-blocks-game oder creator-v2620-mixed-game öffnen. In Play mit WASD/Pfeiltasten sechs Checkpoints der Reihe nach einsammeln; R startet neu. Vor dem Bearbeiten stoppen. CheckpointGame.rhai im Script-Arbeitsbereich öffnen und den Geschwindigkeitswert suchen. Im Code den Wert ändern; im Blockmodus den entsprechenden Zahlenblock des verknüpften Graphen bearbeiten; im gemischten Modus beide Wege verwenden. Speichern, Darstellung wechseln und den erhaltenen Wert prüfen. Typisierte Graphstruktur und quelltextgestützte Bereiche sind unterschiedliche Unterstützungsstufen. Nicht unterstützten Quelltext nicht löschen, um eine Konvertierung zu erzwingen.
+Die passende Referenz creator-v2624-code-game, creator-v2624-blocks-game oder creator-v2638-mixed-game öffnen. In Play mit WASD/Pfeiltasten sechs Checkpoints der Reihe nach einsammeln; R startet neu. Vor dem Bearbeiten stoppen. CheckpointGame.rhai im Script-Arbeitsbereich öffnen und den Geschwindigkeitswert suchen. Im Code den Wert ändern; im Blockmodus den entsprechenden Zahlenblock des verknüpften Graphen bearbeiten; im gemischten Modus beide Wege verwenden. Speichern, Darstellung wechseln und den erhaltenen Wert prüfen. Typisierte Graphstruktur und quelltextgestützte Bereiche sind unterschiedliche Unterstützungsstufen. Nicht unterstützten Quelltext nicht löschen, um eine Konvertierung zu erzwingen.
 
 Checkpoint1 in Design auswählen und X verschieben. Das Skript fragt die aktuelle Weltposition ab; der Einsammelpunkt folgt dem Objekt. Rückgängig/Wiederholen prüfen. Projekt speichern, neu öffnen, Play wiederholen, über Manage → Build Settings nach Web exportieren und Bewegung, Einsammeln und Neustart erneut prüfen. Ein Inspector-Wert allein beweist kein korrektes Exportverhalten.
 
@@ -347,7 +415,7 @@ Mehr Pixel und Samples benötigen GPU-Zeit und Speicher. Multisample-Farbfläche
 
 ### Animation erhalten und Leistung messen
 
-creator-v2620-animated-menu öffnen. Menü abspielen, Eingabe und Checkbox bedienen und dabei Titelfade und Timeline beobachten. Bei zwei Auflösungsskalierungen und im Webexport wiederholen. Die vorhandenen Kapitel zu Assets, Animation, Controllern, Rig, Timeline, Audio und UI bleiben vollständig erhalten. Diese Referenz bewahrt ihre Inhalte; kein System wird für einen günstigeren Messwert entfernt.
+creator-v2628-animated-menu öffnen. Menü abspielen, Eingabe und Checkbox bedienen und dabei Titelfade und Timeline beobachten. Bei zwei Auflösungsskalierungen und im Webexport wiederholen. Die vorhandenen Kapitel zu Assets, Animation, Controllern, Rig, Timeline, Audio und UI bleiben vollständig erhalten. Diese Referenz bewahrt ihre Inhalte; kein System wird für einen günstigeren Messwert entfernt.
 
 Für Vergleiche dasselbe Projekt, Kamera, Objektzahl, Auflösung, Effekte, Build, Gerät und Aufwärmphase verwenden. CPU-Zeit, verfügbare GPU-Zeit, Draw Calls und tatsächliche Pixel zusätzlich zu FPS dokumentieren. Die optimierte Gruppierung erhält Reihenfolge und Vertex-/Indexdaten. Gleich große Batches verwenden Speicher erneut. Indexreiche Gruppen können in zusätzliche Draw Calls geteilt werden, damit der Speicher begrenzt bleibt. Isolierte Gruppierungszeiten sind keine Gesamt-FPS. Umfang und Gerät des aktuellen Berichts lesen.
 
@@ -373,7 +441,7 @@ Arbeiten Sie mit Wegwerfkopien der sechs Projekte mit `v2619` unter `reference-p
 
 ### Ein vollständiges Spiel in drei Arbeitsweisen
 
-Öffnen Sie `creator-v2619-code-game`, `creator-v2619-blocks-game` oder `creator-v2619-mixed-game`. Starten Sie das Spiel, fokussieren Sie die Spielfläche und sammeln Sie mit WASD/Pfeiltasten sechs Kontrollpunkte. Der Titel wechselt von Checkpoint 1/6 zur Abschlussmeldung. R setzt Punktestand, Position und Kontrollpunkte zurück. Vor der Bearbeitung stoppen.
+Öffnen Sie `creator-v2624-code-game`, `creator-v2624-blocks-game` oder `creator-v2638-mixed-game`. Starten Sie das Spiel, fokussieren Sie die Spielfläche und sammeln Sie mit WASD/Pfeiltasten sechs Kontrollpunkte. Der Titel wechselt von Checkpoint 1/6 zur Abschlussmeldung. R setzt Punktestand, Position und Kontrollpunkte zurück. Vor der Bearbeitung stoppen.
 
 In Code öffnen Sie CheckpointGame.rhai und ändern beide Bewegungsmultiplikatoren von 6.0 auf 4.0. In Blocks öffnen Sie CheckpointGame.nova-graph und ändern die Zahlenknoten in den X/Y-Bewegungsausdrücken auf 4.0. Mixed verknüpft Code und typisierten Graphen: wechseln Sie die Ansicht, kontrollieren Sie beide Werte und speichern Sie. Rückgängig/Wiederholen muss die beabsichtigte Änderung wiedergeben. Syntaxfehler bleiben sichtbar; ein unvollständiger Graph darf den Quelltext nicht still ersetzen.
 
@@ -399,7 +467,7 @@ Manage → Build Settings enthält Ziel, Architektur, Profil, Szenenreihenfolge 
 
 Im Browser wählen Sie Web. Native Ausgabe erfordert eine erfolgreiche Prüfung des Desktop-Hosts; das Betriebssystem des Browsers reicht nicht aus. Bei fehlgeschlagener Erkennung erscheint eine Neustart-/Wiederholungsanweisung. Android benötigt seine lokale Werkzeugkette und für Geräteprüfung ein echtes Gerät. Linux/macOS bleiben Ziele für passende Hosts; Windows-Ergebnisse qualifizieren sie nicht.
 
-Vor dem Bauen speichern und das Ende des Speichervorgangs abwarten. Web exportieren, ZIP in einen eigenen Ordner entpacken, über lokales HTTP bereitstellen und index öffnen. Positionen, Bewegungsgeschwindigkeit, Punkte, Neustart und Ressourcen mit dem gespeicherten Editorprojekt vergleichen. Der Buildbericht enthält Dateigrößen und Hashes. `server-v2619-headless-authority` bleibt ein Server in einer WebView mit deaktivierter Darstellung, kein fensterloser nativer Server.
+Vor dem Bauen speichern und das Ende des Speichervorgangs abwarten. Web exportieren, ZIP in einen eigenen Ordner entpacken, über lokales HTTP bereitstellen und index öffnen. Positionen, Bewegungsgeschwindigkeit, Punkte, Neustart und Ressourcen mit dem gespeicherten Editorprojekt vergleichen. Der Buildbericht enthält Dateigrößen und Hashes. `server-v2638-headless-authority` bleibt ein Server in einer WebView mit deaktivierter Darstellung, kein fensterloser nativer Server.
 
 ### Offline und nach einem Ordnerwechsel bauen
 
@@ -1062,6 +1130,26 @@ Voraussetzungen: Offline bereit · Tastatur · Zeiger
 
 Danach Stop ausführen und die wiederhergestellte Ausgangsszene prüfen. Projekt speichern, erneut öffnen und das Ergebnis wiederholen; anschließend den exportierten Player vergleichen. Ein erfolgreicher Start allein bestätigt nicht jedes Spielverhalten.
 
+### Rhythmus-Bahnen (rhythm-lanes)
+
+Steuerung und Einrichtung: Play: Die fallenden Noten mit D F J K (oder Klick / Touch auf die Bahnen) treffen, wenn sie die Linie erreichen; lange Noten halten. Esc pausiert, R spielt erneut, B schaltet Autoplay um.
+
+Erwartetes Ergebnis: Neon Step startet nach zwei Sekunden Vorlauf; Treffer zeigen PERFECT bis BAD mit früh/spät, Combo und Punkte bis 1.000.000, am Ende Rang und gespeicherter Bestwert.
+
+Voraussetzungen: Offline bereit · Tastatur · Zeiger · Audio enthalten
+
+Danach Stop ausführen und die wiederhergestellte Ausgangsszene prüfen. Projekt speichern, erneut öffnen und das Ergebnis wiederholen; anschließend den exportierten Player vergleichen. Ein erfolgreicher Start allein bestätigt nicht jedes Spielverhalten.
+
+### Rhythmus-Linien (rhythm-lines)
+
+Steuerung und Einrichtung: Play: Noten auf den beweglichen Urteilslinien beim Eintreffen anklicken oder antippen (jede Buchstabentaste außer P, R und B geht auch); lange Noten halten, auf Ziehnoten bleiben, über Wischnoten wischen. Esc pausiert, R spielt erneut, B schaltet Autoplay um.
+
+Erwartetes Ergebnis: Skyline Drift läuft mit zwei Urteilslinien, die mit dem Song schwanken, kippen, verblassen und langsamer werden; Tipp-, Halte-, Zieh- und Wischnoten werden bewertet.
+
+Voraussetzungen: Offline bereit · Zeiger · Tastatur · Audio enthalten
+
+Danach Stop ausführen und die wiederhergestellte Ausgangsszene prüfen. Projekt speichern, erneut öffnen und das Ergebnis wiederholen; anschließend den exportierten Player vergleichen. Ein erfolgreicher Start allein bestätigt nicht jedes Spielverhalten.
+
 <!-- NOVA_V2615_END -->
 
 <!-- NOVA_V2614_START -->
@@ -1177,7 +1265,7 @@ Neue Rhai-Begleitgraphen bestehen aus typisierten Syntaxknoten. Bestehende Ablau
 
 8. Entferne im Code eine schließende Klammer und versuche zu wechseln. Entwurf und Diagnose bleiben sichtbar. Brich den Wechsel ab, repariere die Syntax und versuche es erneut. Löse Asset-Konflikte oder Speicherfehler im offenen Editor; eine bestätigte Vorschau gilt nur für genau diese Quelltextrevision.
 
-9. Öffne die Referenzen creator-v2612-code-game, creator-v2612-blocks-game und creator-v2612-mixed-game unter reference-projects/projects. Sammle jeweils sechs Kontrollpunkte mit WASD/Pfeilen und starte mit R neu. Die Blockvariante bindet den Graphen direkt, die anderen Rhai. Speichere, öffne erneut und exportiere dieselbe Szene.
+9. Öffne die Referenzen creator-v2624-code-game, creator-v2624-blocks-game und creator-v2638-mixed-game unter reference-projects/projects. Sammle jeweils sechs Kontrollpunkte mit WASD/Pfeilen und starte mit R neu. Die Blockvariante bindet den Graphen direkt, die anderen Rhai. Speichere, öffne erneut und exportiere dieselbe Szene.
 
 ```rhai
 // Keep this comment while switching modes.
@@ -19966,7 +20054,7 @@ Ein Projekt mit 10.000–100.000 Objekten messen und abstimmen, ohne Physik, Eff
 Mit diesem Ablauf ein vollständiges Projekt lernen, migrieren, prüfen und ausliefern, ohne stabile Verträge oder externe Grenzen zu verbergen.
 
 1. Verwalten → Lernzentrum → Plattformbereitschaft öffnen. Die gewünschte Funktion suchen und Bindung, Validierung, Rückgängig, Speicherung, Laufzeit/Export, Dokumentation und Tests prüfen. Kreis bedeutet nicht anwendbar; Strich bedeutet externe Evidenz.
-2. Mit einem geführten Projekt oder creator-v2610-mixed-game beginnen. Voraussetzungen, exakte Schritte, Ergebnis, Speichern/Laden, Rückgängig/Wiederherstellung, Play/Step, Standalone-Build und Barrierefreiheit der Reihe nach prüfen.
+2. Mit einem geführten Projekt oder creator-v2638-mixed-game beginnen. Voraussetzungen, exakte Schritte, Ergebnis, Speichern/Laden, Rückgängig/Wiederherstellung, Play/Step, Standalone-Build und Barrierefreiheit der Reihe nach prüfen.
 3. Beim Öffnen eines 6.x-Projekts zuerst die Migrationsvorschau lesen. Quell-/Zielversion, semantischen Diff, Backup und deterministische Prüfsumme prüfen. Der 26.10-Siegel ändert nur die Obergrenze auf <27.0.0 und keine Schema-29-Spieldaten.
 4. Rhai oder Visual Graph bearbeiten, speichern, die synchronisierte Gegenseite und Paritätstests prüfen. Nicht unterstütztes Rhai bleibt verlustfrei im Code-Block.
 5. Projektzustand, Vorlagen/Referenzen und Build-Validierung ausführen. Windows unter Windows und Web lokal bauen. Linux/macOS benötigen Matching Host, Android ist experimentell/toolchain-gebunden, iOS/Konsolen sind verschoben.

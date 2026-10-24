@@ -25,7 +25,7 @@ const memoryStorage = () => { const values = new Map(); return { getItem: key =>
 const key = code => ({ code, key: code.replace(/^Key/, '').toLowerCase(), repeat: false, isComposing: false, keyCode: 0, defaultPrevented: false, target: null, getModifierState: () => false, ctrlKey: false, shiftKey: false, altKey: false, metaKey: false, timeStamp: 0, preventDefault() {} })
 try {
   const entries = {
-    'src/runtime/GameplayRuntime.ts': 'gameplayRuntime',
+    'src/editor/gameplayRuntime.ts': 'gameplayRuntime',
     'src/store/physics.ts': 'physicsState',
     'src/assets/AssetDatabase.ts': 'assetState',
     'src/assets/types.ts': 'defaultScriptMetadata',

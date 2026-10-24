@@ -37,6 +37,7 @@ export interface RuntimeAssetPreparationCapabilities { normalizeUuid(value: unkn
   if (type === 'replay') return 'Assets/Replays'
   if (type === 'path') return 'Assets/Paths'
   if (type === 'particleSystem') return 'Assets/Particles'
+  if (type === 'chart') return 'Assets/Charts'
   if (type === 'resource') return 'Assets/Resources'
   if (type === 'behaviorTree' || type === 'stateMachine') return 'Assets/AI'
   if (type === 'tilePalette') return 'Assets/TilePalettes'
@@ -111,7 +112,7 @@ export function appendNormalizedAssetRecords(source: unknown, target: AssetRecor
     const knownFields = new Set(['uuid', 'name', 'path', 'assetType', 'mimeType', 'byteLength', 'source', 'sourceModified', 'importedAt', 'width', 'height', 'duration', 'fontFamily', 'settings', 'script', 'animationImport', 'interchange', 'derivedSprite', 'pipeline', 'tags', 'collectionIds', 'contentGroup', 'editorOnly', 'sourceControlStatus', 'thumbnailKey', 'unknownFields'])
     const inheritedUnknown = item.unknownFields && typeof item.unknownFields === 'object' ? item.unknownFields : {}
     const unknownFields = { ...inheritedUnknown, ...Object.fromEntries(Object.entries(value).filter(/* 返回 knownFields.has(key) 的逻辑取反结果。 */ ([key]) => !knownFields.has(key))) }
-    const assetType = ['image', 'audio', 'font', 'scene', 'prefab', 'script', 'material', 'animation', 'controller', 'animationMask', 'rig', 'skin', 'timeline', 'tileset', 'atlas', 'shader', 'localization', 'uiTheme', 'behaviorTree', 'stateMachine', 'tilePalette', 'brushPreset', 'terrainRules', 'dataSchema', 'dataTable', 'replay', 'path', 'particleSystem', 'visualScript', 'eventSheet', 'objectBlueprint', 'other', 'resource'].includes(String(item.assetType)) ? item.assetType as AssetType : 'other'
+    const assetType = ['image', 'audio', 'font', 'scene', 'prefab', 'script', 'material', 'animation', 'controller', 'animationMask', 'rig', 'skin', 'timeline', 'tileset', 'atlas', 'shader', 'localization', 'uiTheme', 'behaviorTree', 'stateMachine', 'tilePalette', 'brushPreset', 'terrainRules', 'dataSchema', 'dataTable', 'replay', 'path', 'particleSystem', 'visualScript', 'eventSheet', 'objectBlueprint', 'other', 'resource', 'chart'].includes(String(item.assetType)) ? item.assetType as AssetType : 'other'
     const uuid = capabilities.normalizeUuid(item.uuid)
     const defaults = defaultImportSettings()
     const settings: AssetImportSettings = {

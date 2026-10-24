@@ -1,8 +1,8 @@
 # Nova_A
 
-Nova_A is an open-source 2D physics and game engine with a visual editor. It combines Rust and WebAssembly for simulation and scripting, a custom TypeScript renderer, and a Vue 3 editor packaged with Tauri.
+Nova_A is an open-source rhythm-game engine with a visual editor. It combines Rust and WebAssembly for timing, judgement, simulation and scripting, a custom TypeScript renderer, and a Vue 3 editor packaged with Tauri.
 
-Build physics experiments, platformers, top-down games, animated scenes and interactive 2D interfaces. Work with scenes and components, write Rhai scripts, or use the visual scripting tools.
+Make rhythm games of your own design: charts play on the audio clock and judge every input by its own time; the note types, how they are judged and what moves with the music belong to your game. The 2D engine underneath (scenes, components, physics, Rhai scripts and visual scripting) stays available for everything around the chart. The plan for the next versions is in the [rhythm-engine roadmap](./docs/ROADMAP_RHYTHM_ENGINE.md).
 
 [中文介绍](./README.zh-CN.md) · [30-minute quick start](./docs/QUICKSTART_26_42.en.md) · [User manual](./manual/index.html) · [Example projects](./reference-projects/README.md) · [MIT license](./LICENSE.md)
 
@@ -10,6 +10,7 @@ Build physics experiments, platformers, top-down games, animated scenes and inte
 
 | Area | Tools |
 | --- | --- |
+| Rhythm games | Rhythm Chart 2D (falling lanes or moving judgement lines), the chart's own note types (prefab notes, script-judged notes, own windows and score weights), a master timeline that animates objects, the camera and post-processing on the beat, triggers, audio-clock timing with audio and picture calibration, and a chart editor. |
 | Scenes and objects | Hierarchy, transforms, multi-selection, reusable scenes and prefabs, component Inspector, snapping and viewport tools. |
 | 2D physics | Rust simulation with bodies, colliders (boxes, circles, capsules, convex and concave polygons), sensors, character controllers, joints (including wheel and target joints), ropes, buoyancy and force areas, conveyor surfaces, collision layers and spatial queries. |
 | Rendering | Nova_A's own renderer, with WebGL2 as the compatibility baseline; sprites, cameras, TileMaps, materials, lights and particles. |
@@ -33,7 +34,7 @@ Choose a packaged version from [the release folders](./releases/) and follow its
 
 Nova Player runs exported games. Content is stored in a versioned `game.nova-pak`; supported desktop outputs offer a separate resource package or an executable with embedded game data. Native exports require the matching host and Player template. Serve Web exports over HTTP.
 
-The current upgrade targets Windows x86-64, Linux x86-64 and Web. Target availability and tested combinations are recorded with each release; the [engineering tracker](./docs/RUNTIME_STAGE.md) covers ongoing work. Historical platform options do not imply qualification for the current version.
+The current upgrade targets Windows x86-64, Linux x86-64 and Web. Target availability and tested combinations are recorded with each release; the current development plan (`docs/DEV_PLAN_<version>.md`) covers ongoing work. Historical platform options do not imply qualification for the current version.
 
 ## Learn Nova_A
 
@@ -105,7 +106,7 @@ These commands check TypeScript, run the Rust workspace tests, lint Rust code an
 | `reference-projects/` | Example projects and tutorials. |
 | `releases/` | Packaged versions (not in Git): release notes, evidence and checksums. |
 
-Rust modules provide the simulation, physics, scripting and format foundations. The editor uses Vue 3; game rendering uses Nova_A's custom renderer. Editor/Runtime/Player separation and related migration details are documented in the engineering tracker.
+Rust modules provide the simulation, physics, scripting and format foundations. The editor uses Vue 3; game rendering uses Nova_A's custom renderer. Editor/Runtime/Player separation is enforced by `scripts/audit-engine-boundaries.mjs`; the capability catalog and feature matrix under `docs/engine/` describe the modules.
 
 Projects use versioned schemas and stable object/resource identities. Supported older formats migrate through the project-format tools; consult the manual before changing a project's format or opening it with an older engine.
 
@@ -113,7 +114,7 @@ Projects use versioned schemas and stable object/resource identities. Supported 
 
 Read the relevant engineering documents under `docs/` before changing architecture or runtime contracts: Runtime, Renderer and Player code must not depend on the editor or Vue stores. Keep changes focused, protect existing projects and run checks covering the affected behavior. Include reproduction steps and platform information when reporting a bug.
 
-Release history belongs in the version records under `docs/` (`RELEASE_NOTES_<version>.md`, `EDIT_LEDGER_<version>.md`, `DEV_PLAN_<version>.md`); implementation progress belongs in [the engineering tracker](./docs/RUNTIME_STAGE.md).
+The current version's records are under `docs/` (`DEV_PLAN_<version>.md` for plan and status, `EDIT_LEDGER_<version>.md` for every changed file, `RELEASE_NOTES_<version>.md`, `WEB_HOSTING_<version>.md`). Earlier versions' records stay in Git history and in each release's archive; the manual's release chapters summarise them.
 
 ## License
 

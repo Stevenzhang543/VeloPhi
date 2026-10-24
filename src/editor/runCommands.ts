@@ -2,7 +2,7 @@
  * UI 只调用这里的函数，不得再自行拼接播放/单步/停止的顺序（§22.2）。 */
 import { addEditorLog, editorState } from '../store/editor'
 import { physicsState as state, stopPlayMode, toggleSimulation } from '../store/physics'
-import { gameplayRuntime } from '../runtime/GameplayRuntime'
+import { gameplayRuntime } from './gameplayRuntime'
 import { t } from '../i18n'
 import { executePause, executePlay, executeStep, executeStop, type PlayMode, type RunCommandPorts } from './runCommandSequence'
 

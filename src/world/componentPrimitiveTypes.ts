@@ -247,6 +247,101 @@ export const componentPrimitiveTypes: Readonly<Record<string, Readonly<Record<st
       "boolean"
     ]
   },
+  "RhythmChart2D": {
+    "enabled": [
+      "boolean"
+    ],
+    "chartAsset": [
+      "null",
+      "string"
+    ],
+    "audioAsset": [
+      "null",
+      "string"
+    ],
+    "playOnStart": [
+      "boolean"
+    ],
+    "botPlay": [
+      "boolean"
+    ],
+    "leadInSeconds": [
+      "number"
+    ],
+    "unitScale": [
+      "number"
+    ],
+    "scrollSpeed": [
+      "number"
+    ],
+    "laneWidth": [
+      "number"
+    ],
+    "judgeY": [
+      "number"
+    ],
+    "hitWidth": [
+      "number"
+    ],
+    "flickSpeed": [
+      "number"
+    ],
+    "perfectMs": [
+      "number"
+    ],
+    "greatMs": [
+      "number"
+    ],
+    "goodMs": [
+      "number"
+    ],
+    "badMs": [
+      "number"
+    ],
+    "offsetMs": [
+      "number"
+    ],
+    "volume": [
+      "number"
+    ],
+    "bus": [
+      "string"
+    ],
+    "hitSound": [
+      "boolean"
+    ],
+    "hitSoundAsset": [
+      "null",
+      "string"
+    ],
+    "hitSoundVolume": [
+      "number"
+    ],
+    "laneKeys": [
+      "string"
+    ],
+    "showLanes": [
+      "boolean"
+    ],
+    "showJudgements": [
+      "boolean"
+    ],
+    "showCombo": [
+      "boolean"
+    ],
+    "hitEffects": [
+      "boolean"
+    ],
+    "showErrorBar": [
+      "boolean"
+    ],
+    "sortingLayer": [
+      "number"
+    ],
+    "orderInLayer": [
+      "number"
+    ]
+  },
   "AudioSource": {
     "enabled": [
       "boolean"
@@ -1468,6 +1563,18 @@ export const componentPrimitiveTypes: Readonly<Record<string, Readonly<Record<st
     ],
     "initialized": [
       "boolean"
+    ],
+    "servoEnabled": [
+      "boolean"
+    ],
+    "servoTarget": [
+      "number"
+    ],
+    "servoGain": [
+      "number"
+    ],
+    "servoMaxSpeed": [
+      "number"
     ]
   },
   "WeldJoint2D": {
@@ -1531,6 +1638,18 @@ export const componentPrimitiveTypes: Readonly<Record<string, Readonly<Record<st
     ],
     "initialized": [
       "boolean"
+    ],
+    "servoEnabled": [
+      "boolean"
+    ],
+    "servoTarget": [
+      "number"
+    ],
+    "servoGain": [
+      "number"
+    ],
+    "servoMaxSpeed": [
+      "number"
     ]
   },
   "DistanceJoint2D": {
@@ -1594,6 +1713,18 @@ export const componentPrimitiveTypes: Readonly<Record<string, Readonly<Record<st
     ],
     "initialized": [
       "boolean"
+    ],
+    "servoEnabled": [
+      "boolean"
+    ],
+    "servoTarget": [
+      "number"
+    ],
+    "servoGain": [
+      "number"
+    ],
+    "servoMaxSpeed": [
+      "number"
     ]
   },
   "RopeJoint2D": {
@@ -1657,6 +1788,18 @@ export const componentPrimitiveTypes: Readonly<Record<string, Readonly<Record<st
     ],
     "initialized": [
       "boolean"
+    ],
+    "servoEnabled": [
+      "boolean"
+    ],
+    "servoTarget": [
+      "number"
+    ],
+    "servoGain": [
+      "number"
+    ],
+    "servoMaxSpeed": [
+      "number"
     ]
   },
   "RevoluteJoint2D": {
@@ -1720,6 +1863,18 @@ export const componentPrimitiveTypes: Readonly<Record<string, Readonly<Record<st
     ],
     "initialized": [
       "boolean"
+    ],
+    "servoEnabled": [
+      "boolean"
+    ],
+    "servoTarget": [
+      "number"
+    ],
+    "servoGain": [
+      "number"
+    ],
+    "servoMaxSpeed": [
+      "number"
     ]
   },
   "MotorJoint2D": {
@@ -1783,6 +1938,18 @@ export const componentPrimitiveTypes: Readonly<Record<string, Readonly<Record<st
     ],
     "initialized": [
       "boolean"
+    ],
+    "servoEnabled": [
+      "boolean"
+    ],
+    "servoTarget": [
+      "number"
+    ],
+    "servoGain": [
+      "number"
+    ],
+    "servoMaxSpeed": [
+      "number"
     ]
   },
   "PrismaticJoint2D": {
@@ -1846,6 +2013,18 @@ export const componentPrimitiveTypes: Readonly<Record<string, Readonly<Record<st
     ],
     "initialized": [
       "boolean"
+    ],
+    "servoEnabled": [
+      "boolean"
+    ],
+    "servoTarget": [
+      "number"
+    ],
+    "servoGain": [
+      "number"
+    ],
+    "servoMaxSpeed": [
+      "number"
     ]
   },
   "SpringJoint2D": {
@@ -1909,6 +2088,18 @@ export const componentPrimitiveTypes: Readonly<Record<string, Readonly<Record<st
     ],
     "initialized": [
       "boolean"
+    ],
+    "servoEnabled": [
+      "boolean"
+    ],
+    "servoTarget": [
+      "number"
+    ],
+    "servoGain": [
+      "number"
+    ],
+    "servoMaxSpeed": [
+      "number"
     ]
   },
   "WheelJoint2D": {
@@ -1972,6 +2163,18 @@ export const componentPrimitiveTypes: Readonly<Record<string, Readonly<Record<st
     ],
     "initialized": [
       "boolean"
+    ],
+    "servoEnabled": [
+      "boolean"
+    ],
+    "servoTarget": [
+      "number"
+    ],
+    "servoGain": [
+      "number"
+    ],
+    "servoMaxSpeed": [
+      "number"
     ]
   },
   "TargetJoint2D": {

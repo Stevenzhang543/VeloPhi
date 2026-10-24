@@ -41,7 +41,7 @@ const safeDesignLayout: WorkspaceLayout = {
   bottomPanelOpen: false, bottomPanelTab: 'assets', bottomPanelHeight: 280,
   hierarchyWidth: 280, inspectorWidth: 380, hierarchyDock: 'left', inspectorDock: 'right',
   hierarchyPinned: true, inspectorPinned: true, bottomPanelPinned: true,
-  panelOrder: ['hierarchy', 'inspector'], bottomTabOrder: ['assets', 'console', 'animation', 'audio', 'worldProduction', 'networkStudio', 'ecosystem', 'profiler', 'tilemap'],
+  panelOrder: ['hierarchy', 'inspector'], bottomTabOrder: ['assets', 'console', 'animation', 'audio', 'worldProduction', 'networkStudio', 'ecosystem', 'profiler', 'tilemap', 'chart'],
   floatingPanels: [], splitDocking: false
 }
 
@@ -75,7 +75,7 @@ export const workspaceState = reactive({
   hierarchyPinned: true,
   inspectorPinned: true,
   panelOrder: ['hierarchy', 'inspector'] as Array<'hierarchy' | 'inspector'>,
-  bottomTabOrder: ['assets', 'console', 'animation', 'audio', 'worldProduction', 'networkStudio', 'ecosystem', 'profiler', 'tilemap'] as BottomPanelTab[],
+  bottomTabOrder: ['assets', 'console', 'animation', 'audio', 'worldProduction', 'networkStudio', 'ecosystem', 'profiler', 'tilemap', 'chart'] as BottomPanelTab[],
   floatingPanels: [] as Array<'hierarchy' | 'inspector'>,
   splitDocking: false
 })
@@ -86,7 +86,7 @@ const V4_STORAGE_KEY = 'nova-a-editor-workspaces-v2'
 const LEGACY_STORAGE_KEY = 'nova-a-editor-layout-v1'
 const MAX_CUSTOM_WORKSPACES = 24
 const PAGES = new Set<EditorPage>(['scene', 'game', 'script', 'settings', 'manage'])
-const BOTTOM_TABS = new Set<BottomPanelTab>(['assets', 'packages', 'console', 'animation', 'audio', 'worldProduction', 'networkStudio', 'ecosystem', 'tilemap', 'presentation', 'profiler', 'rendering', 'project', 'build'])
+const BOTTOM_TABS = new Set<BottomPanelTab>(['assets', 'packages', 'console', 'animation', 'audio', 'worldProduction', 'networkStudio', 'ecosystem', 'tilemap', 'chart', 'presentation', 'profiler', 'rendering', 'project', 'build'])
 let initialized = false
 const rememberedLayouts = new Map<EditorWorkspace, WorkspaceLayout>()
 

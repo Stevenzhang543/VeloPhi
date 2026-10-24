@@ -21,7 +21,9 @@ const requiredRules = [
   'release-audits/', 'stage*/', '*.tsbuildinfo', '*.tmp', '*.temp', 'nova_core/target/',
   '/target/', '/src-tauri/target/', '/src-tauri/gen/', '/releases/', '/instructions.txt',
   '.env', '.env.*', '.vscode', '.idea', '.DS_Store', 'Thumbs.db', 'Desktop.ini',
-  '.nova-build-cache/', '/reports/', '/*.exe', '/build-info.json', '/nova-*.json', '/symbols/', '/godot-master'
+  '.nova-build-cache/', '/reports/', '/*.exe', '/build-info.json', '/nova-*.json', '/symbols/', '/godot-master',
+  // 26.46: a game exported into any folder inside the repository stays out of Git too.
+  '*.exe', 'build-info.json', 'nova-build-*.json', 'game.nova-pak'
 ]
 for (const rule of requiredRules) assert(activeRules.has(rule), '.gitignore is missing required transient/private rule: ' + rule)
 assert(rules.includes('!.env.example'), '.gitignore must retain the documented environment example')
@@ -96,6 +98,10 @@ const ignoredExamples = [
   'test-results/layout.json',
   'scratch.tmp',
   'My Game.exe',
+  'test/My Game.exe',
+  'exports/web/game.nova-pak',
+  'exports/nova-build-report.json',
+  'exports/nova-content-manifest.json',
   'nova-build-report.json',
   'build-info.json',
   'symbols/game.pdb',

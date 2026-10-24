@@ -39,7 +39,7 @@ export type { ParsedNovaPak } from './novaPakReader'
 
 /** 结构说明（自动提取）：safePackagePath；输入 value；直接调用 replace、value.replace、some、normalized.split、Error；返回路径包含 normalized；包含显式抛错路径。 */ /* Shared safePackagePath implementation is imported above; no second package-read algorithm. */
 
-const INLINE_TEXT_ASSET_TYPES = new Set(['script', 'prefab', 'scene', 'material', 'animation', 'controller', 'animationMask', 'rig', 'skin', 'timeline', 'tileset', 'atlas', 'shader', 'localization', 'uiTheme', 'behaviorTree', 'stateMachine', 'tilePalette', 'brushPreset', 'terrainRules', 'dataSchema', 'dataTable', 'replay', 'resource'])
+const INLINE_TEXT_ASSET_TYPES = new Set(['script', 'prefab', 'scene', 'material', 'animation', 'controller', 'animationMask', 'rig', 'skin', 'timeline', 'tileset', 'atlas', 'shader', 'localization', 'uiTheme', 'behaviorTree', 'stateMachine', 'tilePalette', 'brushPreset', 'terrainRules', 'dataSchema', 'dataTable', 'replay', 'resource', 'chart'])
 
 /** 结构说明（自动提取）：assetBytes；输入 asset；直接调用 Error、INLINE_TEXT_ASSET_TYPES.has、asset.mimeType.startsWith、asset.mimeType.includes、test 等；等待异步结果；包含显式抛错路径。 */ async function assetBytes(asset: AssetRecord): Promise<Uint8Array> {
   if (!asset.source) throw new Error(`Asset ${asset.name} has no imported source data`)

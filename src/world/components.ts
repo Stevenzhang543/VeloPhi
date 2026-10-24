@@ -70,6 +70,7 @@ export type ComponentKind =
   | JointKind2D
   | 'TargetJoint2D'
   | 'Rope2D'
+  | 'RhythmChart2D'
 
 export interface Component2D {
   readonly uuid: string
@@ -259,6 +260,70 @@ export class TimelinePlayer extends ComponentBase {
   variables: Record<string, string | number | boolean> = {}
 
   /** 初始化 TimelinePlayer 实例时调用 super(uuid)；不显式返回调用结果。 */ constructor(uuid?: string) { super(uuid) }
+}
+
+/** 26.46: what a rhythm chart is doing (runtime only). */
+export type RhythmPlayState = 'idle' | 'loading' | 'playing' | 'paused' | 'finished' | 'error'
+
+/** 26.46: plays a rhythm chart (a `chart` asset) on this object: lanes or moving judgement lines, the
+ * song in sync with the audio clock, judgement of timed input, combo and score. Chart units are scaled by
+ * `unitScale` and placed with the object's transform. */
+export class RhythmChart2D extends ComponentBase {
+  readonly kind = 'RhythmChart2D' as const
+  chartAsset: string | null = null
+  /** Overrides the chart's own audio. */
+  audioAsset: string | null = null
+  playOnStart = true
+  /** The chart plays itself (demos, testing a chart). */
+  botPlay = false
+  /** Seconds before beat 0 when play starts, so the first notes can be seen coming. */
+  leadInSeconds = 2
+  unitScale = 1
+  /** Chart units a note travels per second at speed 1. */
+  scrollSpeed = 8
+  laneWidth = 1.6
+  judgeY = -3.5
+  hitWidth = 1.6
+  flickSpeed = 18
+  perfectMs = 45
+  greatMs = 90
+  goodMs = 135
+  badMs = 180
+  /** Added to the chart's offset (positive: notes later). The player's own calibration is added at run time. */
+  offsetMs = 0
+  volume = 1
+  // A string-typed constant: a literal initializer here would reorder the generated enum tables.
+  bus: string = RHYTHM_DEFAULT_BUS
+  hitSound = true
+  hitSoundAsset: string | null = null
+  hitSoundVolume = 0.5
+  /** Lane keys separated by commas ("D,F,J,K"); empty uses the default for the lane count. */
+  laneKeys = ''
+  showLanes = true
+  showJudgements = true
+  showCombo = true
+  hitEffects = true
+  /** 26.47: a bar under the judgement line showing how early or late the recent hits were. */
+  showErrorBar = false
+  noteColor = { r: 120, g: 200, b: 255 }
+  holdColor = { r: 255, g: 205, b: 110 }
+  dragColor = { r: 255, g: 236, b: 128 }
+  flickColor = { r: 255, g: 110, b: 150 }
+  lineColor = { r: 245, g: 248, b: 255 }
+  laneColor = { r: 34, g: 44, b: 72 }
+  sortingLayer = 10
+  orderInLayer = 0
+  // Runtime only (not saved).
+  state: RhythmPlayState = 'idle'
+  lastError: string | null = null
+  runtimeSongTime = 0
+  runtimeScore = 0
+  runtimeCombo = 0
+  runtimeMaxCombo = 0
+  runtimeAccuracy = 1
+  runtimeJudgement = ''
+
+  /** 初始化 RhythmChart2D 实例时调用 super(uuid)；不显式返回调用结果。 */ constructor(uuid?: string) { super(uuid) }
 }
 
 export type AudioBus = string
@@ -992,6 +1057,13 @@ export class Joint2D extends ComponentBase {
   referenceOffset: Vec2 = { x: 0, y: 0 }
   referenceAngle = 0
   initialized = false
+  /** 26.46 servo (revolute, prismatic): drive the motor towards servoTarget (degrees, or units along the axis). */
+  servoEnabled = false
+  servoTarget = 0
+  /** Motor speed per unit of error (1/s). */
+  servoGain = 8
+  /** Fastest servo motion (rad/s for revolute joints, units/s for prismatic joints). */
+  servoMaxSpeed = 6
 
   /** 初始化组件 UUID 并保存具体关节种类。 */ constructor(kind: JointKind2D, uuid?: string) {
     super(uuid)
@@ -1115,7 +1187,7 @@ export type EntityComponent =
   | TileMap2D | CharacterBody2D | Area2D | AreaEffector2D | NavigationRegion2D | NavigationObstacle2D | NavigationAgent2D | TargetJoint2D
   | BehaviorTree2D | StateMachine2D | GridMover2D | PlatformController2D | TopDownController2D | Health2D | DamageHitbox2D
   | Collectible2D | Projectile2D | Spawner2D | Cooldown2D | Lifetime2D | MouseFollower2D | CameraFollow2D | WorldChunk2D | Portal2D | ObjectPool2D
-  | ParticleEmitter2D | Light2D | ShadowCaster2D | Joint2D | RigidBody2D | Collider2D
+  | ParticleEmitter2D | Light2D | ShadowCaster2D | Joint2D | RigidBody2D | Collider2D | RhythmChart2D
 
 /** 保留 undefined，否则通过 JSON 深拷贝生成独立的持久化值。 */ function clonePersistedValue<T>(value: T): T {
   if (value === undefined) return value
@@ -1126,7 +1198,7 @@ export type EntityComponent =
   const values: Record<string, unknown> = {}
   for (const [key, value] of Object.entries(component)) {
     if (key === 'uuid' || key === 'kind' || key === 'removed' || key === 'textureImage' || key === 'lastError' || key === 'state'
-      || ['requestedMotion', 'motionVelocity', 'onFloor', 'onWall', 'onCeiling', 'floorNormal', 'wallNormal', 'ceilingNormal', 'platformVelocity', 'secondsSinceFloor', 'path', 'pathIndex', 'velocity', 'pathStatus', 'currentNode', 'currentState', 'activeCount', 'runtimeCooldown', 'runtimeInvulnerability', 'runtimeRemaining', 'runtimeStarted', 'runtimeSpawned', 'runtimeReady', 'runtimeLifetime'].includes(key)) continue
+      || ['requestedMotion', 'motionVelocity', 'onFloor', 'onWall', 'onCeiling', 'floorNormal', 'wallNormal', 'ceilingNormal', 'platformVelocity', 'secondsSinceFloor', 'path', 'pathIndex', 'velocity', 'pathStatus', 'currentNode', 'currentState', 'activeCount', 'runtimeCooldown', 'runtimeInvulnerability', 'runtimeRemaining', 'runtimeStarted', 'runtimeSpawned', 'runtimeReady', 'runtimeLifetime', 'runtimeSongTime', 'runtimeScore', 'runtimeCombo', 'runtimeMaxCombo', 'runtimeAccuracy', 'runtimeJudgement'].includes(key)) continue
     values[key] = clonePersistedValue(value)
   }
   return values
@@ -1140,3 +1212,6 @@ export type EntityComponent =
     if (Object.prototype.hasOwnProperty.call(target, key)) target[key] = component instanceof Joint2D && (key === 'breakForce' || key === 'breakTorque') ? normalizeJointBreakThreshold(value) : value
   }
 }
+
+/** 26.46: the mixer bus a new RhythmChart2D plays its song on. */
+export const RHYTHM_DEFAULT_BUS: string = 'Music'

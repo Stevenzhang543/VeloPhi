@@ -1679,6 +1679,11 @@ fn runtime_project_document(pack: &[u8]) -> Result<serde_json::Value, String> {
     if original_length == 0 || original_length > MAX_RUNTIME_PROJECT_BYTES {
         return Err("The project.nova authority exceeds the 64 MiB runtime limit.".into());
     }
+    // 26.46: project.nova is one of the entries the preflight summed; a larger value means the index and the
+    // validated row disagree (this also gives the validated total a reader, which removed a build warning).
+    if original_length as u64 > validated_index.declared_decoded_bytes {
+        return Err("The project.nova length disagrees with the validated package index.".into());
+    }
     let data_start = 16_usize
         .checked_add(index_length)
         .ok_or("The runtime package data offset overflowed.")?;

@@ -118,7 +118,7 @@ import { t } from '../../i18n'
 import { assetGuid, assetReference, assetState, createTextAsset, readTextAsset, updateTextAsset } from '../../assets/AssetDatabase'
 import { physicsState, pushHistory, sceneManager } from '../../store/physics'
 import { addEditorLog } from '../../store/editor'
-import { gameplayRuntime } from '../../runtime/GameplayRuntime'
+import { gameplayRuntime } from '../../editor/gameplayRuntime'
 import { scriptDebugState } from '../../runtime/scriptDebug'
 import { Script2D } from '../../world/components'
 

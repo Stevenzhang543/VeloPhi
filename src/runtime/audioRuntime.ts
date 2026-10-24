@@ -7,7 +7,10 @@ import {finiteNumber} from '../world/geometry'
 import {worldTransform} from '../world/hierarchy'
 import {defaultAudioSettings,normalizeAudioSettings,clamp,seededVariation} from './audioDocuments'
 import type {AudioMixerEffect,AudioMixerBusSettings,AudioProjectSettings} from './audioSettingsContracts'
-import type {TimelineAudioVoiceRequest,AudioTransportTime,AudioRuntimeDiagnostics,AudioRuntimeCapabilities} from './audioRuntimeContracts'
+import type {TimelineAudioVoiceRequest,AudioTransportTime,AudioRuntimeDiagnostics,AudioRuntimeCapabilities,RhythmAudioBuffer,RhythmAudioPort,RhythmAudioVoice} from './audioRuntimeContracts'
+/** 26.46 rhythm songs are decoded whole (sample-accurate scheduling); limits for the compressed file and the decoded PCM. */
+export const MAX_RHYTHM_AUDIO_BYTES=64*1024*1024
+export const MAX_RHYTHM_DECODED_BYTES=256*1024*1024
 interface ActiveAudio {
   reference: string
   bus: string
@@ -284,7 +287,7 @@ export class AudioRuntime {
     active.element.pause(); active.element.currentTime = Math.min(maximum, Math.max(active.loopStart, seconds)); active.manuallyPaused = true;active.completed=false;this.voicePositions.delete(active); return true
   }
   /** 结构说明（自动提取）：playbackTime；输入 entity；直接调用 entity.getComponent、active.get。 */ playbackTime(entity: Entity): number | null { const component = entity.getComponent<AudioSource>('AudioSource'), active = component ? this.active.get(component.uuid) : null; return active ? active.element.currentTime : null }
-  /** 结构说明（自动提取）：stopAll；无显式参数；直接调用 timelineVoices.keys、releaseTimelineVoice、active.keys、release、polyphonic.keys 等；写入 diagnostics.voiceClocks；包含循环处理。 */ stopAll(): void { for(const key of [...this.timelineVoices.keys()])this.releaseTimelineVoice(key);this.diagnostics.voiceClocks={};for (const uuid of [...this.active.keys()]) this.release(uuid); for (const uuid of [...this.polyphonic.keys()]) this.releasePolyphonic(uuid); for(const key of [...this.uiVoices.keys()])this.releaseUiVoice(key);this.voicePositions.clear() }
+  /** 结构说明（自动提取）：stopAll；无显式参数；直接调用 timelineVoices.keys、releaseTimelineVoice、active.keys、release、polyphonic.keys 等；写入 diagnostics.voiceClocks；包含循环处理。 */ stopAll(): void { this.stopRhythmVoices();for(const key of [...this.timelineVoices.keys()])this.releaseTimelineVoice(key);this.diagnostics.voiceClocks={};for (const uuid of [...this.active.keys()]) this.release(uuid); for (const uuid of [...this.polyphonic.keys()]) this.releasePolyphonic(uuid); for(const key of [...this.uiVoices.keys()])this.releaseUiVoice(key);this.voicePositions.clear() }
 
   /** Independent keyed voices share the mixer, spatialization and authoritative timeline sample clock. */
   /** 结构说明（自动提取）：reconcileTimelineVoices；输入 requests、entities；直接调用 Set、entities.find、worldTransform、ensureContext、configureMixerGraph 等；写入 entry、element.preload、voice、voice.bus 等；返回路径包含 diagnostics；包含循环处理。 */ reconcileTimelineVoices(requests:readonly TimelineAudioVoiceRequest[],entities:Entity[]):Array<{key:string;message:string}>{
@@ -384,6 +387,71 @@ export class AudioRuntime {
     return key!==null
   }
   stopMusic(fade=0):boolean{const key=this.musicKey,voice=key?this.uiVoices.get(key):undefined;if(!key||!voice)return false;this.fadeOutUiVoice(key,voice,fade);this.musicKey=null;return true}
+  /** 26.46 rhythm voices (AudioBufferSourceNode), stopped with stopAll(). */
+  private rhythmVoices=new Set<{node:AudioBufferSourceNode;gain:GainNode;voice:RhythmAudioVoice}>()
+  private rhythmClick:{sampleRate:number;buffer:RhythmAudioBuffer}|null=null
+  private rhythmPortValue:RhythmAudioPort|null=null
+  /** 26.46: the audio clock and sample-accurate scheduling for rhythm charts (see RhythmAudioPort). */
+  rhythmPort():RhythmAudioPort{
+    if(this.rhythmPortValue)return this.rhythmPortValue
+    const runtime=this
+    const latency=():number=>{const context=runtime.context as (AudioContext&{outputLatency?:number})|null;if(!context)return 0;const base=Number.isFinite(context.baseLatency)?context.baseLatency:0,output=Number.isFinite(context.outputLatency)?context.outputLatency!:0;return Math.max(0,Math.min(1,base+output))}
+    const wrap=(buffer:AudioBuffer):RhythmAudioBuffer=>({duration:buffer.duration,sampleRate:buffer.sampleRate,channels:buffer.numberOfChannels,native:buffer})
+    this.rhythmPortValue={
+      state:()=>runtime.context?.state??'unavailable',
+      resume:async()=>{runtime.ensureContext();const context=runtime.context;if(!context)return false;try{if(context.state==='suspended')await context.resume()}catch{return false}return context.state==='running'},
+      contextTime:()=>runtime.context?.currentTime??null,
+      heardContextTime:(performanceMs:number)=>{
+        const context=runtime.context;if(!context)return null
+        const delay=latency()
+        if(context.state!=='running')return context.currentTime-delay
+        const stamp=typeof context.getOutputTimestamp==='function'?context.getOutputTimestamp():null
+        if(stamp&&Number.isFinite(stamp.contextTime)&&Number.isFinite(stamp.performanceTime)&&(stamp.performanceTime??0)>0&&(stamp.contextTime??0)>0){
+          const heard=stamp.contextTime!+(performanceMs-stamp.performanceTime!)/1000
+          // A stale stamp (some hosts update it only per render quantum or not at all) must not run ahead of the clock.
+          if(Math.abs(heard-(context.currentTime-delay))<.25)return heard
+        }
+        return context.currentTime-delay+(performanceMs-runtime.capabilities.platform.nowMilliseconds())/1000
+      },
+      latency,
+      decode:async(reference)=>{
+        const asset=runtime.capabilities.resources.resolveAsset(reference);if(!asset||asset.assetType!=='audio'||!asset.source)return null
+        runtime.ensureContext();const context=runtime.context;if(!context)return null
+        const generation=runtime.lifecycleGeneration,controller=runtime.capabilities.platform.createReadAbortController()
+        try{
+          const bytes=await runtime.capabilities.platform.readAudioBytes(asset.source,MAX_RHYTHM_AUDIO_BYTES,controller.signal)
+          if(generation!==runtime.lifecycleGeneration)return null
+          const buffer=await context.decodeAudioData(bytes)
+          if(buffer.length*buffer.numberOfChannels*4>MAX_RHYTHM_DECODED_BYTES)throw new Error('AUDIO_CLIP_LIMIT: The song decodes to more than 256 MiB (about 12 minutes of stereo 48 kHz).')
+          return generation===runtime.lifecycleGeneration?wrap(buffer):null
+        }catch(error){if(generation===runtime.lifecycleGeneration)runtime.reportFailure('decode rhythm audio',error,'Use an OGG, MP3 or WAV song shorter than 12 minutes.');return null}
+      },
+      click:()=>{
+        runtime.ensureContext();const context=runtime.context;if(!context)return null
+        if(runtime.rhythmClick?.sampleRate===context.sampleRate)return runtime.rhythmClick.buffer
+        const length=Math.round(context.sampleRate*.045),buffer=context.createBuffer(1,length,context.sampleRate),data=buffer.getChannelData(0)
+        // A bright, short tick: two partials with a fast exponential decay and a 1 ms attack (no click artefact).
+        for(let index=0;index<length;index++){const t=index/context.sampleRate,envelope=Math.min(1,t/.001)*Math.exp(-t*90);data[index]=envelope*(.62*Math.sin(2*Math.PI*1760*t)+.28*Math.sin(2*Math.PI*3520*t+.6))}
+        runtime.rhythmClick={sampleRate:context.sampleRate,buffer:wrap(buffer)};return runtime.rhythmClick.buffer
+      },
+      start:(buffer,when,offset,options={})=>{
+        runtime.ensureContext();runtime.configureMixerGraph();const context=runtime.context;if(!context||!Number.isFinite(when)||!Number.isFinite(offset))return null
+        const node=context.createBufferSource(),gain=context.createGain()
+        node.buffer=buffer.native;gain.gain.value=clamp(options.volume??1,1,0,4)
+        node.connect(gain).connect(runtime.busInputs.get(options.bus??'Music')??runtime.busInputs.get('Master')??runtime.master??context.destination)
+        let ended=false
+        const entry={node,gain,voice:null as unknown as RhythmAudioVoice}
+        const finish=()=>{if(ended)return;ended=true;try{node.disconnect();gain.disconnect()}catch{ /* Already disconnected. */ }runtime.rhythmVoices.delete(entry)}
+        node.onended=finish
+        const start=Math.max(context.currentTime,when),skipped=Math.max(0,start-when)
+        try{node.start(start,Math.max(0,Math.min(buffer.duration,offset+skipped)))}catch(error){finish();runtime.reportFailure('schedule rhythm audio',error,'Retry; the audio context may have been closed.');return null}
+        entry.voice={startContextTime:start,startOffset:Math.max(0,offset+skipped),get ended(){return ended},stop:(at?:number)=>{if(ended)return;try{node.stop(Math.max(context.currentTime,at??0))}catch{finish()}if(at===undefined||at<=context.currentTime)finish()},setVolume:volume=>{gain.gain.value=clamp(volume,1,0,4)}}
+        runtime.rhythmVoices.add(entry);return entry.voice
+      }
+    }
+    return this.rhythmPortValue
+  }
+  private stopRhythmVoices():void{for(const entry of [...this.rhythmVoices])entry.voice.stop();this.rhythmVoices.clear()}
   /** set_bus_volume(bus, volume): runtime multiplier on the authored bus gain, reset when play starts. */
   setBusVolume(bus:string,volume:number):boolean{
     if(!this.settings.mixer.buses.some(item=>item.id===bus))return false

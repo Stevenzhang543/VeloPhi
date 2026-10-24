@@ -37,12 +37,22 @@ release-audits/
 /releases/
 stage*/
 
-# Game exports written into the repository folder (Build Settings output)
+# Game exports written into the repository folder or any folder inside it (Build Settings output)
 /*.exe
+*.exe
 /build-info.json
+build-info.json
+nova-build-*.json
+nova-content-manifest.json
+nova-dependency-report.json
+nova-deployment-manifest.json
+nova-patch-manifest.json
+nova-platform-config.json
+nova-sbom.cdx.json
+symbols/nova-symbol-map.json
+game.nova-pak
 /nova-*.json
 /symbols/
-/game.nova-pak
 
 # Temporary files
 *.tmp

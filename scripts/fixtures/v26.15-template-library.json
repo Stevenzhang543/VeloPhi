@@ -1,6 +1,9 @@
 {
   "version": 1,
   "ids": [
+    "rhythm-lab",
+    "rhythm-lanes",
+    "rhythm-lines",
     "empty",
     "physics-sandbox",
     "platformer",

@@ -9,7 +9,7 @@ import { CircleEntity } from '../world/CircleEntity'
 import { TriangleEntity } from '../world/TriangleEntity'
 import { finiteNumber, normalizeEntity, syncDensityFromMass } from '../world/geometry'
 import { normalizeUuid } from '../world/identity'
-import { Animator, Area2D, AreaEffector2D, AudioListener, AudioSource, BehaviorTree2D, Button, Camera2D, CameraFollow2D, Canvas, CharacterBody2D, Checkbox, Collider2D, Collectible2D, Cooldown2D, DamageHitbox2D, GridMover2D, Health2D, Lifetime2D, MouseFollower2D, TargetJoint2D, PlatformController2D, Projectile2D, Spawner2D, TopDownController2D, Image as UIImage, Joint2D, Light2D, Panel, ParticleEmitter2D, ProgressBar, RectTransform, RigidBody2D, Script2D, ShadowCaster2D, NavigationAgent2D, NavigationObstacle2D, NavigationRegion2D, ObjectPool2D, Portal2D, ShapeRenderer2D, Skeleton2D, Slider, SpriteRenderer2D, StateMachine2D, Text as UIText, TextInput, TextRenderer2D, TileMap2D, TimelinePlayer, WorldChunk2D, normalizeJointBreakThreshold, pasteComponentValues, type Component2D, type ComponentKind, type ScriptPropertyValue } from '../world/components'
+import { RhythmChart2D, Animator, Area2D, AreaEffector2D, AudioListener, AudioSource, BehaviorTree2D, Button, Camera2D, CameraFollow2D, Canvas, CharacterBody2D, Checkbox, Collider2D, Collectible2D, Cooldown2D, DamageHitbox2D, GridMover2D, Health2D, Lifetime2D, MouseFollower2D, TargetJoint2D, PlatformController2D, Projectile2D, Spawner2D, TopDownController2D, Image as UIImage, Joint2D, Light2D, Panel, ParticleEmitter2D, ProgressBar, RectTransform, RigidBody2D, Script2D, ShadowCaster2D, NavigationAgent2D, NavigationObstacle2D, NavigationRegion2D, ObjectPool2D, Portal2D, ShapeRenderer2D, Skeleton2D, Slider, SpriteRenderer2D, StateMachine2D, Text as UIText, TextInput, TextRenderer2D, TileMap2D, TimelinePlayer, WorldChunk2D, normalizeJointBreakThreshold, pasteComponentValues, type Component2D, type ComponentKind, type ScriptPropertyValue } from '../world/components'
 import { Transform } from '../world/Transform'
 import { normalizeParticleEmitter } from '../runtime/particleEmitterValues'
 import { normalizeTileMap } from '../runtime/tileMapValues'
@@ -30,7 +30,7 @@ export const EXTENDED_COMPONENT_KINDS = [
   'Text', 'Button', 'Slider', 'ProgressBar', 'Checkbox', 'TextInput', 'TileMap2D', 'ParticleEmitter2D', 'Light2D', 'ShadowCaster2D',
   'CharacterBody2D', 'Area2D', 'AreaEffector2D', 'NavigationRegion2D', 'NavigationObstacle2D', 'NavigationAgent2D', 'BehaviorTree2D', 'StateMachine2D',
   'GridMover2D', 'PlatformController2D', 'TopDownController2D', 'Health2D', 'DamageHitbox2D', 'Collectible2D', 'Projectile2D', 'Spawner2D', 'Cooldown2D', 'Lifetime2D', 'MouseFollower2D', 'CameraFollow2D',
-  'WorldChunk2D', 'Portal2D', 'ObjectPool2D',
+  'WorldChunk2D', 'Portal2D', 'ObjectPool2D', 'RhythmChart2D',
   'FixedJoint2D', 'WeldJoint2D', 'DistanceJoint2D', 'RopeJoint2D', 'RevoluteJoint2D', 'MotorJoint2D', 'PrismaticJoint2D', 'SpringJoint2D', 'WheelJoint2D', 'TargetJoint2D'
 ] as const
 export type EntityBuilderMessageKey = 'invalidEntityRecord' | 'unsupportedShape'
@@ -118,6 +118,7 @@ export function createEntityBuilder(ports: EntityBuilderPorts): EntityBuilder {
   if (kind === 'Animator') return new Animator(uuid)
   if (kind === 'Skeleton2D') return new Skeleton2D(uuid)
   if (kind === 'TimelinePlayer') return new TimelinePlayer(uuid)
+  if (kind === 'RhythmChart2D') return new RhythmChart2D(uuid)
   if (kind === 'AudioSource') return new AudioSource(uuid)
   if (kind === 'AudioListener') return new AudioListener(uuid)
   if (kind === 'Canvas') return new Canvas(uuid)
@@ -213,6 +214,17 @@ export function createEntityBuilder(ports: EntityBuilderPorts): EntityBuilder {
       if (!value || typeof value.boneId !== 'string') return []
       return [{ boneId: value.boneId.slice(0, 80), position: safeVector(value.position, { x: 0, y: 0 }), rotation: finiteNumber(value.rotation), scale: safeVector(value.scale, { x: 1, y: 1 }) }]
     })
+  } else if (component instanceof RhythmChart2D) {
+    const reference = (value: unknown) => typeof value === 'string' && value ? value : null
+    component.chartAsset = reference(component.chartAsset); component.audioAsset = reference(component.audioAsset); component.hitSoundAsset = reference(component.hitSoundAsset)
+    component.leadInSeconds = clamp(component.leadInSeconds, 2, 0, 30); component.unitScale = clamp(component.unitScale, 1, .001, 1000)
+    component.scrollSpeed = clamp(component.scrollSpeed, 8, .01, 1000); component.laneWidth = clamp(component.laneWidth, 1.6, .01, 1000)
+    component.judgeY = clamp(component.judgeY, -3.5, -1e6, 1e6); component.hitWidth = clamp(component.hitWidth, 1.6, .01, 1000); component.flickSpeed = clamp(component.flickSpeed, 18, .01, 1e6)
+    component.perfectMs = clamp(component.perfectMs, 45, 1, 1000); component.greatMs = clamp(component.greatMs, 90, component.perfectMs, 1000)
+    component.goodMs = clamp(component.goodMs, 135, component.greatMs, 1000); component.badMs = clamp(component.badMs, 180, component.goodMs, 1000)
+    component.offsetMs = clamp(component.offsetMs, 0, -10_000, 10_000); component.volume = clamp(component.volume, 1, 0, 2); component.hitSoundVolume = clamp(component.hitSoundVolume, .5, 0, 2)
+    component.bus = typeof component.bus === 'string' && component.bus ? component.bus : 'Music'
+    component.laneKeys = typeof component.laneKeys === 'string' ? component.laneKeys.slice(0, 200) : ''
   } else if (component instanceof TimelinePlayer) {
     component.timelineAsset = typeof component.timelineAsset === 'string' ? component.timelineAsset : null
     component.speed = clamp(component.speed, 1, -100, 100)

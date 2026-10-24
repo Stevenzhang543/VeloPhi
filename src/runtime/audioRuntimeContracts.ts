@@ -50,3 +50,28 @@ export interface RuntimeAudioPlatform {
 export interface AudioRuntimeCapabilities {readonly resources:{resolveAsset(reference:string|null|undefined):RuntimeAudioAsset|null};readonly platform:RuntimeAudioPlatform}
 export interface AudioWorld {readonly entities:Entity[]}
 export type AudioSettings=AudioProjectSettings
+
+/** 26.46 rhythm audio: a decoded song or hit sound kept outside the shared clip cache. */
+export interface RhythmAudioBuffer {readonly duration:number;readonly sampleRate:number;readonly channels:number;readonly native:AudioBuffer}
+/** A scheduled buffer voice (AudioBufferSourceNode); stop() is idempotent. */
+export interface RhythmAudioVoice {readonly startContextTime:number;readonly startOffset:number;stop(when?:number):void;setVolume(volume:number):void;readonly ended:boolean}
+/** Sample-accurate scheduling and the audio clock for rhythm games. */
+export interface RhythmAudioPort {
+ /** 'unavailable' without Web Audio. */
+ state():AudioContextState|'unavailable'
+ /** Resumes a suspended context (needs a user gesture in browsers); true once running. */
+ resume():Promise<boolean>
+ /** The audio clock's current time (seconds), or null without a context. */
+ contextTime():number|null
+ /** The context time being heard from the speakers at performance time `performanceMs`, or null.
+  * Uses getOutputTimestamp when the host provides it, otherwise currentTime minus the reported latency. */
+ heardContextTime(performanceMs:number):number|null
+ /** Output latency in seconds (base + output latency, 0 when unknown). */
+ latency():number
+ /** Decodes a whole audio asset (up to 12 minutes of stereo 48 kHz). */
+ decode(reference:string|null|undefined):Promise<RhythmAudioBuffer|null>
+ /** A short synthesized click (the default hit sound). */
+ click():RhythmAudioBuffer|null
+ /** Plays `buffer` from `offset` seconds at context time `when` on a mixer bus. */
+ start(buffer:RhythmAudioBuffer,when:number,offset:number,options?:{bus?:string;volume?:number}):RhythmAudioVoice|null
+}

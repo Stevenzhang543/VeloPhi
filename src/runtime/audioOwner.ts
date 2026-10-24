@@ -29,6 +29,8 @@ export class RuntimeAudioOwner{
  stopMusic(fade=0){return this.runtime.stopMusic(fade)}
  setBusVolume(bus:string,volume:number){return this.runtime.setBusVolume(bus,volume)}
  stopAll(){this.runtime.stopAll()}
+ /** 26.46: the audio clock and buffer scheduling for rhythm charts. */
+ rhythmPort(){return this.runtime.rhythmPort()}
  dispose(){return this.runtime.dispose()}
  recover(){return this.runtime.recover()}
  refreshOutputDevices(){return this.runtime.refreshOutputDevices()}

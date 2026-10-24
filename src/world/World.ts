@@ -544,15 +544,21 @@ export class World {
       const frameDelta = normalizeSimulationFrameDelta(dt)
       const gravity = finiteNumber(globalSettings.gravity, 9.8)
       const airFriction = Math.max(0, finiteNumber(globalSettings.airFriction, 0.01))
+      // 26.47: a scene without rigid bodies, tile collision or joints (a rhythm game) skips the solver
+      // synchronisation and pose read-back; fixed steps, timers and their callbacks run as before.
+      const idle = this.physicsIdle()
+      this.physicsIdleFrames = idle ? this.physicsIdleFrames + 1 : 0
       if (beforeFixedStep) {
         const steps = this.runtime.prepare_advance(frameDelta)
         const fixedDelta = 1 / Math.min(1000, Math.max(1, finiteNumber(globalSettings.tickRate, 60)))
         for (let step = 0; step < steps; step++) {
           beforeFixedStep(fixedDelta)
           this.updatePathFollowers(fixedDelta)
-          this.synchronizeRuntime(globalSettings)
+          // A fixed_update that adds a body ends the idle frame at once.
+          const stepIdle = idle && (step === 0 || this.physicsIdle())
+          if (!stepIdle) this.synchronizeRuntime(globalSettings)
           this.runtime.advance_fixed_tick(gravity, airFriction)
-          this.readRuntimeState(1, globalSettings)
+          if (!stepIdle) this.readRuntimeState(1, globalSettings)
           // Per-step dispatch hands each step but the last its own events (the next step's sync sends
           // callback edits to the solver). The last step's events stay queued: the host dispatches them
           // after this frame's presentation read, so that read cannot overwrite what a callback set.
@@ -562,10 +568,10 @@ export class World {
         this.runtime.complete_advance()
       } else {
         this.updatePathFollowers(frameDelta)
-        this.synchronizeRuntime(globalSettings)
+        if (!idle) this.synchronizeRuntime(globalSettings)
         this.runtime.advance(frameDelta, gravity, airFriction)
       }
-      this.readRuntimeState(this.runtime.interpolation_alpha(), globalSettings)
+      if (!idle || !this.physicsIdle()) this.readRuntimeState(this.runtime.interpolation_alpha(), globalSettings)
     } else {
       this.synchronizeRuntime(globalSettings)
     }
@@ -608,6 +614,16 @@ export class World {
       const first = path.points[segment], second = path.points[(segment + 1) % path.points.length], local = { x: first.x + (second.x - first.x) * amount, y: first.y + (second.y - first.y) * amount }, position = localPointToWorld(pathEntity, local, this.entities), transform = worldTransform(target, this.entities)
       setWorldTransform(target, { ...transform, position, rotation: path.follower.orient ? worldTransform(pathEntity, this.entities).rotation + Math.atan2(second.y - first.y, second.x - first.x) : transform.rotation }, this.entities)
     }
+  }
+
+  /** 26.47: frames in a row that skipped the solver synchronisation (no rigid bodies, tile collision or joints). */
+  physicsIdleFrames = 0
+  /** True when nothing in the scene needs the solver: no body or joint is (or was) in it and no entity has a
+   * RigidBody2D or a TileMap2D. */
+  physicsIdle(): boolean {
+    if (this.bodyHandles.size || this.tileCollisionBodies.length || this.connections.length) return false
+    for (const entity of this.entities) if (entity.hasComponent('RigidBody2D') || entity.hasComponent('TileMap2D')) return false
+    return true
   }
 
   /** 返回求解器状态摘要；尚未初始化运行时时返回固定的空状态摘要。 */ stateChecksum(): string {

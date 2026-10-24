@@ -6,6 +6,11 @@ use nova_script::{ScriptContext, ScriptRuntime};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 
+mod rhythm;
+pub use rhythm::{
+    rhythm_beat_to_time, rhythm_ease, rhythm_time_to_beat, rhythm_validate_chart, WasmRhythmSession,
+};
+
 // Bind the standard constructors through the existing wasm-bindgen dependency.
 #[wasm_bindgen]
 extern "C" {

@@ -57,6 +57,12 @@ Collision and trigger events provide enter/start, stay, and exit/end phases. Eve
 
 Distance, revolute, prismatic, weld, spring, rope, and motor joints are authorable in the component Inspector. Limits, motor speed/torque, break force/torque, anchors, tension, strain, and break state are visible in diagnostics. Physical connection strings exclude their two owner bodies from node collision, collide with other same-layer bodies, transmit forces through anchors, and preserve both simulated fragments after a break.
 
+### Servos and explosions (26.46)
+
+A Revolute or Prismatic joint with **Servo** on drives its motor towards a target before every fixed step: motor speed = servo gain × error (rad/s per radian, or units/s per unit), clamped to the servo's maximum speed; the joint's maximum motor force or torque still limits how hard it pushes. The error is measured exactly like the joint limits — the connected (target) body relative to the body that holds the joint, revolute angles wrapped to (−180°, 180°] so the servo turns the short way, prismatic distances between the two anchors along the axis (which turns with the owner). Put the joint on the base (pivot, rail) and connect the moving part for the usual sense. Scripts: `joint_servo(target)` (degrees or units) and `joint_servo_off()` (servo and motor off). A servo without a connected body does nothing, because the solver builds no joint.
+
+`explode(x, y, radius, impulse)` adds an impulse away from the point to every enabled dynamic body whose nearest edge (ellipse radius, or half the collider's diagonal) lies within the radius, scaled linearly from full strength at the point to zero at the radius; static, kinematic and massless bodies and the calling object are skipped.
+
 ## Quality, debugging, and performance
 
 Discrete collision is the default. Continuous mode uses adaptive substeps for fast/small bodies and costs more CPU; enable it only where tunnelling risk requires it. Sleeping bodies wake on forces, impulses, transforms, and teleports. Project Settings > Physics shows the fixed step, catch-up cap, interpolation, units, layer pairs, material assets, support matrix, and conformance cases.

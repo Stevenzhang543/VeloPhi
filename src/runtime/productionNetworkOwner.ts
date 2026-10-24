@@ -15,6 +15,8 @@ export class ProductionNetworkOwner {
  readonly world:NetworkConfigurationHost['world']
  private get configuration(){return this.host.readConfiguration()}
  private networking:NetworkingModule | null=null
+ /** 26.47: a network session is running (its state checksums are needed every fixed step). */
+ get networkingActive():boolean{return this.networking!==null}
  private loading:Promise<void> | null=null
  private lifecycleGeneration=0
  private rpcListeners=new Set<(name: string, payload: unknown, context: { sender: string; tick: number }) => void>()

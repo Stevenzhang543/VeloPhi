@@ -1,7 +1,7 @@
 /** 对象来源描述：汇总实例与继承关系，生成编辑器可显示的来源条目。 */
 import { readTextAsset, resolveAsset } from '../assets/AssetDatabase'
 import { readEntityAuthoringData } from '../store/physics'
-import { gameplayRuntime } from '../runtime/GameplayRuntime'
+import { gameplayRuntime } from './gameplayRuntime'
 import { eventHandlerKey, readEventSheet, resolveEventHandlers } from '../runtime/eventSheets'
 import { readObjectBlueprint, resolvedObjectBlueprint } from '../runtime/objectBlueprints'
 import type { Entity } from '../world/Entity'

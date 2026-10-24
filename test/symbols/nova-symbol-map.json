@@ -1,8 +1,0 @@
-{
-  "binary": "My Game.exe",
-  "buildId": "8d6f752074e5bdf023bdd0d18aeebd1d23f8561f25daa1af0dd3e8e58cef9908",
-  "engineVersion": "26.45.0",
-  "format": "nova-symbol-map",
-  "version": 1,
-  "workflow": "Archive matching PDB, dSYM, or unstripped ELF symbols under this build ID; symbolicate crash addresses with the platform toolchain."
-}

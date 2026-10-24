@@ -1,7 +1,7 @@
 /** 动画预览会话：协调播放、暂停、定位和录制草稿，退出时恢复并释放预览状态。 */
 import { assetState, readTextAsset } from '../assets/AssetDatabase'
 import { projectSessionState } from '../projects/projectSession'
-import { gameplayRuntime } from '../runtime/GameplayRuntime'
+import { gameplayRuntime } from './gameplayRuntime'
 import { animationRuntime, type AnimationClipDocument } from '../runtime/animation'
 import { timelineRuntime } from '../runtime/timeline'
 import { simulationPreflight } from '../runtime/simulationAuthoring26'

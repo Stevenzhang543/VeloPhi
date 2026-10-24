@@ -57,7 +57,7 @@
             <small>{{ templateDescription(template.id, template.description) }}</small>
             <span class="template-requirements" :aria-label="libraryText.requirements"><span v-for="requirement in templateGuide(template.id, prefs.locale).requirements" :key="requirement">{{ requirement }}</span></span>
             <span class="feature-list">{{ templateFeatures(template.id, template.features).join(' · ') }}</span>
-            <span class="template-meta"><b>{{ t(template.difficulty) }}</b><span>{{ t('setupMinutes', { count: template.setupMinutes }) }}</span></span>
+            <span class="template-meta"><b>{{ t(template.difficulty) }}</b><span>{{ t('setupMinutes', { count: template.setupMinutes }) }}</span><span v-if="template.classic" class="template-classic" data-template-classic>{{ t('templateClassic') }}</span></span>
           </button>
           <p v-if="!visibleTemplates.length" class="template-empty">{{ t('noMatchingTemplates') }}</p>
         </div>
@@ -187,7 +187,7 @@ const importInput = ref<HTMLInputElement | null>(null)
 const migrationInput = ref<HTMLInputElement | null>(null)
 const archiveInput = ref<HTMLInputElement | null>(null)
 
-const categoryIcon: Record<ProjectTemplateCategory | 'all', EditorIconName> = { all: 'grid', scene: 'design', test: 'physics', game: 'play' }
+const categoryIcon: Record<ProjectTemplateCategory | 'all', EditorIconName> = { all: 'grid', rhythm: 'audio', scene: 'design', test: 'physics', game: 'play' }
 
 /** 优先使用模板内嵌本地化名称，再尝试翻译键，最后使用默认名称。 */ function templateName(id: ProjectTemplateId, fallback: string): string { const translated = templates.find(/* 比较 value.id 与 id，返回严格相等的判断结果。 */ value => value.id === id)?.localized?.[prefs.locale as 'de' | 'zh']; if (translated) return translated.name; const key = `template_${id}_name`, localized = t(key); return localized && localized !== key ? localized : fallback }
 /** 优先使用模板内嵌本地化摘要，再尝试翻译键，最后使用默认摘要。 */ function templateDescription(id: ProjectTemplateId, fallback: string): string { const translated = templates.find(/* 比较 value.id 与 id，返回严格相等的判断结果。 */ value => value.id === id)?.localized?.[prefs.locale as 'de' | 'zh']; if (translated) return translated.description; const key = `template_${id}_description`, localized = t(key); return localized && localized !== key ? localized : fallback }
@@ -349,6 +349,7 @@ const pathError = computed(/** 校验项目位置非空、无非法字符或父�
 .template-grid > button > small { color: var(--text-muted); font-size: var(--type-caption); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .template-meta { display: flex; gap: var(--space-2); font-size: var(--type-caption); color: var(--text-tertiary); }
 .template-meta b { font-weight: var(--weight-medium); color: var(--text-muted); }
+.template-classic { margin-left: auto; color: var(--text-tertiary); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm, 4px); padding: 0 var(--space-1); }
 .template-details { min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: var(--space-2); padding: 0 var(--space-1) var(--space-3) var(--space-4); border-left: var(--ui-border-width) solid var(--border-separator); }
 .detail-preview { width: 100%; height: auto; aspect-ratio: 16/9; object-fit: cover; border-radius: var(--radius-md); background: var(--bg-canvas); box-shadow: inset 0 0 0 1px var(--border-separator), var(--shadow-xs); }
 .template-details > header { display: grid; gap: 2px; }

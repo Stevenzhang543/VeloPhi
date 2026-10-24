@@ -5,7 +5,7 @@ export const SCRIPT_API_MINIMUM_VERSION = 1 as const
 export type ScriptApiNamespace =
   | 'lifecycle' | 'scene' | 'object' | 'component' | 'transform' | 'input' | 'physics'
   | 'ui' | 'audio' | 'animation' | 'navigation' | 'save' | 'timing' | 'logging'
-  | 'resources' | 'signals' | 'tasks' | 'testing' | 'gameplay' | 'network'
+  | 'resources' | 'signals' | 'tasks' | 'testing' | 'gameplay' | 'network' | 'rhythm'
 
 export interface ScriptApiEntry {
   name: string
@@ -233,6 +233,42 @@ const SPECS: readonly Spec[] = [
   ['set_bus_volume', 'set_bus_volume(bus, volume)', 'audio', 'Sets a mixer bus volume for this play session (1.0 = authored level).', 'set_bus_volume("Music", 0.5);'],
   ['play_video', 'play_video(asset, options)', 'audio', 'Plays a full-screen video over the game view; emits "video.finished". Options #{ skippable, volume, looped }.', 'play_video("Assets/Video/intro.webm");'],
   ['stop_video', 'stop_video()', 'audio', 'Stops the playing video (emits "video.finished" with reason "stopped").', 'stop_video();'],
+  ['post_set', 'post_set(name, value, seconds)', 'gameplay', 'Sets a post-processing value (exposure, contrast, saturation, vignette, bloom, blur) for this play session; seconds tweens to it. Post-processing must be enabled.', 'post_set("vignette", 0.6, 0.5);'],
+  ['post_pulse', 'post_pulse(name, amount, seconds)', 'gameplay', 'Adds a post-processing amount that fades out over seconds (beat flashes, hits).', 'post_pulse("bloom", 0.6, 0.25);'],
+  ['post_reset', 'post_reset()', 'gameplay', 'Returns post-processing to the project settings.', 'post_reset();'],
+  ['joint_servo', 'joint_servo(target)', 'physics', 'Drives the revolute (degrees) or prismatic (units) joint on this object to a target with its motor; measured like the joint limits (the connected body relative to this one).', 'joint_servo(45.0);'],
+  ['joint_servo_off', 'joint_servo_off()', 'physics', 'Stops the servo and switches its motor off; the joint moves freely again.', 'joint_servo_off();'],
+  ['explode', 'explode(x, y, radius, impulse)', 'physics', 'Pushes every dynamic body near a point away from it, fading to nothing at the radius.', 'explode(position_x(), position_y(), 4.0, 30.0);'],
+  ['rhythm_play', 'rhythm_play(start_seconds)', 'rhythm', 'Starts this object\'s RhythmChart2D (else the first chart in the scene); start_seconds is optional chart time.', 'rhythm_play();'],
+  ['rhythm_pause', 'rhythm_pause()', 'rhythm', 'Pauses the chart and its music.', 'rhythm_pause();'],
+  ['rhythm_resume', 'rhythm_resume()', 'rhythm', 'Resumes a paused chart one second early so the player finds the beat again.', 'rhythm_resume();'],
+  ['rhythm_stop', 'rhythm_stop()', 'rhythm', 'Stops the chart and its music.', 'rhythm_stop();'],
+  ['rhythm_restart', 'rhythm_restart()', 'rhythm', 'Plays the chart again from the start (new score).', 'rhythm_restart();'],
+  ['rhythm_seek', 'rhythm_seek(seconds)', 'rhythm', 'Jumps to a chart time; earlier notes are skipped, not missed (practice).', 'rhythm_seek(30.0);'],
+  ['rhythm_set_offset', 'rhythm_set_offset(milliseconds)', 'rhythm', 'Sets the chart\'s audio offset (positive: notes later).', 'rhythm_set_offset(15.0);'],
+  ['rhythm_set_autoplay', 'rhythm_set_autoplay(enabled)', 'rhythm', 'Turns autoplay (perfect bot play with scheduled hit sounds) on or off.', 'rhythm_set_autoplay(true);'],
+  ['rhythm_set_speed', 'rhythm_set_speed(speed)', 'rhythm', 'Sets the note scroll speed (chart units per second at speed 1).', 'rhythm_set_speed(10.0);'],
+  ['rhythm_set_calibration', 'rhythm_set_calibration(milliseconds)', 'rhythm', 'Stores this device\'s audio calibration (positive: the music is heard later); applies from the next play.', 'rhythm_set_calibration(-24.0);'],
+  ['rhythm_calibration', 'rhythm_calibration() -> float', 'rhythm', 'The stored device calibration in milliseconds.', 'let offset = rhythm_calibration();'],
+  ['rhythm_time', 'rhythm_time() -> float', 'rhythm', 'Chart time in seconds (negative during the lead-in), on the audio clock.', 'let t = rhythm_time();'],
+  ['rhythm_beat', 'rhythm_beat() -> float', 'rhythm', 'The current beat (fractional) through the chart\'s tempo map.', 'if rhythm_beat() >= 16.0 { }'],
+  ['rhythm_bpm', 'rhythm_bpm() -> float', 'rhythm', 'Tempo at the current chart time.', 'let bpm = rhythm_bpm();'],
+  ['rhythm_score', 'rhythm_score() -> int', 'rhythm', 'Score out of 1,000,000 (900,000 accuracy + 100,000 max combo).', 'ui_set_text(`${rhythm_score()}`);'],
+  ['rhythm_combo', 'rhythm_combo() -> int', 'rhythm', 'The current combo.', 'if rhythm_combo() >= 100 { }'],
+  ['rhythm_max_combo', 'rhythm_max_combo() -> int', 'rhythm', 'The longest combo so far.', 'let best = rhythm_max_combo();'],
+  ['rhythm_accuracy', 'rhythm_accuracy() -> float', 'rhythm', 'Accuracy 0..1 over the judged notes (perfect 1, great 0.8, good 0.5).', 'let percent = rhythm_accuracy() * 100.0;'],
+  ['rhythm_progress', 'rhythm_progress() -> float', 'rhythm', 'Progress 0..1 through the chart.', 'let p = rhythm_progress();'],
+  ['rhythm_state', 'rhythm_state() -> string', 'rhythm', 'idle, loading, ready, countdown, playing, paused, finished or error.', 'if rhythm_state() == "finished" { }'],
+  ['rhythm_judgement', 'rhythm_judgement() -> string', 'rhythm', 'The latest judgement: perfect, great, good, bad or miss.', 'let last = rhythm_judgement();'],
+  ['rhythm_playing', 'rhythm_playing() -> bool', 'rhythm', 'True while the chart runs (lead-in included).', 'if rhythm_playing() { }'],
+  ['rhythm_finished', 'rhythm_finished() -> bool', 'rhythm', 'True once every note is judged and the chart ended.', 'if rhythm_finished() { }'],
+  ['rhythm_full_combo', 'rhythm_full_combo() -> bool', 'rhythm', 'True when a finished chart had no bad or miss.', 'if rhythm_full_combo() { }'],
+  ['rhythm_count', 'rhythm_count(name) -> int', 'rhythm', 'Count of perfect, great, good, bad, miss, early, late, judged or total notes.', 'let misses = rhythm_count("miss");'],
+  ['rhythm_judge', 'rhythm_judge(note, judgement_or_offset_ms)', 'rhythm', 'Judges a note (custom note types, from rhythm.touch): "perfect" … "miss", or an offset in milliseconds that the note type\'s windows classify. Ignored when the note is already judged.', 'rhythm_judge(payload.note, "miss");'],
+  ['rhythm_my_note', 'rhythm_my_note() -> map', 'rhythm', 'On an object that shows a note (a note type with a prefab): id, type, beat, time, lane, line, x and data of that note; () elsewhere.', 'let note = rhythm_my_note();'],
+  ['rhythm_visual_offset', 'rhythm_visual_offset() -> float', 'rhythm', 'The device picture offset in milliseconds (notes are drawn this much earlier; judgement unchanged).', 'let picture = rhythm_visual_offset();'],
+  ['rhythm_set_visual_offset', 'rhythm_set_visual_offset(milliseconds)', 'rhythm', 'Stores this device\'s picture offset (−500 … 500 ms); applies at once.', 'rhythm_set_visual_offset(20.0);'],
+  ['rhythm_stats', 'rhythm_stats() -> map', 'rhythm', 'Every statistic in one map (score, counts, accuracy, mean_offset_ms, full_combo …).', 'let stats = rhythm_stats();'],
   ['save_has', 'save_has(key) -> bool', 'save', 'Reports whether a save key exists.', 'if save_has("checkpoint") { }'],
   ['save_get', 'save_get(key, fallback) -> value', 'save', 'Reads a safe persistent value.', 'let score = save_get("score", 0);'],
   ['save_set', 'save_set(key, value)', 'save', 'Queues a serializable persistent value.', 'save_set("score", 10);'],
@@ -260,7 +296,7 @@ export const SCRIPT_API: readonly ScriptApiEntry[] = SPECS.map(/** 把基础 API
 
 const FIXED_STEP_BINDINGS = new Set(['fixed_update', 'apply_force', 'apply_impulse', 'set_velocity', 'set_angular_velocity', 'move_character'])
 const SEEDED_BINDINGS = new Set(['random', 'random_range'])
-const HOST_DEPENDENT_BINDINGS = new Set(['mouse_x', 'mouse_y', 'wheel_x', 'wheel_y'])
+const HOST_DEPENDENT_BINDINGS = new Set(['mouse_x', 'mouse_y', 'wheel_x', 'wheel_y', 'rhythm_time', 'rhythm_beat', 'rhythm_bpm', 'rhythm_score', 'rhythm_combo', 'rhythm_max_combo', 'rhythm_accuracy', 'rhythm_progress', 'rhythm_state', 'rhythm_judgement', 'rhythm_playing', 'rhythm_finished', 'rhythm_full_combo', 'rhythm_count', 'rhythm_stats', 'rhythm_calibration', 'rhythm_visual_offset', 'rhythm_my_note'])
 const PERSISTENT_BINDINGS = new Set(['save_has', 'save_get', 'save_set', 'save_delete', 'save_clear', 'save_load', 'save_commit'])
 export const SCRIPT_API_V2_MANIFEST: ScriptApiV2Manifest = {
   format: 'nova-rhai-api-manifest',

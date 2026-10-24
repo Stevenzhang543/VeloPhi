@@ -18,6 +18,8 @@ export interface TemplateDiscoveryFilters {
     const searchable = `${template.id} ${template.name} ${template.description} ${template.features.join(' ')} ${template.tags.join(' ')} ${display(template)}`.toLocaleLowerCase(filters.locale)
     return words.every(/* 调用 searchable.includes(word) 并返回调用结果。 */ word => searchable.includes(word))
   })
+  // 26.47: in catalog order the rhythm starters and labs come before the classic examples.
+  if (filters.sort === 'catalog') results.sort((a, b) => Number(!!a.classic) - Number(!!b.classic))
   if (filters.sort === 'name') results.sort(/* 调用 display(a).localeCompare(display(b), filters.locale) 并返回调用结果。 */ (a, b) => display(a).localeCompare(display(b), filters.locale))
   if (filters.sort === 'time') results.sort(/* 计算表达式 a.setupMinutes - b.setupMinutes 并返回结果，沿用操作数的原有类型规则。 */ (a, b) => a.setupMinutes - b.setupMinutes)
   if (filters.sort === 'newest') results.sort(/* 调用 (b.introduced ?? '').localeCompare(a.introduced ?? '', undefined, { numeric: true }) 并返回调用结果。 */ (a, b) => (b.introduced ?? '').localeCompare(a.introduced ?? '', undefined, { numeric: true }))

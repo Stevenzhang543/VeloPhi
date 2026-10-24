@@ -4,7 +4,7 @@ import { assetSourceBytes } from '../assets/contentHash'
 export interface RuntimeAssetIdentityView { readonly uuid: string; readonly path: string }
 export interface RuntimeAssetSourceView { readonly source: string; readonly assetType: string; readonly mimeType: string }
 export interface RuntimeAssetModuleView extends RuntimeAssetIdentityView { readonly assetType: string }
-export const RUNTIME_SCRIPT_TEXT_TYPES: readonly string[] = Object.freeze(['script', 'visualScript', 'eventSheet', 'objectBlueprint', 'prefab', 'scene', 'material', 'animation', 'controller', 'animationMask', 'rig', 'skin', 'timeline', 'tileset', 'atlas', 'shader', 'localization', 'uiTheme', 'behaviorTree', 'stateMachine', 'tilePalette', 'brushPreset', 'terrainRules', 'dataSchema', 'dataTable', 'replay', 'path', 'particleSystem', 'resource'])
+export const RUNTIME_SCRIPT_TEXT_TYPES: readonly string[] = Object.freeze(['script', 'visualScript', 'eventSheet', 'objectBlueprint', 'prefab', 'scene', 'material', 'animation', 'controller', 'animationMask', 'rig', 'skin', 'timeline', 'tileset', 'atlas', 'shader', 'localization', 'uiTheme', 'behaviorTree', 'stateMachine', 'tilePalette', 'brushPreset', 'terrainRules', 'dataSchema', 'dataTable', 'replay', 'path', 'particleSystem', 'resource', 'chart'])
 export const ASSET_REFERENCE_LIMITS = Object.freeze({ textBytes: 16 * 1024 * 1024, values: 1_000_000, depth: 64 })
 
 export function runtimeAssetGuid(reference: string | null | undefined): string | null {

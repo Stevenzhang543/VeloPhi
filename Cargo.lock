@@ -131,14 +131,14 @@ checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
 
 [[package]]
 name = "nova_core"
-version = "26.45.0"
+version = "26.47.0"
 dependencies = [
  "nova_physics",
 ]
 
 [[package]]
 name = "nova_format"
-version = "26.45.0"
+version = "26.47.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -146,7 +146,7 @@ dependencies = [
 
 [[package]]
 name = "nova_headless"
-version = "26.45.0"
+version = "26.47.0"
 dependencies = [
  "nova_physics",
  "nova_runtime",
@@ -156,19 +156,27 @@ dependencies = [
 
 [[package]]
 name = "nova_math"
-version = "26.45.0"
+version = "26.47.0"
 
 [[package]]
 name = "nova_physics"
-version = "26.45.0"
+version = "26.47.0"
 dependencies = [
  "nova_math",
  "serde",
 ]
 
 [[package]]
+name = "nova_rhythm"
+version = "26.47.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "nova_runtime"
-version = "26.45.0"
+version = "26.47.0"
 dependencies = [
  "nova_math",
  "nova_physics",
@@ -177,7 +185,7 @@ dependencies = [
 
 [[package]]
 name = "nova_script"
-version = "26.45.0"
+version = "26.47.0"
 dependencies = [
  "rhai",
  "serde",
@@ -186,10 +194,11 @@ dependencies = [
 
 [[package]]
 name = "nova_wasm"
-version = "26.45.0"
+version = "26.47.0"
 dependencies = [
  "nova_format",
  "nova_physics",
+ "nova_rhythm",
  "nova_runtime",
  "nova_script",
  "serde_json",

@@ -1,6 +1,74 @@
-# Nova_A 26.45 Complete Manual
+# Nova_A 26.47 Complete Manual
 
-Engine: **26.45.0** · Project Format 2/schema 29.
+Engine: **26.47.0** · Project Format 2/schema 29.
+
+<!-- NOVA_V2647_RELEASES -->
+<a id="v2647-releases"></a>
+## 26.47 — An open rhythm engine
+
+Engine: **26.47.0** · Project Format 2/schema 29 (unchanged). Projects from 26.38 and later open without migration; only the engine stamp changes. Charts from 26.46 open and score as before; a chart that uses the new features is saved as chart version 2, which 26.46 cannot read.
+
+Nova_A is now a rhythm-game engine. The built-in lanes and judgement lines stay; what a note is, how it is judged and what moves with the music is now up to the game.
+
+- **The chart's own note types.** A note type has a base behaviour (Tap, Hold, Drag, Flick, or **Script judged**), its own judgement windows, a score weight (0: not scored), whether it counts for the combo, what an untouched note becomes (Miss, or Perfect for notes to avoid), a hit area (width and height) and a look: a shape (bar, circle, diamond, square, ring) and colour, or a **prefab** shown on every note of the type, and its own hit sound and effect. Notes carry a size and any `data` your scripts read.
+- **Prefab notes.** The chart places the prefab on its note every frame and reuses the objects (a pool). A script on the prefab reads its note with `rhythm_my_note()` and hears `rhythm.note_hit` or `rhythm.note_miss`.
+- **Script-judged notes.** A press inside such a note's window and hit area sends `rhythm.touch` (note, type, offset, position, data); the script gives the judgement with `rhythm_judge(note, "perfect" … "miss")` or `rhythm_judge(note, offset_ms)`. The judgement counts like any other. `rhythm.hit` and `rhythm.miss` now also name the note's type, position and data.
+- **The master timeline.** Tracks in the chart animate a scene object (by name: x, y, rotation, scaleX, scaleY, scale, alpha), the camera (x, y, zoom, rotation) or post-processing (exposure, contrast, saturation, vignette, bloom, blur) over beats with the 32 easings. Before its first event a track leaves the object alone; after a seek back the object gets its own value again. **Triggers** are named moments that send `rhythm.trigger` (name, value, beat) to every object, once per pass.
+- **Chart editor:** a Note types section, the Own type tool (7), a Timeline section with tracks, events and triggers; triggers are drawn on the grid.
+- **Picture offset.** Screens show frames late; the new picture offset draws the notes that much earlier without changing the judgement. The calibration dialog has a picture test (tap along with flashes); scripts use `rhythm_visual_offset()` and `rhythm_set_visual_offset(ms)`. The component's **Hit error bar** shows how early or late the recent hits were, and `rhythm.finished` suggests a better audio calibration after a played chart.
+- **Leaner runtime:** a scene without rigid bodies, tile collision or joints skips the physics solver's synchronisation, and the state checksum is only computed while a replay records or plays back or a network session runs. Add Component lists Rhythm first; the classic groups follow under More, and components planned for removal (world streaming, navigation, behaviour trees) appear only when searched for or with Show all. The Project Manager lists the rhythm starters first and marks the classic examples.
+- **New starter: Rhythm Lab** — the 120 BPM song “Prism Pulse” with spinning star notes (a prefab, double score), red mines judged by the lab's script, and a drop in which the camera zooms, the backdrop prism turns and pulses on every bar and bloom rises.
+- Block “Judge my note as …” (Sound) for prefab notes.
+
+<a id="v2647-note-types"></a>
+## Your own notes and the master timeline
+
+About 25 minutes, starting from the Rhythm Lab (or your own chart).
+
+1. **Look at the lab.** Project Manager → New project → Rhythm Lab → Play. B turns autoplay on. Stop, select “Rhythm Chart” and choose Edit chart: the side panel lists the note types (star, mine) and the timeline (five tracks, three triggers).
+2. **Make a note type.** In Note types choose Add note type. Give it an id (used in the chart file), a behaviour and a colour and shape. Score weight 2 makes it count double; Untouched → Perfect makes a note to avoid; Own judgement windows sets tighter or looser windows; Hit width and height give it a box-shaped hit area.
+3. **Place it.** Choose the Own type tool (7), pick the type next to the tools and click in the grid like with the other tools. A note keeps its type when it is moved, copied or mirrored; the selection's type can be changed in the side panel.
+4. **Give it a prefab.** Build the look as an object (shapes, sprites, particles, a script), make it a prefab, and choose it as the type's Prefab. Set Shape to None to show the prefab only. In the prefab's script `rhythm_my_note()` returns the note (id, type, beat, time, lane, line, x, data); `on_signal` receives `rhythm.note_hit` and `rhythm.note_miss`. Objects stay a fifth of a second where they were judged before they go back to the pool.
+5. **Judge it yourself.** Choose the behaviour Script judged. In a script on the chart object handle `rhythm.touch`: `if payload.type == "mine" { rhythm_judge(payload.note, "miss"); }`. Pass an offset in milliseconds instead of a name to let the type's windows decide. A note no script judges is missed (or perfect, with Untouched → Perfect) when its window has passed.
+6. **Animate the scene.** In Timeline choose Add track at cursor, pick the target (an object by its name, the camera or post-processing) and the property, and add events (start and end beat, from, to, easing). For post-processing tracks turn post-processing on in Project Settings → Rendering.
+7. **Mark moments.** Add trigger at cursor names a beat. Every object's `on_signal` receives `rhythm.trigger` with `payload.name`, `payload.value` and `payload.beat` — change the HUD, start particles or switch a section.
+8. **Calibrate the picture.** Calibrate… → Picture test: tap along with the flashes. The difference to the audio calibration is suggested as the picture offset; use it, or type a value.
+
+Limits in 26.47: judgement areas are still the lanes and the lines (free-form areas, gestures and note paths come with 26.48); a track targets objects by name (the first object with that name); only one prefab object per visible note (at most 256 at a time).
+
+
+<!-- NOVA_V2646_RELEASES -->
+<a id="v2646-releases"></a>
+## 26.46 — Rhythm games
+
+Engine: **26.46.0** · Project Format 2/schema 29 (unchanged). Projects from 26.38 and later open without migration; only the engine stamp changes.
+
+- **Rhythm Chart 2D** plays a chart in one of two styles that share one core: falling **lanes** (1–8 lanes with a key per lane, as in osu!mania) or moving **judgement lines** (notes travel to lines that move, turn and fade, played with the pointer or any letter key, as in Phigros). Note types: Tap, Hold, Drag and Flick.
+- **Timing on the audio clock.** The song is decoded whole and scheduled on the Web Audio clock; chart time follows the sound you hear (output latency included), and every key press and touch is judged by its own event time, not by the frame it arrives in. Judgement windows (Perfect, Great, Good, Bad; default ±45, 90, 135, 180 ms) are set on the component. A per-device **calibration** is measured in the chart editor and stored for the player.
+- **Score** out of 1,000,000: 900,000 for accuracy (Perfect 1, Great 0.8, Good 0.5) and 100,000 for the longest combo. Ranks: P (all Perfect), S from 950,000, A from 900,000, B from 800,000, C from 700,000, else D. Signals: `rhythm.started`, `rhythm.hit`, `rhythm.miss`, `rhythm.beat`, `rhythm.finished` (score, accuracy, max combo, counts, full combo, all perfect, rank, mean offset).
+- **Chart editor** (bottom panel → Chart editor): the song as a waveform, a beat grid with snap from 1/1 to 1/16, tools, metronome and note clicks, playback at 0.5–1×, undo, tempo changes with Tap BPM, judgement lines with eased events, and Test from here.
+- **Chart files** (`.nova-chart`) are JSON (`"format": "nova-chart"`, version 1) with one note per line, so they are easy to read and to compare.
+- **Scripts and blocks:** `rhythm_play()`, `rhythm_pause()`, `rhythm_resume()`, `rhythm_restart()`, `rhythm_seek(seconds)`, `rhythm_set_autoplay(on)`, `rhythm_set_speed(speed)`, `rhythm_set_offset(ms)`; readers such as `rhythm_time()`, `rhythm_beat()`, `rhythm_score()`, `rhythm_combo()`, `rhythm_accuracy()`, `rhythm_state()` and `rhythm_stats()`. The Sound category has rhythm blocks (play, pause, resume, restart, autoplay, note speed) and two conditions (chart state, combo).
+- **Two starters:** Rhythm Lanes (four lanes, the original 128 BPM song “Neon Step”, 173 notes) and Rhythm Lines (two moving judgement lines, the 100 BPM song “Skyline Drift”, 129 notes). Both have Pause, Retry, Autoplay and a saved best score.
+- **Physics and effects:** joint **servos** — a Revolute or Prismatic joint holds a target angle or distance with its motor (`joint_servo(target)`, `joint_servo_off()`, block “Turn my joint to”); the target is measured like the joint limits, as the connected body relative to the body that holds the joint, so put the joint on the base and connect the moving part. `explode(x, y, radius, impulse)` pushes nearby bodies away with falloff (block “Explode here”). Scripts change post-processing for the session: `post_set(name, value[, seconds])`, `post_pulse(name, amount, seconds)`, `post_reset()` (block “Flash … by … for … s”); Stop clears them.
+- Fixed: after Play is clicked, keys reach the game at once (the Play button no longer keeps the keyboard focus). The editor’s play-session code moved out of the runtime folder, so the engine boundary check passes without exceptions.
+
+<a id="v2646-rhythm"></a>
+## Make a rhythm game
+
+About 20 minutes. You need a song you may use (your own, or one with a licence that allows it).
+
+1. **Start from a starter.** Project Manager → New project → Rhythm Lanes (or Rhythm Lines). Press Play: notes fall to the line; press D, F, J and K on the beat. B turns autoplay on, P or Escape pauses, R retries. The best score is saved.
+2. **Add your song.** Import an audio file the browser can decode (WAV, MP3, OGG; at most 64 MB) into Assets. Select the object “Rhythm Chart”, choose New chart in the Inspector (it is created in Assets/Charts), then Edit chart and pick the song in the chart’s Song field.
+3. **Tempo and offset.** In the chart editor press Space to play and click Tap BPM on the beat to measure the tempo; type the BPM. Change Offset until the metronome clicks sit on the beats of the waveform. Use Tempo change here where the song changes speed.
+4. **Place notes.** Tools: 1 Select, 2 Tap, 3 Hold (drag down for its length), 4 Drag, 5 Flick, 6 Erase. Click in a lane on the grid; Snap sets the grid (1/4 is a sixteenth note in 4/4). Right-click deletes. With Select, drag a box, drag notes to move them, use the arrow keys to move by one step or lane, M to mirror, Ctrl+C and Ctrl+V to copy to the cursor, Ctrl+Z and Ctrl+Y. The wheel scrolls, Ctrl+wheel zooms, a click in the waveform jumps there. Ctrl+S saves. The status line shows notes, length and notes per second.
+5. **Judgement lines** (lines charts): Add line, then set X, Y, Rotation, Alpha and Speed and add events (start beat, end beat, from, to, easing) so the lines move. Notes come from above or below the line. Touch width and Flick speed are on the component.
+6. **Test.** Test from here starts Play at the cursor. Calibrate… plays 20 clicks: tap along; the result is stored for this device (positive: the sound is heard later). Scripts read it with `rhythm_calibration()` and change it with `rhythm_set_calibration(ms)`.
+7. **Results and effects.** The starter’s controller script reacts to `rhythm.finished` and keeps the best score with `save_set` and `save_commit`. For a flash on every beat, call `post_pulse("bloom", 0.4, 0.2)` when `rhythm.beat` arrives (turn post-processing on in Project Settings → Rendering).
+8. **Export** as usual (Build → Web or Windows). Each player’s calibration is kept by the Player on their device.
+
+Limits in 26.46: touch play is supported but not yet tuned for phones and tablets; pointer input counts on the game view only; the physics recording does not rewind music; songs above 64 MB (or 256 MB decoded) are refused.
+
 
 <!-- NOVA_V2645_RELEASES -->
 ## 26.39–26.45 — What changed since 26.38
@@ -275,7 +343,7 @@ Development acceptance guide. The examples target engine 26.22.0, Project Format
 
 ### Open a reference
 
-Open `creator-v2622-code-game`, `creator-v2622-blocks-game` or `creator-v2622-mixed-game`. Move with WASD/arrows, collect checkpoints and press R to restart. Keep all animations and rendering effects enabled. The output-quality, animated-menu and headless-authority references retain their earlier workflows.
+Open `creator-v2624-code-game`, `creator-v2624-blocks-game` or `creator-v2638-mixed-game`. Move with WASD/arrows, collect checkpoints and press R to restart. Keep all animations and rendering effects enabled. The output-quality, animated-menu and headless-authority references retain their earlier workflows.
 
 ### Edit and undo
 
@@ -314,7 +382,7 @@ Engine: **26.21.0** · Project Format 2/schema 29.
 ### Nova_A 26.21 — readable editing and reliable history
 
 ### Open and arrange
-Open creator-v2621-code-game, creator-v2621-blocks-game or creator-v2621-mixed-game from the reference library. Play with WASD or arrows, collect checkpoints and press R to restart. Keep animations and rendering effects enabled.
+Open creator-v2624-code-game, creator-v2624-blocks-game or creator-v2638-mixed-game from the reference library. Play with WASD or arrows, collect checkpoints and press R to restart. Keep animations and rendering effects enabled.
 
 ### Make controls readable
 Open Manage → Settings. Set Form labels to Automatic or Above controls. Increase UI scale through 100%, 150% and 200%; narrow and maximize the Inspector. Automatic labels respond to panel width and text size. Numeric pairs wrap instead of losing their editable space. Hover or keyboard-focus a dropdown to read its entire selected value in a wrapping tooltip; Escape dismisses it. Native selection and existing help remain available.
@@ -348,7 +416,7 @@ The six supplied roles remain exact semantic tokens: background, surface, primar
 
 ### Build the same game in Code, Blocks and Mixed
 
-Open the matching creator-v2620-code-game, creator-v2620-blocks-game or creator-v2620-mixed-game reference. In Play, use WASD/arrow keys to collect six checkpoints in order; R restarts. Stop before editing. Open CheckpointGame.rhai in Script and find the movement-speed value. In Code change that value; in Blocks open its linked graph and edit the corresponding literal; in Mixed make one change in each representation. Save the script, switch representation and confirm the value remains. Typed graph support and source-backed ranges remain explicitly different; do not erase unsupported source to force a visual conversion.
+Open the matching creator-v2624-code-game, creator-v2624-blocks-game or creator-v2638-mixed-game reference. In Play, use WASD/arrow keys to collect six checkpoints in order; R restarts. Stop before editing. Open CheckpointGame.rhai in Script and find the movement-speed value. In Code change that value; in Blocks open its linked graph and edit the corresponding literal; in Mixed make one change in each representation. Save the script, switch representation and confirm the value remains. Typed graph support and source-backed ranges remain explicitly different; do not erase unsupported source to force a visual conversion.
 
 Select Checkpoint1 in Design and move X. The script queries the checkpoint entity's current world position, so the pickup target moves with it. Undo and Redo the move. Save the project, reopen it, repeat Play, export Web through Manage → Build Settings and repeat movement, pickup and restart. A changed Inspector value alone is not proof of exported behavior.
 
@@ -362,7 +430,7 @@ Higher resolution and MSAA cost GPU memory and time. The optional multisample co
 
 ### Preserve animation and compare evidence
 
-Open creator-v2620-animated-menu. Play the menu and use its input/checkbox controls while watching the title fade and timeline behavior. Repeat at two resolution scales and in the Web export. Existing asset, animation, controller, rig, timeline, audio and UI chapters explain their full workflows. This reference preserves those authored assets; the release does not remove them to improve a benchmark.
+Open creator-v2628-animated-menu. Play the menu and use its input/checkbox controls while watching the title fade and timeline behavior. Repeat at two resolution scales and in the Web export. Existing asset, animation, controller, rig, timeline, audio and UI chapters explain their full workflows. This reference preserves those authored assets; the release does not remove them to improve a benchmark.
 
 For performance comparisons use the same project, camera, number of entities, resolution, effects, build, device and warm-up. Record CPU frame time, available GPU time, draw calls and actual pixels alongside FPS. The optimized batch algorithm preserves packet ordering and vertex/index uploads; steady-size batches reuse CPU/GPU storage. Index-heavy batches may split into extra draws to bound memory. Isolated batching timings are not total engine FPS. Read the fresh performance reports and their hardware/scope before comparing results.
 
@@ -390,7 +458,7 @@ Use disposable copies of the six projects under `reference-projects/projects` wh
 
 ### Finish a small game in three authoring modes
 
-Open `creator-v2619-code-game`, `creator-v2619-blocks-game`, or `creator-v2619-mixed-game`. Play, focus the viewport, and use WASD/arrows to collect six checkpoints. The title advances from Checkpoint 1/6 to completion. R resets score, position and checkpoints. Stop before editing.
+Open `creator-v2624-code-game`, `creator-v2624-blocks-game`, or `creator-v2638-mixed-game`. Play, focus the viewport, and use WASD/arrows to collect six checkpoints. The title advances from Checkpoint 1/6 to completion. R resets score, position and checkpoints. Stop before editing.
 
 In Code, open CheckpointGame.rhai and change the two movement multipliers from 6.0 to 4.0. In Blocks, open its linked CheckpointGame.nova-graph, find the numeric literals in the X/Y movement expressions, and change both to 4.0. Mixed keeps a linked code document and typed graph; switch views, confirm the same values, then save. Undo/Redo must change the intended edit only. Syntax errors must remain visible and must not silently replace code with an incomplete graph.
 
@@ -416,7 +484,7 @@ Open Manage → Build Settings. Overview selects target, architecture, profile, 
 
 Choose Web in a browser. Native export requires a successful desktop-host capability check, not merely a Windows browser. A failed check shows a restart/retry message. Android requires its actual local toolchain and a device for device qualification. Linux/macOS remain matching-host targets; Windows results do not qualify them.
 
-Save before building and wait until the save task finishes. Export Web, extract the ZIP into a separate folder, serve it over local HTTP, and open its index page. Compare checkpoint positions, movement speed, score, restart and assets with the saved editor project. The archive's build report lists file sizes/hashes; validate them when transferring an artifact. The retained `server-v2619-headless-authority` is a renderer-disabled WebView server, not a windowless native server.
+Save before building and wait until the save task finishes. Export Web, extract the ZIP into a separate folder, serve it over local HTTP, and open its index page. Compare checkpoint positions, movement speed, score, restart and assets with the saved editor project. The archive's build report lists file sizes/hashes; validate them when transferring an artifact. The retained `server-v2638-headless-authority` is a renderer-disabled WebView server, not a windowless native server.
 
 ### Reproduce a source build offline
 
@@ -1081,6 +1149,26 @@ Requirements: Ready offline · Keyboard · Pointer
 
 After following these controls, stop and confirm authored state is restored. Save and reopen the project, repeat the result, then compare its exported player. A successful start alone does not certify all game behavior.
 
+### Rhythm Lanes (rhythm-lanes)
+
+Controls and setup: Play: hit the falling notes with D F J K (or click / touch the lanes) as they reach the line; hold long notes. Esc pauses, R plays again, B toggles autoplay.
+
+Expected result: Neon Step plays after a two-second lead-in; hits show PERFECT to BAD with early/late, the combo and a score out of 1,000,000, and the end shows the rank and saves the best score.
+
+Requirements: Ready offline · Keyboard · Pointer · Audio included
+
+After following these controls, stop and confirm authored state is restored. Save and reopen the project, repeat the result, then compare its exported player. A successful start alone does not certify all game behavior.
+
+### Rhythm Lines (rhythm-lines)
+
+Controls and setup: Play: click or touch notes on the moving judgement lines as they arrive (any letter key except P, R and B also works); hold long notes, keep the pointer on drag notes, swipe across flick notes. Esc pauses, R plays again, B toggles autoplay.
+
+Expected result: Skyline Drift plays with two judgement lines that sway, tilt, fade and slow down with the song; taps, holds, drags and flicks are judged and scored.
+
+Requirements: Ready offline · Pointer · Keyboard · Audio included
+
+After following these controls, stop and confirm authored state is restored. Save and reopen the project, repeat the result, then compare its exported player. A successful start alone does not certify all game behavior.
+
 <!-- NOVA_V2615_END -->
 
 <!-- NOVA_V2614_START -->
@@ -1196,7 +1284,7 @@ New Rhai companions use typed syntax nodes. Existing execution graphs keep their
 
 8. Add a missing closing bracket in Code and attempt to switch. The draft and diagnostic stay visible. Cancel the transition, repair the source and switch again. For a changed asset or failed save, keep the editor open and resolve the conflict; accepting a conversion preview is tied to that exact source revision.
 
-9. Open creator-v2612-code-game, creator-v2612-blocks-game and creator-v2612-mixed-game from reference-projects/projects. In each, collect six checkpoints with WASD/arrows and press R to restart. The blocks variant attaches the graph directly; the others attach Rhai. Save/reopen and export the same scene to repeat the route.
+9. Open creator-v2624-code-game, creator-v2624-blocks-game and creator-v2638-mixed-game from reference-projects/projects. In each, collect six checkpoints with WASD/arrows and press R to restart. The blocks variant attaches the graph directly; the others attach Rhai. Save/reopen and export the same scene to repeat the route.
 
 ```rhai
 // Keep this comment while switching modes.
@@ -20233,7 +20321,7 @@ Measure and tune a 10k–100k-object project while preserving exact fixed-step g
 Use this release workflow to learn, migrate, verify and ship a complete project while keeping every stable contract and every external limitation visible.
 
 1. Open Manage → Learning Center → Platform readiness. Search for the feature you intend to use and inspect Binding, Validation, Undo, Persistence, Runtime/export, Documentation and Tests before authoring. A circle means the dimension does not apply; a dash means external evidence is still required.
-2. Start with a guided project or the creator-v2610-mixed-game reference. Follow each lesson in order: prerequisites, exact workflow, expected result, save/reload, undo/recovery, Play/Step, standalone build and accessibility checks.
+2. Start with a guided project or the creator-v2638-mixed-game reference. Follow each lesson in order: prerequisites, exact workflow, expected result, save/reload, undo/recovery, Play/Step, standalone build and accessibility checks.
 3. When opening a 6.x project, review the migration preview before applying. Confirm the source/target engines, semantic diff, backup path and deterministic checksum. The 26.10 seal changes only the supported-engine ceiling to <27.0.0; it does not rewrite schema 29 gameplay data.
 4. For code or Visual Graph behavior, edit either representation, save, inspect the synchronized counterpart and run parity/tests. Unsupported Rhai remains in a lossless Code block.
 5. Run Project Health, template/reference checks and Build validation. Build Windows on Windows and Web locally. Treat Linux/macOS as matching-host, Android as toolchain-gated experimental and iOS/console as deferred; do not turn an unavailable target into a false pass.

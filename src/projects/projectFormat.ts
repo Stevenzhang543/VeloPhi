@@ -1,8 +1,8 @@
 /** 项目格式版本约定：声明当前引擎与格式版本，并判断输入项目兼容性。 */
 /** Machine-safe semantic version used by Cargo, npm, Tauri and compatibility checks. */
-export const NOVA_ENGINE_VERSION = '26.45.0'
+export const NOVA_ENGINE_VERSION = '26.47.0'
 /** Calendar release name shown to creators and used for release artifact names. */
-export const NOVA_RELEASE_NAME = '26.45'
+export const NOVA_RELEASE_NAME = '26.47'
 export const NOVA_PROJECT_FORMAT = 'Nova_A Project Format 2'
 export const NOVA_PROJECT_FORMAT_MAJOR = 2
 export const NOVA_PROJECT_SCHEMA_VERSION = 29

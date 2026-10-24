@@ -13,6 +13,7 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 nova_format = { path = "../nova_format" }
 nova_physics = { path = "../nova_physics" }
+nova_rhythm = { path = "../nova_rhythm" }
 nova_runtime = { path = "../nova_runtime" }
 nova_script = { path = "../nova_script" }
 serde_json.workspace = true

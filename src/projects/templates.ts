@@ -10,13 +10,14 @@ import { normalizeProjectManifest } from './projectManifest'
 import { assetSourceBytes, sha256Bytes } from '../assets/contentHash'
 import { defaultSceneAuthoringSettings } from '../editor/sceneAuthoring'
 import { TEMPLATE_ADDITIONS_26_11, type AddedTemplateId } from './templateCatalog26_11'
+import { chartSource, composeNeonStep, composePrismPulse, composeSkylineDrift, neonStepChart, prismPulseChart, skylineDriftChart, songWavDataUrl } from './rhythmTemplateSong'
 import {
   NOVA_ENGINE_VERSION, NOVA_PROJECT_FORMAT, NOVA_PROJECT_FORMAT_MAJOR,
   NOVA_PROJECT_SCHEMA_VERSION, projectCompatibility
 } from './projectFormat'
 
-export type ProjectTemplateCategory = 'scene' | 'test' | 'game'
-export type ProjectTemplateId = AddedTemplateId | 'empty' | 'mouse-knockout' | 'snake' | 'pong' | 'breakout' | 'platformer' | 'top-down' | 'physics-sandbox' | 'collision-lab' | 'rendering-lab' | 'ui-showcase' | 'networked-optional' | 'lighting-starter' | 'tile-world' | 'responsive-ui' | 'particle-lab' | 'audio-lab' | 'animation-lab' | 'physics-cleanup' | 'grid-chase' | 'platformer-trilogy' | 'pendulum-post' | 'reflex-lab'
+export type ProjectTemplateCategory = 'rhythm' | 'scene' | 'test' | 'game'
+export type ProjectTemplateId = AddedTemplateId | 'rhythm-lab' | 'empty' | 'mouse-knockout' | 'snake' | 'pong' | 'breakout' | 'platformer' | 'top-down' | 'physics-sandbox' | 'collision-lab' | 'rendering-lab' | 'ui-showcase' | 'networked-optional' | 'lighting-starter' | 'tile-world' | 'responsive-ui' | 'particle-lab' | 'audio-lab' | 'animation-lab' | 'physics-cleanup' | 'grid-chase' | 'platformer-trilogy' | 'pendulum-post' | 'reflex-lab' | 'rhythm-lanes' | 'rhythm-lines'
 export type ProjectTemplateDifficulty = 'beginner' | 'intermediate' | 'advanced'
 
 export interface ProjectTemplateDescriptor {
@@ -30,11 +31,20 @@ export interface ProjectTemplateDescriptor {
   tags: string[]
   introduced?: string
   localized?: Partial<Record<'de' | 'zh', { name: string; description: string }>>
+  /** 26.47: a classic (non-rhythm) example, listed after the rhythm starters and labs. */
+  classic?: boolean
 }
 
-export const PROJECT_TEMPLATE_CATEGORIES: readonly ProjectTemplateCategory[] = ['scene', 'test', 'game'] as const
+export const PROJECT_TEMPLATE_CATEGORIES: readonly ProjectTemplateCategory[] = ['rhythm', 'scene', 'test', 'game'] as const
+/** 26.47: what a rhythm game builds on (besides the rhythm starters): the empty scene and the latency, audio,
+ * UI, rendering, particle and lighting labs. Every other template is a classic example (platformers, physics
+ * games and labs, world streaming, networking), listed after these. */
+const RHYTHM_ENGINE_TEMPLATES = new Set<string>(['empty', 'reflex-lab', 'audio-lab', 'ui-showcase', 'responsive-ui', 'rendering-lab', 'particle-lab', 'lighting-starter'])
 
-export const PROJECT_TEMPLATES: readonly ProjectTemplateDescriptor[] = [
+const TEMPLATE_LIST: readonly ProjectTemplateDescriptor[] = [
+  { id: 'rhythm-lab', category: 'rhythm', name: 'Rhythm Lab', description: 'The open rhythm engine in one song: the chart\'s own note types (spinning prefab stars worth double, mines judged by a script) and a master timeline that moves the camera, the backdrop and bloom on the beat.', features: ['Note types', 'Prefab notes', 'Script judgement', 'Master timeline', 'Triggers'], difficulty: 'intermediate', setupMinutes: 4, tags: ['rhythm', 'music', 'note types', 'timeline', 'chart'], introduced: '26.47', localized: { de: { name: 'Rhythmus-Labor', description: 'Die offene Rhythmus-Engine in einem Song: eigene Notentypen des Charts (drehende Prefab-Sterne mit doppelten Punkten, per Skript bewertete Minen) und eine Master-Zeitleiste, die Kamera, Hintergrund und Bloom im Takt bewegt.' }, zh: { name: '节奏实验室', description: '一首歌展示开放的音游引擎：谱面自定义音符类型（旋转的预制体星星双倍得分、由脚本判定的地雷），以及按拍驱动相机、背景和辉光的主时间线。' } } },
+  { id: 'rhythm-lanes', category: 'rhythm', name: 'Rhythm Lanes', description: 'A complete four-lane rhythm game: an original song, a hand-tuned chart with holds, scoring, combo, autoplay, pause and a saved best score.', features: ['RhythmChart2D', 'Chart editor', 'Audio clock', 'Judgement', 'Best score'], difficulty: 'beginner', setupMinutes: 3, tags: ['rhythm', 'music', 'mania', 'chart'], introduced: '26.46', localized: { de: { name: 'Rhythmus-Bahnen', description: 'Vollständiges Rhythmusspiel mit vier Bahnen: eigener Song, abgestimmtes Chart mit Haltenoten, Punkte, Combo, Autoplay, Pause und gespeicherter Bestwert.' }, zh: { name: '节奏下落', description: '完整的四轨下落式音游：原创歌曲、带长按音符的谱面、计分与连击、自动演奏、暂停以及最佳成绩存档。' } } },
+  { id: 'rhythm-lines', category: 'rhythm', name: 'Rhythm Lines', description: 'A judgement-line rhythm game: two lines that move, turn and fade with the music, taps, holds, drags and flicks, played with pointer, touch or keyboard.', features: ['RhythmChart2D', 'Judgement lines', 'Line events', 'Drag & flick', 'Touch-ready'], difficulty: 'intermediate', setupMinutes: 4, tags: ['rhythm', 'music', 'judgement line', 'chart'], introduced: '26.46', localized: { de: { name: 'Rhythmus-Linien', description: 'Rhythmusspiel mit Urteilslinien: zwei Linien bewegen, drehen und blenden sich zur Musik, mit Tipp-, Halte-, Zieh- und Wischnoten für Zeiger, Touch oder Tastatur.' }, zh: { name: '节奏判定线', description: '判定线式音游：两条判定线随音乐移动、旋转、淡入淡出，含点击、长按、滑动与划动音符，可用鼠标、触屏或键盘游玩。' } } },
   { id: 'empty', category: 'scene', name: 'Clear Scene', description: 'A clean scene with a configured Camera2D.', features: ['Camera2D', 'Input map', 'Build settings'], difficulty: 'beginner', setupMinutes: 2, tags: ['blank', 'camera', 'starter'] },
   { id: 'physics-sandbox', category: 'scene', name: 'Physics Sandbox', description: 'A playground for materials, ropes, joints, and collision behavior.', features: ['Rigid bodies', 'Materials', 'Rope2D', 'Joints', 'Debugger'], difficulty: 'intermediate', setupMinutes: 8, tags: ['physics', 'rope', 'joints'] },
   { id: 'platformer', category: 'scene', name: 'Platformer Scene', description: 'A playable foundation with a player, platforms, UI, animation, audio, and scripts.', features: ['Physics', 'TileMap2D', 'Animator', 'Audio', 'UI'], difficulty: 'intermediate', setupMinutes: 12, tags: ['platformer', 'character', 'tilemap'] },
@@ -58,8 +68,10 @@ export const PROJECT_TEMPLATES: readonly ProjectTemplateDescriptor[] = [
   ...TEMPLATE_ADDITIONS_26_11.map(/** 复制模板功能和标签列表，并附加引入版本及德文、中文名称说明。 */ ({ de, zh, ...descriptor }) => ({ ...descriptor, features: [...descriptor.features], tags: [...descriptor.tags], introduced: '26.11', localized: { de: { name: de[0], description: de[1] }, zh: { name: zh[0], description: zh[1] } } })),
   { id: 'platformer-trilogy', category: 'game', name: 'Skyline Trilogy', description: 'A three-stage platformer run: tutorial, moving-platform challenge and a timed coin arena, with checkpoints and a saved best time.', features: ['CharacterBody2D', 'One-way platforms', 'CameraFollow2D', 'Collectible2D', 'Scene flow'], difficulty: 'intermediate', setupMinutes: 10, tags: ['platformer', 'levels', 'checkpoints'], introduced: '26.42', localized: { de: { name: 'Skyline-Trilogie', description: 'Ein dreistufiger Plattformer-Lauf: Tutorial, Herausforderung mit bewegten Plattformen und zeitgebundene Münzarena, mit Checkpoints und gespeicherter Bestzeit.' }, zh: { name: '星跃三部曲', description: '三段式平台跳跃：教学、移动平台挑战与限时收集竞技场，含检查点与最佳成绩存档。' } } },
   { id: 'pendulum-post', category: 'game', name: 'Pendulum Post', description: 'A rope-and-joint physics puzzle: cut swinging chains at the right moment to deliver two balls past a motorised windmill into a cup.', features: ['RevoluteJoint2D', 'Joint motor', 'Materials', 'Mouse queries', 'CCD'], difficulty: 'intermediate', setupMinutes: 8, tags: ['puzzle', 'rope', 'joints'], introduced: '26.42', localized: { de: { name: 'Pendelpost', description: 'Ein Seil- und Gelenk-Physikrätsel: Schneide schwingende Ketten im richtigen Moment, um zwei Kugeln an einer motorisierten Windmühle vorbei in einen Becher zu bringen.' }, zh: { name: '钟摆邮差', description: '绳索与关节物理谜题：在恰当时机剪断摆动的链条，让两颗球绕过马达风车落入杯中。' } } },
-  { id: 'reflex-lab', category: 'test', name: 'Reflex Lab', description: 'A reaction-time game with pointer-follow comparison, script frame statistics and a marker scene for external input-latency capture.', features: ['Reaction timer', 'MouseFollower2D', 'Frame stats', 'Latency marker', 'Save API'], difficulty: 'beginner', setupMinutes: 4, tags: ['latency', 'input', 'reaction'], introduced: '26.42', localized: { de: { name: 'Reflexlabor', description: 'Reaktionszeitspiel mit Zeigerfolge-Vergleich, Skript-Framestatistik und einer Markerszene für externe Eingabelatenz-Messungen.' }, zh: { name: '反应实验室', description: '反应时间小游戏，含指针跟随对比、脚本帧间隔统计，以及供外部输入延迟测量使用的标记场景。' } } }
+  { id: 'reflex-lab', category: 'test', name: 'Reflex Lab', description: 'A reaction-time game with pointer-follow comparison, script frame statistics and a marker scene for external input-latency capture.', features: ['Reaction timer', 'MouseFollower2D', 'Frame stats', 'Latency marker', 'Save API'], difficulty: 'beginner', setupMinutes: 4, tags: ['latency', 'input', 'reaction'], introduced: '26.42', localized: { de: { name: 'Reflexlabor', description: 'Reaktionszeitspiel mit Zeigerfolge-Vergleich, Skript-Framestatistik und einer Markerszene für externe Eingabelatenz-Messungen.' }, zh: { name: '反应实验室', description: '反应时间小游戏，含指针跟随对比、脚本帧间隔统计，以及供外部输入延迟测量使用的标记场景。' } } },
 ] as const
+
+export const PROJECT_TEMPLATES: readonly ProjectTemplateDescriptor[] = TEMPLATE_LIST.map(template => template.category === 'rhythm' || RHYTHM_ENGINE_TEMPLATES.has(template.id) ? template : { ...template, classic: true })
 
 type JsonRecord = Record<string, unknown>
 
@@ -1552,6 +1564,225 @@ fn update(dt) {
   return result
 }
 
+const RHYTHM_CONTROLLER_SOURCE = `// Rhythm game controls. The RhythmChart2D does timing, judgement, scoring and drawing; this script
+// handles the menu keys and keeps the best score of the song (save_set / save_commit).
+@export(type="string", group="Song", tooltip="Save key for this song's best score") let save_key = "rhythm";
+@export(type="bool", group="Runtime", tooltip="Autoplay toggled with the Autoplay action") let autoplay_on = false;
+fn start() {
+  show_best(save_key);
+}
+fn update(dt) {
+  if input_pressed("Pause") {
+    if rhythm_state() == "paused" { rhythm_resume(); } else { rhythm_pause(); }
+  }
+  if input_pressed("Retry") { rhythm_restart(); show_best(save_key); ui_set_text_on(find_entity_handle("Result Text"), ""); }
+  if input_pressed("Autoplay") {
+    autoplay_on = !autoplay_on;
+    rhythm_set_autoplay(autoplay_on);
+    ui_set_text_on(find_entity_handle("Mode Text"), if autoplay_on { "AUTOPLAY" } else { "" });
+  }
+}
+// Script functions see only their arguments, so the save key is passed in.
+fn show_best(key) {
+  let best = save_get(key, 0);
+  ui_set_text_on(find_entity_handle("Best Text"), "Best  " + best);
+}
+fn on_signal(name, payload, source) {
+  if name != "rhythm.finished" { return; }
+  let score = payload.score.to_int();
+  let best = save_get(save_key, 0);
+  if !autoplay_on && score > best {
+    save_set(save_key, score);
+    save_commit(save_key);
+    ui_set_text_on(find_entity_handle("Best Text"), "New best  " + score);
+  }
+  let accuracy = (payload.accuracy * 10000.0).floor() / 100.0;
+  ui_set_text_on(find_entity_handle("Result Text"), payload.rank + "   " + score + "   " + accuracy + "%   max combo " + payload.maxCombo.to_int() + "   R to play again");
+}`
+
+/** 26.46 节奏模板：原创歌曲与由同一音符事件生成的谱面、RhythmChart2D、控制脚本、HUD 与输入映射。 */ function rhythmTemplate(name: string, id: 'rhythm-lanes' | 'rhythm-lines'): JsonRecord {
+  const lanes = id === 'rhythm-lanes'
+  const song = lanes ? composeNeonStep() : composeSkylineDrift()
+  const songUuid = stableUuid(`asset:${id}-song`), chartUuid = stableUuid(`asset:${id}-chart`), scriptUuid = stableUuid(`asset:${id}-controller`)
+  const audio = songWavDataUrl(song)
+  const songAsset = { ...textAsset(`${id}-song`, `${song.title}.wav`, 'other', `Assets/Audio/${song.title}.wav`, audio.url, 'audio/wav'), uuid: songUuid, assetType: 'audio', byteLength: audio.bytes, duration: audio.duration }
+  const chart = lanes ? neonStepChart(song, `asset://${songUuid}`) : skylineDriftChart(song, `asset://${songUuid}`)
+  const chartAsset = { ...textAsset(`${id}-chart`, `${song.title}.nova-chart`, 'other', `Assets/Charts/${song.title}.nova-chart`, chartSource(chart), 'application/x-nova-chart'), uuid: chartUuid, assetType: 'chart' }
+  const rhythm = entity(`${id}-chart`, 'Rhythm Chart', [0, 0], [component(`${id}-chart`, 'RhythmChart2D', {
+    chartAsset: `asset://${chartUuid}`, audioAsset: `asset://${songUuid}`, playOnStart: true, botPlay: false, leadInSeconds: 2, unitScale: 1,
+    scrollSpeed: lanes ? 9 : 7.5, laneWidth: 1.5, judgeY: -3.7, hitWidth: 1.4, flickSpeed: 16,
+    perfectMs: 45, greatMs: 90, goodMs: 135, badMs: 180, offsetMs: 0, volume: .9, bus: 'Music', hitSound: true, hitSoundAsset: null, hitSoundVolume: .45, laneKeys: '',
+    showLanes: true, showJudgements: true, showCombo: true, hitEffects: true,
+    noteColor: lanes ? { r: 110, g: 214, b: 255 } : { r: 140, g: 220, b: 255 }, holdColor: { r: 255, g: 205, b: 110 }, dragColor: { r: 255, g: 236, b: 140 }, flickColor: { r: 255, g: 110, b: 160 },
+    lineColor: { r: 240, g: 246, b: 255 }, laneColor: lanes ? { r: 22, g: 28, b: 54 } : { r: 30, g: 36, b: 64 }, sortingLayer: 10, orderInLayer: 0
+  })])
+  attachScript(rhythm, `${id}-chart`, scriptUuid, { save_key: song.id })
+  const glow = (seed: string, position: [number, number], size: number, color: [number, number, number], opacity: number) => patchComponent(decorativeShape(`${id}-${seed}`, `Backdrop ${seed}`, position, [size, size], color, 'Circle'), 'ShapeRenderer2D', { opacity, strokeOpacity: 0, sortingLayer: 1, orderInLayer: -20 })
+  const backdrop = lanes
+    ? [glow('a', [-7.5, 3.2], 7, [60, 40, 140], 35), glow('b', [7.8, -2.6], 8, [20, 90, 150], 30), glow('c', [0, 6.5], 10, [90, 30, 110], 25)]
+    : [glow('a', [-6, -3], 9, [30, 70, 150], 30), glow('b', [6.5, 3.2], 7, [120, 50, 140], 28), glow('c', [0, 0], 13, [16, 30, 70], 40)]
+  const camera = cameraAtSize(`${id}-camera`, 5)
+  patchComponent(camera, 'Camera2D', { backgroundColor: lanes ? { r: 9, g: 10, b: 24 } : { r: 8, g: 14, b: 30 } })
+  const { canvas, uuid } = levelCanvas(`${id}-hud`)
+  const controlsText = lanes ? 'D  F  J  K  or click the lanes     Esc pause     R retry     B autoplay' : 'Click / tap notes on the lines (any letter key also works)     Esc pause     R retry     B autoplay'
+  const hud = [
+    canvas,
+    levelText(`${id}-title`, 'Song Title', uuid, [-640, -480], [620, 56], song.title, 34, 'left'),
+    levelText(`${id}-artist`, 'Song Artist', uuid, [-640, -430], [620, 40], `${song.artist}   ·   ${song.bpm} BPM   ·   Level ${chart.meta.level}`, 20, 'left', [170, 186, 220]),
+    levelText(`${id}-best`, 'Best Text', uuid, [640, 470], [620, 40], 'Best  0', 22, 'right', [190, 210, 240]),
+    levelText(`${id}-mode`, 'Mode Text', uuid, [-640, -385], [620, 40], '', 22, 'left', [255, 214, 120]),
+    levelText(`${id}-result`, 'Result Text', uuid, [0, 300], [1500, 48], '', 28, 'center', [214, 238, 255]),
+    levelText(`${id}-controls`, 'Controls Text', uuid, [-140, 486], [1500, 36], controlsText, 18, 'left', [150, 166, 200])
+  ]
+  const main = scene(`${id}-main`, song.title, [camera, ...backdrop, rhythm, ...hud])
+  ;(main.globalSettings as JsonRecord).gravity = 0
+  const tutorial = lanes
+    ? `---\ndismissible: true\ntemplate: rhythm-lanes\n---\n# Rhythm Lanes\n\nPress **Play**: after a two-second lead-in the notes of **${song.title}** fall towards the judgement line. Hit them with **D F J K** (or click / touch the lanes) when they reach the line; hold the key for long notes.\n\nJudgement windows are ±45 ms (Perfect), ±90 ms (Great), ±135 ms (Good) and ±180 ms (Bad). Score is out of 1,000,000: 900,000 for accuracy and 100,000 for the longest combo.\n\n**Esc** pauses, **R** plays again, **B** toggles autoplay. Select **Rhythm Chart** and press **Edit chart** in its inspector to change the notes in the chart editor; **Offset** fixes audio delay for this chart, and the chart editor's calibration sets it for your device.`
+    : `---\ndismissible: true\ntemplate: rhythm-lines\n---\n# Rhythm Lines\n\nPress **Play**: notes travel towards two judgement lines that move, turn and fade with **${song.title}**. Click or touch a note on its line when it arrives (any letter key also hits the next note). Hold for long notes, keep the pointer on yellow drag notes and swipe across pink flick notes.\n\n**Esc** pauses, **R** plays again, **B** toggles autoplay. The lines' motion is chart data: open the chart editor from the **Rhythm Chart** inspector and edit the line events to change it.`
+  const result = project(name, id, [main], [songAsset, chartAsset, scriptAsset(`${id}-controller`, 'RhythmController', RHYTHM_CONTROLLER_SOURCE)], tutorial)
+  ;(result.projectSettings as JsonRecord).inputMap = [
+    { name: 'Pause', kind: 'button', bindings: [levelKey('Escape'), levelKey('KeyP'), levelDevice('gamepad-button', '9')] },
+    { name: 'Retry', kind: 'button', bindings: [levelKey('KeyR'), levelDevice('gamepad-button', '3')] },
+    { name: 'Autoplay', kind: 'button', bindings: [levelKey('KeyB')] }
+  ]
+  const folders = result.assetFolders as string[]
+  if (!folders.includes('Assets/Charts')) folders.push('Assets/Charts')
+  return result
+}
+
+const RHYTHM_LAB_CONTROLLER_SOURCE = `// Rhythm Lab. The chart says what each note type is (the stars are worth double, the mines are judged
+// here) and what the timeline does (camera, backdrop, bloom, the section triggers). This script adds the
+// menu keys, the best score, and the game's own judgement of the mines.
+@export(type="string", group="Song", tooltip="Save key for this song's best score") let save_key = "rhythm";
+@export(type="bool", group="Runtime", tooltip="Autoplay toggled with the Autoplay action") let autoplay_on = false;
+fn start() {
+  show_best(save_key);
+}
+fn update(dt) {
+  if input_pressed("Pause") {
+    if rhythm_state() == "paused" { rhythm_resume(); } else { rhythm_pause(); }
+  }
+  if input_pressed("Retry") { rhythm_restart(); show_best(save_key); ui_set_text_on(find_entity_handle("Section Text"), ""); ui_set_text_on(find_entity_handle("Result Text"), ""); }
+  if input_pressed("Autoplay") {
+    autoplay_on = !autoplay_on;
+    rhythm_set_autoplay(autoplay_on);
+    ui_set_text_on(find_entity_handle("Mode Text"), if autoplay_on { "AUTOPLAY" } else { "" });
+  }
+}
+fn show_best(key) {
+  let best = save_get(key, 0);
+  ui_set_text_on(find_entity_handle("Best Text"), "Best  " + best);
+}
+fn on_signal(name, payload, source) {
+  // A press on a mine (a "custom" note type): the game decides, here a miss and a shake.
+  if name == "rhythm.touch" {
+    if payload.type == "mine" {
+      rhythm_judge(payload.note, "miss");
+      camera_shake(0.5);
+      ui_set_text_on(find_entity_handle("Section Text"), "MINE!  Leave the red ones alone");
+    }
+    return;
+  }
+  // Timeline triggers: named moments in the chart.
+  if name == "rhythm.trigger" {
+    if payload.name == "verse" { ui_set_text_on(find_entity_handle("Section Text"), "VERSE"); }
+    if payload.name == "drop" { ui_set_text_on(find_entity_handle("Section Text"), "DROP  -  stars x2, avoid mines"); camera_shake(0.3); }
+    if payload.name == "outro" { ui_set_text_on(find_entity_handle("Section Text"), "OUTRO"); }
+    return;
+  }
+  if name != "rhythm.finished" { return; }
+  let score = payload.score.to_int();
+  let best = save_get(save_key, 0);
+  if !autoplay_on && score > best {
+    save_set(save_key, score);
+    save_commit(save_key);
+    ui_set_text_on(find_entity_handle("Best Text"), "New best  " + score);
+  }
+  let accuracy = (payload.accuracy * 10000.0).floor() / 100.0;
+  ui_set_text_on(find_entity_handle("Result Text"), payload.rank + "   " + score + "   " + accuracy + "%   max combo " + payload.maxCombo.to_int() + "   R to play again");
+}`
+
+/** The star note's spinning core (a child of the prefab root, which the chart places on its note). */
+const RHYTHM_LAB_STAR_SPIN_SOURCE = `// Spins the star. The root of the prefab follows the note; this child turns on its own.
+@export(type="float", min=0, max=20, group="Star") let speed = 2.4;
+let angle = 0.0;
+fn update(dt) {
+  angle += speed * dt;
+  set_rotation(angle);
+}`
+
+/** The star note's root: it hears its own judgement (rhythm.note_hit / rhythm.note_miss). */
+const RHYTHM_LAB_STAR_SOURCE = `// A prefab note. rhythm_my_note() is the note this object shows; its judgement arrives as a signal.
+fn on_signal(name, payload, source) {
+  if name == "rhythm.note_hit" {
+    let note = rhythm_my_note();
+    if note != () && payload.judgement == "perfect" { post_pulse("exposure", 0.35, 0.25); }
+  }
+}`
+
+/** 26.47 节奏实验室：原创歌曲、自定义音符类型（预制体星星、脚本判定的地雷）、主时间线与触发器。 */ function rhythmLabTemplate(name: string): JsonRecord {
+  const id = 'rhythm-lab'
+  const song = composePrismPulse()
+  const songUuid = stableUuid(`asset:${id}-song`), chartUuid = stableUuid(`asset:${id}-chart`), scriptUuid = stableUuid(`asset:${id}-controller`)
+  const starUuid = stableUuid(`asset:${id}-star-prefab`), starScriptUuid = stableUuid(`asset:${id}-star`), spinScriptUuid = stableUuid(`asset:${id}-star-spin`)
+  const audio = songWavDataUrl(song)
+  const songAsset = { ...textAsset(`${id}-song`, `${song.title}.wav`, 'other', `Assets/Audio/${song.title}.wav`, audio.url, 'audio/wav'), uuid: songUuid, assetType: 'audio', byteLength: audio.bytes, duration: audio.duration }
+  const chart = prismPulseChart(song, `asset://${songUuid}`, `asset://${starUuid}`, 'Prism')
+  const chartAsset = { ...textAsset(`${id}-chart`, `${song.title}.nova-chart`, 'other', `Assets/Charts/${song.title}.nova-chart`, chartSource(chart), 'application/x-nova-chart'), uuid: chartUuid, assetType: 'chart' }
+  // The star prefab: a soft glow (the root, placed on the note) and a spinning six-pointed star made of two
+  // triangles (shapes are convex), the second a child of the first so it turns with it.
+  const triangle = (radius: number, start: number) => [0, 1, 2].map(index => { const angle = start + index * Math.PI * 2 / 3; return { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius } })
+  const starRoot = patchComponent(decorativeShape(`${id}-star-root`, 'Star Note', [0, 0], [1.3, 1.3], [255, 214, 110], 'Circle'), 'ShapeRenderer2D', { opacity: 28, strokeOpacity: 0, sortingLayer: 10, orderInLayer: 5 })
+  ;(starRoot.components as JsonRecord[]).push(component(`${id}-star-root-script`, 'Script2D', { scriptAsset: `asset://${starScriptUuid}`, properties: {} }))
+  const starCore = patchComponent(decorativeShape(`${id}-star-core`, 'Star Core', [0, 0], [.9, .9], [255, 222, 120], 'Triangle'), 'ShapeRenderer2D', { shape: 'Polygon', vertices: triangle(.55, Math.PI / 2), opacity: 92, strokeColor: { r: 255, g: 250, b: 220 }, strokeOpacity: 100, strokeWidth: .04, sortingLayer: 10, orderInLayer: 6 })
+  ;((starCore.components as JsonRecord[])[0].data as JsonRecord).parentUuid = starRoot.uuid
+  ;(starCore.components as JsonRecord[]).push(component(`${id}-star-core-script`, 'Script2D', { scriptAsset: `asset://${spinScriptUuid}`, properties: {} }))
+  const starPoint = patchComponent(decorativeShape(`${id}-star-point`, 'Star Point', [0, 0], [.9, .9], [255, 200, 90], 'Triangle'), 'ShapeRenderer2D', { shape: 'Polygon', vertices: triangle(.55, -Math.PI / 2), opacity: 92, strokeColor: { r: 255, g: 250, b: 220 }, strokeOpacity: 100, strokeWidth: .04, sortingLayer: 10, orderInLayer: 7 })
+  ;((starPoint.components as JsonRecord[])[0].data as JsonRecord).parentUuid = starCore.uuid
+  const starPrefab = { ...textAsset(`${id}-star-prefab`, 'Star Note.nova-prefab', 'prefab', 'Assets/Prefabs/Star Note.nova-prefab', JSON.stringify({ prefabVersion: 2, name: 'Star Note', bundle: { entities: [starRoot, starCore, starPoint], connections: [], rootUuids: [starRoot.uuid] }, variantOf: null, sourceChecksum: 'template', createdAt: new Date(0).toISOString() }), 'application/x-nova-prefab'), uuid: starUuid }
+  const rhythm = entity(`${id}-chart`, 'Rhythm Chart', [0, 0], [component(`${id}-chart`, 'RhythmChart2D', {
+    chartAsset: `asset://${chartUuid}`, audioAsset: `asset://${songUuid}`, playOnStart: true, botPlay: false, leadInSeconds: 2, unitScale: 1,
+    scrollSpeed: 9, laneWidth: 1.5, judgeY: -3.7, hitWidth: 1.4, flickSpeed: 16,
+    perfectMs: 45, greatMs: 90, goodMs: 135, badMs: 180, offsetMs: 0, volume: .9, bus: 'Music', hitSound: true, hitSoundAsset: null, hitSoundVolume: .45, laneKeys: '',
+    showLanes: true, showJudgements: true, showCombo: true, hitEffects: true, showErrorBar: true,
+    noteColor: { r: 120, g: 226, b: 255 }, holdColor: { r: 170, g: 150, b: 255 }, dragColor: { r: 255, g: 236, b: 140 }, flickColor: { r: 255, g: 110, b: 160 },
+    lineColor: { r: 240, g: 246, b: 255 }, laneColor: { r: 20, g: 24, b: 50 }, sortingLayer: 10, orderInLayer: 0
+  })])
+  attachScript(rhythm, `${id}-chart`, scriptUuid, { save_key: song.id })
+  // The backdrop prism the timeline turns, pulses and brightens; two glows behind it.
+  const prism = patchComponent(decorativeShape(`${id}-prism`, 'Prism', [0, 1.2], [9, 9], [70, 60, 170], 'Triangle'), 'ShapeRenderer2D', { shape: 'Polygon', vertices: Array.from({ length: 6 }, (_, index) => ({ x: Math.cos(index * Math.PI / 3) * 4.2, y: Math.sin(index * Math.PI / 3) * 4.2 })), opacity: 35, strokeColor: { r: 150, g: 170, b: 255 }, strokeOpacity: 60, strokeWidth: .08, sortingLayer: 1, orderInLayer: -10 })
+  const glow = (seed: string, position: [number, number], size: number, color: [number, number, number], opacity: number) => patchComponent(decorativeShape(`${id}-${seed}`, `Backdrop ${seed}`, position, [size, size], color, 'Circle'), 'ShapeRenderer2D', { opacity, strokeOpacity: 0, sortingLayer: 1, orderInLayer: -20 })
+  const backdrop = [glow('a', [-7.2, -2.8], 8, [40, 70, 160], 30), glow('b', [7.4, 3], 7, [140, 50, 130], 28)]
+  const camera = cameraAtSize(`${id}-camera`, 5)
+  patchComponent(camera, 'Camera2D', { backgroundColor: { r: 8, g: 9, b: 22 } })
+  const { canvas, uuid } = levelCanvas(`${id}-hud`)
+  const hud = [
+    canvas,
+    levelText(`${id}-title`, 'Song Title', uuid, [-640, -480], [620, 56], song.title, 34, 'left'),
+    levelText(`${id}-artist`, 'Song Artist', uuid, [-640, -430], [620, 40], `${song.artist}   ·   ${song.bpm} BPM   ·   Rhythm Lab`, 20, 'left', [170, 186, 220]),
+    levelText(`${id}-best`, 'Best Text', uuid, [640, 470], [620, 40], 'Best  0', 22, 'right', [190, 210, 240]),
+    levelText(`${id}-mode`, 'Mode Text', uuid, [-640, -385], [620, 40], '', 22, 'left', [255, 214, 120]),
+    levelText(`${id}-section`, 'Section Text', uuid, [565, -430], [760, 40], '', 22, 'right', [255, 222, 140]),
+    levelText(`${id}-result`, 'Result Text', uuid, [0, 300], [1500, 48], '', 28, 'center', [214, 238, 255]),
+    levelText(`${id}-controls`, 'Controls Text', uuid, [-140, 486], [1500, 36], 'D  F  J  K  or click the lanes     gold stars x2, red mines: hands off     Esc pause     R retry     B autoplay', 18, 'left', [150, 166, 200])
+  ]
+  const main = scene(`${id}-main`, song.title, [camera, ...backdrop, prism, rhythm, ...hud])
+  ;(main.globalSettings as JsonRecord).gravity = 0
+  const tutorial = `---\ndismissible: true\ntemplate: rhythm-lab\n---\n# Rhythm Lab\n\nPress **Play**. **${song.title}** is a four-lane chart (D F J K) that uses what 26.47 opened up:\n\n- **Note types of the chart's own.** Gold **stars** are a prefab (*Star Note*): the chart places the prefab on each star note, the prefab's script spins it and hears its own judgement. Stars count double. Red **mines** are a *custom* type: pressing one is reported to the **RhythmLabController** script as \`rhythm.touch\`, and the script judges it with \`rhythm_judge(note, "miss")\`. A mine nobody touches counts as perfect.\n- **The master timeline.** In the chart, tracks zoom the camera at the drop, turn and pulse the **Prism** backdrop on every bar and raise bloom; triggers (\`verse\`, \`drop\`, \`outro\`) arrive as \`rhythm.trigger\` signals and change the section text.\n\nOpen the chart editor from the **Rhythm Chart** inspector: **Note types** lists star and mine, **Timeline** lists the tracks and triggers. The bar under the judgement line shows how early or late each hit was.\n\n**Esc** pauses, **R** plays again, **B** toggles autoplay.`
+  const result = project(name, id, [main], [songAsset, chartAsset, starPrefab, scriptAsset(`${id}-controller`, 'RhythmLabController', RHYTHM_LAB_CONTROLLER_SOURCE), scriptAsset(`${id}-star`, 'StarNote', RHYTHM_LAB_STAR_SOURCE), scriptAsset(`${id}-star-spin`, 'StarSpin', RHYTHM_LAB_STAR_SPIN_SOURCE)], tutorial)
+  ;(result.projectSettings as JsonRecord).inputMap = [
+    { name: 'Pause', kind: 'button', bindings: [levelKey('Escape'), levelKey('KeyP'), levelDevice('gamepad-button', '9')] },
+    { name: 'Retry', kind: 'button', bindings: [levelKey('KeyR'), levelDevice('gamepad-button', '3')] },
+    { name: 'Autoplay', kind: 'button', bindings: [levelKey('KeyB')] }
+  ]
+  // The timeline's bloom track needs post-processing on (neutral until the drop).
+  const rendering = (result.projectSettings as JsonRecord).rendering as JsonRecord
+  rendering.postProcessing = { ...(rendering.postProcessing as JsonRecord), enabled: true, bloom: 0, exposure: 0 }
+  const folders = result.assetFolders as string[]
+  for (const folder of ['Assets/Charts', 'Assets/Prefabs']) if (!folders.includes(folder)) folders.push(folder)
+  return result
+}
+
 /** 按新增模板身份构建检查点游戏、物理实验或视觉场景，附加对应输入、脚本、教程和渲染设置。 */ function authoredAddition(name: string, id: AddedTemplateId): JsonRecord {
   const descriptor = PROJECT_TEMPLATES.find(/* 比较 value.id 与 id，返回严格相等的判断结果。 */ value => value.id === id)!
   const bodies: JsonRecord[] = [], assets: JsonRecord[] = []
@@ -1745,7 +1976,10 @@ const TEMPLATE_FACTORIES: Record<Exclude<ProjectTemplateId, AddedTemplateId>, (n
   'grid-chase': /* 调用 templateVariant(name, 'grid-chase', 'Snake', snakeTemplate) 并返回调用结果。 */ name => templateVariant(name, 'grid-chase', 'Snake', snakeTemplate),
   'platformer-trilogy': platformerTrilogyTemplate,
   'pendulum-post': pendulumPostTemplate,
-  'reflex-lab': reflexLabTemplate
+  'reflex-lab': reflexLabTemplate,
+  'rhythm-lanes': name => rhythmTemplate(name, 'rhythm-lanes'),
+  'rhythm-lab': name => rhythmLabTemplate(name),
+  'rhythm-lines': name => rhythmTemplate(name, 'rhythm-lines')
 }
 
 /** 选择已登记模板生成器，补充三语操作指南并重算资源摘要，结构审计通过后返回项目。 */ export function createTemplateProject(template: ProjectTemplateId, name: string): JsonRecord {
@@ -1915,6 +2149,20 @@ const TEMPLATE_FACTORIES: Record<Exclude<ProjectTemplateId, AddedTemplateId>, (n
     if (componentData('Cup Goal', 'BoxCollider2D')?.sensor !== true) failures.push('Pendulum Post cup must be a sensor')
     for (const contract of ['query_radius(', 'mouse_world_x(', 'entity_destroy(', 'component_set_enabled_on(', 'on_trigger_enter', 'on_collision_enter', 'scene_reload(']) if (!scripts.includes(contract)) failures.push(`Pendulum Post is missing ${contract}`)
     if (!inputMap.some(value => value.name === 'Cut' && Array.isArray(value.bindings) && (value.bindings as JsonRecord[]).some(binding => binding.device === 'mouse-button'))) failures.push('Pendulum Post must bind Cut to a mouse button')
+  } else if (auditTemplate === 'rhythm-lab') {
+    requireComponents('RhythmChart2D', 'Script2D', 'Camera2D', 'Canvas', 'Text')
+    for (const type of ['chart', 'audio', 'prefab']) if (!assetTypes.has(type)) failures.push(`missing ${type} asset`)
+    const rhythm = componentData('Rhythm Chart', 'RhythmChart2D')
+    if (!rhythm?.chartAsset || !rhythm?.audioAsset) failures.push('the rhythm chart must reference its chart and song')
+    for (const contract of ['rhythm_judge(', '"rhythm.touch"', '"rhythm.trigger"', 'rhythm_my_note(', 'rhythm_restart(', 'save_commit(']) if (!scripts.includes(contract)) failures.push(`Rhythm Lab is missing ${contract}`)
+    if (!entities.some(item => item.name === 'Prism')) failures.push('Rhythm Lab needs the Prism object its timeline animates')
+  } else if (auditTemplate === 'rhythm-lanes' || auditTemplate === 'rhythm-lines') {
+    requireComponents('RhythmChart2D', 'Script2D', 'Camera2D', 'Canvas', 'Text')
+    for (const type of ['chart', 'audio']) if (!assetTypes.has(type)) failures.push(`missing ${type} asset`)
+    const rhythm = componentData('Rhythm Chart', 'RhythmChart2D')
+    if (!rhythm?.chartAsset || !rhythm?.audioAsset) failures.push('the rhythm chart must reference its chart and song')
+    for (const contract of ['rhythm_pause(', 'rhythm_resume(', 'rhythm_restart(', 'rhythm_set_autoplay(', '"rhythm.finished"', 'save_commit(']) if (!scripts.includes(contract)) failures.push(`rhythm template is missing ${contract}`)
+    for (const action of ['Pause', 'Retry', 'Autoplay']) if (!inputMap.some(value => value.name === action)) failures.push(`rhythm template input action ${action} is missing`)
   } else if (auditTemplate === 'reflex-lab') {
     requireComponents('MouseFollower2D', 'Script2D', 'Canvas', 'Text', 'TextRenderer2D')
     if (scenes.length !== 2 || !scenes.some(value => value.name === 'Latency Marker')) failures.push('Reflex Lab must ship the Latency Marker scene')

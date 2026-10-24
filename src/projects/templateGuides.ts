@@ -76,6 +76,21 @@ const controls = {
     "Play: press Space, Enter, left click or gamepad A to arm a round, then again when the lamp turns green. M switches to the latency marker scene; R resets.",
     "Play: Leertaste, Eingabe, Linksklick oder Gamepad-A startet eine Runde; erneut drücken, sobald die Lampe grün wird. M wechselt zur Latenz-Markerszene, R setzt zurück.",
     "播放后按空格、回车、鼠标左键或手柄 A 开始一轮，灯变绿时再按一次。M 切换到延迟标记场景，R 重置。"
+  ],
+  "rhythmLanes": [
+    "Play: hit the falling notes with D F J K (or click / touch the lanes) as they reach the line; hold long notes. Esc pauses, R plays again, B toggles autoplay.",
+    "Play: Die fallenden Noten mit D F J K (oder Klick / Touch auf die Bahnen) treffen, wenn sie die Linie erreichen; lange Noten halten. Esc pausiert, R spielt erneut, B schaltet Autoplay um.",
+    "播放后音符下落到判定线时按 D F J K（或点击 / 触摸对应轨道）击打，长按音符需按住。Esc 暂停，R 重来，B 切换自动演奏。"
+  ],
+  "rhythmLines": [
+    "Play: click or touch notes on the moving judgement lines as they arrive (any letter key except P, R and B also works); hold long notes, keep the pointer on drag notes, swipe across flick notes. Esc pauses, R plays again, B toggles autoplay.",
+    "Play: Noten auf den beweglichen Urteilslinien beim Eintreffen anklicken oder antippen (jede Buchstabentaste außer P, R und B geht auch); lange Noten halten, auf Ziehnoten bleiben, über Wischnoten wischen. Esc pausiert, R spielt erneut, B schaltet Autoplay um.",
+    "播放后音符到达移动的判定线时点击或触摸（除 P、R、B 外的任意字母键也可）；长按音符需按住，滑动音符保持指针在线上，划动音符需快速划过。Esc 暂停，R 重来，B 切换自动演奏。"
+  ],
+  "rhythmLab": [
+    "Play: D F J K (or click / touch the lanes) as in Rhythm Lanes. Gold stars score double; do not press the lane of a red mine when it passes the line. Esc pauses, R plays again, B toggles autoplay.",
+    "Play: D F J K (oder Klick / Touch auf die Bahnen) wie bei Rhythmus-Bahnen. Goldene Sterne zählen doppelt; die Bahn einer roten Mine nicht drücken, wenn sie die Linie passiert. Esc pausiert, R spielt erneut, B schaltet Autoplay um.",
+    "播放后与“节奏下落”一样用 D F J K（或点击 / 触摸轨道）击打。金色星星得双倍分；红色地雷经过判定线时不要按它所在的轨道。Esc 暂停，R 重来，B 切换自动演奏。"
   ]
 } as const
 const guides: readonly TemplateGuideRecord[] = [
@@ -691,7 +706,25 @@ const guides: readonly TemplateGuideRecord[] = [
       "Five valid rounds report average, best and worst reaction times; the marker scene shows a white square while Space is held.",
       "Fünf gültige Runden melden Durchschnitt, Bestwert und schlechteste Reaktionszeit; die Markerszene zeigt ein weißes Quadrat, solange die Leertaste gehalten wird.",
       "完成五轮有效测试后显示平均、最佳与最差反应时间；标记场景在按住空格时显示白色方块。"
-    ], "requirements": ["offline", "keyboard", "pointer"] }
+    ], "requirements": ["offline", "keyboard", "pointer"] },
+  { "id": "rhythm-lanes", "control": "rhythmLanes", "manualSection": "v2646-rhythm", "taskSection": "v2646-rhythm",
+    "expected": [
+      "Neon Step plays after a two-second lead-in; hits show PERFECT to BAD with early/late, the combo and a score out of 1,000,000, and the end shows the rank and saves the best score.",
+      "Neon Step startet nach zwei Sekunden Vorlauf; Treffer zeigen PERFECT bis BAD mit früh/spät, Combo und Punkte bis 1.000.000, am Ende Rang und gespeicherter Bestwert.",
+      "两秒预备后播放《Neon Step》；击中时显示 PERFECT 到 BAD 及偏早/偏晚、连击与满分 1,000,000 的分数，结束时显示评级并保存最佳成绩。"
+    ], "requirements": ["offline", "keyboard", "pointer", "audio"] },
+  { "id": "rhythm-lab", "control": "rhythmLab", "manualSection": "v2647-note-types", "taskSection": "v2647-note-types",
+    "expected": [
+      "Prism Pulse plays with spinning star notes (a prefab, double score), red mines judged by the lab's script, and a drop where the camera zooms, the backdrop prism turns and pulses on every bar and bloom rises.",
+      "Prism Pulse läuft mit drehenden Sternnoten (ein Prefab, doppelte Punkte), roten Minen, die das Skript des Labors bewertet, und einem Drop, in dem die Kamera zoomt, das Hintergrundprisma sich dreht und in jedem Takt pulsiert und Bloom aufleuchtet.",
+      "播放《Prism Pulse》：旋转的星星音符（预制体，双倍得分），由实验室脚本判定的红色地雷，副歌时相机拉近、背景棱镜随每小节旋转跳动、辉光增强。"
+    ], "requirements": ["offline", "keyboard", "pointer", "audio"] },
+  { "id": "rhythm-lines", "control": "rhythmLines", "manualSection": "v2646-rhythm", "taskSection": "v2646-rhythm",
+    "expected": [
+      "Skyline Drift plays with two judgement lines that sway, tilt, fade and slow down with the song; taps, holds, drags and flicks are judged and scored.",
+      "Skyline Drift läuft mit zwei Urteilslinien, die mit dem Song schwanken, kippen, verblassen und langsamer werden; Tipp-, Halte-, Zieh- und Wischnoten werden bewertet.",
+      "播放《Skyline Drift》，两条判定线随音乐摆动、倾斜、淡入淡出和减速；点击、长按、滑动与划动音符都会判定并计分。"
+    ], "requirements": ["offline", "pointer", "keyboard", "audio"] }
 ]
 const requirementText: Record<TemplateRequirement, Localized> = {
  offline: ['Ready offline', 'Offline bereit', '离线可用'], keyboard: ['Keyboard', 'Tastatur', '键盘'], pointer: ['Pointer', 'Zeiger', '指针'], audio: ['Audio included', 'Audio enthalten', '包含音频'], twoPlayers: ['Two local players', 'Zwei lokale Spieler', '本地双人'], optionalServer: ['Server optional', 'Server optional', '服务器可选']

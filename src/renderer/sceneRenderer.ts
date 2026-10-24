@@ -4,7 +4,9 @@ import { buildGpuLighting } from './lighting2dGpu'
 import type { LightingEnvironment } from './LightingEnvironment'
 import { compoundGeometries } from '../world/compoundGeometry'
 import type { Connection } from '../world/Connection'
-import type { Camera2D, ParticleEmitter2D, ShapeRenderer2D, SpriteRenderer2D, TextRenderer2D, TileMap2D } from '../world/components'
+import type { Camera2D, ParticleEmitter2D, RhythmChart2D, ShapeRenderer2D, SpriteRenderer2D, TextRenderer2D, TileMap2D } from '../world/components'
+import { submitRhythmChart } from './rhythmRenderer'
+import { rhythmFrame } from './rhythmFrames'
 import type { Entity } from '../world/Entity'
 import { worldTransform, worldTransformsFor, type WorldTransform2D } from '../world/hierarchy'
 import type { CameraRenderView, RenderColor, Renderer2D, RendererStats } from './types'
@@ -151,7 +153,7 @@ function renderState(reference: string, fallbackFilter: TextureFilter, environme
 /* 从瓦片、精灵、文本或基础渲染器中取得实体排序层。 */
 function sortingLayer(entity: Entity): number {
   return entity.getComponent<TileMap2D>('TileMap2D')?.sortingLayer
-    ?? entity.spriteRenderer?.sortingLayer ?? entity.textRenderer?.sortingLayer ?? entity.renderer.sortingLayer
+    ?? entity.spriteRenderer?.sortingLayer ?? entity.textRenderer?.sortingLayer ?? entity.getComponent<RhythmChart2D>('RhythmChart2D')?.sortingLayer ?? entity.renderer.sortingLayer
 }
 
 /* 沿父链查找最近视差层，并通过访问集合避免循环遍历。 */
@@ -260,7 +262,8 @@ export function texturePreloadBounds(bounds: ReturnType<typeof visibleWorldBound
 function entityIntersectsRenderBounds(entity: Entity, entities: Entity[], view: CameraRenderView, bounds: RenderBounds2D, meshes: FrameSpriteMeshes, environment: SceneRendererEnvironment): boolean {
   // Tile chunks own their transformed/parallax bounds. Text layout and live particle bounds are
   // not exposed by these systems yet; retain them conservatively instead of dropping pixels.
-  if (entity.getComponent<TileMap2D>('TileMap2D') || entity.getComponent<ParticleEmitter2D>('ParticleEmitter2D') || entity.textRenderer?.text) return true
+  // 26.46: a rhythm chart's lanes, notes and HUD extend far from its origin; keep it like text.
+  if (entity.getComponent<TileMap2D>('TileMap2D') || entity.getComponent<ParticleEmitter2D>('ParticleEmitter2D') || entity.textRenderer?.text || entity.getComponent<RhythmChart2D>('RhythmChart2D')) return true
   const shape = entity.getComponent<ShapeRenderer2D>('ShapeRenderer2D'), sprite = entity.spriteRenderer
   if (!shape && !sprite) return true
   const transform = worldTransform(entity, entities)
@@ -365,6 +368,11 @@ export function renderWorld(renderer: Renderer2D, entities: Entity[], options: S
       if (sprite) submitSprite(renderer, entity, sprite, entities, camera.view, spriteMeshes, environment, worldTransforms)
       const text = entity.getComponent<TextRenderer2D>('TextRenderer2D')
       if (text) submitText(renderer, entity, text, entities, camera.view, environment, worldTransforms)
+      const rhythm = entity.getComponent<RhythmChart2D>('RhythmChart2D')
+      if (rhythm?.enabled && !rhythm.removed) {
+        const transform = worldTransforms.get(entity.uuid) ?? worldTransform(entity, entities)
+        submitRhythmChart(renderer, rhythm, { position: authoringPosition(entity, transform.position, entities, camera.view), rotation: transform.rotation, scale: transform.scale }, rhythmFrame(rhythm.uuid))
+      }
     }
     environment.submitParticles(renderer, visible, entities)
     for (const compound of compounds) {

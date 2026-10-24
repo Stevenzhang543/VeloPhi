@@ -29,9 +29,8 @@ const forbidden = id => /(?:^|\/)node_modules\/.*(?:\/vue(?:@|\/)|\/@vue\/|\/pin
   || /^src\/runtime\/(?:gameExporter|projectUpgrade|projectMutationRouter|extensionEcosystem|buildSettings)\./.test(id)
 const results = []
 // Keep the compatibility composition in the gate: moving the implementation must not hide its Editor reachability.
-const entries = manifest.source.some(item => item.path === 'src/runtime/GameplayRuntimeCore.ts')
-  ? [['Runtime core', 'src/runtime/GameplayRuntimeCore.ts'], ['Runtime compatibility composition', 'src/runtime/GameplayRuntime.ts']]
-  : [['Runtime', 'src/runtime/GameplayRuntime.ts']]
+// 26.46: the Editor's composition moved to src/editor/gameplayRuntime.ts; no runtime entry may reach the Editor.
+const entries = [['Runtime core', 'src/runtime/GameplayRuntimeCore.ts']]
 entries.push(['Renderer frontend', 'src/renderer/sceneRenderer.ts'], ['Player', 'src/player.ts'])
 for (const [label, entry] of [['AI owner', 'src/runtime/aiOwner.ts'], ['AI document contracts', 'src/runtime/aiDocuments.ts'], ['AI compatibility port', 'src/runtime/aiTools.ts']]) {
   if (manifest.source.some(item => item.path === entry)) entries.push([label, entry])
@@ -69,6 +68,8 @@ for (const [label, entry] of [['Runtime virtual controls input owner', 'src/runt
 for (const [label, entry] of [['Runtime replay owner', 'src/runtime/replayOwner.ts']]) entries.push([label, entry])
 for (const [label, entry] of [['TileSet value documents', 'src/runtime/tileSetValues.ts'], ['TileMap fixed World owner', 'src/runtime/tileMapOwner.ts'], ['Tile placement fixed World owner', 'src/runtime/tileSceneOwner.ts'], ['Runtime scene instantiator', 'src/runtime/runtimeSceneInstantiator.ts']]) entries.push([label, entry])
 for (const [label, entry] of [['Runtime particle owner', 'src/runtime/particleOwner.ts'], ['Runtime graph debug owner', 'src/runtime/graphDebugOwner.ts']]) entries.push([label, entry])
+// 26.46: the rhythm runtime and its renderer stay Editor-free like the other owners.
+for (const [label, entry] of [['Runtime rhythm owner', 'src/runtime/rhythmOwner.ts'], ['Rhythm renderer', 'src/renderer/rhythmRenderer.ts']]) if (manifest.source.some(item => item.path === entry)) entries.push([label, entry])
 for (const [label, entry] of [["Production network owner","src/runtime/productionNetworkOwner.ts"],["Network session owner","src/runtime/networkSessionOwner.ts"],["Multiplayer replay owner","src/runtime/multiplayerReplayOwner.ts"],["Network project value algorithms","src/runtime/networkProductionValues.ts"],["Web network transports","src/platform/webNetworkTransports.ts"],["Native network transport","src/platform/nativeNetworkTransport.ts"],["Network platform factory","src/platform/networkPlatformFactory.ts"]]) entries.push([label, entry])
 for (const [label, entry] of entries) {
   assert.ok(modules.has(entry), `Actual compiled entry must exist: ${entry}`)
@@ -89,12 +90,11 @@ const report = { schemaVersion: 1, generatedAt: new Date().toISOString(), buildI
   limits: ['Failure is a required M1 migration gap, not a passing result.', 'Source module reachability and rendered chunk reachability are reported separately; tree shaking alone is insufficient.', 'This gate does not yet prove package exports/project references or native capability separation.'] }
 const output = join(root, '.cache/engine-overhaul/production-boundaries.json')
 await mkdir(resolve(output, '..'), { recursive: true }); await writeFile(output, JSON.stringify(report, null, 2) + '\n')
-// 26.45: the release gate. The Editor's runtime composition (src/runtime/GameplayRuntime.ts wires the
-// Core to Editor adapters) is the one open M1 migration gap and stays NOT_PASSED in the report; every
-// other entry, the Player above all, must hold or the gate fails.
-const KNOWN_M1_GAPS = new Set(['Runtime compatibility composition'])
+// The release gate. 26.45 tolerated one known M1 gap (the Editor's runtime composition, then in
+// src/runtime/GameplayRuntime.ts); 26.46 moved that composition into src/editor, so every entry must hold.
+const KNOWN_M1_GAPS = new Set([])
 const unexpected = results.filter(item => (item.violations.length || !item.status.startsWith('VERIFIED_')) && !KNOWN_M1_GAPS.has(item.label))
-report.gate = unexpected.length ? 'FAILED' : 'PASSED_WITH_KNOWN_GAPS'
+report.gate = unexpected.length ? 'FAILED' : KNOWN_M1_GAPS.size ? 'PASSED_WITH_KNOWN_GAPS' : 'PASSED'
 report.knownGaps = results.filter(item => KNOWN_M1_GAPS.has(item.label) && item.violations.length).map(item => ({ label: item.label, violations: item.violations.length }))
 await writeFile(output, JSON.stringify(report, null, 2) + '\n')
 console.log(JSON.stringify({ status: report.status, gate: report.gate, buildId: report.buildId, results: results.map(item => ({ label: item.label, status: item.status, violations: item.violations.length })), report: output }))

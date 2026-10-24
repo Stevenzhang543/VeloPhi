@@ -299,6 +299,7 @@
         <RuntimeComponentsInspector :entity="selectedEntity" :search-query="estate.inspectorSearch" :category="estate.inspectorCategory" />
         <WorldComponentsInspector :entity="selectedEntity" />
         <GameplayComponentsInspector :entity="selectedEntity" />
+        <RhythmChartInspector :entity="selectedEntity" />
         <InspectorSection :title="t('entitySettings')" category="general">
           <PropertyRow :label="t('entityEnabled')" path="Entity.enabled"><ToggleSwitch v-model="selectedEntity.enabled" /></PropertyRow>
           <PropertyRow :label="t('entityVisible')"><ToggleSwitch v-model="selectedEntity.editorVisible" /></PropertyRow>
@@ -383,6 +384,7 @@
           <div class="component-picker-list">
             <section v-for="group in componentGroups" :key="group.name"><h5>{{ group.name }} <small>{{ group.kinds.length }}</small></h5><article v-for="kind in group.kinds" :key="kind"><button class="component-main" @click="chooseComponent(kind)"><EditorIcon :name="componentIcon(kind)" /><span><strong>{{ componentTitle(kind) }}</strong><small>{{ componentPaletteMetadata(kind).category }} · {{ t(`compatibility${componentPaletteMetadata(kind).compatibility}`) }}<template v-if="componentAuthoringRule(kind).required.length"> · {{ t('requires') }} {{ componentAuthoringRule(kind).required.join(', ') }}</template><template v-if="componentAuthoringRule(kind).conflicts.length"> · {{ t('conflictsWith') }} {{ componentAuthoringRule(kind).conflicts.join(', ') }}</template></small><small>{{ componentPaletteMetadata(kind).summary }}</small></span><EditorIcon name="add" /></button><button class="component-favorite" :class="{ active: componentPaletteState.favorites.includes(kind) }" :title="`${t('favorite')} · ${componentAuthoringRule(kind).documentation}`" @click="toggleComponentFavorite(kind)"><EditorIcon name="pin" /></button></article></section>
             <p v-if="!componentGroups.length">{{ t('noComponentsFound') }}</p>
+            <label v-if="!componentSearch.trim()" class="component-show-all"><input v-model="componentPickerShowAll" type="checkbox" data-component-show-all>{{ t('componentShowDeprecated') }}</label>
           </div>
       </UiDialog>
       <UiMenu :open="filterMenu.visible" ref="filterMenuRoot" class="inspector-filter-menu" :style="{ left: `${filterMenu.x}px`, top: `${filterMenu.y}px` }" @close="closeFilterMenu(true)">
@@ -435,8 +437,9 @@ import { simulationLabel17 as text17 } from '../editor/simulationLabels17'
 import RuntimeComponentsInspector from './RuntimeComponentsInspector.vue'
 import WorldComponentsInspector from './WorldComponentsInspector.vue'
 import GameplayComponentsInspector from './GameplayComponentsInspector.vue'
+import RhythmChartInspector from './RhythmChartInspector.vue'
 import { connectionSharesLayer } from '../world/Connection'
-import { Animator, Area2D, AreaEffector2D, AudioListener, AudioSource, BehaviorTree2D, Button, Camera2D, CameraFollow2D, TargetJoint2D, Canvas, CharacterBody2D, Checkbox, Collider2D, Collectible2D, Cooldown2D, DamageHitbox2D, GridMover2D, Health2D, Image as UIImage, Joint2D, Lifetime2D, Light2D, MouseFollower2D, NavigationAgent2D, NavigationObstacle2D, NavigationRegion2D, ObjectPool2D, Panel, ParticleEmitter2D, PlatformController2D, Portal2D, ProgressBar, Projectile2D, RectTransform, RigidBody2D, Script2D, ShadowCaster2D, ShapeRenderer2D, Skeleton2D, Slider, Spawner2D, SpriteRenderer2D, StateMachine2D, Text as UIText, TextInput, TextRenderer2D, TileMap2D, TimelinePlayer, TopDownController2D, WorldChunk2D, copyComponentValues, pasteComponentValues, type Component2D, type ComponentKind, type JointKind2D, type ScriptPropertyMetadata, type ScriptPropertyValue } from '../world/components'
+import { Animator, Area2D, AreaEffector2D, AudioListener, AudioSource, BehaviorTree2D, Button, Camera2D, CameraFollow2D, TargetJoint2D, Canvas, CharacterBody2D, Checkbox, Collider2D, Collectible2D, Cooldown2D, DamageHitbox2D, GridMover2D, Health2D, Image as UIImage, Joint2D, Lifetime2D, Light2D, MouseFollower2D, NavigationAgent2D, NavigationObstacle2D, NavigationRegion2D, ObjectPool2D, Panel, ParticleEmitter2D, PlatformController2D, Portal2D, ProgressBar, Projectile2D, RectTransform, RhythmChart2D, RigidBody2D, Script2D, ShadowCaster2D, ShapeRenderer2D, Skeleton2D, Slider, Spawner2D, SpriteRenderer2D, StateMachine2D, Text as UIText, TextInput, TextRenderer2D, TileMap2D, TimelinePlayer, TopDownController2D, WorldChunk2D, copyComponentValues, pasteComponentValues, type Component2D, type ComponentKind, type JointKind2D, type ScriptPropertyMetadata, type ScriptPropertyValue } from '../world/components'
 import { Transform } from '../world/Transform'
 import { setParent, wouldCreateParentCycle } from '../world/hierarchy'
 import { applyTranslation, captureTransforms } from '../editor/gizmo'
@@ -444,12 +447,12 @@ import { selectionCenter } from '../editor/selection'
 import { assetGuid, assetReference, assetState, createTextAsset, importAssetFiles, readTextAsset } from '../assets/AssetDatabase'
 import { normalizePhysicsMaterial, PHYSICS_SHAPE_SUPPORT, type PhysicsShapeKind } from '../runtime/physicsProduction'
 import { createUuid } from '../world/identity'
-import { gameplayRuntime } from '../runtime/GameplayRuntime'
+import { gameplayRuntime } from '../editor/gameplayRuntime'
 import { recordEntityProperties } from '../editor/animationStudioState'
 import { applyPrefabFromInstance, lastPrefabPropagation, capturePrefabOverrides, comparePrefabInstance, createPrefabFromEntities, createPrefabVariantFromInstance, prefabConflictReport, resetPrefabOverride, revertPrefabInstance, unpackPrefabInstance } from '../runtime/prefabs'
 import { unpackSceneInstance } from '../runtime/sceneInstances'
 import { propertyMetadata, type PropertyMetadata } from '../editor/propertyMetadata'
-import { componentPaletteMetadata, componentPaletteState, componentPresets, markComponentRecent, saveComponentPreset, toggleComponentFavorite, type ComponentPaletteCategory } from '../editor/componentPalette'
+import { CLASSIC_CATEGORIES, DEPRECATED_COMPONENTS, RHYTHM_FIRST_CATEGORIES, componentPaletteMetadata, componentPaletteState, componentPresets, markComponentRecent, saveComponentPreset, toggleComponentFavorite, type ComponentPaletteCategory } from '../editor/componentPalette'
 import { componentAuthoringRule, validateEntityAuthoring } from '../editor/sceneAuthoring'
 import { OFFICIAL_AI_PACKAGE_ID, OFFICIAL_OBJECT_POOL_PACKAGE_ID, packageEnabled } from '../runtime/packages'
 import { configureUiAccessibility } from '../runtime/uiAccessibility'
@@ -621,7 +624,7 @@ const materialAssets = computed(/** 筛选材质资源。 */ () => assetState.re
   const types = expected[resourceType] ?? []
   return types.length ? assetState.records.filter(/* 调用 types.includes(asset.assetType) 并返回调用结果。 */ asset => types.includes(asset.assetType)) : assetState.records
 }
-const optionalComponents: ComponentKind[] = ['SpriteRenderer2D', 'TextRenderer2D', 'Camera2D', 'Light2D', 'ShadowCaster2D', 'Script2D', 'Animator', 'Skeleton2D', 'TimelinePlayer', 'AudioSource', 'AudioListener', 'Canvas', 'RectTransform', 'Panel', 'Image', 'Text', 'Button', 'Slider', 'ProgressBar', 'Checkbox', 'TextInput', 'TileMap2D', 'ParticleEmitter2D', 'CharacterBody2D', 'GridMover2D', 'PlatformController2D', 'TopDownController2D', 'Health2D', 'DamageHitbox2D', 'Collectible2D', 'Projectile2D', 'Spawner2D', 'Cooldown2D', 'Lifetime2D', 'MouseFollower2D', 'CameraFollow2D', 'Area2D', 'AreaEffector2D', 'NavigationRegion2D', 'NavigationObstacle2D', 'NavigationAgent2D', 'BehaviorTree2D', 'StateMachine2D', 'WorldChunk2D', 'Portal2D', 'ObjectPool2D', 'FixedJoint2D', 'DistanceJoint2D', 'RevoluteJoint2D', 'PrismaticJoint2D', 'SpringJoint2D', 'WheelJoint2D', 'TargetJoint2D']
+const optionalComponents: ComponentKind[] = ['SpriteRenderer2D', 'TextRenderer2D', 'Camera2D', 'Light2D', 'ShadowCaster2D', 'Script2D', 'Animator', 'Skeleton2D', 'TimelinePlayer', 'AudioSource', 'AudioListener', 'Canvas', 'RectTransform', 'Panel', 'Image', 'Text', 'Button', 'Slider', 'ProgressBar', 'Checkbox', 'TextInput', 'TileMap2D', 'ParticleEmitter2D', 'CharacterBody2D', 'GridMover2D', 'PlatformController2D', 'TopDownController2D', 'Health2D', 'DamageHitbox2D', 'Collectible2D', 'Projectile2D', 'Spawner2D', 'Cooldown2D', 'Lifetime2D', 'MouseFollower2D', 'CameraFollow2D', 'Area2D', 'AreaEffector2D', 'NavigationRegion2D', 'NavigationObstacle2D', 'NavigationAgent2D', 'BehaviorTree2D', 'StateMachine2D', 'WorldChunk2D', 'Portal2D', 'ObjectPool2D', 'FixedJoint2D', 'DistanceJoint2D', 'RevoluteJoint2D', 'PrismaticJoint2D', 'SpringJoint2D', 'WheelJoint2D', 'TargetJoint2D', 'RhythmChart2D']
 const inspectorCategories = [
   { id: 'all' as const, label: 'all' as const }, { id: 'general' as const, label: 'categoryGeneral' as const },
   { id: 'transform' as const, label: 'categoryTransform' as const }, { id: 'render' as const, label: 'categoryRendering' as const },
@@ -661,6 +664,8 @@ function toggleInspectorFilter(key: 'inspectorModifiedOnly' | 'inspectorPinnedOn
 function clearInspectorFilters() { estate.inspectorCategory = 'all'; estate.inspectorModifiedOnly = false; estate.inspectorPinnedOnly = false }
 onUnmounted(() => window.removeEventListener('pointerdown', closeFilterMenuOutside, true))
 const componentSearch = ref('')
+/** 26.47: also list components planned for removal (world streaming, navigation, behaviour trees). */
+const componentPickerShowAll = ref(false)
 const componentSearchInput = ref<HTMLInputElement | null>(null)
 const addableComponents = computed(/** 合并已移除与尚未添加的可选组件，并考虑官方包可用性。 */ () => {
   if (!selectedEntity.value) return []
@@ -752,7 +757,12 @@ const componentGroups = computed(/** 组织收藏、最近使用及分类组件�
   const groups: Array<{ name: string; kinds: ComponentKind[] }> = []
   const append = /** 仅当来源中含可用组件时追加分组。 */ (name: string, source: ComponentKind[]) => { const kinds = source.filter(/* 调用 filteredAddableComponents.value.includes(kind) 并返回调用结果。 */ kind => filteredAddableComponents.value.includes(kind)); if (kinds.length) groups.push({ name, kinds }) }
   if (!componentSearch.value.trim()) { append(t('favorites'), componentPaletteState.favorites); append(t('recentlyUsed'), componentPaletteState.recent.filter(/* 返回 componentPaletteState.favorites.includes(kind) 的逻辑取反结果。 */ kind => !componentPaletteState.favorites.includes(kind))) }
-  for (const category of ['Core', '2D', 'Physics', 'Gameplay', 'UI', 'Audio', 'Camera', 'Navigation', 'Script', 'Packages'] as ComponentPaletteCategory[]) append(category, filteredAddableComponents.value.filter(/* 比较 componentPaletteMetadata(kind).category 与 category，返回严格相等的判断结果。 */ kind => componentPaletteMetadata(kind).category === category))
+  // 26.47: rhythm groups first, the classic ones under "More"; deprecated components only when searched for
+  // or with "Show all".
+  const searching = !!componentSearch.value.trim(), showAll = searching || componentPickerShowAll.value
+  const inCategory = (category: ComponentPaletteCategory) => filteredAddableComponents.value.filter(kind => componentPaletteMetadata(kind).category === category && (showAll || !DEPRECATED_COMPONENTS.has(kind)))
+  for (const category of RHYTHM_FIRST_CATEGORIES) append(category, inCategory(category))
+  for (const category of CLASSIC_CATEGORIES) append(`${t('componentMore')} · ${category}`, inCategory(category))
   return groups
 })
 const coreInspectorSections = computed(/** 根据当前实体已有组件构造核心属性分区列表。 */ () => {
@@ -883,6 +893,7 @@ const selectedValidation = computed(/* 根据 selectedEntity.value 的真假，�
   if (kind === 'Projectile2D') return t('projectile2D')
   if (kind === 'Spawner2D') return t('spawner2D')
   if (kind === 'Cooldown2D') return t('cooldown2D')
+  if (kind === 'RhythmChart2D') return t('rhythmChart2D')
   if (kind === 'Lifetime2D') return t('lifetime2D')
   if (kind === 'MouseFollower2D') return t('mouseFollower2D')
   if (kind === 'CameraFollow2D') return t('cameraFollow2D')
@@ -930,6 +941,7 @@ const selectedValidation = computed(/* 根据 selectedEntity.value 的真假，�
   if (kind === 'Projectile2D') return new Projectile2D()
   if (kind === 'Spawner2D') return new Spawner2D()
   if (kind === 'Cooldown2D') return new Cooldown2D()
+  if (kind === 'RhythmChart2D') return new RhythmChart2D()
   if (kind === 'Lifetime2D') return new Lifetime2D()
   if (kind === 'MouseFollower2D') return new MouseFollower2D()
   if (kind === 'CameraFollow2D') return new CameraFollow2D()

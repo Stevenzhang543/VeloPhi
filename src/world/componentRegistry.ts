@@ -36,6 +36,7 @@ export const STABLE_COMPONENTS: readonly ComponentDescriptor[] = [
   { kind: 'Skeleton2D', category: 'Gameplay', unique: true, summary: '2D bone rig, skin, pose, IK, and constraint playback.' },
   { kind: 'TimelinePlayer', category: 'Gameplay', unique: true, summary: 'Nested animation, audio, camera blends, subtitles, events, branching, skip, and resume.' },
   { kind: 'AudioSource', category: 'Audio', unique: true, summary: 'Plays a clip through an audio bus.' },
+  { kind: 'RhythmChart2D', category: 'Audio', unique: true, summary: 'Plays a rhythm chart in sync with its song: lanes or moving judgement lines, timed judgement, combo and score.' },
   { kind: 'AudioListener', category: 'Audio', unique: true, summary: 'Receives spatial game audio.' },
   { kind: 'ParticleEmitter2D', category: 'Rendering', unique: true, summary: 'Emits lifetime-controlled 2D particles.' },
   { kind: 'Light2D', category: 'Rendering', unique: true, summary: 'Point, spot, directional, or area lighting with masks and shadows.' },

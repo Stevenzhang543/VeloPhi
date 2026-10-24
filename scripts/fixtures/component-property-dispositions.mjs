@@ -16,6 +16,7 @@ export const runtimeComponentFields22 = {
  Cooldown2D:{runtimeRemaining:'Runtime cooldown countdown.',runtimeReady:'Runtime cooldown completion state.'},
  Lifetime2D:{runtimeRemaining:'Runtime lifetime countdown.'},
  ObjectPool2D:{activeCount:'Runtime count of active pooled objects.'},
+ RhythmChart2D:{state:'Runtime chart state (loading, playing, finished …).',lastError:'Latest chart load diagnostic.',...Object.fromEntries(['runtimeSongTime','runtimeScore','runtimeCombo','runtimeMaxCombo','runtimeAccuracy','runtimeJudgement'].map(field=>[field,'Runtime chart observation; the chart asset and settings are authored.']))},
  RigidBody2D:Object.fromEntries(['sleeping','sleepTimer','contactCount','contactNormal','penetrationDepth'].map(/* 返回按声明顺序构造的数组 [field,'Physics step sleep/contact observation; computed by the engine.']。 */ field=>[field,'Physics step sleep/contact observation; computed by the engine.']))
 }
 

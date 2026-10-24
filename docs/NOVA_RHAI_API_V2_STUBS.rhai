@@ -761,6 +761,150 @@
 // @nova-api module=audio lifetime=callback thread=callback-boundary determinism=deterministic
 // stop_video()
 // Stops the playing video (emits "video.finished" with reason "stopped").
+// 接口 post_set；模块 gameplay；生命周期 callback；线程约束 callback-boundary；确定性 deterministic。
+// @nova-api module=gameplay lifetime=callback thread=callback-boundary determinism=deterministic
+// post_set(name, value, seconds)
+// Sets a post-processing value (exposure, contrast, saturation, vignette, bloom, blur) for this play session; seconds tweens to it. Post-processing must be enabled.
+// 接口 post_pulse；模块 gameplay；生命周期 callback；线程约束 callback-boundary；确定性 deterministic。
+// @nova-api module=gameplay lifetime=callback thread=callback-boundary determinism=deterministic
+// post_pulse(name, amount, seconds)
+// Adds a post-processing amount that fades out over seconds (beat flashes, hits).
+// 接口 post_reset；模块 gameplay；生命周期 callback；线程约束 callback-boundary；确定性 deterministic。
+// @nova-api module=gameplay lifetime=callback thread=callback-boundary determinism=deterministic
+// post_reset()
+// Returns post-processing to the project settings.
+// 接口 joint_servo；模块 physics；生命周期 callback；线程约束 callback-boundary；确定性 deterministic。
+// @nova-api module=physics lifetime=callback thread=callback-boundary determinism=deterministic
+// joint_servo(target)
+// Drives the revolute (degrees) or prismatic (units) joint on this object to a target with its motor; measured like the joint limits (the connected body relative to this one).
+// 接口 joint_servo_off；模块 physics；生命周期 callback；线程约束 callback-boundary；确定性 deterministic。
+// @nova-api module=physics lifetime=callback thread=callback-boundary determinism=deterministic
+// joint_servo_off()
+// Stops the servo and switches its motor off; the joint moves freely again.
+// 接口 explode；模块 physics；生命周期 callback；线程约束 callback-boundary；确定性 deterministic。
+// @nova-api module=physics lifetime=callback thread=callback-boundary determinism=deterministic
+// explode(x, y, radius, impulse)
+// Pushes every dynamic body near a point away from it, fading to nothing at the radius.
+// 接口 rhythm_play；模块 rhythm；生命周期 callback；线程约束 callback-boundary；确定性 deterministic。
+// @nova-api module=rhythm lifetime=callback thread=callback-boundary determinism=deterministic
+// rhythm_play(start_seconds)
+// Starts this object's RhythmChart2D (else the first chart in the scene); start_seconds is optional chart time.
+// 接口 rhythm_pause；模块 rhythm；生命周期 callback；线程约束 callback-boundary；确定性 deterministic。
+// @nova-api module=rhythm lifetime=callback thread=callback-boundary determinism=deterministic
+// rhythm_pause()
+// Pauses the chart and its music.
+// 接口 rhythm_resume；模块 rhythm；生命周期 callback；线程约束 callback-boundary；确定性 deterministic。
+// @nova-api module=rhythm lifetime=callback thread=callback-boundary determinism=deterministic
+// rhythm_resume()
+// Resumes a paused chart one second early so the player finds the beat again.
+// 接口 rhythm_stop；模块 rhythm；生命周期 callback；线程约束 callback-boundary；确定性 deterministic。
+// @nova-api module=rhythm lifetime=callback thread=callback-boundary determinism=deterministic
+// rhythm_stop()
+// Stops the chart and its music.
+// 接口 rhythm_restart；模块 rhythm；生命周期 callback；线程约束 callback-boundary；确定性 deterministic。
+// @nova-api module=rhythm lifetime=callback thread=callback-boundary determinism=deterministic
+// rhythm_restart()
+// Plays the chart again from the start (new score).
+// 接口 rhythm_seek；模块 rhythm；生命周期 callback；线程约束 callback-boundary；确定性 deterministic。
+// @nova-api module=rhythm lifetime=callback thread=callback-boundary determinism=deterministic
+// rhythm_seek(seconds)
+// Jumps to a chart time; earlier notes are skipped, not missed (practice).
+// 接口 rhythm_set_offset；模块 rhythm；生命周期 callback；线程约束 callback-boundary；确定性 deterministic。
+// @nova-api module=rhythm lifetime=callback thread=callback-boundary determinism=deterministic
+// rhythm_set_offset(milliseconds)
+// Sets the chart's audio offset (positive: notes later).
+// 接口 rhythm_set_autoplay；模块 rhythm；生命周期 callback；线程约束 callback-boundary；确定性 deterministic。
+// @nova-api module=rhythm lifetime=callback thread=callback-boundary determinism=deterministic
+// rhythm_set_autoplay(enabled)
+// Turns autoplay (perfect bot play with scheduled hit sounds) on or off.
+// 接口 rhythm_set_speed；模块 rhythm；生命周期 callback；线程约束 callback-boundary；确定性 deterministic。
+// @nova-api module=rhythm lifetime=callback thread=callback-boundary determinism=deterministic
+// rhythm_set_speed(speed)
+// Sets the note scroll speed (chart units per second at speed 1).
+// 接口 rhythm_set_calibration；模块 rhythm；生命周期 callback；线程约束 callback-boundary；确定性 deterministic。
+// @nova-api module=rhythm lifetime=callback thread=callback-boundary determinism=deterministic
+// rhythm_set_calibration(milliseconds)
+// Stores this device's audio calibration (positive: the music is heard later); applies from the next play.
+// 接口 rhythm_calibration；模块 rhythm；生命周期 callback；线程约束 callback-boundary；确定性 host-dependent。
+// @nova-api module=rhythm lifetime=callback thread=callback-boundary determinism=host-dependent
+// rhythm_calibration() -> float
+// The stored device calibration in milliseconds.
+// 接口 rhythm_time；模块 rhythm；生命周期 callback；线程约束 callback-boundary；确定性 host-dependent。
+// @nova-api module=rhythm lifetime=callback thread=callback-boundary determinism=host-dependent
+// rhythm_time() -> float
+// Chart time in seconds (negative during the lead-in), on the audio clock.
+// 接口 rhythm_beat；模块 rhythm；生命周期 callback；线程约束 callback-boundary；确定性 host-dependent。
+// @nova-api module=rhythm lifetime=callback thread=callback-boundary determinism=host-dependent
+// rhythm_beat() -> float
+// The current beat (fractional) through the chart's tempo map.
+// 接口 rhythm_bpm；模块 rhythm；生命周期 callback；线程约束 callback-boundary；确定性 host-dependent。
+// @nova-api module=rhythm lifetime=callback thread=callback-boundary determinism=host-dependent
+// rhythm_bpm() -> float
+// Tempo at the current chart time.
+// 接口 rhythm_score；模块 rhythm；生命周期 callback；线程约束 callback-boundary；确定性 host-dependent。
+// @nova-api module=rhythm lifetime=callback thread=callback-boundary determinism=host-dependent
+// rhythm_score() -> int
+// Score out of 1,000,000 (900,000 accuracy + 100,000 max combo).
+// 接口 rhythm_combo；模块 rhythm；生命周期 callback；线程约束 callback-boundary；确定性 host-dependent。
+// @nova-api module=rhythm lifetime=callback thread=callback-boundary determinism=host-dependent
+// rhythm_combo() -> int
+// The current combo.
+// 接口 rhythm_max_combo；模块 rhythm；生命周期 callback；线程约束 callback-boundary；确定性 host-dependent。
+// @nova-api module=rhythm lifetime=callback thread=callback-boundary determinism=host-dependent
+// rhythm_max_combo() -> int
+// The longest combo so far.
+// 接口 rhythm_accuracy；模块 rhythm；生命周期 callback；线程约束 callback-boundary；确定性 host-dependent。
+// @nova-api module=rhythm lifetime=callback thread=callback-boundary determinism=host-dependent
+// rhythm_accuracy() -> float
+// Accuracy 0..1 over the judged notes (perfect 1, great 0.8, good 0.5).
+// 接口 rhythm_progress；模块 rhythm；生命周期 callback；线程约束 callback-boundary；确定性 host-dependent。
+// @nova-api module=rhythm lifetime=callback thread=callback-boundary determinism=host-dependent
+// rhythm_progress() -> float
+// Progress 0..1 through the chart.
+// 接口 rhythm_state；模块 rhythm；生命周期 callback；线程约束 callback-boundary；确定性 host-dependent。
+// @nova-api module=rhythm lifetime=callback thread=callback-boundary determinism=host-dependent
+// rhythm_state() -> string
+// idle, loading, ready, countdown, playing, paused, finished or error.
+// 接口 rhythm_judgement；模块 rhythm；生命周期 callback；线程约束 callback-boundary；确定性 host-dependent。
+// @nova-api module=rhythm lifetime=callback thread=callback-boundary determinism=host-dependent
+// rhythm_judgement() -> string
+// The latest judgement: perfect, great, good, bad or miss.
+// 接口 rhythm_playing；模块 rhythm；生命周期 callback；线程约束 callback-boundary；确定性 host-dependent。
+// @nova-api module=rhythm lifetime=callback thread=callback-boundary determinism=host-dependent
+// rhythm_playing() -> bool
+// True while the chart runs (lead-in included).
+// 接口 rhythm_finished；模块 rhythm；生命周期 callback；线程约束 callback-boundary；确定性 host-dependent。
+// @nova-api module=rhythm lifetime=callback thread=callback-boundary determinism=host-dependent
+// rhythm_finished() -> bool
+// True once every note is judged and the chart ended.
+// 接口 rhythm_full_combo；模块 rhythm；生命周期 callback；线程约束 callback-boundary；确定性 host-dependent。
+// @nova-api module=rhythm lifetime=callback thread=callback-boundary determinism=host-dependent
+// rhythm_full_combo() -> bool
+// True when a finished chart had no bad or miss.
+// 接口 rhythm_count；模块 rhythm；生命周期 callback；线程约束 callback-boundary；确定性 host-dependent。
+// @nova-api module=rhythm lifetime=callback thread=callback-boundary determinism=host-dependent
+// rhythm_count(name) -> int
+// Count of perfect, great, good, bad, miss, early, late, judged or total notes.
+// 接口 rhythm_judge；模块 rhythm；生命周期 callback；线程约束 callback-boundary；确定性 deterministic。
+// @nova-api module=rhythm lifetime=callback thread=callback-boundary determinism=deterministic
+// rhythm_judge(note, judgement_or_offset_ms)
+// Judges a note (custom note types, from rhythm.touch): "perfect" … "miss", or an offset in milliseconds that the note type's windows classify. Ignored when the note is already judged.
+// 接口 rhythm_my_note；模块 rhythm；生命周期 callback；线程约束 callback-boundary；确定性 host-dependent。
+// @nova-api module=rhythm lifetime=callback thread=callback-boundary determinism=host-dependent
+// rhythm_my_note() -> map
+// On an object that shows a note (a note type with a prefab): id, type, beat, time, lane, line, x and data of that note; () elsewhere.
+// 接口 rhythm_visual_offset；模块 rhythm；生命周期 callback；线程约束 callback-boundary；确定性 host-dependent。
+// @nova-api module=rhythm lifetime=callback thread=callback-boundary determinism=host-dependent
+// rhythm_visual_offset() -> float
+// The device picture offset in milliseconds (notes are drawn this much earlier; judgement unchanged).
+// 接口 rhythm_set_visual_offset；模块 rhythm；生命周期 callback；线程约束 callback-boundary；确定性 deterministic。
+// @nova-api module=rhythm lifetime=callback thread=callback-boundary determinism=deterministic
+// rhythm_set_visual_offset(milliseconds)
+// Stores this device's picture offset (−500 … 500 ms); applies at once.
+// 接口 rhythm_stats；模块 rhythm；生命周期 callback；线程约束 callback-boundary；确定性 host-dependent。
+// @nova-api module=rhythm lifetime=callback thread=callback-boundary determinism=host-dependent
+// rhythm_stats() -> map
+// Every statistic in one map (score, counts, accuracy, mean_offset_ms, full_combo …).
 // 接口 save_has；模块 save；生命周期 persistent-save；线程约束 callback-boundary；确定性 deterministic。
 // @nova-api module=save lifetime=persistent-save thread=callback-boundary determinism=deterministic
 // save_has(key) -> bool

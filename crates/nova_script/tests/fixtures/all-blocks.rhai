@@ -20,10 +20,12 @@ fn start() {
   tween("y", 0.0, 1.0, "sine_in_out", #{ relative: true });
   tween("rotation_degrees", 360.0, 1.0, "linear", #{ relative: true });
   character_drop_through();
+  joint_servo(45.0);
   animator_play("Run");
   animator_crossfade("Run", 0.2);
   tween("opacity", 0.0, 0.5, "linear");
   tween("scale", 1.5, 0.3, "back_out");
+  post_pulse("bloom", 0.6, 0.25);
   ui_set_text("Score: " + __blk_text(score));
   ui_set_text_on(find_entity_handle("ScoreLabel"), "Score: " + __blk_text(score));
   entity_set_enabled(find_entity_handle("ScoreLabel"), true);
@@ -33,7 +35,14 @@ fn start() {
   stop_music(1.0);
   set_bus_volume("Music", 0.5);
   play_video("Assets/Video/intro.webm", #{ skippable: true });
-  if !(input_down("Jump")) && (input_pressed("Jump")) && (character_is_on_floor()) && (character_is_on_wall()) && (character_floor_is_one_way()) && (animator_state() == "Run") && (0.0 > 0.0) && (random() < 50.0 / 100.0) && (true) {
+  rhythm_play();
+  rhythm_pause();
+  rhythm_resume();
+  rhythm_restart();
+  rhythm_set_autoplay(true);
+  rhythm_set_speed(8.0);
+  { let my_note = rhythm_my_note(); if my_note != () { rhythm_judge(my_note.id, "perfect"); } }
+  if !(input_down("Jump")) && (input_pressed("Jump")) && (character_is_on_floor()) && (character_is_on_wall()) && (character_floor_is_one_way()) && (animator_state() == "Run") && (0.0 > 0.0) && (random() < 50.0 / 100.0) && (rhythm_state() == "finished") && (rhythm_combo() >= 50.0) && (true) {
     score_add(1.0);
   } else {
     log_info("Hello");
@@ -50,6 +59,7 @@ fn start() {
   log_info("Hello");
   instantiate("Assets/Prefabs/Coin.nova-prefab");
   spawn_at("Assets/Prefabs/Coin.nova-prefab", 0.0, 0.0, 0.0, 1.0, 1.0);
+  explode(transform().position_x, transform().position_y, 4.0, 30.0);
   destroy();
   scene_load("Level 2");
   scene_reload();
@@ -92,10 +102,12 @@ fn update(dt) {
   tween("y", 0.0, 1.0, "sine_in_out", #{ relative: true });
   tween("rotation_degrees", 360.0, 1.0, "linear", #{ relative: true });
   character_drop_through();
+  joint_servo(45.0);
   animator_play("Run");
   animator_crossfade("Run", 0.2);
   tween("opacity", 0.0, 0.5, "linear");
   tween("scale", 1.5, 0.3, "back_out");
+  post_pulse("bloom", 0.6, 0.25);
   ui_set_text("Score: " + __blk_text(score));
   ui_set_text_on(find_entity_handle("ScoreLabel"), "Score: " + __blk_text(score));
   entity_set_enabled(find_entity_handle("ScoreLabel"), true);
@@ -105,7 +117,14 @@ fn update(dt) {
   stop_music(1.0);
   set_bus_volume("Music", 0.5);
   play_video("Assets/Video/intro.webm", #{ skippable: true });
-  if !(input_down("Jump")) && (input_pressed("Jump")) && (character_is_on_floor()) && (character_is_on_wall()) && (character_floor_is_one_way()) && (animator_state() == "Run") && (0.0 > 0.0) && (random() < 50.0 / 100.0) && (true) {
+  rhythm_play();
+  rhythm_pause();
+  rhythm_resume();
+  rhythm_restart();
+  rhythm_set_autoplay(true);
+  rhythm_set_speed(8.0);
+  { let my_note = rhythm_my_note(); if my_note != () { rhythm_judge(my_note.id, "perfect"); } }
+  if !(input_down("Jump")) && (input_pressed("Jump")) && (character_is_on_floor()) && (character_is_on_wall()) && (character_floor_is_one_way()) && (animator_state() == "Run") && (0.0 > 0.0) && (random() < 50.0 / 100.0) && (rhythm_state() == "finished") && (rhythm_combo() >= 50.0) && (true) {
     score_add(1.0);
   } else {
     log_info("Hello");
@@ -122,6 +141,7 @@ fn update(dt) {
   log_info("Hello");
   instantiate("Assets/Prefabs/Coin.nova-prefab");
   spawn_at("Assets/Prefabs/Coin.nova-prefab", 0.0, 0.0, 0.0, 1.0, 1.0);
+  explode(transform().position_x, transform().position_y, 4.0, 30.0);
   destroy();
   scene_load("Level 2");
   scene_reload();
@@ -163,10 +183,12 @@ fn update(dt) {
     tween("y", 0.0, 1.0, "sine_in_out", #{ relative: true });
     tween("rotation_degrees", 360.0, 1.0, "linear", #{ relative: true });
     character_drop_through();
+    joint_servo(45.0);
     animator_play("Run");
     animator_crossfade("Run", 0.2);
     tween("opacity", 0.0, 0.5, "linear");
     tween("scale", 1.5, 0.3, "back_out");
+    post_pulse("bloom", 0.6, 0.25);
     ui_set_text("Score: " + __blk_text(score));
     ui_set_text_on(find_entity_handle("ScoreLabel"), "Score: " + __blk_text(score));
     entity_set_enabled(find_entity_handle("ScoreLabel"), true);
@@ -176,7 +198,14 @@ fn update(dt) {
     stop_music(1.0);
     set_bus_volume("Music", 0.5);
     play_video("Assets/Video/intro.webm", #{ skippable: true });
-    if !(input_down("Jump")) && (input_pressed("Jump")) && (character_is_on_floor()) && (character_is_on_wall()) && (character_floor_is_one_way()) && (animator_state() == "Run") && (0.0 > 0.0) && (random() < 50.0 / 100.0) && (true) {
+    rhythm_play();
+    rhythm_pause();
+    rhythm_resume();
+    rhythm_restart();
+    rhythm_set_autoplay(true);
+    rhythm_set_speed(8.0);
+    { let my_note = rhythm_my_note(); if my_note != () { rhythm_judge(my_note.id, "perfect"); } }
+    if !(input_down("Jump")) && (input_pressed("Jump")) && (character_is_on_floor()) && (character_is_on_wall()) && (character_floor_is_one_way()) && (animator_state() == "Run") && (0.0 > 0.0) && (random() < 50.0 / 100.0) && (rhythm_state() == "finished") && (rhythm_combo() >= 50.0) && (true) {
       score_add(1.0);
     } else {
       log_info("Hello");
@@ -193,6 +222,7 @@ fn update(dt) {
     log_info("Hello");
     instantiate("Assets/Prefabs/Coin.nova-prefab");
     spawn_at("Assets/Prefabs/Coin.nova-prefab", 0.0, 0.0, 0.0, 1.0, 1.0);
+    explode(transform().position_x, transform().position_y, 4.0, 30.0);
     destroy();
     scene_load("Level 2");
     scene_reload();
@@ -235,10 +265,12 @@ fn update(dt) {
     tween("y", 0.0, 1.0, "sine_in_out", #{ relative: true });
     tween("rotation_degrees", 360.0, 1.0, "linear", #{ relative: true });
     character_drop_through();
+    joint_servo(45.0);
     animator_play("Run");
     animator_crossfade("Run", 0.2);
     tween("opacity", 0.0, 0.5, "linear");
     tween("scale", 1.5, 0.3, "back_out");
+    post_pulse("bloom", 0.6, 0.25);
     ui_set_text("Score: " + __blk_text(score));
     ui_set_text_on(find_entity_handle("ScoreLabel"), "Score: " + __blk_text(score));
     entity_set_enabled(find_entity_handle("ScoreLabel"), true);
@@ -248,7 +280,14 @@ fn update(dt) {
     stop_music(1.0);
     set_bus_volume("Music", 0.5);
     play_video("Assets/Video/intro.webm", #{ skippable: true });
-    if !(input_down("Jump")) && (input_pressed("Jump")) && (character_is_on_floor()) && (character_is_on_wall()) && (character_floor_is_one_way()) && (animator_state() == "Run") && (0.0 > 0.0) && (random() < 50.0 / 100.0) && (true) {
+    rhythm_play();
+    rhythm_pause();
+    rhythm_resume();
+    rhythm_restart();
+    rhythm_set_autoplay(true);
+    rhythm_set_speed(8.0);
+    { let my_note = rhythm_my_note(); if my_note != () { rhythm_judge(my_note.id, "perfect"); } }
+    if !(input_down("Jump")) && (input_pressed("Jump")) && (character_is_on_floor()) && (character_is_on_wall()) && (character_floor_is_one_way()) && (animator_state() == "Run") && (0.0 > 0.0) && (random() < 50.0 / 100.0) && (rhythm_state() == "finished") && (rhythm_combo() >= 50.0) && (true) {
       score_add(1.0);
     } else {
       log_info("Hello");
@@ -265,6 +304,7 @@ fn update(dt) {
     log_info("Hello");
     instantiate("Assets/Prefabs/Coin.nova-prefab");
     spawn_at("Assets/Prefabs/Coin.nova-prefab", 0.0, 0.0, 0.0, 1.0, 1.0);
+    explode(transform().position_x, transform().position_y, 4.0, 30.0);
     destroy();
     scene_load("Level 2");
     scene_reload();
@@ -307,10 +347,12 @@ fn update(dt) {
     tween("y", 0.0, 1.0, "sine_in_out", #{ relative: true });
     tween("rotation_degrees", 360.0, 1.0, "linear", #{ relative: true });
     character_drop_through();
+    joint_servo(45.0);
     animator_play("Run");
     animator_crossfade("Run", 0.2);
     tween("opacity", 0.0, 0.5, "linear");
     tween("scale", 1.5, 0.3, "back_out");
+    post_pulse("bloom", 0.6, 0.25);
     ui_set_text("Score: " + __blk_text(score));
     ui_set_text_on(find_entity_handle("ScoreLabel"), "Score: " + __blk_text(score));
     entity_set_enabled(find_entity_handle("ScoreLabel"), true);
@@ -320,7 +362,14 @@ fn update(dt) {
     stop_music(1.0);
     set_bus_volume("Music", 0.5);
     play_video("Assets/Video/intro.webm", #{ skippable: true });
-    if !(input_down("Jump")) && (input_pressed("Jump")) && (character_is_on_floor()) && (character_is_on_wall()) && (character_floor_is_one_way()) && (animator_state() == "Run") && (0.0 > 0.0) && (random() < 50.0 / 100.0) && (true) {
+    rhythm_play();
+    rhythm_pause();
+    rhythm_resume();
+    rhythm_restart();
+    rhythm_set_autoplay(true);
+    rhythm_set_speed(8.0);
+    { let my_note = rhythm_my_note(); if my_note != () { rhythm_judge(my_note.id, "perfect"); } }
+    if !(input_down("Jump")) && (input_pressed("Jump")) && (character_is_on_floor()) && (character_is_on_wall()) && (character_floor_is_one_way()) && (animator_state() == "Run") && (0.0 > 0.0) && (random() < 50.0 / 100.0) && (rhythm_state() == "finished") && (rhythm_combo() >= 50.0) && (true) {
       score_add(1.0);
     } else {
       log_info("Hello");
@@ -337,6 +386,7 @@ fn update(dt) {
     log_info("Hello");
     instantiate("Assets/Prefabs/Coin.nova-prefab");
     spawn_at("Assets/Prefabs/Coin.nova-prefab", 0.0, 0.0, 0.0, 1.0, 1.0);
+    explode(transform().position_x, transform().position_y, 4.0, 30.0);
     destroy();
     scene_load("Level 2");
     scene_reload();
@@ -380,10 +430,12 @@ fn fixed_update(dt) {
   tween("y", 0.0, 1.0, "sine_in_out", #{ relative: true });
   tween("rotation_degrees", 360.0, 1.0, "linear", #{ relative: true });
   character_drop_through();
+  joint_servo(45.0);
   animator_play("Run");
   animator_crossfade("Run", 0.2);
   tween("opacity", 0.0, 0.5, "linear");
   tween("scale", 1.5, 0.3, "back_out");
+  post_pulse("bloom", 0.6, 0.25);
   ui_set_text("Score: " + __blk_text(score));
   ui_set_text_on(find_entity_handle("ScoreLabel"), "Score: " + __blk_text(score));
   entity_set_enabled(find_entity_handle("ScoreLabel"), true);
@@ -393,7 +445,14 @@ fn fixed_update(dt) {
   stop_music(1.0);
   set_bus_volume("Music", 0.5);
   play_video("Assets/Video/intro.webm", #{ skippable: true });
-  if !(input_down("Jump")) && (input_pressed("Jump")) && (character_is_on_floor()) && (character_is_on_wall()) && (character_floor_is_one_way()) && (animator_state() == "Run") && (0.0 > 0.0) && (random() < 50.0 / 100.0) && (true) {
+  rhythm_play();
+  rhythm_pause();
+  rhythm_resume();
+  rhythm_restart();
+  rhythm_set_autoplay(true);
+  rhythm_set_speed(8.0);
+  { let my_note = rhythm_my_note(); if my_note != () { rhythm_judge(my_note.id, "perfect"); } }
+  if !(input_down("Jump")) && (input_pressed("Jump")) && (character_is_on_floor()) && (character_is_on_wall()) && (character_floor_is_one_way()) && (animator_state() == "Run") && (0.0 > 0.0) && (random() < 50.0 / 100.0) && (rhythm_state() == "finished") && (rhythm_combo() >= 50.0) && (true) {
     score_add(1.0);
   } else {
     log_info("Hello");
@@ -410,6 +469,7 @@ fn fixed_update(dt) {
   log_info("Hello");
   instantiate("Assets/Prefabs/Coin.nova-prefab");
   spawn_at("Assets/Prefabs/Coin.nova-prefab", 0.0, 0.0, 0.0, 1.0, 1.0);
+  explode(transform().position_x, transform().position_y, 4.0, 30.0);
   destroy();
   scene_load("Level 2");
   scene_reload();
@@ -436,10 +496,12 @@ fn on_collision_enter(other, px, py, nx, ny, rvx, rvy) {
   tween("y", 0.0, 1.0, "sine_in_out", #{ relative: true });
   tween("rotation_degrees", 360.0, 1.0, "linear", #{ relative: true });
   character_drop_through();
+  joint_servo(45.0);
   animator_play("Run");
   animator_crossfade("Run", 0.2);
   tween("opacity", 0.0, 0.5, "linear");
   tween("scale", 1.5, 0.3, "back_out");
+  post_pulse("bloom", 0.6, 0.25);
   ui_set_text("Score: " + __blk_text(score));
   ui_set_text_on(find_entity_handle("ScoreLabel"), "Score: " + __blk_text(score));
   entity_set_enabled(find_entity_handle("ScoreLabel"), true);
@@ -449,7 +511,14 @@ fn on_collision_enter(other, px, py, nx, ny, rvx, rvy) {
   stop_music(1.0);
   set_bus_volume("Music", 0.5);
   play_video("Assets/Video/intro.webm", #{ skippable: true });
-  if !(input_down("Jump")) && (input_pressed("Jump")) && (character_is_on_floor()) && (character_is_on_wall()) && (character_floor_is_one_way()) && (animator_state() == "Run") && (0.0 > 0.0) && (entity_has_tag(other, "coin")) && (random() < 50.0 / 100.0) && (true) {
+  rhythm_play();
+  rhythm_pause();
+  rhythm_resume();
+  rhythm_restart();
+  rhythm_set_autoplay(true);
+  rhythm_set_speed(8.0);
+  { let my_note = rhythm_my_note(); if my_note != () { rhythm_judge(my_note.id, "perfect"); } }
+  if !(input_down("Jump")) && (input_pressed("Jump")) && (character_is_on_floor()) && (character_is_on_wall()) && (character_floor_is_one_way()) && (animator_state() == "Run") && (0.0 > 0.0) && (entity_has_tag(other, "coin")) && (random() < 50.0 / 100.0) && (rhythm_state() == "finished") && (rhythm_combo() >= 50.0) && (true) {
     score_add(1.0);
   } else {
     log_info("Hello");
@@ -466,6 +535,7 @@ fn on_collision_enter(other, px, py, nx, ny, rvx, rvy) {
   log_info("Hello");
   instantiate("Assets/Prefabs/Coin.nova-prefab");
   spawn_at("Assets/Prefabs/Coin.nova-prefab", 0.0, 0.0, 0.0, 1.0, 1.0);
+  explode(transform().position_x, transform().position_y, 4.0, 30.0);
   destroy();
   entity_destroy(entity_handle_of(other));
   scene_load("Level 2");
@@ -494,10 +564,12 @@ fn on_trigger_enter(other, px, py, nx, ny, rvx, rvy) {
   tween("y", 0.0, 1.0, "sine_in_out", #{ relative: true });
   tween("rotation_degrees", 360.0, 1.0, "linear", #{ relative: true });
   character_drop_through();
+  joint_servo(45.0);
   animator_play("Run");
   animator_crossfade("Run", 0.2);
   tween("opacity", 0.0, 0.5, "linear");
   tween("scale", 1.5, 0.3, "back_out");
+  post_pulse("bloom", 0.6, 0.25);
   ui_set_text("Score: " + __blk_text(score));
   ui_set_text_on(find_entity_handle("ScoreLabel"), "Score: " + __blk_text(score));
   entity_set_enabled(find_entity_handle("ScoreLabel"), true);
@@ -507,7 +579,14 @@ fn on_trigger_enter(other, px, py, nx, ny, rvx, rvy) {
   stop_music(1.0);
   set_bus_volume("Music", 0.5);
   play_video("Assets/Video/intro.webm", #{ skippable: true });
-  if !(input_down("Jump")) && (input_pressed("Jump")) && (character_is_on_floor()) && (character_is_on_wall()) && (character_floor_is_one_way()) && (animator_state() == "Run") && (0.0 > 0.0) && (entity_has_tag(other, "coin")) && (random() < 50.0 / 100.0) && (true) {
+  rhythm_play();
+  rhythm_pause();
+  rhythm_resume();
+  rhythm_restart();
+  rhythm_set_autoplay(true);
+  rhythm_set_speed(8.0);
+  { let my_note = rhythm_my_note(); if my_note != () { rhythm_judge(my_note.id, "perfect"); } }
+  if !(input_down("Jump")) && (input_pressed("Jump")) && (character_is_on_floor()) && (character_is_on_wall()) && (character_floor_is_one_way()) && (animator_state() == "Run") && (0.0 > 0.0) && (entity_has_tag(other, "coin")) && (random() < 50.0 / 100.0) && (rhythm_state() == "finished") && (rhythm_combo() >= 50.0) && (true) {
     score_add(1.0);
   } else {
     log_info("Hello");
@@ -524,6 +603,7 @@ fn on_trigger_enter(other, px, py, nx, ny, rvx, rvy) {
   log_info("Hello");
   instantiate("Assets/Prefabs/Coin.nova-prefab");
   spawn_at("Assets/Prefabs/Coin.nova-prefab", 0.0, 0.0, 0.0, 1.0, 1.0);
+  explode(transform().position_x, transform().position_y, 4.0, 30.0);
   destroy();
   entity_destroy(entity_handle_of(other));
   scene_load("Level 2");
@@ -552,10 +632,12 @@ fn on_trigger_exit(other, px, py, nx, ny, rvx, rvy) {
   tween("y", 0.0, 1.0, "sine_in_out", #{ relative: true });
   tween("rotation_degrees", 360.0, 1.0, "linear", #{ relative: true });
   character_drop_through();
+  joint_servo(45.0);
   animator_play("Run");
   animator_crossfade("Run", 0.2);
   tween("opacity", 0.0, 0.5, "linear");
   tween("scale", 1.5, 0.3, "back_out");
+  post_pulse("bloom", 0.6, 0.25);
   ui_set_text("Score: " + __blk_text(score));
   ui_set_text_on(find_entity_handle("ScoreLabel"), "Score: " + __blk_text(score));
   entity_set_enabled(find_entity_handle("ScoreLabel"), true);
@@ -565,7 +647,14 @@ fn on_trigger_exit(other, px, py, nx, ny, rvx, rvy) {
   stop_music(1.0);
   set_bus_volume("Music", 0.5);
   play_video("Assets/Video/intro.webm", #{ skippable: true });
-  if !(input_down("Jump")) && (input_pressed("Jump")) && (character_is_on_floor()) && (character_is_on_wall()) && (character_floor_is_one_way()) && (animator_state() == "Run") && (0.0 > 0.0) && (entity_has_tag(other, "coin")) && (random() < 50.0 / 100.0) && (true) {
+  rhythm_play();
+  rhythm_pause();
+  rhythm_resume();
+  rhythm_restart();
+  rhythm_set_autoplay(true);
+  rhythm_set_speed(8.0);
+  { let my_note = rhythm_my_note(); if my_note != () { rhythm_judge(my_note.id, "perfect"); } }
+  if !(input_down("Jump")) && (input_pressed("Jump")) && (character_is_on_floor()) && (character_is_on_wall()) && (character_floor_is_one_way()) && (animator_state() == "Run") && (0.0 > 0.0) && (entity_has_tag(other, "coin")) && (random() < 50.0 / 100.0) && (rhythm_state() == "finished") && (rhythm_combo() >= 50.0) && (true) {
     score_add(1.0);
   } else {
     log_info("Hello");
@@ -582,6 +671,7 @@ fn on_trigger_exit(other, px, py, nx, ny, rvx, rvy) {
   log_info("Hello");
   instantiate("Assets/Prefabs/Coin.nova-prefab");
   spawn_at("Assets/Prefabs/Coin.nova-prefab", 0.0, 0.0, 0.0, 1.0, 1.0);
+  explode(transform().position_x, transform().position_y, 4.0, 30.0);
   destroy();
   entity_destroy(entity_handle_of(other));
   scene_load("Level 2");
@@ -611,10 +701,12 @@ fn on_signal(signal, payload, source) {
     tween("y", 0.0, 1.0, "sine_in_out", #{ relative: true });
     tween("rotation_degrees", 360.0, 1.0, "linear", #{ relative: true });
     character_drop_through();
+    joint_servo(45.0);
     animator_play("Run");
     animator_crossfade("Run", 0.2);
     tween("opacity", 0.0, 0.5, "linear");
     tween("scale", 1.5, 0.3, "back_out");
+    post_pulse("bloom", 0.6, 0.25);
     ui_set_text("Score: " + __blk_text(score));
     ui_set_text_on(find_entity_handle("ScoreLabel"), "Score: " + __blk_text(score));
     entity_set_enabled(find_entity_handle("ScoreLabel"), true);
@@ -624,7 +716,14 @@ fn on_signal(signal, payload, source) {
     stop_music(1.0);
     set_bus_volume("Music", 0.5);
     play_video("Assets/Video/intro.webm", #{ skippable: true });
-    if !(input_down("Jump")) && (input_pressed("Jump")) && (character_is_on_floor()) && (character_is_on_wall()) && (character_floor_is_one_way()) && (animator_state() == "Run") && (0.0 > 0.0) && (random() < 50.0 / 100.0) && (true) {
+    rhythm_play();
+    rhythm_pause();
+    rhythm_resume();
+    rhythm_restart();
+    rhythm_set_autoplay(true);
+    rhythm_set_speed(8.0);
+    { let my_note = rhythm_my_note(); if my_note != () { rhythm_judge(my_note.id, "perfect"); } }
+    if !(input_down("Jump")) && (input_pressed("Jump")) && (character_is_on_floor()) && (character_is_on_wall()) && (character_floor_is_one_way()) && (animator_state() == "Run") && (0.0 > 0.0) && (random() < 50.0 / 100.0) && (rhythm_state() == "finished") && (rhythm_combo() >= 50.0) && (true) {
       score_add(1.0);
     } else {
       log_info("Hello");
@@ -641,6 +740,7 @@ fn on_signal(signal, payload, source) {
     log_info("Hello");
     instantiate("Assets/Prefabs/Coin.nova-prefab");
     spawn_at("Assets/Prefabs/Coin.nova-prefab", 0.0, 0.0, 0.0, 1.0, 1.0);
+    explode(transform().position_x, transform().position_y, 4.0, 30.0);
     destroy();
     scene_load("Level 2");
     scene_reload();
@@ -669,10 +769,12 @@ fn on_timer(timer) {
     tween("y", 0.0, 1.0, "sine_in_out", #{ relative: true });
     tween("rotation_degrees", 360.0, 1.0, "linear", #{ relative: true });
     character_drop_through();
+    joint_servo(45.0);
     animator_play("Run");
     animator_crossfade("Run", 0.2);
     tween("opacity", 0.0, 0.5, "linear");
     tween("scale", 1.5, 0.3, "back_out");
+    post_pulse("bloom", 0.6, 0.25);
     ui_set_text("Score: " + __blk_text(score));
     ui_set_text_on(find_entity_handle("ScoreLabel"), "Score: " + __blk_text(score));
     entity_set_enabled(find_entity_handle("ScoreLabel"), true);
@@ -682,7 +784,14 @@ fn on_timer(timer) {
     stop_music(1.0);
     set_bus_volume("Music", 0.5);
     play_video("Assets/Video/intro.webm", #{ skippable: true });
-    if !(input_down("Jump")) && (input_pressed("Jump")) && (character_is_on_floor()) && (character_is_on_wall()) && (character_floor_is_one_way()) && (animator_state() == "Run") && (0.0 > 0.0) && (random() < 50.0 / 100.0) && (true) {
+    rhythm_play();
+    rhythm_pause();
+    rhythm_resume();
+    rhythm_restart();
+    rhythm_set_autoplay(true);
+    rhythm_set_speed(8.0);
+    { let my_note = rhythm_my_note(); if my_note != () { rhythm_judge(my_note.id, "perfect"); } }
+    if !(input_down("Jump")) && (input_pressed("Jump")) && (character_is_on_floor()) && (character_is_on_wall()) && (character_floor_is_one_way()) && (animator_state() == "Run") && (0.0 > 0.0) && (random() < 50.0 / 100.0) && (rhythm_state() == "finished") && (rhythm_combo() >= 50.0) && (true) {
       score_add(1.0);
     } else {
       log_info("Hello");
@@ -699,6 +808,7 @@ fn on_timer(timer) {
     log_info("Hello");
     instantiate("Assets/Prefabs/Coin.nova-prefab");
     spawn_at("Assets/Prefabs/Coin.nova-prefab", 0.0, 0.0, 0.0, 1.0, 1.0);
+    explode(transform().position_x, transform().position_y, 4.0, 30.0);
     destroy();
     scene_load("Level 2");
     scene_reload();
@@ -726,10 +836,12 @@ fn on_destroy() {
   tween("y", 0.0, 1.0, "sine_in_out", #{ relative: true });
   tween("rotation_degrees", 360.0, 1.0, "linear", #{ relative: true });
   character_drop_through();
+  joint_servo(45.0);
   animator_play("Run");
   animator_crossfade("Run", 0.2);
   tween("opacity", 0.0, 0.5, "linear");
   tween("scale", 1.5, 0.3, "back_out");
+  post_pulse("bloom", 0.6, 0.25);
   ui_set_text("Score: " + __blk_text(score));
   ui_set_text_on(find_entity_handle("ScoreLabel"), "Score: " + __blk_text(score));
   entity_set_enabled(find_entity_handle("ScoreLabel"), true);
@@ -739,7 +851,14 @@ fn on_destroy() {
   stop_music(1.0);
   set_bus_volume("Music", 0.5);
   play_video("Assets/Video/intro.webm", #{ skippable: true });
-  if !(input_down("Jump")) && (input_pressed("Jump")) && (character_is_on_floor()) && (character_is_on_wall()) && (character_floor_is_one_way()) && (animator_state() == "Run") && (0.0 > 0.0) && (random() < 50.0 / 100.0) && (true) {
+  rhythm_play();
+  rhythm_pause();
+  rhythm_resume();
+  rhythm_restart();
+  rhythm_set_autoplay(true);
+  rhythm_set_speed(8.0);
+  { let my_note = rhythm_my_note(); if my_note != () { rhythm_judge(my_note.id, "perfect"); } }
+  if !(input_down("Jump")) && (input_pressed("Jump")) && (character_is_on_floor()) && (character_is_on_wall()) && (character_floor_is_one_way()) && (animator_state() == "Run") && (0.0 > 0.0) && (random() < 50.0 / 100.0) && (rhythm_state() == "finished") && (rhythm_combo() >= 50.0) && (true) {
     score_add(1.0);
   } else {
     log_info("Hello");
@@ -756,6 +875,7 @@ fn on_destroy() {
   log_info("Hello");
   instantiate("Assets/Prefabs/Coin.nova-prefab");
   spawn_at("Assets/Prefabs/Coin.nova-prefab", 0.0, 0.0, 0.0, 1.0, 1.0);
+  explode(transform().position_x, transform().position_y, 4.0, 30.0);
   destroy();
   scene_load("Level 2");
   scene_reload();
@@ -782,10 +902,12 @@ fn hit(amount, kind) {
   tween("y", 0.0, 1.0, "sine_in_out", #{ relative: true });
   tween("rotation_degrees", 360.0, 1.0, "linear", #{ relative: true });
   character_drop_through();
+  joint_servo(45.0);
   animator_play("Run");
   animator_crossfade("Run", 0.2);
   tween("opacity", 0.0, 0.5, "linear");
   tween("scale", 1.5, 0.3, "back_out");
+  post_pulse("bloom", 0.6, 0.25);
   ui_set_text("Score: " + __blk_text(score));
   ui_set_text_on(find_entity_handle("ScoreLabel"), "Score: " + __blk_text(score));
   entity_set_enabled(find_entity_handle("ScoreLabel"), true);
@@ -795,7 +917,14 @@ fn hit(amount, kind) {
   stop_music(1.0);
   set_bus_volume("Music", 0.5);
   play_video("Assets/Video/intro.webm", #{ skippable: true });
-  if !(input_down("Jump")) && (input_pressed("Jump")) && (character_is_on_floor()) && (character_is_on_wall()) && (character_floor_is_one_way()) && (animator_state() == "Run") && (0.0 > 0.0) && (random() < 50.0 / 100.0) && (true) {
+  rhythm_play();
+  rhythm_pause();
+  rhythm_resume();
+  rhythm_restart();
+  rhythm_set_autoplay(true);
+  rhythm_set_speed(8.0);
+  { let my_note = rhythm_my_note(); if my_note != () { rhythm_judge(my_note.id, "perfect"); } }
+  if !(input_down("Jump")) && (input_pressed("Jump")) && (character_is_on_floor()) && (character_is_on_wall()) && (character_floor_is_one_way()) && (animator_state() == "Run") && (0.0 > 0.0) && (random() < 50.0 / 100.0) && (rhythm_state() == "finished") && (rhythm_combo() >= 50.0) && (true) {
     score_add(1.0);
   } else {
     log_info("Hello");
@@ -812,6 +941,7 @@ fn hit(amount, kind) {
   log_info("Hello");
   instantiate("Assets/Prefabs/Coin.nova-prefab");
   spawn_at("Assets/Prefabs/Coin.nova-prefab", 0.0, 0.0, 0.0, 1.0, 1.0);
+  explode(transform().position_x, transform().position_y, 4.0, 30.0);
   destroy();
   scene_load("Level 2");
   scene_reload();

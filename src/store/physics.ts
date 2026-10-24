@@ -257,7 +257,8 @@ const ASSET_COMPONENT_FIELDS: Partial<Record<ComponentKind, string[]>> = {
   StateMachine2D: ['machineAsset'],
   Spawner2D: ['prefabAsset'],
   ObjectPool2D: ['prefabAsset'],
-  ParticleEmitter2D: ['particleSystemAsset', 'textureAsset', 'material']
+  ParticleEmitter2D: ['particleSystemAsset', 'textureAsset', 'material'],
+  RhythmChart2D: ['chartAsset', 'audioAsset', 'hitSoundAsset']
 }
 
 /* 先计算 value === uuid；仅当其为假值时求右侧 value === `asset://${uuid}`，返回短路求值结果。 */ function matchesAssetReference(value: unknown, uuid: string): boolean {

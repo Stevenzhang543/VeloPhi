@@ -16,6 +16,10 @@ import { WasmScriptRuntime } from '../../nova_core/pkg/nova_core.js'
 import { AnimationTimelineOwner } from './animationTimelineOwner'
 import { dispatchTimelineUiAction } from './timelineUiActions'
 import { RuntimeAudioOwner } from './audioOwner'
+import { applyJointServos } from './jointServo'
+import { clearScriptPostValues, isScriptPostValue, pulseScriptPostValue, setScriptPostValue } from '../renderer/postProcessOverrides'
+import { reservedActionKeys } from './rhythmClock'
+import { RuntimeRhythmOwner, storedRhythmCalibration, storedRhythmVisualOffset, storeRhythmCalibration, type RhythmCommandAction } from './rhythmOwner'
 import { MediaClock } from './mediaClock'
 
 import { RuntimePresentationOwner } from './presentationOwner'
@@ -29,7 +33,7 @@ import { scriptProjectSettings } from './scriptSettings'
 import { WorldGameplayOwner } from './worldGameplayOwner'
 import { GraphDebugOwner, type GraphTraceCommand } from './graphDebugOwner'
 import type { Camera2D, CharacterBody2D } from '../world/components'
-import { TargetJoint2D } from '../world/components'
+import { TargetJoint2D, type Joint2D } from '../world/components'
 import { ReplayOwner } from './replayOwner'
 import { ProductionNetworkOwner } from './productionNetworkOwner'
 import { recordScriptFunction, shouldRecordScriptFunction } from './profiler'
@@ -198,6 +202,13 @@ type ScriptCommand =
   | { type: 'setBusVolume'; bus: string; volume: number }
   | { type: 'playVideo'; asset: string; skippable: boolean; volume: number; looped: boolean }
   | { type: 'stopVideo' }
+  | { type: 'rhythm'; action: string; value: number }
+  | { type: 'rhythmJudge'; note: number; judgement: string; offsetMs: number }
+  | { type: 'postSet'; name: string; value: number; seconds: number }
+  | { type: 'postPulse'; name: string; amount: number; seconds: number }
+  | { type: 'postReset' }
+  | { type: 'jointServo'; enabled: boolean; target: number }
+  | { type: 'explode'; x: number; y: number; radius: number; impulse: number }
 
 interface ScriptContact {
   otherEntity: string
@@ -440,6 +451,27 @@ export class GameplayRuntime {
     const audioOwner=this.worldHost.createAudioOwner(this.scriptServices)
     if(!(audioOwner instanceof RuntimeAudioOwner)||audioOwner.world!==this.worldHost.state.world||audioOwner.resources!==this.scriptServices)throw new Error('AUDIO_OWNER_MISMATCH: Supply this World and Core catalog composition.')
     this.audioOwner=audioOwner
+    // 26.46: rhythm charts run on this Core's audio clock, timed input and catalog.
+    this.rhythm=new RuntimeRhythmOwner({
+      entities: () => this.worldHost.state.world.entities,
+      resolveAsset: reference => { const record = reference ? this.scriptServices.resolveAsset(this.resolveMediaReference(reference)) : null; return record ? { uuid: record.uuid, assetType: record.assetType } : null },
+      readText: reference => reference ? this.scriptServices.readSource(this.resolveMediaReference(reference)) : null,
+      revision: () => this.scriptServices.revision(),
+      audio: () => { try { return this.audio.rhythmPort() } catch { return null } },
+      openTimedInput: () => this.input.openTimedInput(),
+      takeTimedInput: () => this.input.takeTimedInput(),
+      clientToWorld: (clientX, clientY) => this.clientToWorld(clientX, clientY),
+      nowMs: () => performance.now(),
+      emit: (signal, payload, target) => { if (this.active) this.emitSignal(signal, payload, target, 'rhythm') },
+      log: (message, level) => this.worldHost.log(message, 'Runtime', level),
+      calibrationMs: () => storedRhythmCalibration(),
+      reservedKeys: () => reservedActionKeys(this.worldHost.state.inputMap),
+      visualOffsetMs: () => storedRhythmVisualOffset(),
+      // 26.47 prefab notes: spawned like runtime prefabs; removed with the play session (or a restart).
+      spawnPrefab: (reference, position) => this.active ? this.worldGameplay.dynamicObjectsOwner.spawnRuntimePrefab(this.resolveMediaReference(reference), { position, rotation: 0, scale: { x: 1, y: 1 } }) : null,
+      despawn: entity => { if (this.active) this.queueEntityRemoval(entity, false) },
+      setPost: (name, value) => { if (isScriptPostValue(name)) setScriptPostValue(name, value, 0) }
+    })
     this.video=new RuntimeVideoOwner(
       reference => { const record = this.scriptServices.resolveAsset(this.resolveMediaReference(reference)) as (ScriptResourceView & { source?: string }) | null; return record ? { source: record.source ?? '', assetType: record.assetType, path: record.path } : null },
       (asset, reason, source) => { if (this.active) this.emitSignal('video.finished', { asset, reason }, '', source || 'video') },
@@ -498,6 +530,15 @@ export class GameplayRuntime {
   private globalScriptHosts: GlobalScriptHost[] = []
   /** 26.43 play_video(): full-screen video over the game view; ends with the "video.finished" signal. */
   readonly video: RuntimeVideoOwner
+  /** 26.46 rhythm charts (RhythmChart2D). */
+  readonly rhythm: RuntimeRhythmOwner
+
+  /** 26.47: the solver checksum is only computed when something reads it (a replay records or plays back, or
+   * a network session compares states); every other fixed step skips the hashing. */
+  private fixedStepChecksum(): string {
+    return this.replay.state.mode !== 'idle' || this.productionNetwork.networkingActive ? this.worldHost.state.world.stateChecksum() : ''
+  }
+  private lastViewport: DOMRect | undefined
   private mediaPathIndex: { revision: number; byPath: Map<string, string> } | null = null
   private invocationSerial = 0
   private sessionGeneration = 0
@@ -691,6 +732,7 @@ export class GameplayRuntime {
     this.worldGameplay.tileMapOwner.setTileAnimationTime(0); this.presentation.setRuntimeCaptionTime(null); this.presentation.setRuntimeCaptionTime(0)
     this.audio.stopAll();this.audio.begin(this.worldHost.state.audioSettings)
     this.audio.setTransportTime({seconds:0,playing:true,scale:this.worldHost.state.globalSettings.timeScale})
+    this.rhythm.begin()
     this.globalScriptHosts = createGlobalScriptHosts(this.worldHost.state.world, scriptProjectSettings.globalScripts, reference => this.scriptServices.resolveAsset(this.resolveMediaReference(reference))?.uuid ?? null, (message, level) => this.worldHost.log(message, 'Script', level))
     for (const entity of this.worldHost.state.world.entities) this.worldGameplay.entityLifetimes.begin(entity)
     this.worldGameplay.objectPoolOwner.setPoolRuntimeHooks({ clock: /* 返回 this.time.value.elapsed 的当前值。 */ () => this.time.value.elapsed, beforeRelease: /** 结构说明（自动提取）：匿名回调；输入 entities；直接调用 destroying.add、runDestructionCallbacks、clearEntityRuntimeState、destroying.delete；包含循环处理。 */ entities => {
@@ -783,6 +825,7 @@ export class GameplayRuntime {
   }
 
   private runFrame(frameDelta: number, viewport?: DOMRect): void {
+    if (viewport) this.lastViewport = viewport
     // 26.44: a scrubbed physics view is only shown while paused; running restores the live poses.
     if (this.physicsRecorder.scrubbing && this.worldHost.state.playMode === 'playing') this.physicsRecorder.endScrub(this.worldHost.state.world.entities)
     void this.gameFlow
@@ -810,6 +853,7 @@ export class GameplayRuntime {
       const audioMs = performance.now() - audioStarted
       this.particles.update(frameDelta, false)
       this.worldHost.plugins.update(frameDelta)
+      this.rhythm.update(false)
       Object.assign(this.diagnostics.timings, { inputMs: 0, physicsMs, scriptsMs: 0, animationMs: 0, audioMs, assetsMs: 0 })
       return
     }
@@ -872,6 +916,7 @@ export class GameplayRuntime {
           const transform = worldTransform(owner, this.worldHost.state.world.entities)
           return this.worldGameplay.dynamicObjectsOwner.spawnRuntimePrefab(prefab, { position: transform.position, rotation: transform.rotation, scale: { x: 1, y: 1 } })
         }, /* 调用 this.queueEntityRemoval(target, despawn) 并返回调用结果。 */ (target, despawn) => this.queueEntityRemoval(target, despawn), this.gameplayWorldOptions())
+        applyJointServos(this.worldHost.state.world.entities)
         this.worldGameplay.beforeWorldPhysicsStep(fixedDelta, this.time.value.elapsed, this.time.value.frame, /* 调用 this.emitSignal(name, payload, target, source) 并返回调用结果。 */ (name, payload, target, source) => this.emitSignal(name, payload, target, source), /** 将 { type: 'load', identifier: scene } 赋给 this.pendingScene，不显式返回值。 */ scene => { this.pendingScene = { type: 'load', identifier: scene } })
         this.mediaClock.advance(fixedDelta)
         this.worldGameplay.tileMapOwner.setTileAnimationTime(this.mediaClock.seconds); this.presentation.setRuntimeCaptionTime(this.mediaClock.seconds)
@@ -882,7 +927,7 @@ export class GameplayRuntime {
         fixedScriptsMs += performance.now() - fixedScriptsStarted
       },
       /** 结构说明（自动提取）：this.worldHost.state.world.update 回调；无显式参数；直接调用 this.worldHost.state.world.stateChecksum、completeReplayFixedStep、updateProductionRuntime。 */ (_fixedDelta, stepEvents) => {
-        const checksum = this.worldHost.state.world.stateChecksum(); this.replay.completeReplayFixedStep(checksum); this.productionNetwork.updateProductionRuntime(this.worldHost.state.world.entities, this.time.value.fixedDelta, this.inputSnapshot, checksum)
+        const checksum = this.fixedStepChecksum(); this.replay.completeReplayFixedStep(checksum); this.productionNetwork.updateProductionRuntime(this.worldHost.state.world.entities, this.time.value.fixedDelta, this.inputSnapshot, checksum)
         if (this.physicsRecorder.enabled) this.physicsRecorder.record(this.fixedStepSequence, this.fixedStepSequence * this.time.value.fixedDelta, this.worldHost.state.world.entities)
         // 26.43 (eventDispatch 'step'): collision and trigger callbacks run after the step that produced
         // them, before the next step's fixed_update, so a callback's commands apply to the next tick.
@@ -911,6 +956,7 @@ export class GameplayRuntime {
     const animationMs = performance.now() - animationStarted
     const audioStarted = performance.now()
     this.audio.update(this.worldHost.state.world.entities, this.worldHost.state.audioSettings, true,{seconds:this.mediaClock.seconds,playing:true,scale:this.time.value.scale})
+    this.rhythm.update(true)
     const audioMs = performance.now() - audioStarted
     this.flushStructuralCommands()
     this.completeInputObservationFrame(observedOwner, observedSample, observedFixedCount, observedReplay)
@@ -967,11 +1013,12 @@ export class GameplayRuntime {
       const transform = worldTransform(owner, this.worldHost.state.world.entities)
       return this.worldGameplay.dynamicObjectsOwner.spawnRuntimePrefab(prefab, { position: transform.position, rotation: transform.rotation, scale: { x: 1, y: 1 } })
     }, /* 调用 this.queueEntityRemoval(target, despawn) 并返回调用结果。 */ (target, despawn) => this.queueEntityRemoval(target, despawn), this.gameplayWorldOptions())
+    applyJointServos(this.worldHost.state.world.entities)
     this.worldGameplay.beforeWorldPhysicsStep(this.time.value.fixedDelta, this.time.value.elapsed, this.time.value.frame, /* 调用 this.emitSignal(name, payload, target, source) 并返回调用结果。 */ (name, payload, target, source) => this.emitSignal(name, payload, target, source), /** 将 { type: 'load', identifier: scene } 赋给 this.pendingScene，不显式返回值。 */ scene => { this.pendingScene = { type: 'load', identifier: scene } })
     Object.assign(this.worldHost.state.engineDiagnostics, this.worldHost.state.world.singleStep(this.worldHost.state.globalSettings))
     this.fixedStepSequence += 1
     if (this.physicsRecorder.enabled) this.physicsRecorder.record(this.fixedStepSequence, this.fixedStepSequence * this.time.value.fixedDelta, this.worldHost.state.world.entities)
-    const checksum = this.worldHost.state.world.stateChecksum()
+    const checksum = this.fixedStepChecksum()
     this.replay.completeReplayFixedStep(checksum)
     this.productionNetwork.updateProductionRuntime(this.worldHost.state.world.entities, this.time.value.fixedDelta, this.inputSnapshot, checksum)
     this.dispatchPhysicsEvents(this.worldHost.state.world.events)
@@ -1031,6 +1078,8 @@ export class GameplayRuntime {
     this.productionNetwork.stopProductionRuntime()
     this.networkUnsubscribe?.(); this.networkUnsubscribe = null
     this.worldHost.plugins.stop()
+    this.rhythm.stop()
+    clearScriptPostValues()
     void this.audio.dispose()
     this.pendingScene = null
     this.active = false
@@ -1070,6 +1119,38 @@ export class GameplayRuntime {
     this.scriptDebugOwner.clearScriptDebugger()
     this.graphDebugOwner.clearGraphPause()
     if (log) this.worldHost.log('Gameplay runtime stopped', 'Runtime')
+  }
+
+  /** 26.46 explode(x, y, radius, impulse): a velocity change on every dynamic body around the point, away from it,
+   * falling off linearly to zero at the radius (measured to the body's edge, so large bodies are not missed);
+   * the calling object itself is left out. Returns the number of bodies pushed. */
+  explode(source: Entity | null, x: number, y: number, radius: number, impulse: number): number {
+    const entities = this.worldHost.state.world.entities, origin = { x: finiteNumber(x, 0), y: finiteNumber(y, 0) }, reach = Math.max(0, finiteNumber(radius, 0)), strength = finiteNumber(impulse, 0)
+    if (!(reach > 0) || strength === 0) return 0
+    let pushed = 0
+    for (const body of entities) {
+      if (body === source || !body.enabled || !body.hasComponent('RigidBody2D') || body.isStatic || body.isKinematic || !(body.mass > 0)) continue
+      const position = worldTransform(body, entities).position, collider = body.getCollider(true)
+      const round = collider?.kind === 'EllipseCollider2D'
+      const size = !collider ? .25 : round ? Math.max(collider.radiusX, collider.radiusY) : Math.hypot(collider.size.x, collider.size.y) / 2
+      const dx = position.x - origin.x, dy = position.y - origin.y, distance = Math.hypot(dx, dy)
+      const edge = Math.max(0, distance - size)
+      if (edge >= reach) continue
+      const falloff = 1 - edge / reach, nx = distance > 1e-9 ? dx / distance : 0, ny = distance > 1e-9 ? dy / distance : 1
+      body.velocity = { x: body.velocity.x + nx * strength * falloff / body.mass, y: body.velocity.y + ny * strength * falloff / body.mass }
+      pushed++
+    }
+    return pushed
+  }
+
+  /** 26.46: a client (CSS pixel) point in world space through the active game camera, as the frame's input sees it. */
+  clientToWorld(clientX: number, clientY: number): { x: number; y: number } | null {
+    const viewport = this.lastViewport
+    if (!viewport) return null
+    const width = Math.max(1, viewport.width), height = Math.max(1, viewport.height)
+    const active = activeGameCamera(this.worldHost.state.world.entities, width, height)
+    const view = active?.view ?? { scale: this.worldHost.state.camera.scale, offset: this.worldHost.state.camera.offset }
+    return gameScreenToWorld({ x: clientX - viewport.left, y: clientY - viewport.top }, view, width, height)
   }
 
   /** 结构说明（自动提取）：decorateViewportInput；输入 snapshot、viewport；直接调用 Math.max、activeGameCamera、gameScreenToWorld、visibleWorldBounds；写入 snapshot.mouseWorldPosition、snapshot.viewBounds、snapshot.viewportSize；返回路径包含 snapshot。 */ private decorateViewportInput(snapshot: InputSnapshot, viewport?: DOMRect): InputSnapshot {
@@ -1743,7 +1824,8 @@ export class GameplayRuntime {
       })(),
       animator: this.animationTimeline.animation.animatorSnapshot(entity),
       gameFlow: this.gameFlow.gameFlowSnapshot(),
-      networking: this.productionNetwork.productionNetworkContext()
+      networking: this.productionNetwork.productionNetworkContext(),
+      rhythm: { ...this.rhythm.snapshot(entity.getComponent('RhythmChart2D') ? entity.uuid : '', entity.uuid), calibrationMs: storedRhythmCalibration() }
     }
     // 26.44: Rhai scripts stop at lines (VM stack and locals) by re-running the callback up to the stop.
     const vmDebug = asset.assetType === 'script' && typeof (this.scriptRuntime as unknown as { execute_instance_debug_json?: unknown }).execute_instance_debug_json === 'function'
@@ -2004,6 +2086,30 @@ export class GameplayRuntime {
     else if (command.type === 'setBusVolume') { if (!this.audio.setBusVolume(command.bus, command.volume)) this.reportCallIssue(`bus:${command.bus}`, `${entity.name}: set_bus_volume: unknown mixer bus “${command.bus}”`) }
     else if (command.type === 'playVideo') this.video.play(command.asset, { skippable: command.skippable, volume: command.volume, loop: command.looped }, entity.uuid)
     else if (command.type === 'stopVideo') this.video.stop()
+    else if (command.type === 'postSet' || command.type === 'postPulse') {
+      if (!isScriptPostValue(command.name)) this.reportCallIssue(`post:${command.name}`, `${entity.name}: post_${command.type === 'postSet' ? 'set' : 'pulse'}: unknown value “${command.name}” (use exposure, contrast, saturation, vignette, bloom or blur)`)
+      else if (command.type === 'postSet') setScriptPostValue(command.name, command.value, command.seconds)
+      else pulseScriptPostValue(command.name, command.amount, command.seconds)
+    }
+    else if (command.type === 'postReset') clearScriptPostValues()
+    else if (command.type === 'jointServo') {
+      const joints = [...entity.componentMap.values()].filter(component => component.kind === 'RevoluteJoint2D' || component.kind === 'PrismaticJoint2D') as Joint2D[]
+      if (!joints.length) this.reportCallIssue(`servo:${entity.uuid}`, `${entity.name}: joint_servo needs a revolute or prismatic joint on this object`)
+      for (const joint of joints) { joint.servoEnabled = command.enabled; if (command.enabled) joint.servoTarget = finiteNumber(command.target, 0); else { joint.motorSpeed = 0; joint.motorEnabled = false } }
+    }
+    else if (command.type === 'explode') this.explode(entity, command.x, command.y, command.radius, command.impulse)
+    else if (command.type === 'rhythm') {
+      if (command.action === 'calibration') storeRhythmCalibration(command.value)
+      else if (command.action === 'visual') this.rhythm.command('', 'visual', command.value)
+      else if (!['play', 'pause', 'resume', 'stop', 'restart', 'seek', 'offset', 'autoplay', 'speed'].includes(command.action) || !this.rhythm.command(entity.getComponent('RhythmChart2D') ? entity.uuid : '', command.action as RhythmCommandAction, command.value)) {
+        if (command.action !== 'pause' && command.action !== 'resume') this.reportCallIssue(`rhythm:${command.action}`, `${entity.name}: rhythm_${command.action} has no RhythmChart2D to act on (add one to the scene)`)
+      }
+    }
+    else if (command.type === 'rhythmJudge') {
+      // 26.47: a judgement for a note that is no longer waiting (judged already, or passed) is ignored quietly:
+      // scripts often judge on a touch and again on a timer.
+      this.rhythm.judge(entity.getComponent('RhythmChart2D') ? entity.uuid : entity.uuid, Math.round(finiteNumber(command.note, -1)), command.judgement, finiteNumber(command.offsetMs, 10_000))
+    }
     else if (command.type === 'saveSet') this.saves.setSaveValue(command.key, command.value)
     else if (command.type === 'saveDelete') this.saves.deleteSaveValue(command.key)
     else if (command.type === 'saveClear') this.saves.clearSaveValues()

@@ -24,7 +24,7 @@ try {
   const { RuntimeParticleOwner } = await import(pathToFileURL(join(compiled, 'particles.mjs')).href)
   const { BoxEntity } = await import(pathToFileURL(join(compiled, 'box.mjs')).href)
   const additions = catalog.filter(/* 比较 value.introduced 与 '26.11'，返回严格相等的判断结果。 */ value => value.introduced === '26.11')
-  check('43 unique starters; 20 additional localized recipes', /** 验证模板总量、新增数量、标识唯一性及中德文名称描述。 */ () => { assert.equal(catalog.length, 43); assert.equal(additions.length, 20); assert.equal(new Set(catalog.map(/* 返回 value.id 的当前值。 */ value => value.id)).size, 43); for (const item of additions) for (const locale of ['de', 'zh']) { assert.ok(item.localized[locale].name); assert.ok(item.localized[locale].description) } })
+  check('46 unique starters (two rhythm starters since 26.46, Rhythm Lab since 26.47); 20 additional localized recipes', /** 验证模板总量、新增数量、标识唯一性及中德文名称描述。 */ () => { assert.equal(catalog.length, 46); assert.equal(additions.length, 20); assert.equal(new Set(catalog.map(/* 返回 value.id 的当前值。 */ value => value.id)).size, 46); for (const item of additions) for (const locale of ['de', 'zh']) { assert.ok(item.localized[locale].name); assert.ok(item.localized[locale].description) } })
   check('Every original and new particle recipe hydrates its authored fields', /** 逐模板验证粒子字段都可被组件识别并完整恢复，且初始不透明度处于预期范围。 */ () => {
     for (const descriptor of catalog) for (const scene of createTemplateProject(descriptor.id, descriptor.name).scenes) for (const entity of scene.entities) for (const part of entity.components.filter(/* 比较 value.kind 与 'ParticleEmitter2D'，返回严格相等的判断结果。 */ value => value.kind === 'ParticleEmitter2D')) {
       const emitter = new ParticleEmitter2D()
@@ -52,12 +52,12 @@ try {
   const display = /** 创建指定语言的模板显示文本提取器，缺失翻译时使用默认名称和描述。 */ locale => /** 拼接模板的本地化名称和描述，缺失时回退到默认文本。 */ item => `${item.localized?.[locale]?.name ?? item.name} ${item.localized?.[locale]?.description ?? item.description}`
   const filters = { category: 'all', difficulty: 'all', query: '', sort: 'catalog', locale: 'en' }
   check('Localized, multiword, category, difficulty, empty and sorted discovery', /** 验证模板多语言搜索、空结果、类别难度过滤及新增和时长排序。 */ () => {
-    assert.equal(discoverTemplates(catalog, filters, display('en')).length, 43)
+    assert.equal(discoverTemplates(catalog, filters, display('en')).length, 46)
     assert.deepEqual(discoverTemplates(catalog, { ...filters, query: '轨道 闪避', locale: 'zh' }, display('zh')).map(/* 返回 item.id 的当前值。 */ item => item.id), ['orbit-dodge'])
     assert.deepEqual(discoverTemplates(catalog, { ...filters, query: 'Münzpfad', locale: 'de' }, display('de')).map(/* 返回 item.id 的当前值。 */ item => item.id), ['coin-trail'])
     assert.equal(discoverTemplates(catalog, { ...filters, query: 'no-such-template' }, display('en')).length, 0)
     assert.ok(discoverTemplates(catalog, { ...filters, category: 'game', difficulty: 'beginner' }, display('en')).every(/* 先计算 item.category === 'game'；仅当其为真值时求右侧 item.difficulty === 'beginner'，返回短路求值结果。 */ item => item.category === 'game' && item.difficulty === 'beginner'))
-    const newest = discoverTemplates(catalog, { ...filters, sort: 'newest' }, display('en')); assert.ok(newest.slice(0, 3).every(item => item.introduced === '26.42')); assert.ok(newest.slice(3, 23).every(/* 比较 item.introduced 与 '26.11'，返回严格相等的判断结果。 */ item => item.introduced === '26.11'))
+    const newest = discoverTemplates(catalog, { ...filters, sort: 'newest' }, display('en')); assert.equal(newest[0].introduced, '26.47'); assert.ok(newest.slice(1, 3).every(item => item.introduced === '26.46')); assert.ok(newest.slice(3, 6).every(item => item.introduced === '26.42')); assert.ok(newest.slice(6, 26).every(/* 比较 item.introduced 与 '26.11'，返回严格相等的判断结果。 */ item => item.introduced === '26.11'))
     const quick = discoverTemplates(catalog, { ...filters, sort: 'time' }, display('en')); assert.ok(quick.every(/* 先计算 index === 0；仅当其为假值时求右侧 quick[index - 1].setupMinutes <= item.setupMinutes，返回短路求值结果。 */ (item, index) => index === 0 || quick[index - 1].setupMinutes <= item.setupMinutes))
   })
   const wasm = await import(pathToFileURL(join(root, 'nova_core/pkg/nova_core.js')).href)

@@ -112,7 +112,7 @@ Before completion:
 - retain honest frame/input/idle diagnostics with their host limits;
 - test normal/minimum windows, translations and enlarged user scale;
 - review shared/nearby controls for clipping, overlaps and focus-ring loss;
-- update DECISIONS.md and MIGRATION.md with actual results.
+- update DECISIONS.md with actual results.
 
 Compilation does not establish visual completion. Distinguish implemented, observed, automatically tested and unverified scope. Headless software-browser timing is not a physical GPU, display-latency or all-device claim. Existing releases remain immutable;26.37 publishes only after frozen-source qualification and exact archive/checksum verification.
 

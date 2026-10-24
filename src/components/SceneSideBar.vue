@@ -273,7 +273,11 @@ const hierarchyRows = computed(/** 建立父子映射及置顶排序，按搜索
   }
   const visited = new Set<string>()
   for (const root of children.get(null) ?? []) visit(root, 0, visited)
-  for (const entity of state.world.entities) visit(entity, 0, visited)
+  // Only objects no root reaches (a parent cycle) are listed at the top level as well; children of a
+  // collapsed object stay hidden under it (26.47: they were listed at the top level before).
+  const reachable = new Set<string>(), pending = [...(children.get(null) ?? [])]
+  while (pending.length) { const entity = pending.pop()!; if (reachable.has(entity.uuid)) continue; reachable.add(entity.uuid); pending.push(...(children.get(entity.uuid) ?? [])) }
+  for (const entity of state.world.entities) if (!reachable.has(entity.uuid)) visit(entity, 0, visited)
   return rows
 })
 const hierarchyContentInset = computed(() => (preferencesState.compactMode ? 2 : 4) * preferencesState.uiScale)

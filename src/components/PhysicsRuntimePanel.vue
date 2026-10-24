@@ -108,7 +108,7 @@
 import UiButton from '../ui/components/UiButton.vue'
 import { preferencesState } from '../store/preferences'
 import { computed, defineComponent, h, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { gameplayRuntime as runtime } from '../runtime/GameplayRuntime'
+import { gameplayRuntime as runtime } from '../editor/gameplayRuntime'
 import { t } from '../i18n'
 import { physicsState } from '../store/physics'
 import { capturePhysicsSnapshot, clearCollisionTimeline, comparePhysicsSnapshots, physicsCaptureJson, physicsMonitorState as monitor, togglePhysicsPin, type PhysicsBodyTelemetry, type PhysicsMonitorCapture } from '../runtime/physicsMonitor'

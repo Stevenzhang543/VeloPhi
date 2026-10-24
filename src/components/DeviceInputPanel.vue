@@ -5,7 +5,7 @@ import { computed, onActivated, onDeactivated, onBeforeUnmount, onMounted, ref, 
 import { preferencesState } from '../store/preferences'
 import { physicsState, pushHistory } from '../store/physics'
 import { createInputBinding, normalizeInputMap, type InputDevice } from '../runtime/input'
-import { gameplayRuntime } from '../runtime/GameplayRuntime'
+import { gameplayRuntime } from '../editor/gameplayRuntime'
 import { UI_DEVICE_PRESETS } from '../runtime/uiProduction'
 import {
   applyOrientationPolicy, createVirtualControl, detachDeviceSensors, deviceInputSettings, deviceRuntimeState, deviceSensorState,
