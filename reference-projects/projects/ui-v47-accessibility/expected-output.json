@@ -1,8 +1,0 @@
-{
-  "engineVersion": "5.3.0",
-  "schema": 29,
-  "projectName": "UI v4.7 Accessibility",
-  "expectedValidation": "pass",
-  "purpose": "Semantic roles, accessible names and state, focus order, keyboard/gamepad navigation, text scale, contrast, reduced motion, subtitles and captions.",
-  "windowsWebParity": true
-}

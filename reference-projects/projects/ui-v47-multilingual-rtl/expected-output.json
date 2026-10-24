@@ -1,8 +1,0 @@
-{
-  "engineVersion": "5.3.0",
-  "schema": 29,
-  "projectName": "UI v4.7 Multilingual RTL",
-  "expectedValidation": "pass",
-  "purpose": "English, German, Chinese, Arabic/RTL, pseudolocalization, plural, emoji, combining marks and font fallback.",
-  "windowsWebParity": true
-}

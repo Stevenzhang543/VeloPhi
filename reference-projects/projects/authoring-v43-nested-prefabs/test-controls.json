@@ -1,8 +1,0 @@
-{
-  "open": "Project Manager > Open Project > reference-projects/projects/authoring-v43-nested-prefabs/project.nova",
-  "validate": "Project Health > Validate",
-  "hierarchy": "Design > Hierarchy",
-  "inspector": "Design > Inspector",
-  "evidence": "release-audits/evidence-v4.6.0/tests",
-  "engineVersion": "5.3.0"
-}

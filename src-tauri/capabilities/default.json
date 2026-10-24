@@ -1,35 +1,16 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Capability for the main window",
-  "windows": [
-    "main"
-  ],
+  "description": "Main window: native open/save dialogs and reading/writing the files chosen in them.",
+  "windows": ["main"],
   "permissions": [
     "core:default",
-    "core:window:allow-set-fullscreen",
-    "core:window:allow-set-size",
-    "core:window:allow-set-position",
-    "core:window:allow-set-min-size",
-    "core:window:allow-set-decorations",
-    "core:window:allow-close",
+    "dialog:allow-open",
+    "dialog:allow-save",
+    "dialog:allow-ask",
     "core:window:allow-destroy",
-    "core:window:allow-center",
-    "core:window:allow-maximize",
-    "core:window:allow-unmaximize",
-    {
-      "identifier": "opener:allow-open-url",
-      "allow": [
-        {
-          "url": "https://github.com/Stevenzhang543/Nova_A/"
-        },
-        {
-          "url": "https://github.com/Stevenzhang543/Nova_A/security"
-        },
-        {
-          "url": "https://whitelists.top/"
-        }
-      ]
-    }
+    "fs:allow-read-text-file",
+    "fs:allow-write-text-file",
+    "fs:allow-write-file"
   ]
 }

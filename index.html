@@ -1,26 +1,14 @@
 <!doctype html>
-<!-- 网页入口先执行兼容性提示；相对 PWA 地址支持站点子目录部署。 -->
-<html lang="en">
+<html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <link id="nova-app-icon" rel="icon" type="image/png" href="./nova-icon-32.png" />
-    <!-- 26.43: maximum-scale stops Safari from zooming into focused fields (the UI has its own scale
-         setting); viewport-fit=cover lets env(safe-area-inset-*) report the notch and home indicator. -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#101116" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <link rel="manifest" href="./manifest.webmanifest" />
-    <link rel="apple-touch-icon" href="./nova-icon-192.png" />
-    <title>Nova_A</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Verity：面向物理教学的可验证力学仿真引擎" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <title>Verity 26.48</title>
   </head>
   <body>
     <div id="app"></div>
-    <noscript>Nova_A requires JavaScript. / Nova_A 需要 JavaScript。</noscript>
-    <script src="./browser-capabilities.js"></script>
-    <script type="module">
-      // 只有能力检查通过后才加载编辑器，旧浏览器保持可读提示。
-      if (window.novaBrowserSupported) import('/src/main.ts');
-    </script>
+    <script type="module" src="/src/app/main.ts"></script>
   </body>
 </html>

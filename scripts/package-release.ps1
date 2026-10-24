@@ -1,174 +1,83 @@
-# Nova_A packaging: assemble the eleven-file release set from one real build.
-#
-# Releases are built from the uncommitted working tree (the maintainer commits by hand). This script
-# never runs git commands that write: no add, commit, tag, stash or archive of HEAD. The source zip is
-# built from the files git would track (tracked files that exist plus untracked, non-ignored files),
-# read with `git ls-files` only.
-#
-# Follows the established releases/v26.38 contract (names, formats, checksums). Run after
-# scripts/build-release.cmd (or scripts/release.cmd) has produced dist/ and the Tauri Windows bundles
-# from the same source. Every artifact is assembled in a staging folder first; releases/v<label> is
-# only written when all of them succeeded, and an existing release folder is never cleared wholesale.
-# The release label defaults to package.json's version without ".0" (26.45.0 -> 26.45).
-[CmdletBinding()]
-param([string]$Label = '', [string]$EvidenceDirectory = '')
-
+# Packages a finished build into releases\v26.48 (no rebuild). Run from the repository root.
+# Never deletes: an existing releases\v26.48 is moved aside to .cache\superseded-<time> first.
 $ErrorActionPreference = 'Stop'
-# git prints paths as UTF-8; decode them as UTF-8 regardless of the console code page.
-[Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
-$root = Split-Path -Parent $PSScriptRoot
-. (Join-Path $PSScriptRoot 'release-policy.ps1')
-if (-not $Label) { $Label = ((Get-Content -LiteralPath (Join-Path $root 'package.json') -Raw | ConvertFrom-Json).version) -replace '\.0$', '' }
-$info = Get-CalendarReleaseInfo -Label $Label
-if ($null -eq $info) { throw "Not a calendar release label: $Label" }
-$machine = $info.MachineVersion
-$release = Join-Path $root "releases/v$Label"
-$stage = Join-Path $root ".cache/package-$Label"
-Add-Type -AssemblyName System.IO.Compression
+Set-StrictMode -Version Latest
+$Version = '26.48'
+$Full = '26.48.0'
+$Root = (Get-Location).Path
+$Out = Join-Path $Root "releases\v$Version"
+$Ev = Join-Path $Root ".cache\evidence-$Version"
+$Stage = Join-Path $Root ".cache\stage-$Version"
 
-# Entries use forward slashes and a fixed timestamp (as the 26.38 packager does), so the archives
-# extract correctly on every platform and repeat byte-for-byte from the same inputs.
-function New-Zip([string]$Source, [string]$Target) {
-  if (Test-Path -LiteralPath $Target) { Remove-Item -LiteralPath $Target -Force }
-  $base = (Resolve-Path -LiteralPath $Source).Path.TrimEnd('\')
-  $stream = [IO.File]::Open($Target, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
-  $archive = [IO.Compression.ZipArchive]::new($stream, [IO.Compression.ZipArchiveMode]::Create, $false)
-  try {
-    [string[]]$files = @(Get-ChildItem -LiteralPath $base -File -Recurse | ForEach-Object FullName)
-    [Array]::Sort($files, [StringComparer]::Ordinal)
-    foreach ($file in $files) {
-      $entry = $archive.CreateEntry($file.Substring($base.Length).TrimStart('\').Replace('\', '/'), [IO.Compression.CompressionLevel]::Optimal)
-      $entry.LastWriteTime = [DateTimeOffset]::new(2000, 1, 1, 0, 0, 0, [TimeSpan]::Zero)
-      $input = [IO.File]::OpenRead($file); $output = $entry.Open()
-      try { $input.CopyTo($output) } finally { $output.Dispose(); $input.Dispose() }
-    }
-  } finally { $archive.Dispose(); $stream.Dispose() }
+function Fail($msg) { Write-Host "PACKAGE FAILED: $msg"; exit 1 }
+
+$exe = Join-Path $Root 'src-tauri\target\release\verity.exe'
+$setup = Join-Path $Root "src-tauri\target\release\bundle\nsis\Verity_${Full}_x64-setup.exe"
+foreach ($f in @($exe, $setup, (Join-Path $Root 'dist\index.html'))) { if (-not (Test-Path $f)) { Fail "missing $f" } }
+
+if (Test-Path $Out) {
+  $aside = Join-Path $Root (".cache\superseded-" + (Get-Date -Format 'yyyyMMdd-HHmmss'))
+  New-Item -ItemType Directory -Force -Path $aside | Out-Null
+  Move-Item -Path $Out -Destination $aside
+  Write-Host "previous release folder moved to $aside"
 }
-function Get-Sha256Lower([string]$Path) { (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant() }
-function Write-Utf8Lines([string]$Path, [string[]]$Lines) { [IO.File]::WriteAllText($Path, (($Lines -join "`n") + "`n"), [Text.UTF8Encoding]::new($false)) }
-function Copy-Tree([string]$From, [string]$To) {
-  New-Item -ItemType Directory -Force -Path $To | Out-Null
-  Copy-Item -Path (Join-Path $From '*') -Destination $To -Recurse -Force
+New-Item -ItemType Directory -Force -Path $Out | Out-Null
+if (Test-Path $Stage) { Move-Item -Path $Stage -Destination ($Stage + '-old-' + (Get-Date -Format 'HHmmss')) }
+New-Item -ItemType Directory -Force -Path $Stage | Out-Null
+New-Item -ItemType Directory -Force -Path $Ev | Out-Null
+
+# executables
+Copy-Item $exe (Join-Path $Out "Verity-v$Version-windows-x64-portable.exe")
+Copy-Item $setup (Join-Path $Out "Verity-v$Version-windows-x64-setup.exe")
+
+# web package: the built front end + hosting notes
+$web = Join-Path $Stage 'web'
+New-Item -ItemType Directory -Force -Path $web | Out-Null
+Copy-Item -Recurse (Join-Path $Root 'dist\*') $web
+Copy-Item (Join-Path $Root 'docs\WEB_HOSTING.md') (Join-Path $web 'HOSTING.md')
+Compress-Archive -Path (Join-Path $web '*') -DestinationPath (Join-Path $Out "Verity-v$Version-web.zip") -CompressionLevel Optimal
+
+# source package: the working tree without generated or local folders
+$src = Join-Path $Stage "Verity-v$Version-source"
+New-Item -ItemType Directory -Force -Path $src | Out-Null
+$exclude = @('node_modules', 'dist', '.cache', 'releases', 'target', 'gen', '.git', '.verity-workspace')
+Get-ChildItem -Path $Root -Force | Where-Object { $exclude -notcontains $_.Name } | ForEach-Object {
+  if ($_.PSIsContainer) {
+    robocopy $_.FullName (Join-Path $src $_.Name) /E /XD target gen node_modules /NFL /NDL /NJH /NJS /NP | Out-Null
+  } else { Copy-Item $_.FullName $src }
 }
+Compress-Archive -Path $src -DestinationPath (Join-Path $Out "Verity-v$Version-source.zip") -CompressionLevel Optimal
 
-# 1. Every input must exist and belong to this version and this build.
-$packageVersion = (Get-Content -LiteralPath (Join-Path $root 'package.json') -Raw | ConvertFrom-Json).version
-if ($packageVersion -ne $machine) { throw "package.json is $packageVersion, expected $machine" }
-$dist = Join-Path $root 'dist'
-$distIndex = Join-Path $dist 'index.html'
-if (-not (Test-Path -LiteralPath $distIndex)) { throw 'dist/index.html is missing: run the build first.' }
-$wasm = Get-ChildItem -LiteralPath (Join-Path $dist 'assets') -Filter '*.wasm' | Select-Object -First 1
-if (-not $wasm) { throw 'dist has no WebAssembly module.' }
-$bin = Join-Path $root 'src-tauri/target/release'
-$portable = Join-Path $bin 'nova_a.exe'
-$setup = Join-Path $bin "bundle/nsis/Nova_A_${machine}_x64-setup.exe"
-$msi = Join-Path $bin "bundle/msi/Nova_A_${machine}_x64_en-US.msi"
-foreach ($path in @($portable, $setup, $msi)) { if (-not (Test-Path -LiteralPath $path)) { throw "Missing Windows artifact: $path" } }
-Assert-WindowsReleaseArtifactVersions -Portable $portable -Setup $setup -Msi $msi -MachineVersion $machine
-# The bundle folders keep older builds with the same version name; refuse anything older than this dist.
-$distTime = (Get-Item -LiteralPath $distIndex).LastWriteTimeUtc
-foreach ($path in @($portable, $setup, $msi)) {
-  if ((Get-Item -LiteralPath $path).LastWriteTimeUtc -lt $distTime.AddMinutes(-1)) { throw "Stale Windows artifact (older than dist): $path" }
+# documents
+Copy-Item (Join-Path $Root "docs\RELEASE_NOTES_26_48.md") (Join-Path $Out 'RELEASE_NOTES.md')
+Copy-Item (Join-Path $Root 'docs\THIRD_PARTY_NOTICES.md') (Join-Path $Out 'THIRD_PARTY_NOTICES.md')
+Copy-Item (Join-Path $Root 'README.md') (Join-Path $Out 'README.md')
+
+# evidence: logs, test report, build info
+Copy-Item (Join-Path $Root '.cache\release-26.48.log') $Ev -ErrorAction SilentlyContinue
+$info = [ordered]@{
+  product = 'Verity'; version = $Full; builtAt = (Get-Date).ToString('s')
+  node = (node --version); rustc = (rustc --version); os = [System.Environment]::OSVersion.VersionString
+  webview2 = (Get-ItemProperty 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}' -ErrorAction SilentlyContinue).pv
 }
-foreach ($doc in @("docs/RELEASE_NOTES_$($Label.Replace('.', '_')).md", "docs/EDIT_LEDGER_$($Label.Replace('.', '_')).md", "docs/WEB_HOSTING_$($Label.Replace('.', '_')).md", 'LICENSE.md')) {
-  if (-not (Test-Path -LiteralPath (Join-Path $root $doc))) { throw "Missing release document: $doc" }
+$info | ConvertTo-Json | Set-Content -Encoding UTF8 (Join-Path $Ev 'build-info.json')
+if (Test-Path (Join-Path $Root 'docs\reports')) { Copy-Item -Recurse -Force (Join-Path $Root 'docs\reports') (Join-Path $Ev 'reports') }
+Compress-Archive -Path (Join-Path $Ev '*') -DestinationPath (Join-Path $Out "Verity-v$Version-release-evidence.zip") -CompressionLevel Optimal
+
+# checksums
+$lines = Get-ChildItem $Out -File | Where-Object { $_.Name -ne 'SHA256SUMS.txt' } | Sort-Object Name | ForEach-Object {
+  $h = (Get-FileHash -Algorithm SHA256 $_.FullName).Hash.ToLower()
+  "$h  $($_.Name)"
 }
+Set-Content -Encoding ASCII -Path (Join-Path $Out 'SHA256SUMS.txt') -Value $lines
 
-if (Test-Path -LiteralPath $stage) { Remove-Item -LiteralPath $stage -Recurse -Force }
-$out = Join-Path $stage 'out'
-New-Item -ItemType Directory -Force -Path $out | Out-Null
-
-# 2. Web: the built dist plus font licences, hosting notes and the project licence.
-$web = Join-Path $stage 'web'
-Copy-Tree $dist $web
-# Font licences: the OFL texts of the bundled @fontsource-variable fonts, taken from their packages.
-New-Item -ItemType Directory -Force -Path (Join-Path $web 'FONT_LICENSES') | Out-Null
-$fontLicenses = [ordered]@{ 'nunito-sans' = 'Nunito-Sans-OFL-1.1.txt'; 'noto-sans-sc' = 'Noto-Sans-SC-OFL-1.1.txt'; 'jetbrains-mono' = 'JetBrains-Mono-OFL-1.1.txt' }
-foreach ($font in $fontLicenses.Keys) {
-  $licence = Join-Path $root "node_modules/@fontsource-variable/$font/LICENSE"
-  if (-not (Test-Path -LiteralPath $licence)) { throw "Font licence is missing: $licence (run pnpm install)" }
-  Copy-Item -LiteralPath $licence -Destination (Join-Path $web "FONT_LICENSES/$($fontLicenses[$font])") -Force
-}
-Copy-Item -LiteralPath (Join-Path $root 'LICENSE.md') -Destination (Join-Path $web 'LICENSE.md') -Force
-Copy-Item -LiteralPath (Join-Path $root "docs/WEB_HOSTING_$($Label.Replace('.', '_')).md") -Destination (Join-Path $web 'HOSTING.md') -Force
-$baseCommit = (& git -C $root rev-parse HEAD).Trim()
-$sourceCommit = "$baseCommit+working-tree"
-$webReadme = @"
-# Nova_A $Label Web Package
-
-Serve this directory from an HTTP(S) origin; do not open ``index.html`` with ``file://``. ``index.html`` opens the editor and ``player.html`` the standalone player (``player-legacy.html`` is the compatibility player it falls back to). Keep file names and serve ``.wasm`` as ``application/wasm``. Hashed files under ``assets/`` can be cached as immutable; revalidate HTML and ``release-metadata.json``. Cross-origin isolation is not required. See HOSTING.md for static deployment.
-
-Verify every packaged file against ``SHA256SUMS.txt``. Release metadata is in ``release-metadata.json``.
-"@
-[IO.File]::WriteAllText((Join-Path $web 'README.md'), $webReadme, [Text.UTF8Encoding]::new($false))
-$webMetadata = [ordered]@{ product = 'Nova_A'; version = $Label; machineVersion = $machine; format = 'nova-web-release'; projectFormat = 2; schema = 29; sourceCommit = $sourceCommit; entrypoints = @('index.html', 'player.html', 'player-legacy.html'); contentManifest = 'SHA256SUMS.txt'; hosting = [ordered]@{ protocol = 'http-or-https'; wasmMime = 'application/wasm'; hashedAssetCaching = 'immutable'; htmlCaching = 'revalidate'; crossOriginIsolationRequired = $false } } | ConvertTo-Json -Depth 4
-[IO.File]::WriteAllText((Join-Path $web 'release-metadata.json'), "$webMetadata`n", [Text.UTF8Encoding]::new($false))
-$webBase = (Resolve-Path -LiteralPath $web).Path.TrimEnd('\')
-[string[]]$webFiles = @(Get-ChildItem -LiteralPath $webBase -File -Recurse | Where-Object Name -ne 'SHA256SUMS.txt' | ForEach-Object FullName)
-[Array]::Sort($webFiles, [StringComparer]::Ordinal)
-Write-Utf8Lines (Join-Path $web 'SHA256SUMS.txt') @($webFiles | ForEach-Object { '{0}  {1}' -f (Get-Sha256Lower $_), $_.Substring($webBase.Length).TrimStart('\').Replace('\', '/') })
-New-Zip $web (Join-Path $out "Nova_A-v$Label-web.zip")
-
-# 3. Source: the working tree as git would see it (tracked files that exist plus untracked files that
-#    are not ignored), read-only. New top-level folders that are not part of the project tree (for
-#    example a checkout of another engine placed in the repository folder) are left out.
-$sourceZip = Join-Path $out "Nova_A-v$Label-source.zip"
-$topLevel = @{}
-foreach ($name in @(& git -C $root ls-tree --name-only HEAD)) { $topLevel[$name] = $true }
-if ($LASTEXITCODE -ne 0) { throw 'git ls-tree failed' }
-[string[]]$tracked = @(& git -C $root ls-files --cached -z | ForEach-Object { $_ -split "`0" } | Where-Object { $_ })
-if ($LASTEXITCODE -ne 0) { throw 'git ls-files --cached failed' }
-[string[]]$untracked = @(& git -C $root ls-files --others --exclude-standard -z | ForEach-Object { $_ -split "`0" } | Where-Object { $_ })
-if ($LASTEXITCODE -ne 0) { throw 'git ls-files --others failed' }
-$sourceFiles = [Collections.Generic.SortedSet[string]]::new([StringComparer]::Ordinal)
-foreach ($path in $tracked + $untracked) {
-  $top = ($path -split '/')[0]
-  if ($path.Contains('/') -and -not $topLevel.ContainsKey($top)) { continue }
-  if ($path -match '(^|/)__pycache__/') { continue }
-  $item = Get-Item -LiteralPath (Join-Path $root $path) -Force -ErrorAction SilentlyContinue
-  # Links (for example a junction to another checkout) are not part of the source archive.
-  if ($item -and -not $item.PSIsContainer -and -not ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)) { [void]$sourceFiles.Add($path) }
-}
-if ($sourceFiles.Count -lt 100) { throw "Source listing looks wrong: $($sourceFiles.Count) files" }
-if (Test-Path -LiteralPath $sourceZip) { Remove-Item -LiteralPath $sourceZip -Force }
-$sourceStream = [IO.File]::Open($sourceZip, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
-$sourceArchive = [IO.Compression.ZipArchive]::new($sourceStream, [IO.Compression.ZipArchiveMode]::Create, $false)
-try {
-  foreach ($path in $sourceFiles) {
-    $entry = $sourceArchive.CreateEntry("Nova_A-v$Label-source/$path", [IO.Compression.CompressionLevel]::Optimal)
-    $entry.LastWriteTime = [DateTimeOffset]::new(2000, 1, 1, 0, 0, 0, [TimeSpan]::Zero)
-    $input = [IO.File]::OpenRead((Join-Path $root $path)); $output = $entry.Open()
-    try { $input.CopyTo($output) } finally { $output.Dispose(); $input.Dispose() }
-  }
-} finally { $sourceArchive.Dispose(); $sourceStream.Dispose() }
-Write-Host "Source zip: $($sourceFiles.Count) files from the working tree (base commit $baseCommit)"
-
-# 4. Reference projects as shipped in the repository.
-New-Zip (Join-Path $root 'reference-projects') (Join-Path $out "Nova_A-v$Label-reference-projects.zip")
-
-# 5. Evidence: the checks actually run for this release.
-if (-not $EvidenceDirectory) { $EvidenceDirectory = Join-Path $root ".cache/evidence-$Label" }
-if (-not (Test-Path -LiteralPath $EvidenceDirectory)) { throw "Evidence folder is missing: $EvidenceDirectory" }
-New-Zip $EvidenceDirectory (Join-Path $out "Nova_A-v$Label-release-evidence.zip")
-
-# 6. Windows binaries and documents.
-Copy-Item -LiteralPath $portable -Destination (Join-Path $out "Nova_A-v$Label-windows-x64-portable.exe")
-Copy-Item -LiteralPath $setup -Destination (Join-Path $out "Nova_A-v$Label-windows-x64-setup.exe")
-Copy-Item -LiteralPath $msi -Destination (Join-Path $out "Nova_A-v$Label-windows-x64.msi")
-Copy-Item -LiteralPath (Join-Path $root 'LICENSE.md') -Destination (Join-Path $out 'LICENSE.md')
-Copy-Item -LiteralPath (Join-Path $root "docs/RELEASE_NOTES_$($Label.Replace('.', '_')).md") -Destination (Join-Path $out 'RELEASE_NOTES.md')
-Copy-Item -LiteralPath (Join-Path $root "docs/EDIT_LEDGER_$($Label.Replace('.', '_')).md") -Destination (Join-Path $out 'EDIT_LEDGER.md')
-Assert-WindowsReleaseArtifactVersions -Portable (Join-Path $out "Nova_A-v$Label-windows-x64-portable.exe") -Setup (Join-Path $out "Nova_A-v$Label-windows-x64-setup.exe") -Msi (Join-Path $out "Nova_A-v$Label-windows-x64.msi") -MachineVersion $machine
-
-# 7. Checksums over every artifact.
-$lines = @(Get-ChildItem -LiteralPath $out -File | Sort-Object Name | ForEach-Object { '{0}  {1}' -f (Get-Sha256Lower $_.FullName), $_.Name })
-Write-Utf8Lines (Join-Path $out 'SHA256SUMS.txt') $lines
-$expected = @('EDIT_LEDGER.md','LICENSE.md',"Nova_A-v$Label-reference-projects.zip","Nova_A-v$Label-release-evidence.zip","Nova_A-v$Label-source.zip","Nova_A-v$Label-web.zip","Nova_A-v$Label-windows-x64-portable.exe","Nova_A-v$Label-windows-x64-setup.exe","Nova_A-v$Label-windows-x64.msi",'RELEASE_NOTES.md','SHA256SUMS.txt')
-$actual = @(Get-ChildItem -LiteralPath $out -File | ForEach-Object Name | Sort-Object)
-if (@(Compare-Object ($expected | Sort-Object) $actual).Count -gt 0) { throw "Release set differs from the eleven-file contract: $($actual -join ', ')" }
-
-# 8. Publish: replace only the files this script owns.
-New-Item -ItemType Directory -Force -Path $release | Out-Null
-foreach ($file in Get-ChildItem -LiteralPath $out -File) { Copy-Item -LiteralPath $file.FullName -Destination (Join-Path $release $file.Name) -Force }
-Remove-Item -LiteralPath $stage -Recurse -Force
-Get-ChildItem -LiteralPath $release | Sort-Object Name | ForEach-Object { '{0}  {1:N2} MB' -f $_.Name, ($_.Length / 1MB) }
+# the expected file set
+$expected = @(
+  'README.md', 'RELEASE_NOTES.md', 'SHA256SUMS.txt', 'THIRD_PARTY_NOTICES.md',
+  "Verity-v$Version-release-evidence.zip", "Verity-v$Version-source.zip", "Verity-v$Version-web.zip",
+  "Verity-v$Version-windows-x64-portable.exe", "Verity-v$Version-windows-x64-setup.exe"
+) | Sort-Object
+$actual = Get-ChildItem $Out -File | ForEach-Object Name | Sort-Object
+if (Compare-Object $expected $actual) { Fail ("file set differs: " + ((Compare-Object $expected $actual | ForEach-Object { $_.SideIndicator + $_.InputObject }) -join ', ')) }
+Get-ChildItem $Out -File | ForEach-Object { '{0,12:N0}  {1}' -f $_.Length, $_.Name }
+Write-Host "PACKAGE OK $Out"

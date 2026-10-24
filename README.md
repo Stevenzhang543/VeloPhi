@@ -1,121 +1,44 @@
-# Nova_A
+# Verity 26.48（暂名）
 
-Nova_A is an open-source rhythm-game engine with a visual editor. It combines Rust and WebAssembly for timing, judgement, simulation and scripting, a custom TypeScript renderer, and a Vue 3 editor packaged with Tauri.
+面向物理专业学生和物理老师的力学仿真与教学引擎。搭场景、设参数、运行，随时暂停读出任意物体的物理量；系统自动识别典型情形，给出带适用条件的公式，代入数值后与仿真结果并排显示误差。
 
-Make rhythm games of your own design: charts play on the audio clock and judge every input by its own time; the note types, how they are judged and what moves with the music belong to your game. The 2D engine underneath (scenes, components, physics, Rhai scripts and visual scripting) stays available for everything around the chart. The plan for the next versions is in the [rhythm-engine roadmap](./docs/ROADMAP_RHYTHM_ENGINE.md).
+画面上的一切都来自数值求解器，公式只做对照，误差公开——这就是“物理上可验证的正确”。
 
-[中文介绍](./README.zh-CN.md) · [30-minute quick start](./docs/QUICKSTART_26_42.en.md) · [User manual](./manual/index.html) · [Example projects](./reference-projects/README.md) · [MIT license](./LICENSE.md)
+## 快速上手
 
-## Features
+1. 打开程序（桌面版 `Verity-v26.48-windows-x64-portable.exe`，或安装 `…-setup.exe`；网页版见 `docs/WEB_HOSTING.md`）。
+2. 点“模板”，选一个经典模型（如“板块模型”），按需修改参数，点“创建场景”。
+3. 按空格播放 / 暂停；← → 逐帧；时间线上的菱形是事件（碰撞、共速、开始滑动……），点“事件 ▶”跳过去。
+4. 右侧“公式对照”列出当前时刻适用的公式：符号式、代入式、理论值、仿真值、误差与判定。
+5. 点选画布上的物体：“监视”页给出它此刻的全部读数，可加入监视列表和曲线。
+6. 用左侧工具自己搭场景：小球、物块、圆柱、楔块、地面、斜面、墙、传送带、定滑轮、轻绳、轻杆、弹簧、铰链、恒力。修改后自动重算。
+7. “导出”可得到 CSV 时间序列（双精度原值）和 MP4 视频（与当前视图一致）。
 
-| Area | Tools |
-| --- | --- |
-| Rhythm games | Rhythm Chart 2D (falling lanes or moving judgement lines), the chart's own note types (prefab notes, script-judged notes, own windows and score weights), a master timeline that animates objects, the camera and post-processing on the beat, triggers, audio-clock timing with audio and picture calibration, and a chart editor. |
-| Scenes and objects | Hierarchy, transforms, multi-selection, reusable scenes and prefabs, component Inspector, snapping and viewport tools. |
-| 2D physics | Rust simulation with bodies, colliders (boxes, circles, capsules, convex and concave polygons), sensors, character controllers, joints (including wheel and target joints), ropes, buoyancy and force areas, conveyor surfaces, collision layers and spatial queries. |
-| Rendering | Nova_A's own renderer, with WebGL2 as the compatibility baseline; sprites, cameras, TileMaps, materials, lights and particles. |
-| Gameplay | Rhai scripts, Blocks and visual graphs, input mapping with player-rebindable keys, signals, camera effects and gameplay components. |
-| Animation and audio | Animation tracks, state transitions, timelines, 2D rigs, audio sources and mixer tools. |
-| Game interfaces | Canvas layouts, interactive controls, themes, localization and accessibility settings. |
-| Assets | Import, preview and organize sprites, atlases, tiles, fonts, audio, scripts and reusable resources. |
-| Editing and debugging | Customizable workspaces, light/dark themes, Comfortable controls, keyboard shortcuts, Undo/Redo, project recovery, Console, Profiler, script and block breakpoints, and a physics recording you can rewind and continue from. |
+快捷键：空格 播放/暂停 · ←/→ 逐帧（Shift ×10）· Ctrl+Z / Ctrl+Y 撤销/重做 · Delete 删除 · Esc 取消工具 · Ctrl+S 保存 · Ctrl+O 打开 · Ctrl+Enter 重新计算。
 
-The [capability catalog](./docs/engine/CAPABILITY_CATALOG.md) describes individual tools. The [feature matrix](./docs/engine/FEATURE_MATRIX.md) records their implementation and verification scope.
+## 物理模型
 
-## Get started
+- 二维刚体与质点，国际单位制。重力、恒力、弹簧（可带阻尼）。
+- 接触：单侧约束 + 库仑摩擦（静/动摩擦因数分开），碰撞按牛顿恢复系数（光滑冲量）。
+- 求解：每个阶段的接触/绳的状态固定，约束力由加速度级方程精确解出；Dormand–Prince 5(4) 自适应积分（也可选 RK4 / 半隐式欧拉做对比）；状态切换事件定位到约 10⁻¹² s。
+- 可复现：确定性数学库（fdlibm 移植），同一场景每次计算逐位一致（SHA-256 指纹；已验证 Node 与 Chromium 结果相同）。
+- 守恒检查：能量账本（机械能 + 摩擦生热 + 碰撞损失 − 外力与电机做功）漂移 ≤ 10⁻⁸。
 
-Choose a packaged version from [the release folders](./releases/) and follow its installation notes. Windows releases provide installer and portable formats; Web releases provide files to host over HTTP. Check the selected release's notes for tested platforms and requirements.
+详细设计见 `docs/DEV_MANUAL_26_48.md`，下一版本计划见 `docs/DEV_MANUAL_26_49.md`。
 
-1. Open Nova_A and create a project from a starter, or open an existing project.
-2. Arrange objects and components using the Hierarchy, viewport and Inspector.
-3. Add gameplay through Rhai scripts or the visual authoring tools.
-4. Play, pause and inspect the scene, then save your project.
-5. Open Build Settings to choose scenes, an available target and an output location.
+## 开发
 
-Nova Player runs exported games. Content is stored in a versioned `game.nova-pak`; supported desktop outputs offer a separate resource package or an executable with embedded game data. Native exports require the matching host and Player template. Serve Web exports over HTTP.
-
-The current upgrade targets Windows x86-64, Linux x86-64 and Web. Target availability and tested combinations are recorded with each release; the current development plan (`docs/DEV_PLAN_<version>.md`) covers ongoing work. Historical platform options do not imply qualification for the current version.
-
-## Learn Nova_A
-
-- [Interactive manual](./manual/index.html), with English, German and Chinese articles.
-- Markdown manuals: [English](./manual/MANUAL.en.md), [Deutsch](./manual/MANUAL.de.md), [中文](./manual/MANUAL.zh-CN.md).
-- [Reference projects](./reference-projects/README.md), with example workflows and project-specific instructions.
-- [Versioning policy](./docs/VERSIONING_2026.md), including public release labels and engine versions.
-
-The editor also includes contextual help and learning tools. Start with a small example, run it, and inspect how its objects, components and scripts connect.
-
-## Develop from source
-
-Run commands from the repository root. The checkout pins Node.js **22.22.2**, pnpm **10.30.0** and Rust **1.92.0**. Rust's `wasm32-unknown-unknown` target and `wasm-pack` are required for the WebAssembly build. Keep the lockfiles and install frozen dependencies:
-
-```sh
-pnpm install --frozen-lockfile
+```
+npm ci
+npm run dev          # 浏览器开发服务器 http://localhost:5178
+npx vitest run       # 求解器、公式库、验收场景、可复现性测试
+npm run build        # 网页版 → dist/
+npx tauri build      # Windows 桌面版（需要 Rust 1.90+ 与 WebView2）
+scripts\release.cmd  # 完整发布：构建、测试、打包到 releases\v26.48
 ```
 
-Start the browser editor; this builds development WASM before starting Vite:
+目录：`src/core`（数学、场景、求解器、记录、观测量）· `src/formula`（识别器、公式库、表达式与量纲）· `src/render`（Canvas 渲染）· `src/export`（CSV、视频）· `src/app`（界面）· `src/templates`（经典模型）· `tests` · `src-tauri`（桌面外壳）。
 
-```sh
-pnpm dev
-```
+## 许可
 
-Start the desktop editor with the native Tauri prerequisites installed:
-
-```sh
-pnpm tauri dev
-```
-
-Build and preview the browser application:
-
-```sh
-pnpm build
-pnpm preview
-```
-
-Build desktop bundles on the target operating system:
-
-```sh
-pnpm tauri build
-```
-
-Desktop development needs the host's compiler and WebView libraries. Use the prerequisites for the locked Tauri toolchain and selected platform. When relocating a checkout, reinstall dependencies and rebuild generated outputs rather than reusing links or native build metadata from the old path.
-
-## Validate changes
-
-```sh
-pnpm check
-pnpm test:core
-cargo clippy --workspace --all-targets -- -D warnings
-pnpm check:repository
-```
-
-These commands check TypeScript, run the Rust workspace tests, lint Rust code and run the repository checks (generated component tables, manual, template catalog, ignore rules, typography). Behaviour checks live in `scripts/verify-*.mjs`; run one with `node scripts/<name>.mjs` (browser checks use Microsoft Edge, or the Chromium named by `NOVA_AUDIT_BROWSER`). On Windows, `scripts\release.cmd` runs every check, builds the editor, the desktop bundles and the Web package, and writes the release set to `releases\v<version>`; it never commits.
-
-## Repository map
-
-| Path | Purpose |
-| --- | --- |
-| `src/components/`, `src/ui/`, `src/layout/` | Editor panels, shared controls, visual tokens and layout. |
-| `src/editor/`, `src/store/` | Editor integration, authoring state and editing workflows. |
-| `src/runtime/`, `src/renderer/` | Runtime systems and Nova_A's rendering implementation. |
-| `crates/` | Rust math, physics, runtime, Rhai scripting, project format, WASM boundary and headless modules. |
-| `nova_core/` | Core compatibility entry and generated WASM package. |
-| `src-tauri/` | Desktop application host and native integration. |
-| `scripts/`, `tests/` | Build and release tools, generators, checks and test fixtures. |
-| `manual/`, `docs/` | User documentation, engineering specifications and version-specific records. |
-| `reference-projects/` | Example projects and tutorials. |
-| `releases/` | Packaged versions (not in Git): release notes, evidence and checksums. |
-
-Rust modules provide the simulation, physics, scripting and format foundations. The editor uses Vue 3; game rendering uses Nova_A's custom renderer. Editor/Runtime/Player separation is enforced by `scripts/audit-engine-boundaries.mjs`; the capability catalog and feature matrix under `docs/engine/` describe the modules.
-
-Projects use versioned schemas and stable object/resource identities. Supported older formats migrate through the project-format tools; consult the manual before changing a project's format or opening it with an older engine.
-
-## Contributing
-
-Read the relevant engineering documents under `docs/` before changing architecture or runtime contracts: Runtime, Renderer and Player code must not depend on the editor or Vue stores. Keep changes focused, protect existing projects and run checks covering the affected behavior. Include reproduction steps and platform information when reporting a bug.
-
-The current version's records are under `docs/` (`DEV_PLAN_<version>.md` for plan and status, `EDIT_LEDGER_<version>.md` for every changed file, `RELEASE_NOTES_<version>.md`, `WEB_HOSTING_<version>.md`). Earlier versions' records stay in Git history and in each release's archive; the manual's release chapters summarise them.
-
-## License
-
-Nova_A is distributed under the [MIT license](./LICENSE.md). Bundled fonts and third-party components retain their own licenses and notices. Adapted Godot editor icons are attributed in the license and bundled notices. User-imported assets remain subject to their authors' licenses.
+本仓库的许可证由维护者确定；第三方组件的许可见 `docs/THIRD_PARTY_NOTICES.md`。

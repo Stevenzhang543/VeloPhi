@@ -1,8 +1,0 @@
-{
-  "open": "Project Manager > Open Project > project.nova",
-  "run": "Top action bar > Play; Pause; Step; Stop",
-  "validate": "Project Health must report no blocking project-format error",
-  "export": "Build Settings > Overview > Build",
-  "command": "pnpm nova export --project ./reference-projects/projects/workspace-recovery-validation/project.nova --target web --profile release --output ./Builds/reference-workspace-recovery-validation --cache validate --jsonl",
-  "engineVersion": "5.3.0"
-}

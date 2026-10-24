@@ -1,46 +1,48 @@
 {
-  "productName": "Nova_A",
-  "version": "26.47.0",
-  "identifier": "top.whitelists.novaa",
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Verity",
+  "version": "26.48.0",
+  "identifier": "app.verity.physics",
   "build": {
-    "beforeDevCommand": "pnpm dev",
-    "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "pnpm build",
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:5178",
+    "beforeBuildCommand": "npm run build",
     "frontendDist": "../dist"
   },
   "app": {
     "windows": [
       {
-        "title": "Nova_A",
-        "width": 1366,
-        "height": 768,
+        "label": "main",
+        "title": "Verity 26.48",
+        "width": 1440,
+        "height": 900,
+        "minWidth": 1100,
+        "minHeight": 680,
         "center": true,
-        "fullscreen": false,
         "maximized": true,
-        "decorations": true,
-        "resizable": true,
-        "minWidth": 1024,
-        "minHeight": 640
+        "resizable": true
       }
     ],
     "security": {
-      "csp": "default-src 'self'; connect-src 'self' ipc: http://ipc.localhost http: https: ws: wss: data: blob:; media-src 'self' data: blob: asset: http://asset.localhost; img-src 'self' asset: http://asset.localhost data: blob: http: https:; style-src 'self' 'unsafe-inline'; script-src 'self' 'wasm-unsafe-eval'; font-src 'self' data:"
+      "csp": "default-src 'self'; connect-src 'self' ipc: http://ipc.localhost; img-src 'self' data: blob:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self' data:; worker-src 'self' blob:"
     }
   },
   "bundle": {
     "active": true,
-    "targets": "all",
-    "icon": [
-      "icons/32x32.png",
-      "icons/128x128.png",
-      "icons/128x128@2x.png",
-      "icons/icon.icns",
-      "icons/icon.ico"
-    ],
+    "targets": ["nsis"],
+    "publisher": "Verity",
+    "shortDescription": "可验证的力学仿真与教学引擎",
+    "longDescription": "Verity：面向物理专业学生与物理教师的力学仿真与教学引擎。搭建场景、精确仿真、随时暂停读数，并自动匹配公式与仿真结果对照。",
+    "copyright": "© 2026 Verity",
+    "category": "Education",
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
     "windows": {
+      "webviewInstallMode": { "type": "downloadBootstrapper" },
       "nsis": {
         "installerIcon": "icons/icon.ico",
-        "uninstallerIcon": "icons/icon.ico"
+        "languages": ["SimpChinese", "English"],
+        "displayLanguageSelector": false,
+        "installMode": "currentUser"
       }
     }
   }

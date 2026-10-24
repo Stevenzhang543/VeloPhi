@@ -1,6 +1,0 @@
-/** 时间线界面动作的多语言文案。 */
-export const timelineUiActionCopy = {
- en: { title:'Timeline button action', custom:'Script / Event Sheet callback', play:'Play timeline', pause:'Pause timeline', skip:'Skip to marker', resume:'Resume before skip', owner:'Timeline owner', hint:'Controls the nearest TimelinePlayer on this object or its parents. Skip respects markers and unskippable clips.', missing:'No usable TimelinePlayer in this hierarchy.', callback:'Callback field below retains custom script actions.' },
- de: { title:'Timeline-Schaltflächenaktion', custom:'Script- / Event-Sheet-Callback', play:'Timeline abspielen', pause:'Timeline pausieren', skip:'Zur Marke springen', resume:'Vor dem Sprung fortsetzen', owner:'Timeline-Eigentümer', hint:'Steuert den nächsten TimelinePlayer dieses Objekts oder seiner Eltern. Skip beachtet Marken und nicht überspringbare Clips.', missing:'Kein nutzbarer TimelinePlayer in dieser Hierarchie.', callback:'Das Callback-Feld darunter behält eigene Script-Aktionen.' },
- zh: { title:'时间轴按钮动作', custom:'脚本／事件表回调', play:'播放时间轴', pause:'暂停时间轴', skip:'跳到标记', resume:'恢复跳过前的位置', owner:'时间轴所属对象', hint:'控制此对象或其父级中最近的 TimelinePlayer。跳过会遵守标记和不可跳过片段。', missing:'此层级没有可用的 TimelinePlayer。', callback:'下方回调字段保留自定义脚本动作。' }
-} as const

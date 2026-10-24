@@ -1,7 +1,0 @@
-# Nova 6.9 Semantic Collaboration
-
-Engine **6.9.0** · Project Format 2/schema 29.
-
-Playable project plus ownership-aware change lists and a real three-way scene conflict fixture.
-
-Open the project, Play it, then follow `test-controls.json`. Network operations and application updates remain disabled until explicit opt-in. External signing and clean-machine results are intentionally not included.

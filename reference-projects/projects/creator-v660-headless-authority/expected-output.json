@@ -1,9 +1,0 @@
-{
-  "engineVersion": "6.6.0",
-  "status": "passed",
-  "headless": true,
-  "authority": true,
-  "protocol": 2,
-  "nativeUdpEncryption": false,
-  "publicDeploymentQualification": "pending-external"
-}
