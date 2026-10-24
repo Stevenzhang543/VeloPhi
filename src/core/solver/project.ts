@@ -11,9 +11,11 @@ import type { Mode, Row, System } from './dynamics'
 import { TOL, addRow, buildRows, rowMinvRow } from './dynamics'
 import { inRegion } from './modes'
 
+/** Largest position- and velocity-level constraint errors corrected by `project`. */
 export interface ProjectionInfo { position: number; velocity: number }
 
-function correction(sys: System, rows: Array<{ j: RowJ; err: number }>): Float64Array | null {
+/** Mass-weighted correction Δq = −M⁻¹Jᵀ(JM⁻¹Jᵀ)⁻¹·err that zeroes the given constraint errors (to first order). */
+export function correction(sys: System, rows: Array<{ j: RowJ; err: number }>): Float64Array | null {
   const m = rows.length
   if (m === 0) return null
   const W = new Float64Array(m * m), b = new Float64Array(m)
@@ -35,7 +37,10 @@ function positionRows(rows: Row[]): Array<{ j: RowJ; err: number }> {
   return rows.filter(r => r.kind !== 'tangent').map(r => ({ j: r.j, err: r.value }))
 }
 
-/** Project X (in place copy) onto the constraints of the mode. */
+/**
+ * Project X onto the constraints of the mode. Returns X itself when nothing needed correcting, otherwise a
+ * corrected copy; `info` records the largest errors corrected.
+ */
 export function project(sys: System, Xin: Float64Array, mode: Mode, info?: ProjectionInfo): Float64Array {
   const n = sys.n
   let X = Xin
@@ -69,14 +74,15 @@ export function project(sys: System, Xin: Float64Array, mode: Mode, info?: Proje
 
 /**
  * Initial overlaps (up to `limit`, e.g. a block drawn slightly into the ground) are removed by projecting
- * the penetrating contact points to zero gap. Returns the corrected state and the largest overlap removed.
+ * the penetrating contact points to zero gap. Returns the corrected state, the largest overlap removed and
+ * the pairs that overlap deeper than the limit.
  */
 export function resolveInitialOverlap(sys: System, Xin: Float64Array, limit = 0.05): { X: Float64Array; removed: number; deep: string[] } {
   let X = Float64Array.from(Xin)
   let removed = 0
   for (let iter = 0; iter < 20; iter++) {
     const poses = computePoses(sys.model, X)
-    // for each point (probe key) keep the feature with the largest gap among its in-region features
+    // For each point (probe key) keep the feature with the largest gap among its in-region features
     const best = new Map<string, { j: RowJ; gap: number }>()
     for (const pair of sys.pairs) {
       const inside = new Set(pair.probes.filter(p => { const v = probeValue(p, poses); return v < -TOL.drift && v >= -limit }).map(p => p.key))
@@ -98,7 +104,7 @@ export function resolveInitialOverlap(sys: System, Xin: Float64Array, limit = 0.
     for (let k = 0; k < 3 * sys.n; k++) X[k] += d[k]
   }
   if (removed === 0) X = Xin
-  // overlaps deeper than the limit are not resolved; report the pairs
+  // Overlaps deeper than the limit are not resolved; report the pairs
   const deep: string[] = []
   const poses = computePoses(sys.model, X)
   for (const pair of sys.pairs) {

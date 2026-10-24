@@ -1,16 +1,18 @@
 /**
  * Scene editing operations used by the viewport and the panels: hit testing, placing objects (snapped
- * onto the surface under the cursor), creating connectors, deleting and duplicating.
+ * onto the surface under the cursor), creating connectors, deleting and duplicating. Drag-to-create, handles,
+ * annotations and the context-menu commands build on these in `./editor/`.
  */
 import type { BodyDef, ConnectorDef, Scene } from '../core/scene/types'
 import { addBody, addGround, addIncline, addPulley, nextId } from '../core/scene/build'
 import type { System } from '../core/solver/dynamics'
 import type { Pose } from '../core/solver/kinematics'
-import { anchorState, ropeKin } from '../core/solver/kinematics'
+import { anchorState, pulleyCenter, ropeKin } from '../core/solver/kinematics'
 import type { BodyModel } from '../core/solver/model'
 import { signedDistance } from '../core/solver/kinematics'
 import type { Selection, Tool } from './store'
 
+/** A world point (m). */
 export interface Pt { x: number; y: number }
 
 function distToSegment(p: Pt, a: Pt, b: Pt): number {
@@ -23,7 +25,7 @@ function distToSegment(p: Pt, a: Pt, b: Pt): number {
 /** Topmost object under a world point (tolerance in metres). */
 export function hitTest(sys: System, poses: Pose[], p: Pt, tol: number): Selection {
   const model = sys.model
-  for (const pl of model.pulleys) if (Math.hypot(p.x - pl.position.x, p.y - pl.position.y) <= pl.radius + tol) return { kind: 'pulley', id: pl.id }
+  for (const pl of model.pulleys) { const c = pulleyCenter(poses, pl); if (Math.hypot(p.x - c.x, p.y - c.y) <= pl.radius + tol) return { kind: 'pulley', id: pl.id } }
   for (const c of [...model.hinges]) { const a = anchorState(poses, c.a); if (Math.hypot(p.x - a.px, p.y - a.py) <= tol * 1.2) return { kind: 'connector', id: c.id } }
   for (const f of model.forces) { const a = anchorState(poses, f.a); if (Math.hypot(p.x - a.px, p.y - a.py) <= tol * 1.2) return { kind: 'connector', id: f.id } }
   const dyn = [...model.dynamic].reverse()
@@ -40,6 +42,7 @@ export function hitTest(sys: System, poses: Pose[], p: Pt, tol: number): Selecti
   return null
 }
 
+/** Topmost body containing the point within `tol` (m); dynamic bodies first. */
 export function bodyAt(sys: System, poses: Pose[], p: Pt, tol: number, dynamicOnly = false): BodyModel | null {
   const list = [...sys.model.dynamic].reverse()
   if (!dynamicOnly) list.push(...[...sys.model.bodies].filter(b => !b.dynamic).reverse())
@@ -68,22 +71,26 @@ export function surfaceBelow(sys: System, poses: Pose[], p: Pt, reach = 0.6): { 
     }
   }
   if (!best) return null
-  // a box lying on the face is turned so its up direction is the face normal
+  // A box lying on the face is turned so its up direction is the face normal
   const ang = Math.atan2(-best.n.x, best.n.y)
   return { foot: best.foot, n: best.n, angle: ang }
 }
 
-const DYN_MATERIAL = { muS: 0.3, muK: 0.3, restitution: 0 }
-const STATIC_MATERIAL = { muS: 1, muK: 1, restitution: 1 }
+/** Default material of new moving bodies. */
+export const DYN_MATERIAL = { muS: 0.3, muK: 0.3, restitution: 0 }
+/** Default material of new fixed surfaces. */
+export const STATIC_MATERIAL = { muS: 1, muK: 1, restitution: 1 }
 
 let nameCounters: Record<string, number> = {}
-function nextName(scene: Scene, base: string): string {
+/** Next free name "base1", "base2" …; numbering continues from the last name handed out for `base`. */
+export function nextName(scene: Scene, base: string): string {
   const used = new Set(scene.bodies.map(b => b.name))
   let k = nameCounters[base] ?? 1
   while (used.has(`${base}${k}`)) k++
   nameCounters[base] = k + 1
   return `${base}${k}`
 }
+/** Restart the name counters of nextName (not used by the app or the tests). */
 export function resetNameCounters() { nameCounters = {} }
 
 /** Place a new object for an `add-*` tool. Returns the new id. */
@@ -104,7 +111,7 @@ export function placeObject(scene: Scene, sys: System, poses: Pose[], tool: Tool
       return addBody(scene, { name: nextName(scene, '圆柱'), role: 'wheel', shape: { type: 'circle', radius: r }, position: { x: at.x, y: at.y }, mass: 1, material: DYN_MATERIAL }).id
     }
     case 'add-wedge': {
-      // right-angled wedge (30°), a dynamic polygon; points are shifted to its centre of mass when compiled
+      // Right-angled wedge (30°), a dynamic polygon; points are shifted to its centre of mass when compiled
       const base = 0.6, h = base * Math.tan(Math.PI / 6)
       const at = onSurface(h / 3)
       const pts = [{ x: -base / 3, y: -h / 3 }, { x: (2 * base) / 3, y: -h / 3 }, { x: -base / 3, y: (2 * h) / 3 }]
@@ -120,6 +127,12 @@ export function placeObject(scene: Scene, sys: System, poses: Pose[], tool: Tool
       return addGround(scene, { name: nextName(scene, '传送带'), role: 'conveyor', top: p.y, left: p.x - 2, right: p.x + 2, thickness: 0.3, beltSpeed: 2, material: STATIC_MATERIAL }).id
     case 'add-pulley':
       return addPulley(scene, { name: nextName(scene, '滑轮'), position: { x: p.x, y: p.y }, radius: 0.05 }).id
+    case 'add-polygon': {
+      // Regular pentagon, a dynamic polygon about its centre of mass
+      const r = 0.15, at = onSurface(r * Math.cos(Math.PI / 5))
+      const pts = Array.from({ length: 5 }, (_, i) => ({ x: r * Math.cos(-Math.PI / 2 + Math.PI / 5 + (2 * Math.PI * i) / 5), y: r * Math.sin(-Math.PI / 2 + Math.PI / 5 + (2 * Math.PI * i) / 5) }))
+      return addBody(scene, { name: nextName(scene, '多边形'), role: 'generic', shape: { type: 'polygon', points: pts }, position: { x: at.x, y: at.y }, angle: at.angle, mass: 1, material: DYN_MATERIAL, color: '#0d9488' }).id
+    }
   }
   return null
 }
@@ -140,6 +153,7 @@ export function wrapAt(prev: Pt, c: Pt, next: Pt): 'cw' | 'ccw' {
   return cr < 0 ? 'cw' : 'ccw'
 }
 
+/** Create a rope, rod or spring between two anchors (not both in the world, not both on one body); returns its id. */
 export function createConnector(scene: Scene, tool: Tool, a: { body: string | null; local: Pt; world: Pt }, b: { body: string | null; local: Pt; world: Pt }, pulleys: Array<{ pulley: string; wrap: 'cw' | 'ccw' }>): string | null {
   if (a.body === null && b.body === null) return null
   if (a.body !== null && a.body === b.body) return null
@@ -167,6 +181,7 @@ export function createHinge(scene: Scene, sys: System, poses: Pose[], p: Pt): st
   return c.id
 }
 
+/** Create a constant force (5 N to the right) on the dynamic body under the point; returns its id. */
 export function createForce(scene: Scene, sys: System, poses: Pose[], p: Pt): string | null {
   const b = bodyAt(sys, poses, p, 0, true)
   if (!b) return null
@@ -185,6 +200,12 @@ export function deleteObject(scene: Scene, sel: Selection) {
   if (sel.kind === 'body') {
     scene.bodies = scene.bodies.filter(b => b.id !== sel.id)
     scene.connectors = scene.connectors.filter(c => c.a.body !== sel.id && (c.type === 'force' || c.b.body !== sel.id))
+    // Movable pulleys carried by the body go with it, and ropes stop running over them
+    const carried = new Set(scene.pulleys.filter(p => p.body === sel.id).map(p => p.id))
+    if (carried.size) {
+      scene.pulleys = scene.pulleys.filter(p => !carried.has(p.id))
+      for (const c of scene.connectors) if (c.type === 'rope') c.pulleys = c.pulleys.filter(p => !carried.has(p.pulley))
+    }
     scene.contactPairs = scene.contactPairs.filter(p => p.a !== sel.id && p.b !== sel.id)
     scene.watch = scene.watch.filter(w => !w.split(/[.|]/).includes(sel.id))
   } else if (sel.kind === 'pulley') {
@@ -196,6 +217,7 @@ export function deleteObject(scene: Scene, sel: Selection) {
   }
 }
 
+/** Copy a body (and the movable pulleys it carries) 0.4 m to the right; returns the copy's id. */
 export function duplicateBody(scene: Scene, id: string): string | null {
   const b = scene.bodies.find(x => x.id === id)
   if (!b) return null
@@ -204,20 +226,32 @@ export function duplicateBody(scene: Scene, id: string): string | null {
   copy.name = nextName(scene, b.name.replace(/\d+$/, ''))
   copy.position = { x: b.position.x + 0.4, y: b.position.y }
   scene.bodies.push(copy)
+  for (const p of scene.pulleys.filter(q => q.body === id)) scene.pulleys.push({ ...JSON.parse(JSON.stringify(p)), id: nextId(scene, 'p'), name: nextName(scene, p.name.replace(/\d+$/, '') || '滑轮'), body: copy.id })
   return copy.id
 }
 
+/** Sum a + d without the floating noise of repeated small steps (0.30000000000000004 → 0.3). */
+const add = (a: number, d: number) => Number((a + d).toPrecision(12))
+
+/** Move a body or pulley by (dx, dy) (m). */
 export function moveObject(scene: Scene, sel: Selection, dx: number, dy: number) {
   if (!sel) return
   if (sel.kind === 'body') {
     const b = scene.bodies.find(x => x.id === sel.id)
     if (!b) return
     if (b.kind === 'static' && b.shape.type === 'polygon' && b.position.x === 0 && b.position.y === 0) {
-      b.shape.points = b.shape.points.map(p => ({ x: p.x + dx, y: p.y + dy }))
-    } else { b.position.x += dx; b.position.y += dy }
-    // world anchors attached to nothing stay; anchors on the body move with it
+      b.shape.points = b.shape.points.map(p => ({ x: add(p.x, dx), y: add(p.y, dy) }))
+    } else { b.position.x = add(b.position.x, dx); b.position.y = add(b.position.y, dy) }
+    // World anchors attached to nothing stay; anchors on the body move with it
   } else if (sel.kind === 'pulley') {
     const p = scene.pulleys.find(x => x.id === sel.id)
-    if (p) { p.position.x += dx; p.position.y += dy }
+    if (!p) return
+    const carrier = p.body ? scene.bodies.find(b => b.id === p.body) : null
+    if (carrier) {
+      // A movable pulley's axle is in the carrying body's coordinates: turn the world displacement into that frame
+      const c = Math.cos(carrier.angle), s = Math.sin(carrier.angle)
+      p.position.x = add(p.position.x, c * dx + s * dy)
+      p.position.y = add(p.position.y, -s * dx + c * dy)
+    } else { p.position.x = add(p.position.x, dx); p.position.y = add(p.position.y, dy) }
   }
 }

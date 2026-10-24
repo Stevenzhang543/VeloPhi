@@ -1,7 +1,7 @@
 {
   "name": "verity",
   "private": true,
-  "version": "26.48.0",
+  "version": "26.49.0",
   "type": "module",
   "description": "Verity: physics simulation and teaching engine with verifiable results",
   "license": "UNLICENSED",
@@ -20,6 +20,7 @@
     "@tauri-apps/plugin-fs": "2.7.1",
     "katex": "0.19.1",
     "mediabunny": "1.62.1",
+    "pptxgenjs": "4.0.1",
     "uplot": "1.6.32",
     "vue": "^3.5.13"
   },

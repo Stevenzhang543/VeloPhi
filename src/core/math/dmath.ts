@@ -10,14 +10,14 @@
 
 const f64 = new Float64Array(1)
 const u32 = new Uint32Array(f64.buffer)
-const HI = new Uint8Array(new Uint16Array([1]).buffer)[0] === 1 ? 1 : 0 // little-endian: high word second
+const HI = new Uint8Array(new Uint16Array([1]).buffer)[0] === 1 ? 1 : 0 // Little-endian: high word second
 const LO = 1 - HI
 
 function highWord(x: number): number { f64[0] = x; return u32[HI] >>> 0 }
 function lowWord(x: number): number { f64[0] = x; return u32[LO] >>> 0 }
 function fromWords(hi: number, lo: number): number { u32[HI] = hi >>> 0; u32[LO] = lo >>> 0; return f64[0] }
 
-// ---------------------------------------------------------------- sin, cos (musl __sin, __cos, __rem_pio2)
+// ---- Sine and cosine (musl __sin, __cos, __rem_pio2) ----
 const S1 = -1.66666666666666324348e-01, S2 = 8.33333333332248946124e-03, S3 = -1.98412698298579493134e-04
 const S4 = 2.75573137070700676789e-06, S5 = -2.50507602534068634195e-08, S6 = 1.58969099521155010221e-10
 const C1 = 4.16666666666666019037e-02, C2 = -1.38888888888741095749e-03, C3 = 2.48015872894767294178e-05
@@ -46,7 +46,10 @@ function kernelCos(x: number, y: number): number {
 }
 
 const reduced = [0, 0]
-/** x = n·π/2 + reduced[0] + reduced[1]; returns n, or null for |x| beyond about 1.6e6 (not used by the solver). */
+/**
+ * Reduce x to n·π/2 + reduced[0] + reduced[1]; returns n, or null for |x| beyond about 1.6e6 (not used by the
+ * solver).
+ */
 function remPio2(x: number, ix: number): number | null {
   const negative = x < 0
   const small = (k: number): number => {
@@ -82,6 +85,7 @@ function remPio2(x: number, ix: number): number | null {
 /** Large arguments: reduce by 2π first (exact enough for the far range we never reach in practice). */
 function reduceLarge(x: number): number { const turns = Math.floor(x / (2 * Math.PI)); return x - turns * (2 * Math.PI) }
 
+/** Deterministic sine. */
 export function sin(x: number): number {
   const ix = highWord(x) & 0x7fffffff
   if (ix <= 0x3fe921fb) return ix < 0x3e500000 ? x : kernelSin(x, 0, 0)
@@ -96,6 +100,7 @@ export function sin(x: number): number {
   }
 }
 
+/** Deterministic cosine. */
 export function cos(x: number): number {
   const ix = highWord(x) & 0x7fffffff
   if (ix <= 0x3fe921fb) return ix < 0x3e46a09e ? 1.0 : kernelCos(x, 0)
@@ -110,9 +115,10 @@ export function cos(x: number): number {
   }
 }
 
+/** Deterministic tangent, sin(x) / cos(x). */
 export function tan(x: number): number { return sin(x) / cos(x) }
 
-// ---------------------------------------------------------------- atan, atan2 (musl atan.c, atan2.c)
+// ---- Arctangent (musl atan.c, atan2.c) ----
 const ATANHI = [4.63647609000806093515e-01, 7.85398163397448278999e-01, 9.82793723247329054082e-01, 1.57079632679489655800e+00]
 const ATANLO = [2.26987774529616870924e-17, 3.06161699786838301793e-17, 1.39033110312309984516e-17, 6.12323399573676603587e-17]
 const AT = [
@@ -121,6 +127,7 @@ const AT = [
   4.97687799461593236017e-02, -3.65315727442169155270e-02, 1.62858201153657823623e-02
 ]
 
+/** Deterministic arctangent (rad). */
 export function atan(input: number): number {
   let x = input
   const hx = highWord(x)
@@ -151,6 +158,7 @@ export function atan(input: number): number {
 
 const PI = 3.1415926535897931160e+00, PI_LO = 1.2246467991473531772e-16
 
+/** Deterministic angle of the point (x, y) (rad, −π … π). */
 export function atan2(y: number, x: number): number {
   if (x !== x || y !== y) return x + y
   let ix = highWord(x); const lx = lowWord(x)
@@ -180,24 +188,26 @@ export function atan2(y: number, x: number): number {
   }
 }
 
+/** Deterministic arcsine via atan2; NaN outside [−1, 1]. */
 export function asin(x: number): number {
   if (x > 1 || x < -1) return Number.NaN
   return atan2(x, Math.sqrt((1 - x) * (1 + x)))
 }
 
+/** Deterministic arccosine via atan2; NaN outside [−1, 1]. */
 export function acos(x: number): number {
   if (x > 1 || x < -1) return Number.NaN
   return atan2(Math.sqrt((1 - x) * (1 + x)), x)
 }
 
-// ---------------------------------------------------------------- exp, log (musl exp.c, log.c)
+// ---- Exponential and logarithm (musl exp.c, log.c) ----
 const LN2HI = 6.93147180369123816490e-01, LN2LO = 1.90821492927058770002e-10, INVLN2 = 1.44269504088896338700e+00
 const P1 = 1.66666666666666019037e-01, P2 = -2.77777777770155933842e-03, P3 = 6.61375632143793436117e-05
 const P4 = -1.65339022054652515390e-06, P5 = 4.13813679705723846039e-08
 
 function twoTo(n: number): number { return fromWords(((0x3ff + n) << 20) >>> 0, 0) }
 
-/** y · 2^n (musl scalbn). */
+/** Scale by a power of two: value · 2^exponent (musl scalbn). */
 export function scalbn(value: number, exponent: number): number {
   let y = value, n = exponent
   if (n > 1023) {
@@ -210,6 +220,7 @@ export function scalbn(value: number, exponent: number): number {
   return y * twoTo(n)
 }
 
+/** Deterministic natural exponential. */
 export function exp(input: number): number {
   let x = input
   let hx = highWord(x)
@@ -242,6 +253,7 @@ const LG1 = 6.666666666666735130e-01, LG2 = 3.999999999940941908e-01, LG3 = 2.85
 const LG4 = 2.222219843214978396e-01, LG5 = 1.818357216161805012e-01, LG6 = 1.531383769920937332e-01
 const LG7 = 1.479819860511658591e-01
 
+/** Deterministic natural logarithm. */
 export function log(input: number): number {
   let x = input
   let hx = highWord(x)
@@ -272,7 +284,10 @@ export function log(input: number): number {
   return s * (hfsq + r) + dk * LN2LO - hfsq + f + dk * LN2HI
 }
 
-/** x^y. Integer exponents use exact repeated multiplication; others exp(y·log x) (deterministic, not correctly rounded). */
+/**
+ * Power x^y. Integer exponents up to 64 in magnitude use repeated squaring; others exp(y·log x)
+ * (deterministic, not correctly rounded).
+ */
 export function pow(x: number, y: number): number {
   if (Number.isInteger(y) && Math.abs(y) <= 64) {
     let n = Math.abs(y), base = x, result = 1
@@ -284,8 +299,12 @@ export function pow(x: number, y: number): number {
   return exp(y * log(x))
 }
 
+/** Square root; IEEE-754 rounds it exactly, so Math.sqrt is deterministic. */
 export const sqrt = Math.sqrt
+/** Euclidean norm √(x² + y²), built from IEEE-754 operations only. */
 export function hypot(x: number, y: number): number { return Math.sqrt(x * x + y * y) }
 
+/** π as a double. */
 export const PI_VALUE = PI
+/** One degree (rad). */
 export const DEG = PI / 180

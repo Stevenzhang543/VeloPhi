@@ -5,18 +5,26 @@
 import type { BodyDef, Material, Scene, SceneSettings, ShapeDef } from '../scene/types'
 import type { Vec2 } from '../math/vec'
 import { cross, dot, length, sub } from '../math/vec'
+import { cos, sin } from '../math/dmath'
+import type { CompiledExpr, SwitchDef } from './forceExpr'
+import { ENV_SIZE, compileForceExpr } from './forceExpr'
 
+/** Compiled circle (m). */
 export interface CircleShape { kind: 'circle'; radius: number }
+/** Compiled convex polygon with edge normals and lengths (m). */
 export interface PolygonShape {
   kind: 'polygon'
   /** Counter-clockwise vertices in body coordinates. */
   verts: Vec2[]
   /** Outward unit normal of edge i (verts[i] → verts[i+1]). */
   normals: Vec2[]
+  /** Length of edge i (m). */
   lengths: number[]
 }
+/** Compiled shape of a body. */
 export type ShapeModel = CircleShape | PolygonShape
 
+/** A body compiled for the solver. */
 export interface BodyModel {
   /** Index in `Model.bodies`. */
   global: number
@@ -27,34 +35,61 @@ export interface BodyModel {
   def: BodyDef
   dynamic: boolean
   shape: ShapeModel
+  /** Mass (kg); 0 for static bodies. */
   mass: number
+  /** Moment of inertia about the centre of mass (kg·m²). */
   inertia: number
+  /** 1 / mass; 0 for static bodies. */
   invMass: number
+  /** 1 / inertia; 0 for static bodies and bodies that only translate. */
   invInertia: number
   material: Material
+  /** Conveyor belt speed (m/s); 0 for dynamic bodies. */
   beltSpeed: number
   /** Radius of a circle around the body origin containing the shape (broad phase). */
   bound: number
-  /** Pose of a static body. */
+  /** Pose of a static body (and the cosine and sine of its angle). */
   staticPos: Vec2
   staticAngle: number
+  staticC: number
+  staticS: number
 }
 
+/** Anchor resolved to its body model (null: the world). */
 export interface AnchorModel { body: BodyModel | null; local: Vec2 }
 
-export interface PulleyModel { id: string; name: string; position: Vec2; radius: number }
+/**
+ * Pulley. `body` null: the axle is fixed at `position` (world). Otherwise the pulley is movable: `position`
+ * is the axle in the coordinates of the dynamic body carrying it. (A pulley on a static body is resolved to
+ * a fixed one at compile time.)
+ */
+export interface PulleyModel { id: string; name: string; position: Vec2; radius: number; body: BodyModel | null }
 
+/** Compiled rope; `wrap` is +1 for counter-clockwise, −1 for clockwise. */
 export interface RopeModel {
   id: string; name: string; a: AnchorModel; b: AnchorModel
   pulleys: Array<{ pulley: PulleyModel; wrap: 1 | -1 }>
-  /** Resolved rope length (m). */
+  /** Rope length (m); NaN until buildSystem resolves it from the initial path. */
   length: number
+  /** The rope runs over at least one movable pulley. */
+  movable: boolean
 }
+/** Compiled rod; `length` (m) is NaN until buildSystem resolves it from the initial state. */
 export interface RodModel { id: string; name: string; a: AnchorModel; b: AnchorModel; length: number }
+/** Compiled spring; `restLength` (m) is NaN until buildSystem resolves it from the initial state. */
 export interface SpringModel { id: string; name: string; a: AnchorModel; b: AnchorModel; stiffness: number; restLength: number; damping: number }
+/** Compiled pin joint. */
 export interface HingeModel { id: string; name: string; a: AnchorModel; b: AnchorModel }
-export interface ForceModel { id: string; name: string; a: AnchorModel; force: Vec2 }
+/** Compiled applied force. */
+export interface ForceModel {
+  id: string; name: string; a: AnchorModel
+  /** Constant force (N), used when `expr` is null. */
+  force: Vec2
+  /** Variable force: compiled world components. */
+  expr: { x: CompiledExpr; y: CompiledExpr } | null
+}
 
+/** The compiled model of a scene. */
 export interface Model {
   scene: Scene
   settings: SceneSettings
@@ -71,12 +106,21 @@ export interface Model {
   n: number
   /** Body pairs that never collide (joined by a hinge). */
   noCollide: Set<string>
-  /** Typical force (N) and acceleration (m/s²) scales for tolerances. */
+  /** Switches of all variable forces (in force order, x before y); the mode holds their branches. */
+  switches: SwitchDef[]
+  /** Force index of each switch. */
+  switchForce: number[]
+  /** Some force is an expression (the state then carries the time). */
+  hasExpr: boolean
+  /** Typical force scale (N) for tolerances. */
   forceScale: number
+  /** Typical acceleration scale (m/s²) for tolerances. */
   accelScale: number
+  /** Warnings found while compiling. */
   warnings: string[]
 }
 
+/** Order-independent key of a body pair. */
 export function pairKey(a: string, b: string): string { return a < b ? `${a}|${b}` : `${b}|${a}` }
 
 function boxPolygon(width: number, height: number): Vec2[] {
@@ -90,6 +134,7 @@ function polygonArea(points: Vec2[]): number {
   return a / 2
 }
 
+/** Area centroid of a polygon; the origin for a degenerate one. */
 export function polygonCentroid(points: Vec2[]): Vec2 {
   let a = 0, cx = 0, cy = 0
   for (let i = 0; i < points.length; i++) {
@@ -141,6 +186,7 @@ function boundRadius(shape: ShapeModel): number {
   return r
 }
 
+/** Compile a scene into the solver model. */
 export function compileModel(scene: Scene): Model {
   const warnings: string[] = []
   const bodies: BodyModel[] = []
@@ -158,7 +204,8 @@ export function compileModel(scene: Scene): Model {
       invMass: isDynamic ? 1 / mass : 0,
       invInertia: isDynamic && !fixed && inertia > 0 ? 1 / inertia : 0,
       material: { ...def.material }, beltSpeed: def.kind === 'static' ? def.beltSpeed : 0,
-      bound: boundRadius(shape), staticPos: { x: def.position.x, y: def.position.y }, staticAngle: def.angle
+      bound: boundRadius(shape), staticPos: { x: def.position.x, y: def.position.y }, staticAngle: def.angle,
+      staticC: cos(def.angle), staticS: sin(def.angle)
     }
     if (def.material.muS < def.material.muK) warnings.push(`${def.name}: μs < μk`)
     bodies.push(model)
@@ -166,30 +213,64 @@ export function compileModel(scene: Scene): Model {
     byId.set(def.id, model)
   }
   const anchor = (a: { body: string | null; local: Vec2 }): AnchorModel => ({ body: a.body ? byId.get(a.body) ?? null : null, local: { x: a.local.x, y: a.local.y } })
-  const pulleys: PulleyModel[] = scene.pulleys.map(p => ({ id: p.id, name: p.name, position: { ...p.position }, radius: Math.max(0, p.radius) }))
+  const pulleys: PulleyModel[] = scene.pulleys.map(p => {
+    const carrier = p.body ? byId.get(p.body) ?? null : null
+    if (carrier && !carrier.dynamic) {
+      // On a static body: a fixed pulley at the transformed position
+      const c = cos(carrier.staticAngle), s = sin(carrier.staticAngle)
+      const position = { x: carrier.staticPos.x + c * p.position.x - s * p.position.y, y: carrier.staticPos.y + s * p.position.x + c * p.position.y }
+      return { id: p.id, name: p.name, position, radius: Math.max(0, p.radius), body: null }
+    }
+    return { id: p.id, name: p.name, position: { ...p.position }, radius: Math.max(0, p.radius), body: carrier }
+  })
   const pulleyById = new Map(pulleys.map(p => [p.id, p]))
+  const switches: SwitchDef[] = [], switchForce: number[] = []
   const ropes: RopeModel[] = [], rods: RodModel[] = [], springs: SpringModel[] = [], hinges: HingeModel[] = [], forces: ForceModel[] = []
   const noCollide = new Set<string>()
   for (const c of scene.connectors) {
     if (c.type === 'rope') {
-      ropes.push({ id: c.id, name: c.name, a: anchor(c.a), b: anchor(c.b), pulleys: c.pulleys.map(p => ({ pulley: pulleyById.get(p.pulley)!, wrap: p.wrap === 'ccw' ? 1 as const : -1 as const })).filter(p => p.pulley), length: c.length ?? Number.NaN })
+      const list = c.pulleys.map(p => ({ pulley: pulleyById.get(p.pulley)!, wrap: p.wrap === 'ccw' ? 1 as const : -1 as const })).filter(p => p.pulley)
+      ropes.push({ id: c.id, name: c.name, a: anchor(c.a), b: anchor(c.b), pulleys: list, length: c.length ?? Number.NaN, movable: list.some(p => p.pulley.body !== null) })
     } else if (c.type === 'rod') rods.push({ id: c.id, name: c.name, a: anchor(c.a), b: anchor(c.b), length: c.length ?? Number.NaN })
     else if (c.type === 'spring') springs.push({ id: c.id, name: c.name, a: anchor(c.a), b: anchor(c.b), stiffness: c.stiffness, restLength: c.restLength ?? Number.NaN, damping: c.damping })
     else if (c.type === 'hinge') {
       hinges.push({ id: c.id, name: c.name, a: anchor(c.a), b: anchor(c.b) })
       if (c.a.body && c.b.body) noCollide.add(pairKey(c.a.body, c.b.body))
-    } else if (c.type === 'force') forces.push({ id: c.id, name: c.name, a: anchor(c.a), force: { ...c.force } })
+    } else if (c.type === 'force') {
+      let expr: ForceModel['expr'] = null
+      if (c.expr) {
+        const x = compileForceExpr(c.expr.x, switches.length)
+        for (const sw of x.switches) { switches.push(sw); switchForce.push(forces.length) }
+        const y = compileForceExpr(c.expr.y, switches.length)
+        for (const sw of y.switches) { switches.push(sw); switchForce.push(forces.length) }
+        expr = { x, y }
+      }
+      forces.push({ id: c.id, name: c.name, a: anchor(c.a), force: { ...c.force }, expr })
+    }
   }
   const g = Math.sqrt(scene.settings.gravity.x * scene.settings.gravity.x + scene.settings.gravity.y * scene.settings.gravity.y)
   let forceScale = 0
   for (const b of dynamic) forceScale += b.mass * Math.max(g, 1)
-  for (const f of forces) forceScale += Math.sqrt(f.force.x * f.force.x + f.force.y * f.force.y)
+  for (const f of forces) {
+    if (!f.expr) { forceScale += Math.sqrt(f.force.x * f.force.x + f.force.y * f.force.y); continue }
+    // A variable force: its size at the start (exact branches)
+    const body = f.a.body
+    if (!body || !body.dynamic) continue
+    const env = new Float64Array(ENV_SIZE)
+    const d = body.def
+    env[1] = d.position.x; env[2] = d.position.y; env[3] = d.velocity.x; env[4] = d.velocity.y
+    env[5] = Math.sqrt(d.velocity.x * d.velocity.x + d.velocity.y * d.velocity.y); env[6] = d.angle; env[7] = body.invInertia > 0 ? d.angularVelocity : 0
+    env[8] = body.mass; env[9] = g
+    const fx = f.expr.x.fn(env, null), fy = f.expr.y.fn(env, null)
+    const size = Math.sqrt(fx * fx + fy * fy)
+    if (Number.isFinite(size)) forceScale += size
+  }
   for (const s of springs) forceScale += s.stiffness * 0.1
   forceScale = Math.max(forceScale, 1e-6)
   const accelScale = Math.max(g, 1)
   return {
     scene, settings: scene.settings, bodies, dynamic, byId, pulleys, ropes, rods, springs, hinges, forces,
-    n: dynamic.length, noCollide, forceScale, accelScale, warnings
+    n: dynamic.length, noCollide, switches, switchForce, hasExpr: forces.some(f => f.expr !== null), forceScale, accelScale, warnings
   }
 }
 

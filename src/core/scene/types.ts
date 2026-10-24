@@ -4,21 +4,27 @@
  */
 import type { Vec2 } from '../math/vec'
 
+/** Value of the `format` field of every scene file. */
 export const SCENE_FORMAT = 'verity-scene'
-export const SCENE_VERSION = 1
-export const ENGINE_VERSION = '26.48.0'
+/** Current scene file format version; older files are migrated on load (see io.ts). */
+export const SCENE_VERSION = 2
+/** Engine version written into saved scenes. */
+export const ENGINE_VERSION = '26.49.0'
 
+/** Shape of a body, in body coordinates (m). */
 export type ShapeDef =
   | { type: 'circle'; radius: number }
   | { type: 'box'; width: number; height: number }
   /** Convex polygon, counter-clockwise, in body coordinates (for dynamic bodies relative to the centre of mass). */
   | { type: 'polygon'; points: Vec2[] }
 
+/** Particle (translation only), rigid body, or static (immovable) body. */
 export type BodyKind = 'particle' | 'rigid' | 'static'
 
 /** What the object stands for in a textbook problem; only used for names, drawing and suggestions. */
 export type BodyRole = 'block' | 'ball' | 'board' | 'rod' | 'wheel' | 'ground' | 'incline' | 'wall' | 'conveyor' | 'generic'
 
+/** Contact material of a body. */
 export interface Material {
   /** Static friction coefficient μs. */
   muS: number
@@ -28,6 +34,7 @@ export interface Material {
   restitution: number
 }
 
+/** A body as authored: shape, material and initial state. */
 export interface BodyDef {
   id: string
   name: string
@@ -36,13 +43,13 @@ export interface BodyDef {
   shape: ShapeDef
   /** Centre of mass for dynamic bodies, body origin for static ones (m). */
   position: Vec2
-  /** rad, counter-clockwise. */
+  /** Initial angle (rad), counter-clockwise. */
   angle: number
-  /** m/s */
+  /** Initial velocity of the centre of mass (m/s). */
   velocity: Vec2
-  /** rad/s, counter-clockwise. */
+  /** Initial angular velocity (rad/s), counter-clockwise. */
   angularVelocity: number
-  /** kg (dynamic bodies). */
+  /** Mass (kg); dynamic bodies only. */
   mass: number
   /** Moment of inertia about the centre of mass (kg·m²); null: computed for a uniform body. */
   inertia: number | null
@@ -54,18 +61,25 @@ export interface BodyDef {
   color: string
 }
 
+/** Pulley wheel: fixed in the world or carried by a body (movable pulley). */
 export interface PulleyDef {
   id: string
   name: string
-  /** Fixed axle position (m). */
+  /** Axle position (m): world coordinates for a fixed pulley, body coordinates when `body` is set. */
   position: Vec2
   /** Wheel radius (m); 0 is an ideal point. */
   radius: number
+  /**
+   * Body carrying the axle (a movable pulley); null or absent: fixed in the world. The wheel is massless; its
+   * mass, if any, belongs to the carrying body.
+   */
+  body?: string | null
 }
 
 /** A point on a body (local coordinates about its centre of mass / origin) or in the world (body null). */
 export interface Anchor { body: string | null; local: Vec2 }
 
+/** Inextensible rope between two anchors, optionally running over pulleys. */
 export interface RopeDef {
   id: string; name: string; type: 'rope'
   a: Anchor; b: Anchor
@@ -74,33 +88,62 @@ export interface RopeDef {
   /** Rope length (m); null: the initial path length (taut). */
   length: number | null
 }
+/** Rigid rod (distance constraint) between two anchors; `length` (m), null: the initial distance. */
 export interface RodDef { id: string; name: string; type: 'rod'; a: Anchor; b: Anchor; length: number | null }
+/** Linear spring with viscous damping between two anchors. */
 export interface SpringDef {
   id: string; name: string; type: 'spring'; a: Anchor; b: Anchor
-  /** N/m */ stiffness: number
-  /** m; null: the initial distance. */ restLength: number | null
-  /** N·s/m */ damping: number
+  /** Stiffness (N/m). */
+  stiffness: number
+  /** Rest length (m); null: the initial distance. */
+  restLength: number | null
+  /** Damping coefficient (N·s/m). */
+  damping: number
 }
+/** Pin joint: the two anchors coincide. */
 export interface HingeDef { id: string; name: string; type: 'hinge'; a: Anchor; b: Anchor }
+/** Applied force on an anchor point, constant or given by expressions. */
 export interface ForceDef {
   id: string; name: string; type: 'force'
   a: Anchor
-  /** Constant force in world coordinates (N). */
+  /** Constant force in world coordinates (N); used when `expr` is null or absent. */
   force: Vec2
+  /**
+   * Variable force: world components as expressions of time and the state of the body (SI), for example
+   * `10*sin(2*pi*t)`. See `core/solver/forceExpr.ts` for the variables and functions.
+   */
+  expr?: { x: string; y: string } | null
 }
+/** Any connector between two anchors (a force has only `a`). */
 export type ConnectorDef = RopeDef | RodDef | SpringDef | HingeDef | ForceDef
 
+/** Teaching annotations drawn over the scene (world coordinates, m). They never affect the simulation. */
+export type AnnotationDef =
+  | { id: string; type: 'text'; at: Vec2; text: string; color?: string; size?: number }
+  | { id: string; type: 'arrow'; from: Vec2; to: Vec2; text?: string; color?: string }
+  | { id: string; type: 'ruler'; from: Vec2; to: Vec2 }
+  | { id: string; type: 'angle'; vertex: Vec2; a: Vec2; b: Vec2 }
+
+/** Material override for one pair of bodies; without one, a contact uses the smaller of the two bodies' values. */
 export interface ContactPairDef { a: string; b: string; muS: number; muK: number; restitution: number }
 
-export type IntegratorKind = 'dopri5' | 'rk4' | 'euler'
+/**
+ * 'dopri5' (default, event-driven with the accuracy of manual §6), 'rk4' and 'euler' (fixed-step teaching
+ * integrators, events still located), 'moreau' (Moreau–Jean time stepping: reduced accuracy, for scenes with
+ * very many contacts).
+ */
+export type IntegratorKind = 'dopri5' | 'rk4' | 'euler' | 'moreau'
 
+/** Global simulation settings of a scene. */
 export interface SceneSettings {
-  /** m/s² */
+  /** Gravitational acceleration (m/s²). */
   gravity: Vec2
   /** Recording interval Δt (s); also the largest step of the adaptive integrator and the step of the fixed ones. */
   outputStep: number
   integrator: IntegratorKind
+  /** Relative error tolerance of the adaptive integrator. */
   relTol: number
+  /** Absolute error tolerance of the adaptive integrator. */
   absTol: number
   /** Simulated time (s). */
   duration: number
@@ -108,8 +151,10 @@ export interface SceneSettings {
   energyZeroY: number
 }
 
+/** Initial camera of the scene: view centre (m) and zoom (px/m). */
 export interface SceneView { center: Vec2; pixelsPerMeter: number }
 
+/** The scene document as saved to a .verity.json file. */
 export interface Scene {
   format: typeof SCENE_FORMAT
   version: number
@@ -125,6 +170,8 @@ export interface Scene {
   view: SceneView
   /** Quantities in the watch panel (see observe/quantities). */
   watch: string[]
+  /** Text, arrows and measurements placed by the teacher. */
+  annotations: AnnotationDef[]
   /** Unknown fields of newer files, kept as they are. */
   extra?: Record<string, unknown>
 }

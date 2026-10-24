@@ -76,7 +76,7 @@ describe('hand-built scenes', () => {
     addGround(s, { top: 0 })
     const th = Math.PI / 6, base = 0.9, h = base * Math.tan(th)
     addBody(s, { name: 'wedge', shape: { type: 'polygon', points: [{ x: -base / 3, y: -h / 3 }, { x: 2 * base / 3, y: -h / 3 }, { x: -base / 3, y: 2 * h / 3 }] }, position: { x: 0, y: h / 3 }, mass: 3, fixedRotation: true })
-    // block on the hypotenuse, 0.2 m from the top
+    // Block on the hypotenuse, 0.2 m from the top
     const c = Math.cos(th), sn = Math.sin(th)
     const top = { x: -base / 3, y: h }
     const p = { x: top.x + c * 0.2, y: top.y - sn * 0.2 }

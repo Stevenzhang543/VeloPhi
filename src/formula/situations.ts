@@ -8,23 +8,33 @@
 import type { Recording, Segment, SimEvent } from '../core/solver/simulation'
 import { exactStateAt, ledgerAt } from '../core/solver/simulation'
 import type { Mode, System, UnitMode } from '../core/solver/dynamics'
-import { AUX_BELT, AUX_FIXED, kineticEnergy } from '../core/solver/dynamics'
+import { AUX_BELT, AUX_FIXED, AUX_WORK, kineticEnergy } from '../core/solver/dynamics'
 import type { BodyModel, Model } from '../core/solver/model'
 import { pairKey } from '../core/solver/model'
-import { computePoses, contactKin } from '../core/solver/kinematics'
+import { computePoses, contactKin, distanceKin, ropePath } from '../core/solver/kinematics'
+import { ENV_SIZE } from '../core/solver/forceExpr'
+import type { Node } from './expr'
+import { integrate } from './quadrature'
 import type { ObservationContext } from '../core/observe/quantities'
 import { contactForces, makeContextFor } from '../core/observe/quantities'
 import { atan2, acos, cos, sin, tan, DEG } from '../core/math/dmath'
 import { crossings } from './measure'
 
+/** Status of a condition: holds, holds approximately, or fails. */
 export type CondStatus = 'ok' | 'approx' | 'fail'
+/** An assumption of a formula with its status; `label` and `detail` are user-facing. */
 export interface Condition { id: string; label: string; status: CondStatus; detail: string }
+/** A variable of a situation: SI value, unit, KaTeX symbol and label. */
 export interface VarValue { value: number; unit: string; symbol: string; label: string }
+/** A simulated measurement (SI); null when the recording does not provide it. */
 export interface Measure { value: number | null; unit: string; label: string; note?: string }
+/** Variables, measurements and conditions of a situation at one time. */
 export interface Sample { vars: Record<string, VarValue>; measures: Record<string, Measure>; conditions: Condition[] }
 
+/** A recognised textbook situation over [t0, t1]. */
 export interface Situation {
   key: string
+  /** Situation type, matched by FormulaDef.situation. */
   type: string
   title: string
   t0: number
@@ -32,6 +42,7 @@ export interface Situation {
   /** Event-type situations (collisions) refer to this instant. */
   tEvent?: number
   bodies: string[]
+  /** Variables, measurements and conditions at time t in [t0, t1]. */
   sample: (t: number) => Sample
 }
 
@@ -40,20 +51,24 @@ const cond = (id: string, label: string, ok: boolean, detail = ''): Condition =>
 const V = (value: number, unit: string, symbol: string, label: string): VarValue => ({ value, unit, symbol, label })
 const M = (value: number | null, unit: string, label: string, note?: string): Measure => ({ value, unit, label, note })
 
+/** Consecutive segments with the same signature. */
 interface Run { sig: string; t0: number; t1: number; segs: Segment[] }
 
+/** Merge consecutive segments with the same non-null signature into runs (zero-length segments skipped). */
 function runs(rec: Recording, sig: (seg: Segment) => string | null): Run[] {
   const out: Run[] = []
   rec.segments.forEach((seg, i) => {
     const zero = seg.t1 - seg.t0 <= 1e-12 && i < rec.segments.length - 1
     if (zero) return
-    const s = sig(seg)
+    // The Moreau–Jean fallback (reduced accuracy) gives no exact states to compare formulas with
+    const s = seg.reduced ? null : sig(seg)
     const last = out[out.length - 1]
     if (s && last && last.sig === s && Math.abs(last.t1 - seg.t0) <= 1e-12) { last.t1 = seg.t1; last.segs.push(seg) } else if (s) out.push({ sig: s, t0: seg.t0, t1: seg.t1, segs: [seg] })
   })
   return out
 }
 
+/** The segment containing time t (the later one at a boundary). */
 export function segmentAt(rec: Recording, t: number): Segment {
   let seg = rec.segments[0]
   for (const s of rec.segments) if (s.t0 <= t) seg = s
@@ -78,7 +93,9 @@ interface Attached { ropes: number[]; rods: number[]; springs: number[]; hinges:
 function attached(model: Model, id: string): Attached {
   const has = (a: { body: BodyModel | null }) => a.body?.id === id
   const idx = <T extends { a: { body: BodyModel | null }; b?: { body: BodyModel | null } }>(list: T[]) => list.map((c, i) => (has(c.a) || (c.b ? has(c.b) : false) ? i : -1)).filter(i => i >= 0)
-  return { ropes: idx(model.ropes), rods: idx(model.rods), springs: idx(model.springs), hinges: idx(model.hinges), forces: idx(model.forces) }
+  // A rope also acts on the bodies that carry its movable pulleys
+  const ropes = model.ropes.map((r, i) => (has(r.a) || has(r.b) || r.pulleys.some(p => p.pulley.body?.id === id) ? i : -1)).filter(i => i >= 0)
+  return { ropes, rods: idx(model.rods), springs: idx(model.springs), hinges: idx(model.hinges), forces: idx(model.forces) }
 }
 const noConnectors = (a: Attached) => a.ropes.length + a.rods.length + a.springs.length + a.hinges.length + a.forces.length === 0
 
@@ -87,17 +104,20 @@ function gravity(model: Model): { g: number; vertical: boolean } {
   return { g: Math.sqrt(g.x * g.x + g.y * g.y), vertical: g.x === 0 && g.y < 0 }
 }
 
-/** Contact geometry of a unit seen from body `id`: surface normal pointing towards the body, downhill direction, belt surface velocity. */
+/**
+ * Contact geometry of a unit seen from body `id`: surface normal pointing towards the body, downhill
+ * direction, belt surface velocity.
+ */
 function unitGeometry(sys: System, X: Float64Array, u: UnitMode, id: string) {
   const poses = computePoses(sys.model, X)
   const k = contactKin(u.ref, poses)
   const sign = u.ref.A.body.id === id ? 1 : -1
   const nx = sign * k.nx, ny = sign * k.ny
   const theta = atan2(Math.abs(nx), ny)
-  // downhill direction: gravity projected on the surface (for horizontal faces: +x)
+  // Downhill direction: gravity projected on the surface (for horizontal faces: +x)
   let dx = ny, dy = -nx
   if (Math.abs(nx) > 1e-12) { if (dy > 0) { dx = -dx; dy = -dy } } else if (dx < 0) { dx = -dx; dy = -dy }
-  // belt surface velocity = −beltSpeed·t_face (face owner B of the ref feature)
+  // Belt surface velocity = −beltSpeed·t_face (face owner B of the ref feature)
   const belt = u.ref.kind === 'pf' ? u.ref.B.body.beltSpeed : 0
   const surfVx = -belt * k.tx, surfVy = -belt * k.ty
   return { nx, ny, theta, dx, dy, belt, u: surfVx * dx + surfVy * dy, refSign: sign, k }
@@ -120,11 +140,11 @@ function pairAux(sys: System, X: Float64Array, a: string, b: string): { slide: n
 }
 
 function slideDirection(u: UnitMode, geomRefSign: number, k: { tx: number; ty: number }, d: { dx: number; dy: number }): number {
-  // relative velocity of the body against the surface along downhill has sign s·(t·d)·refSign
+  // The relative velocity of the body against the surface along downhill has the sign s·(t·d)·refSign
   return Math.sign(u.s * (k.tx * d.dx + k.ty * d.dy) * geomRefSign) || 1
 }
 
-// ---------------------------------------------------------------------------------------------- recognizers
+// ---- Recognizers ----
 function surfaceSituations(rec: Recording, out: Situation[]) {
   const sys = rec.system, model = sys.model
   const { g, vertical } = gravity(model)
@@ -139,7 +159,7 @@ function surfaceSituations(rec: Recording, out: Situation[]) {
       if (other.dynamic) return null
       const geo = unitGeometry(sys, seg.X0, u, b.id)
       if (geo.ny <= 1e-9) return null
-      // translation only: a polygon rests on a face (two points) and does not turn
+      // Translation only: a polygon rests on a face (two points) and does not turn
       if (!rolling && (Math.abs(seg.X0[3 * sys.n + 3 * b.index + 2]) > 1e-9 || (b.shape.kind === 'polygon' && u.points.length !== 2 && b.invInertia > 0))) return null
       let status: string = u.friction
       if (u.friction === 'slide') status = slideDirection(u, geo.refSign, geo.k, geo) > 0 ? 'down' : 'up'
@@ -193,7 +213,7 @@ function surfaceSituations(rec: Recording, out: Situation[]) {
       const type = flat ? 'flat' : 'incline'
       const tag = status === 'stick' ? '相对静止' : status === 'up' ? '相对上滑' : status === 'smooth' ? '光滑滑动' : '相对下滑'
       const title = flat ? `${b.name} 在${other.name}上${status === 'stick' ? '相对静止' : '滑动'}` : `${b.name} 在${other.name}上（${tag}）`
-      // theoretical acceleration along downhill for v = v0 + at
+      // Theoretical acceleration along downhill for v = v0 + at
       const aTh = flat
         ? (status === 'stick' ? 0 : -Math.sign(v0 - geo.u || 1) * mat.muK * g)
         : status === 'up' ? g * (sin(theta) + mat.muK * cos(theta)) : status === 'stick' ? 0 : g * (sin(theta) - mat.muK * cos(theta))
@@ -364,9 +384,11 @@ function impactSituations(rec: Recording, out: Situation[]) {
     if (pts.length !== 1) continue
     const p = pts[0]
     const pair = p.pair!, f = p.feature!
+    const noFriction = !(p.tangentImpulse !== undefined && Math.abs(p.tangentImpulse) > 0)
+    const frictionCond = cond('frictionless', '碰撞时接触面无摩擦冲量（光滑或无相对滑动趋势）', noFriction, noFriction ? '' : `摩擦冲量 ${Math.abs(p.tangentImpulse!).toPrecision(4)} N·s`)
     const next = rec.events.find(e => e.t > ev.t + 1e-12 && e.changes.some(c => c.bodies.includes(pair.X.id) || c.bodies.includes(pair.Y.id)))
     const t1 = next ? next.t : (rec.frameCount - 1) * rec.dt
-    const nAB = { x: p.nx, y: p.ny } // from feature B to feature A
+    const nAB = { x: p.nx, y: p.ny } // From feature B to feature A
     const XA = f.A.body, XB = f.B.body
     const before = ev.before, after = ev.after
     const vel = (X: Float64Array, b: BodyModel) => ({ x: X[3 * n + 3 * b.index], y: X[3 * n + 3 * b.index + 1] })
@@ -379,9 +401,9 @@ function impactSituations(rec: Recording, out: Situation[]) {
       const atA = attached(model, XA.id), atB = attached(model, XB.id)
       const hingedA = atA.hinges.length === 1 && noConnectors({ ...atA, hinges: [] }), hingedB = atB.hinges.length === 1 && noConnectors({ ...atB, hinges: [] })
       if (noConnectors(atA) && noConnectors(atB) && central(XA) && central(XB)) {
-        // two free bodies: number them by scene order
+        // Two free bodies: number them by scene order
         const [b1, b2] = XA.global < XB.global ? [XA, XB] : [XB, XA]
-        const n12 = b1 === XB ? nAB : { x: -nAB.x, y: -nAB.y } // from body 1 to body 2
+        const n12 = b1 === XB ? nAB : { x: -nAB.x, y: -nAB.y } // From body 1 to body 2
         const t12 = { x: -n12.y, y: n12.x }
         const v1 = vel(before, b1), v2 = vel(before, b2), w1a = vel(after, b1), w2a = vel(after, b2)
         const u1 = v1.x * n12.x + v1.y * n12.y, u2 = v2.x * n12.x + v2.y * n12.y
@@ -410,7 +432,8 @@ function impactSituations(rec: Recording, out: Situation[]) {
           conditions: [
             cond('isolated', '碰撞瞬间系统不受外界冲量', true),
             cond('oblique', '斜碰（有切向分量）', oblique, oblique ? '' : '正碰'),
-            cond('equalMassElasticRest', '等质量、弹性、被碰球静止', Math.abs(b1.mass - b2.mass) <= 1e-12 * b1.mass && e === 1 && Math.abs(u2) < 1e-12 && Math.abs(w2) < 1e-12)
+            cond('equalMassElasticRest', '等质量、弹性、被碰球静止', Math.abs(b1.mass - b2.mass) <= 1e-12 * b1.mass && e === 1 && Math.abs(u2) < 1e-12 && Math.abs(w2) < 1e-12),
+            frictionCond
           ]
         }
         out.push({ key: `col:${ev.index}`, type: 'collision', title: `${b1.name}与${b2.name}碰撞（e = ${e}）`, t0: ev.t, t1, tEvent: ev.t, bodies: [b1.id, b2.id], sample: () => sample })
@@ -418,7 +441,7 @@ function impactSituations(rec: Recording, out: Situation[]) {
         const H = hingedA ? XA : XB, P = hingedA ? XB : XA
         const piv = hingePivot(sys, (hingedA ? atA : atB).hinges[0])
         if (!piv || piv.body !== H) continue
-        // normal pointing from the ball into the hinged body
+        // Normal pointing from the ball into the hinged body
         const nIn = P === XA ? { x: -nAB.x, y: -nAB.y } : nAB
         const vP = vel(before, P), vPa = vel(after, P)
         const d = Math.abs((p.cx - piv.x) * nIn.y - (p.cy - piv.y) * nIn.x)
@@ -436,7 +459,7 @@ function impactSituations(rec: Recording, out: Situation[]) {
             omegaAfter: M(Math.abs(after[3 * n + 3 * H.index + 2]), 'rad/s', `碰后${H.name}角速度大小`),
             LAfter: M(lzAbout(sys, after, piv.x, piv.y, [P.id, H.id]), 'kg·m²/s', '碰后对转轴角动量')
           },
-          conditions: [cond('rest', `${H.name}碰前静止`, Math.abs(omega0) < 1e-12)]
+          conditions: [cond('rest', `${H.name}碰前静止`, Math.abs(omega0) < 1e-12), frictionCond]
         }
         out.push({ key: `hi:${ev.index}`, type: 'hinged-impact', title: `${P.name}撞击绕轴转动的${H.name}`, t0: ev.t, t1, tEvent: ev.t, bodies: [P.id, H.id], sample: () => sample })
       }
@@ -449,7 +472,7 @@ function impactSituations(rec: Recording, out: Situation[]) {
       const sample: Sample = {
         vars: { e: V(p.restitution, '', 'e', '恢复系数'), u: V(vb.x * nOut.x + vb.y * nOut.y, 'm/s', 'v_n', '碰前法向速度') },
         measures: { v: M(va.x * nOut.x + va.y * nOut.y, 'm/s', '碰后法向速度') },
-        conditions: []
+        conditions: [frictionCond]
       }
       out.push({ key: `bo:${ev.index}`, type: 'bounce', title: `${D.name}与${S.name}碰撞`, t0: ev.t, t1, tEvent: ev.t, bodies: [D.id, S.id], sample: () => sample })
     }
@@ -539,6 +562,9 @@ function pendulumSituations(rec: Recording, out: Situation[]) {
       const X0 = r.segs[0].X0
       const v0sq = sq(X0[3 * n + 3 * b.index]) + sq(X0[3 * n + 3 * b.index + 1])
       const cosM = cos(phiOf(X0)) - v0sq / (2 * g * L)
+      // A rope rising above the horizontal goes slack, a rod that passes the top turns round: both are
+      // vertical circular motion (verticalCircleSituations), not a pendulum
+      if (isRope ? cosM < 0 : cosM <= -1) continue
       const oscillates = cosM > -1
       const theta0 = oscillates ? acos(Math.min(1, cosM)) : Math.PI
       let cache: { T: number | null; vB: number | null; TB: number | null } | null = null
@@ -766,7 +792,8 @@ function pulleySituations(rec: Recording, out: Situation[]) {
 
 function conservationSituations(rec: Recording, out: Situation[]) {
   const sys = rec.system, model = sys.model
-  const T = (rec.frameCount - 1) * rec.dt
+  const T = rec.reducedFrom != null ? Math.min(rec.reducedFrom, (rec.frameCount - 1) * rec.dt) : (rec.frameCount - 1) * rec.dt
+  if (T <= 0 && rec.reducedFrom != null) return
   const balance0 = ledgerBalance(rec, observeAt(rec, 0))
   out.push({
     key: 'energy', type: 'energy', title: '能量账本', t0: 0, t1: T, bodies: [],
@@ -804,6 +831,485 @@ export function recognize(rec: Recording): Situation[] {
   springSituations(rec, out)
   rotationSituations(rec, out)
   pulleySituations(rec, out)
+  verticalCircleSituations(rec, out)
+  movablePulleySituations(rec, out)
+  wedgeSituations(rec, out)
+  springPairSituations(rec, out)
+  rollSlipSituations(rec, out)
+  variableForceSituations(rec, out)
   conservationSituations(rec, out)
   return out
+}
+
+// ---- 26.49 models ----
+/** A body hanging from a fixed point by exactly one rope (no pulleys) or rod, attached at its centre. */
+function singleLink(model: Model, b: BodyModel): { isRope: boolean; index: number; length: number; pivot: { x: number; y: number } } | null {
+  const at = attached(model, b.id)
+  if (at.ropes.length + at.rods.length !== 1 || at.springs.length + at.hinges.length + at.forces.length !== 0) return null
+  const isRope = at.ropes.length === 1
+  const c = isRope ? model.ropes[at.ropes[0]] : model.rods[at.rods[0]]
+  if (isRope && model.ropes[at.ropes[0]].pulleys.length > 0) return null
+  const mine = c.a.body?.id === b.id ? c.a : c.b, fixed = mine === c.a ? c.b : c.a
+  const pivot = anchorWorld(fixed)
+  if (!pivot || Math.abs(mine.local.x) > 1e-12 || Math.abs(mine.local.y) > 1e-12) return null
+  return { isRope, index: isRope ? at.ropes[0] : at.rods[0], length: c.length, pivot }
+}
+
+/** Force of rod k on its bodies, pulling (tension) positive — as the readout `<rod>.F`. */
+function rodForce(o: ObservationContext, k: number): number {
+  let F = 0
+  o.sol.rows.forEach((r, i) => { if (r.kind === 'rod' && r.owner === k) F = -o.sol.lambda[i] })
+  return F
+}
+
+/**
+ * Ball on a rope or a rod moving in a vertical circle: a rope run whose energy lifts the ball above the
+ * horizontal (it goes slack unless v₀ ≥ √(5gL)), a rod run that passes the top. v₀ is the speed at the
+ * lowest point, from the energy of the run (equal to the initial speed when the run starts at the bottom).
+ */
+function verticalCircleSituations(rec: Recording, out: Situation[]) {
+  const sys = rec.system, model = sys.model
+  const { g, vertical } = gravity(model)
+  if (!vertical || g <= 0) return
+  const n = sys.n
+  for (const b of model.dynamic) {
+    const link = singleLink(model, b)
+    if (!link) continue
+    const { isRope, index, pivot } = link
+    const L = link.length
+    const list = runs(rec, seg => {
+      if (touchingUnits(seg.mode, b.id).length > 0) return null
+      if (isRope && !seg.mode.taut[index]) return null
+      return `vc:${b.id}`
+    })
+    for (const r of list) {
+      if (r.t1 - r.t0 < 1e-9) continue
+      const X0 = r.segs[0].X0
+      const s0 = bodyVel(sys, X0, b)
+      const rx = s0.x - pivot.x, ry = s0.y - pivot.y
+      const dir = Math.sign(rx * s0.vy - ry * s0.vx) || 1
+      const vb2 = s0.vx * s0.vx + s0.vy * s0.vy + 2 * g * (L + ry)
+      if (isRope ? vb2 <= 2 * g * L * (1 + 1e-9) : vb2 <= 4 * g * L * (1 + 1e-9)) continue
+      const v0 = Math.sqrt(vb2)
+      /** Angle from the lowest point, positive in the direction of motion (−π … π). */
+      const phiOf = (X: Float64Array) => dir * atan2(X[3 * b.index] - pivot.x, pivot.y - X[3 * b.index + 1])
+      const phi0 = phiOf(X0)
+      const speed = (X: Float64Array) => Math.sqrt(sq(X[3 * n + 3 * b.index]) + sq(X[3 * n + 3 * b.index + 1]))
+      const force = (o: ObservationContext) => (isRope ? o.sol.ropeTension[index] : rodForce(o, index))
+      const endEvent = eventAt(rec, r.t1)
+      const slack = isRope && !!endEvent?.changes.some(c => c.type === 'slack' && c.subject === model.ropes[index].id)
+      const fullCircle = isRope ? vb2 >= 5 * g * L : true
+      let cache: null | { bottom: { v: number; F: number } | null; top: { v: number; F: number } | null; zero: { v: number; phi: number } | null } = null
+      const measure = () => {
+        if (cache) return cache
+        const xs = (X: Float64Array) => X[3 * b.index] - pivot.x
+        let bottom: { v: number; F: number } | null = null, top: { v: number; F: number } | null = null
+        const at = (t: number) => { const o = observeAt(rec, t); return { v: speed(o.X), F: force(o) } }
+        if (Math.abs(phi0) < 1e-9) bottom = at(r.t0)
+        for (const t of crossings(rec, xs, r.t0, r.t1, 0, 8)) {
+          const below = exactStateAt(rec, t)[3 * b.index + 1] < pivot.y
+          if (below && !bottom) bottom = at(t)
+          if (!below && !top) top = at(t)
+          if (bottom && top) break
+        }
+        let zero: { v: number; phi: number } | null = null
+        if (!isRope) {
+          const Fz = (X: Float64Array, t: number) => force(makeContextFor(rec, X, segmentAt(rec, t).mode, 0))
+          const ts = crossings(rec, Fz, r.t0, r.t1, 0, 1)
+          if (ts.length) { const X = exactStateAt(rec, ts[0]); zero = { v: speed(X), phi: phiOf(X) } }
+        }
+        cache = { bottom, top, zero }
+        return cache
+      }
+      const slackState = slack ? endEvent!.before : null
+      const common = (m: ReturnType<typeof measure>) => ({
+        L: V(L, 'm', 'L', isRope ? '绳长' : '杆长'), m: V(b.mass, 'kg', 'm', '小球质量'), g: V(g, 'm/s²', 'g', '重力加速度'),
+        v0: V(v0, 'm/s', 'v_0', '最低点速率（由本段机械能推算）'), phi0: V(phi0, 'rad', '\\varphi_0', '本段起点的位置角'),
+        ...(m.zero ? { phiZ: V(m.zero.phi, 'rad', '\\varphi', '杆力为零处的位置角（仿真）') } : {}),
+        ...(slackState ? { phiS: V(phiOf(slackState), 'rad', '\\varphi_s', '松弛处的位置角（仿真）') } : {})
+      })
+      if (isRope) {
+        out.push({
+          key: `vcr:${b.id}:${r.t0}`, type: 'vcircle-rope', title: `${b.name} 在竖直面内的圆周运动（绳）`, t0: r.t0, t1: r.t1, bodies: [b.id],
+          sample: () => {
+            const m = measure()
+            const crit = Math.sqrt(5 * g * L)
+            return {
+              vars: common(m),
+              measures: {
+                TBottom: M(m.bottom?.F ?? null, 'N', '最低点绳的拉力'), vTop: M(m.top?.v ?? null, 'm/s', '最高点速率'), TTop: M(m.top?.F ?? null, 'N', '最高点绳的拉力'),
+                v0crit: M(null, 'm/s', '临界初速度', `临界值：与本例 v₀ = ${v0.toPrecision(4)} m/s 比较`),
+                tSlack: M(slack ? r.t1 - r.t0 : null, 's', '绳松弛时刻（自本段开始）'),
+                phiSlack: M(slackState ? phiOf(slackState) : null, 'rad', '松弛处的位置角（自最低点）'),
+                hSlack: M(slackState ? slackState[3 * b.index + 1] - pivot.y : null, 'm', '松弛点高出圆心'),
+                vSlack: M(slackState ? speed(slackState) : null, 'm/s', '松弛时的速率')
+              },
+              conditions: [
+                cond('fullCircle', `能通过最高点（v₀ ≥ √(5gL) = ${crit.toPrecision(4)} m/s）`, fullCircle, `本例 v₀ = ${v0.toPrecision(4)} m/s`),
+                cond('slack', `绳在上半圆松弛（√(2gL) < v₀ < √(5gL)）`, slack && !fullCircle, slack ? '' : '记录内绳未松弛'),
+                cond('atBottom', '经过最低点', !!m.bottom, m.bottom ? '' : '本段未经过最低点'),
+                cond('reachesTop', '到达最高点', !!m.top, m.top ? '' : '本段未到达最高点')
+              ]
+            }
+          }
+        })
+      } else {
+        out.push({
+          key: `vcd:${b.id}:${r.t0}`, type: 'vcircle-rod', title: `${b.name} 在竖直面内的圆周运动（杆）`, t0: r.t0, t1: r.t1, bodies: [b.id],
+          sample: () => {
+            const m = measure()
+            return {
+              vars: common(m),
+              measures: {
+                FBottom: M(m.bottom?.F ?? null, 'N', '最低点杆的拉力'), vTop: M(m.top?.v ?? null, 'm/s', '最高点速率'),
+                FTop: M(m.top?.F ?? null, 'N', '最高点杆对球的力（拉为正，推为负）'), vZero: M(m.zero?.v ?? null, 'm/s', '杆力为零时的速率')
+              },
+              conditions: [
+                cond('atBottom', '经过最低点', !!m.bottom, m.bottom ? '' : '本段未经过最低点'),
+                cond('reachesTop', '到达最高点', !!m.top, m.top ? '' : '本段未到达最高点'),
+                cond('forceZero', '杆力在本段改变方向', !!m.zero, m.zero ? '' : '本段杆力未过零'),
+                cond('pushAtTop', `最高点杆对球为推力（v_top < √(gL) = ${Math.sqrt(g * L).toPrecision(4)} m/s）`, vb2 - 4 * g * L < g * L, '')
+              ]
+            }
+          }
+        })
+      }
+    }
+  }
+}
+
+/**
+ * Movable pulley: a rope fixed at one end runs around one movable pulley (carried by body P) and on over
+ * fixed pulleys to a hanging body B; the free segments at P and at B are vertical. Then x_B = 2x_P
+ * (a₁ = 2a₂), and with masses m₁ (B) and m₂ (P): a₂ = (2m₁ − m₂)g/(4m₁ + m₂), T = 3m₁m₂g/(4m₁ + m₂).
+ */
+function movablePulleySituations(rec: Recording, out: Situation[]) {
+  const sys = rec.system, model = sys.model
+  const { g, vertical } = gravity(model)
+  if (!vertical) return
+  model.ropes.forEach((rope, ri) => {
+    if (!rope.movable) return
+    const mov = rope.pulleys.map((p, i) => ({ p: p.pulley, i })).filter(x => x.p.body)
+    if (mov.length !== 1) return
+    const P = mov[0].p.body!, pi = mov[0].i
+    const aFixed = !rope.a.body || !rope.a.body.dynamic, bFixed = !rope.b.body || !rope.b.body.dynamic
+    if (aFixed === bFixed) return
+    const B = (aFixed ? rope.b.body : rope.a.body)!
+    if (B === P) return
+    for (const body of [P, B]) {
+      const at = attached(model, body.id)
+      if (at.ropes.length !== 1 || at.rods.length + at.springs.length + at.hinges.length + at.forces.length > 0) return
+    }
+    if (P.invInertia > 0 && Math.abs(mov[0].p.position.x) > 1e-12) return
+    const list = runs(rec, seg => {
+      if (!seg.mode.taut[ri]) return null
+      if (touchingUnits(seg.mode, P.id).length || touchingUnits(seg.mode, B.id).length) return null
+      const path = ropePath(computePoses(model, seg.X0), rope)
+      const uIn = path.segs[pi].u, uOut = path.segs[pi + 1].u
+      const uB = aFixed ? path.segs[path.segs.length - 1].u : path.segs[0].u
+      // The wheel hangs in the loop (rope comes down to it and goes up), B hangs below its segment
+      if (Math.abs(uIn.x) > 1e-9 || Math.abs(uOut.x) > 1e-9 || Math.abs(uB.x) > 1e-9) return null
+      if (!(uIn.y < 0 && uOut.y > 0)) return null
+      if (aFixed ? !(uB.y < 0) : !(uB.y > 0)) return null
+      return `mp:${ri}`
+    })
+    for (const r of list) {
+      out.push({
+        key: `mp:${ri}:${r.t0}`, type: 'movable-pulley', title: `${P.name}挂在动滑轮上，${B.name}挂在绳的另一端`, t0: r.t0, t1: r.t1, bodies: [B.id, P.id],
+        sample: t => {
+          const o = observeAt(rec, t)
+          const a1 = -o.sol.acc[3 * B.index + 1], a2 = o.sol.acc[3 * P.index + 1]
+          return {
+            vars: {
+              m1: V(B.mass, 'kg', 'm_1', `${B.name}质量（绳端）`), m2: V(P.mass, 'kg', 'm_2', `${P.name}质量（动滑轮下）`), g: V(g, 'm/s²', 'g', '重力加速度'),
+              a1sim: V(a1, 'm/s²', 'a_1', `${B.name}向下的加速度（仿真）`), a2sim: V(a2, 'm/s²', 'a_2', `${P.name}向上的加速度（仿真）`)
+            },
+            measures: { a1: M(a1, 'm/s²', `${B.name}向下的加速度`), a2: M(a2, 'm/s²', `${P.name}向上的加速度`), T: M(o.sol.ropeTension[ri], 'N', '绳的拉力') },
+            conditions: [cond('vertical', '动滑轮两侧及绳端的绳竖直', true)]
+          }
+        }
+      })
+    }
+  })
+}
+
+/**
+ * Movable wedge: block A slides on the smooth slope of wedge W, which slides on a smooth horizontal floor;
+ * neither turns. Horizontal momentum is conserved and
+ *   A_W = mg sinθ cosθ/(M + m sin²θ),  a_rel = (M + m)g sinθ/(M + m sin²θ),  N = Mmg cosθ/(M + m sin²θ).
+ */
+function wedgeSituations(rec: Recording, out: Situation[]) {
+  const sys = rec.system, model = sys.model
+  const { g, vertical } = gravity(model)
+  if (!vertical) return
+  const n = sys.n
+  for (const W of model.dynamic) {
+    for (const A of model.dynamic) {
+      if (A === W || !noConnectors(attached(model, A.id)) || !noConnectors(attached(model, W.id))) continue
+      const list = runs(rec, seg => {
+        const ua = closedUnits(seg.mode, A.id), uw = closedUnits(seg.mode, W.id)
+        if (ua.length !== 1 || otherBody(ua[0], A.id) !== W || touchingUnits(seg.mode, A.id).length !== 1) return null
+        if (uw.length !== 2 || touchingUnits(seg.mode, W.id).length !== 2) return null
+        const floor = uw.find(u => u !== ua[0])!
+        const S = otherBody(floor, W.id)
+        if (S.dynamic || ua[0].friction !== 'none' || floor.friction !== 'none') return null
+        const gw = unitGeometry(sys, seg.X0, floor, W.id), ga = unitGeometry(sys, seg.X0, ua[0], A.id)
+        if (gw.theta > 1e-9 || ga.theta < 1e-6 || gw.belt !== 0) return null
+        if ((W.invInertia > 0 || A.invInertia > 0) && (Math.abs(seg.X0[3 * n + 3 * W.index + 2]) > 1e-12 || Math.abs(seg.X0[3 * n + 3 * A.index + 2]) > 1e-12)) return null
+        if (W.invInertia > 0 || A.invInertia > 0) return null
+        return `wd:${S.id}`
+      })
+      for (const r of list) {
+        const seg0 = r.segs[0]
+        const ua = closedUnits(seg0.mode, A.id)[0]
+        const ga = unitGeometry(sys, seg0.X0, ua, A.id)
+        const theta = ga.theta
+        const S = model.byId.get(r.sig.split(':')[1])!
+        const px = (X: Float64Array) => A.mass * X[3 * n + 3 * A.index] + W.mass * X[3 * n + 3 * W.index]
+        const p0 = px(seg0.X0)
+        out.push({
+          key: `wd:${A.id}:${W.id}:${r.t0}`, type: 'wedge', title: `${A.name}沿可动的${W.name}下滑（${S.name}光滑）`, t0: r.t0, t1: r.t1, bodies: [A.id, W.id],
+          sample: t => {
+            const o = observeAt(rec, t)
+            const aw = o.sol.acc[3 * W.index], aax = o.sol.acc[3 * A.index], aay = o.sol.acc[3 * A.index + 1]
+            const relx = aax - aw, rely = aay
+            const c = contactForces(o, A.id, W.id)
+            return {
+              vars: {
+                M: V(W.mass, 'kg', 'M', `${W.name}质量`), m: V(A.mass, 'kg', 'm', `${A.name}质量`), theta: V(theta, 'rad', '\\theta', '斜面倾角'),
+                g: V(g, 'm/s²', 'g', '重力加速度'), p0x: V(p0, 'kg·m/s', 'p_{x0}', '本阶段开始时的水平总动量')
+              },
+              measures: {
+                A: M(Math.abs(aw), 'm/s²', `${W.name}的加速度大小`), arel: M(Math.sqrt(relx * relx + rely * rely), 'm/s²', `${A.name}相对${W.name}的加速度大小`),
+                N: M(c.N, 'N', `${W.name}对${A.name}的支持力`), px: M(px(o.X), 'kg·m/s', '水平总动量')
+              },
+              conditions: [cond('smooth', '斜面与地面均光滑', true), cond('noRotation', '斜面与物块都不转动', true)]
+            }
+          }
+        })
+      }
+    }
+  }
+}
+
+/**
+ * Two bodies joined by an undamped spring, free or on smooth horizontal surfaces, moving along the spring:
+ * momentum is conserved, at the extreme deformation they have the common velocity and the spring stores
+ * E = ½kx₀² + μ(v₁ − v₂)²/2 (μ the reduced mass); the relative motion has period 2π√(μ/k).
+ */
+function springPairSituations(rec: Recording, out: Situation[]) {
+  const sys = rec.system, model = sys.model
+  const gv = model.settings.gravity
+  const n = sys.n
+  model.springs.forEach((sp, si) => {
+    const A = sp.a.body, B = sp.b.body
+    if (!A || !B || !A.dynamic || !B.dynamic || A === B || sp.damping !== 0) return
+    for (const body of [A, B]) {
+      const at = attached(model, body.id)
+      if (at.springs.length !== 1 || at.ropes.length + at.rods.length + at.hinges.length + at.forces.length > 0) return
+    }
+    const list = runs(rec, seg => {
+      for (const body of [A, B]) {
+        const us = closedUnits(seg.mode, body.id)
+        if (touchingUnits(seg.mode, body.id).length !== us.length) return null
+        for (const u of us) {
+          if (u.friction !== 'none' || otherBody(u, body.id).dynamic) return null
+          if (unitGeometry(sys, seg.X0, u, body.id).theta > 1e-9) return null
+        }
+        if (us.length === 0 && (gv.x !== 0 || gv.y !== 0)) return null
+      }
+      return `sp2:${si}`
+    })
+    for (const r of list) {
+      const X0 = r.segs[0].X0
+      const d0 = distanceKin(computePoses(model, X0), sp.a, sp.b)
+      // Axis from A towards B
+      const ux = -d0.ux, uy = -d0.uy
+      const vAlong = (X: Float64Array, b: BodyModel) => X[3 * n + 3 * b.index] * ux + X[3 * n + 3 * b.index + 1] * uy
+      const vPerp = (X: Float64Array, b: BodyModel) => -X[3 * n + 3 * b.index] * uy + X[3 * n + 3 * b.index + 1] * ux
+      const oneDim = Math.abs(vPerp(X0, A)) < 1e-12 && Math.abs(vPerp(X0, B)) < 1e-12 && Math.abs(X0[3 * n + 3 * A.index + 2]) < 1e-12 && Math.abs(X0[3 * n + 3 * B.index + 2]) < 1e-12
+      if (!oneDim) continue
+      const v1 = vAlong(X0, A), v2 = vAlong(X0, B)
+      const x0 = d0.value - sp.restLength
+      const rel = (X: Float64Array) => vAlong(X, A) - vAlong(X, B)
+      let cache: null | { ext: { t: number; v: number; E: number; x: number } | null; T: number | null } = null
+      const measure = () => {
+        if (cache) return cache
+        const ts = crossings(rec, rel, r.t0, r.t1, 0, 3)
+        let ext: { t: number; v: number; E: number; x: number } | null = null
+        if (ts.length) {
+          const X = exactStateAt(rec, ts[0])
+          const dx = distanceKin(computePoses(model, X), sp.a, sp.b).value - sp.restLength
+          ext = { t: ts[0], v: vAlong(X, A), E: 0.5 * sp.stiffness * dx * dx, x: dx }
+        }
+        cache = { ext, T: ts.length >= 3 ? ts[2] - ts[0] : null }
+        return cache
+      }
+      out.push({
+        key: `sp2:${si}:${r.t0}`, type: 'spring-pair', title: `${A.name}与${B.name}通过弹簧相互作用`, t0: r.t0, t1: r.t1, bodies: [A.id, B.id],
+        sample: t => {
+          const X = exactStateAt(rec, t)
+          const m = measure()
+          return {
+            vars: {
+              m1: V(A.mass, 'kg', 'm_1', `${A.name}质量`), m2: V(B.mass, 'kg', 'm_2', `${B.name}质量`), k: V(sp.stiffness, 'N/m', 'k', '劲度系数'),
+              v1: V(v1, 'm/s', 'v_1', `本段开始时${A.name}的速度（沿弹簧）`), v2: V(v2, 'm/s', 'v_2', `本段开始时${B.name}的速度（沿弹簧）`),
+              x0: V(x0, 'm', 'x_0', '本段开始时弹簧的形变量')
+            },
+            measures: {
+              p: M(A.mass * vAlong(X, A) + B.mass * vAlong(X, B), 'kg·m/s', '沿弹簧方向的总动量'),
+              vCommon: M(m.ext?.v ?? null, 'm/s', `形变最大时${A.name}的速度`), EpMax: M(m.ext?.E ?? null, 'J', '弹性势能最大值'),
+              xMax: M(m.ext ? Math.abs(m.ext.x) : null, 'm', '最大形变量'), T: M(m.T, 's', '相对振动的周期', m.T === null ? '记录时长不足一个周期' : undefined)
+            },
+            conditions: [
+              cond('restStart', '本段开始时弹簧为原长', Math.abs(x0) <= 1e-12 * Math.max(1, sp.restLength), `x₀ = ${x0.toPrecision(3)} m`),
+              cond('smooth', '水平面光滑、无阻尼', true)
+            ]
+          }
+        }
+      })
+    }
+  })
+}
+
+/**
+ * Rolling with slipping in the plane: a round body (uniform cylinder — a disc in 2D — or any I) slides on a
+ * rough horizontal surface. Friction μk·mg acts against the slip u = v + ωr until u = 0 at
+ * t₁ = |u₀| / (μk g (1 + mr²/I)); then it rolls at v₁ = v₀ − u₀/(1 + mr²/I). For the uniform cylinder
+ * (I = ½mr²) with ω₀ = 0: t₁ = v₀/(3μk g), v₁ = 2v₀/3. (The solid sphere's 2v₀/(7μg) is a 3D result.)
+ */
+function rollSlipSituations(rec: Recording, out: Situation[]) {
+  const sys = rec.system, model = sys.model
+  const { g, vertical } = gravity(model)
+  if (!vertical) return
+  for (const b of model.dynamic) {
+    if (b.shape.kind !== 'circle' || b.invInertia === 0 || !noConnectors(attached(model, b.id))) continue
+    const rr = b.shape.radius
+    const list = runs(rec, seg => {
+      const us = closedUnits(seg.mode, b.id)
+      if (us.length !== 1 || touchingUnits(seg.mode, b.id).length !== 1) return null
+      const u = us[0], other = otherBody(u, b.id)
+      if (other.dynamic || u.friction !== 'slide') return null
+      const geo = unitGeometry(sys, seg.X0, u, b.id)
+      if (geo.theta > 1e-9 || geo.belt !== 0) return null
+      return `rs:${other.id}`
+    })
+    for (const r of list) {
+      const X0 = r.segs[0].X0
+      const s0 = bodyVel(sys, X0, b)
+      const other = model.byId.get(r.sig.split(':')[1])!
+      const u = closedUnits(r.segs[0].mode, b.id)[0]
+      const muK = u.pair.material.muK
+      const endEvent = eventAt(rec, r.t1)
+      const rolls = !!endEvent?.changes.some(c => c.type === 'stick' && c.subject === u.pair.key)
+      const end = rolls ? exactStateAt(rec, r.t1) : null
+      const heat0 = pairAux(sys, X0, b.id, other.id).heat
+      const uniform = Math.abs(b.inertia - 0.5 * b.mass * rr * rr) <= 1e-12 * b.inertia
+      out.push({
+        key: `rs:${b.id}:${r.t0}`, type: 'roll-slip', title: `${b.name} 在${other.name}上边滚边滑`, t0: r.t0, t1: r.t1, bodies: [b.id, other.id],
+        sample: t => {
+          const o = observeAt(rec, t)
+          return {
+            vars: {
+              m: V(b.mass, 'kg', 'm', '质量'), r: V(rr, 'm', 'r', '半径'), I: V(b.inertia, 'kg·m²', 'I', '对质心的转动惯量'),
+              muK: V(muK, '', '\\mu_k', '动摩擦因数'), g: V(g, 'm/s²', 'g', '重力加速度'),
+              v0: V(s0.vx, 'm/s', 'v_0', '本段开始时质心速度'), omega0: V(s0.w, 'rad/s', '\\omega_0', '本段开始时角速度（逆时针为正）')
+            },
+            measures: {
+              a: M(o.sol.acc[3 * b.index], 'm/s²', '质心加速度'), beta: M(o.sol.acc[3 * b.index + 2], 'rad/s²', '角加速度'),
+              tEnd: M(rolls ? r.t1 - r.t0 : null, 's', '开始纯滚动的时刻（自本段开始）'),
+              vEnd: M(end ? bodyVel(sys, end, b).vx : null, 'm/s', '开始纯滚动时的速度'),
+              heatEnd: M(end ? pairAux(sys, end, b.id, other.id).heat - heat0 : null, 'J', '打滑阶段的摩擦生热')
+            },
+            conditions: [
+              cond('rolls', '记录内转为纯滚动', rolls, rolls ? '' : '记录内未停止打滑'),
+              cond('uniformDisc', '匀质圆柱（圆盘）I = ½mr²', uniform, uniform ? '' : `本例 I = ${b.inertia.toPrecision(4)} kg·m²`),
+              cond('noSpin', '放上时不转动（ω₀ = 0）且 v₀ > 0', Math.abs(s0.w) <= 1e-12 && s0.vx > 0)
+            ]
+          }
+        }
+      })
+    }
+  }
+}
+
+/** Recognizes F = F0·sin(ω·t) (either factor order) in the x component of a force expression. */
+function sinusoid(node: Node): { F0: number; omega: number } | null {
+  const numOf = (x: Node): number | null => (x.type === 'num' ? x.value : x.type === 'neg' && x.arg.type === 'num' ? -x.arg.value : null)
+  if (node.type !== 'bin' || node.op !== '*') return null
+  const pick = (k: Node, c: Node) => {
+    const F0 = numOf(k)
+    if (F0 === null || c.type !== 'call' || c.fn !== 'sin') return null
+    const a = c.args[0]
+    if (a.type !== 'bin' || a.op !== '*') return null
+    const w = a.left.type === 'var' && a.left.name === 't' ? numOf(a.right) : a.right.type === 'var' && a.right.name === 't' ? numOf(a.left) : null
+    return w === null ? null : { F0, omega: w }
+  }
+  return pick(node.left, node.right) ?? pick(node.right, node.left)
+}
+
+/**
+ * A body driven by one variable force whose x component depends on time only, free or on a smooth
+ * horizontal surface: m·aₓ = Fₓ(t). The impulse ∫Fₓdt and the displacement integral are computed
+ * independently of the solver (adaptive Gauss–Kronrod on the expression, split at the recorded switches).
+ */
+function variableForceSituations(rec: Recording, out: Situation[]) {
+  const sys = rec.system, model = sys.model
+  const gv = model.settings.gravity
+  if (gv.x !== 0) return
+  const n = sys.n
+  model.forces.forEach((f, fi) => {
+    const b = f.a.body
+    if (!f.expr || !b || !b.dynamic) return
+    const at = attached(model, b.id)
+    if (at.forces.length !== 1 || at.ropes.length + at.rods.length + at.springs.length + at.hinges.length > 0) return
+    const timeOnly = f.expr.x.uses.every(u => u === 't' || u === 'm' || u === 'g')
+    const list = runs(rec, seg => {
+      const us = closedUnits(seg.mode, b.id)
+      if (touchingUnits(seg.mode, b.id).length !== us.length || us.length > 1) return null
+      for (const u of us) {
+        if (u.friction !== 'none' || otherBody(u, b.id).dynamic) return null
+        const geo = unitGeometry(sys, seg.X0, u, b.id)
+        if (geo.theta > 1e-9 || geo.belt !== 0) return null
+      }
+      return `vf:${fi}`
+    })
+    const env = new Float64Array(ENV_SIZE)
+    env[8] = b.mass; env[9] = Math.sqrt(gv.x * gv.x + gv.y * gv.y)
+    const Fx = (t: number) => { env[0] = t; return f.expr!.x.fn(env, null) }
+    const sw = sinusoid(f.expr.x.node)
+    for (const r of list) {
+      const X0 = r.segs[0].X0
+      const s0 = bodyVel(sys, X0, b)
+      const breaks = rec.events.filter(e => e.t > r.t0 && e.t < r.t1 && e.changes.some(c => c.type === 'switch' && c.subject === f.id)).map(e => e.t)
+      const W0 = X0[sys.auxBase + AUX_WORK]
+      out.push({
+        key: `vf:${fi}:${r.t0}`, type: 'var-force', title: `${b.name} 受变力 ${f.name} 作用`, t0: r.t0, t1: r.t1, bodies: [b.id],
+        sample: t => {
+          const X = exactStateAt(rec, t)
+          const J = timeOnly ? integrate(Fx, r.t0, t, breaks) : Number.NaN
+          const dx = timeOnly ? integrate(s => (t - s) * Fx(s), r.t0, t, breaks) / b.mass : Number.NaN
+          const vars: Record<string, VarValue> = {
+            m: V(b.mass, 'kg', 'm', '质量'), v0: V(s0.vx, 'm/s', 'v_0', '本段开始时的速度 vₓ'), x0: V(s0.x, 'm', 'x_0', '本段开始时的位置 x'),
+            t: V(t, 's', 't', '时刻'), t0: V(r.t0, 's', 't_0', '本段开始时刻'),
+            J: V(J, 'N·s', 'I', '冲量 ∫Fₓdt（对表达式数值积分）'), dx: V(dx, 'm', '\\Delta x_F', '(1/m)∫(t−s)Fₓ(s)ds（对表达式数值积分）')
+          }
+          if (sw) { vars.F0 = V(sw.F0, 'N', 'F_0', '力的幅值'); vars.omega = V(sw.omega, 'rad/s', '\\omega', '角频率') }
+          return {
+            vars,
+            measures: {
+              dp: M(b.mass * (X[3 * n + 3 * b.index] - s0.vx), 'N·s', '动量变化 mΔvₓ'), v: M(X[3 * n + 3 * b.index], 'm/s', '速度 vₓ'),
+              x: M(X[3 * b.index], 'm', '位置 x'), W: M(X[sys.auxBase + AUX_WORK] - W0, 'J', '变力做的功（能量账本）')
+            },
+            conditions: [
+              cond('timeOnly', 'Fₓ 只随时间变化', timeOnly, timeOnly ? '' : `Fₓ = ${f.expr!.x.src} 含状态量，积分式不适用`),
+              cond('sinusoid', 'F = F₀ sin(ωt)', !!sw, sw ? '' : `Fₓ = ${f.expr!.x.src}`),
+              cond('smooth', '水平方向只受该力（光滑水平面或悬空）', true),
+              cond('noVerticalWork', '竖直方向无位移（只有 Fₓ 做功）', Math.abs(s0.vy) < 1e-12 && closedUnits(r.segs[0].mode, b.id).length === 1)
+            ]
+          }
+        }
+      })
+    }
+  })
 }

@@ -1,10 +1,11 @@
 /**
  * Measurements on a recording that need more than one frame: times at which a quantity crosses a value
- * (located to 1e-12 s with exact states between frames), maxima, and state lookups at arbitrary times.
+ * (located to 1e-12 s with exact states between frames) and state lookups at arbitrary times.
  */
 import type { Recording } from '../core/solver/simulation'
 import { exactStateAt, frameState } from '../core/solver/simulation'
 
+/** A scalar function of a state at time t. */
 export type StateFn = (X: Float64Array, t: number) => number
 
 /** State at time t (frames exactly; between frames one integration step in the segment's mode). */

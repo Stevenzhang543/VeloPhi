@@ -1,21 +1,39 @@
 <script setup lang="ts">
+/**
+ * Watch panel: all readings of the selected body at the current frame, and the scene's watch list (values in
+ * display units). Values follow `state.panelFrame` only while the panel is visible (`active`).
+ */
 import { computed, ref } from 'vue'
 import { state, edit } from '../store'
-import { evaluateQuantity, listQuantities, makeContext } from '../../core/observe/quantities'
+import { canonicalQuantityId, evaluateQuantity, listQuantities, makeContext } from '../../core/observe/quantities'
 import type { QuantityDef } from '../../core/observe/quantities'
-import { formatPlain } from '../../formula/match'
+import { useGated } from '../live'
+import { fmtNum, unitLabel } from '../settings'
 import Tex from './Tex.vue'
 import Icon from './Icon.vue'
 
-const quantities = computed<QuantityDef[]>(() => (state.recording ? listQuantities(state.recording.system) : []))
-const byId = computed(() => new Map(quantities.value.map(q => [q.id, q])))
+const props = withDefaults(defineProps<{ active?: boolean }>(), { active: true })
+
+const system = computed(() => state.recording?.system ?? null)
+const quantities = computed<QuantityDef[]>(() => (system.value ? listQuantities(system.value) : []))
+const byIdMap = computed(() => new Map(quantities.value.map(q => [q.id, q])))
+/** Definition of a watched id (ids are compared in their listed form: pair.b|a ≡ pair.a|b). */
+const qOf = (id: string) => byIdMap.value.get(canonicalQuantityId(id))
+const watched = computed(() => new Set(state.scene.watch.map(canonicalQuantityId)))
+const frame = useGated(() => props.active, () => state.panelFrame)
+
+/** One observation context per frame, shared by the list and the readings card. */
+const ctx = computed(() => {
+  const rec = state.recording
+  if (!rec || state.stale) return null
+  return makeContext(rec, Math.min(frame.value, rec.frameCount - 1))
+})
 
 const values = computed(() => {
-  const rec = state.recording
-  if (!rec || state.stale) return new Map<string, number>()
-  const ctx = makeContext(rec, Math.min(state.frame, rec.frameCount - 1))
+  const c = ctx.value
   const out = new Map<string, number>()
-  for (const id of state.scene.watch) out.set(id, evaluateQuantity(ctx, id))
+  if (!c) return out
+  for (const id of state.scene.watch) out.set(id, evaluateQuantity(c, id))
   return out
 })
 
@@ -32,16 +50,16 @@ const groups = computed(() => {
 /** All readings of the selected body at the current frame (the "click to read" card). */
 const readings = computed(() => {
   const rec = state.recording
+  const c = ctx.value
   const sel = state.selection
-  if (!rec || state.stale || !sel || sel.kind !== 'body') return null
+  if (!rec || !c || !sel || sel.kind !== 'body') return null
   const body = rec.system.model.byId.get(sel.id)
   if (!body || !body.dynamic) return null
-  const ctx = makeContext(rec, Math.min(state.frame, rec.frameCount - 1))
   const qs = quantities.value.filter(q => q.id.startsWith(`${body.id}.`) || (q.id.startsWith(`contact.${body.id}|`) && (q.id.endsWith('.N') || q.id.endsWith('.f'))))
-  const items = qs.map(q => ({ q, v: evaluateQuantity(ctx, q.id) })).filter(x => !(x.q.id.startsWith('contact.') && x.v === 0))
-  // angular momentum about the centre of mass
+  const items = qs.map(q => ({ q, v: evaluateQuantity(c, q.id) })).filter(x => !(x.q.id.startsWith('contact.') && x.v === 0))
+  // Angular momentum about the centre of mass
   if (body.invInertia > 0) {
-    const w = ctx.X[3 * rec.system.n + 3 * body.index + 2]
+    const w = c.X[3 * rec.system.n + 3 * body.index + 2]
     items.push({ q: { id: `${body.id}.Lc`, label: '对质心角动量 Iω', symbol: 'L_C', unit: 'kg·m²/s', group: '物体', owner: body.name }, v: body.inertia * w })
   }
   return { name: body.name, items }
@@ -50,15 +68,20 @@ const readings = computed(() => {
 const picking = ref('')
 function add() {
   const id = picking.value
-  if (!id || state.scene.watch.includes(id)) return
-  edit(s => s.watch.push(id))
   picking.value = ''
+  if (!id || watched.value.has(canonicalQuantityId(id))) return
+  edit(s => s.watch.push(canonicalQuantityId(id)))
 }
-function remove(id: string) { edit(s => { s.watch = s.watch.filter(w => w !== id) }); state.chart = state.chart.filter(c => c !== id) }
+function remove(id: string) {
+  const key = canonicalQuantityId(id)
+  edit(s => { s.watch = s.watch.filter(w => canonicalQuantityId(w) !== key) })
+  state.chart = state.chart.filter(c => canonicalQuantityId(c) !== key)
+}
 function toggleChart(id: string) {
   state.chart = state.chart.includes(id) ? state.chart.filter(c => c !== id) : [...state.chart, id]
   state.bottomTab = 'chart'
 }
+const unitText = (u: string) => unitLabel(u) || '无量纲'
 </script>
 
 <template>
@@ -70,8 +93,8 @@ function toggleChart(id: string) {
         <div class="grid">
           <template v-for="r in readings.items" :key="r.q.id">
             <span class="small muted" :title="r.q.id">{{ r.q.label }}<template v-if="r.q.id.startsWith('contact.')">（{{ r.q.owner }}）</template></span>
-            <span class="mono small val">{{ formatPlain(r.v, state.digits) }} <span class="unit">{{ r.q.unit }}</span></span>
-            <button class="btn icon ghost tiny-btn" title="加入监视" :disabled="state.scene.watch.includes(r.q.id) || r.q.id.endsWith('.Lc')" @click="picking = r.q.id; add()"><Icon name="plus" :size="13" /></button>
+            <span class="mono small val">{{ fmtNum(r.v, r.q.unit) }} <span class="unit">{{ unitLabel(r.q.unit) }}</span></span>
+            <button class="btn icon ghost tiny-btn" title="加入监视" :disabled="watched.has(r.q.id) || r.q.id.endsWith('.Lc')" @click="picking = r.q.id; add()"><Icon name="plus" :size="13" /></button>
           </template>
         </div>
       </div>
@@ -81,7 +104,7 @@ function toggleChart(id: string) {
         <select v-model="picking" class="field grow">
           <option value="" disabled>添加监视量…</option>
           <optgroup v-for="[g, list] in groups" :key="g" :label="g">
-            <option v-for="q in list" :key="q.id" :value="q.id" :disabled="state.scene.watch.includes(q.id)">{{ q.label }}（{{ q.unit || '无量纲' }}）</option>
+            <option v-for="q in list" :key="q.id" :value="q.id" :disabled="watched.has(q.id)">{{ q.label }}（{{ unitText(q.unit) }}）</option>
           </optgroup>
         </select>
         <button class="btn primary" :disabled="!picking" @click="add">添加</button>
@@ -90,14 +113,14 @@ function toggleChart(id: string) {
       <div class="list">
         <div v-for="id in state.scene.watch" :key="id" class="item">
           <div class="name">
-            <Tex v-if="byId.get(id)" :tex="byId.get(id)!.symbol" />
-            <span class="small">{{ byId.get(id)?.label ?? id }}</span>
-            <span class="tiny muted">{{ byId.get(id)?.owner }}</span>
+            <Tex v-if="qOf(id)" :tex="qOf(id)!.symbol" />
+            <span class="small" :title="id">{{ qOf(id)?.label ?? id }}</span>
+            <span class="tiny muted">{{ qOf(id)?.owner ?? '（本场景中没有这个量）' }}</span>
           </div>
           <div class="value mono">
             <template v-if="state.stale">—</template>
-            <template v-else>{{ formatPlain(values.get(id) ?? null, state.digits) }}</template>
-            <span class="unit">{{ byId.get(id)?.unit }}</span>
+            <template v-else>{{ fmtNum(values.get(id) ?? null, qOf(id)?.unit ?? '') }}</template>
+            <span class="unit">{{ unitLabel(qOf(id)?.unit ?? '') }}</span>
           </div>
           <div class="ops">
             <button class="btn icon ghost" :class="{ active: state.chart.includes(id) }" title="在图表中显示" @click="toggleChart(id)"><Icon name="chart" /></button>
@@ -105,7 +128,7 @@ function toggleChart(id: string) {
           </div>
         </div>
       </div>
-      <div class="tiny muted hint">数值为当前帧的仿真结果（精度可在“设置”中调整）。暂停后可逐帧查看。</div>
+      <div class="tiny muted hint">数值为当前帧的仿真结果，单位与有效数字可在“设置 › 单位与数值”中调整。暂停后可逐帧查看。</div>
     </template>
   </div>
 </template>
@@ -119,8 +142,8 @@ function toggleChart(id: string) {
 .list { display: flex; flex-direction: column; gap: 6px; }
 .item { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; background: var(--group); border-radius: var(--radius-group); padding: 6px 8px 6px 10px; }
 .name { display: flex; flex-direction: column; min-width: 0; }
-.value { font-size: 14px; font-weight: 600; text-align: right; white-space: nowrap; }
-.unit { font-size: 11px; color: var(--text-3); margin-left: 4px; font-weight: 400; }
+.value { font-size: var(--type-title); font-weight: 600; text-align: right; white-space: nowrap; }
+.unit { font-size: var(--type-tiny); color: var(--text-3); margin-left: 4px; font-weight: 400; }
 .ops { display: flex; gap: 2px; }
 .hint { margin-top: 10px; }
 </style>

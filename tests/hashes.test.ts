@@ -1,4 +1,7 @@
-/** Writes the recording fingerprints of all templates (for the cross-engine check in scripts/check-browser-hashes.cjs). */
+/**
+ * Writes the recording fingerprints of all templates (for the cross-engine check in
+ * scripts/check-browser-hashes.cjs).
+ */
 import { it } from 'vitest'
 import { writeFileSync, mkdirSync } from 'node:fs'
 import { TEMPLATES, buildTemplate } from '../src/templates'

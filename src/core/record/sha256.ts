@@ -10,6 +10,9 @@ const K = new Uint32Array([
   0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
 ])
 
+const LITTLE_ENDIAN = new Uint8Array(new Float64Array([1]).buffer)[7] === 0x3f
+
+/** Incremental SHA-256 hasher. */
 export class Sha256 {
   private h = new Uint32Array([0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19])
   private buf = new Uint8Array(64)
@@ -29,14 +32,16 @@ export class Sha256 {
     return this
   }
 
+  /** Feed the little-endian IEEE-754 bytes of the values (on little-endian hosts, the array's own bytes). */
   updateFloat64(values: Float64Array): this {
-    // little-endian bytes of the IEEE-754 values
+    if (LITTLE_ENDIAN) return this.update(new Uint8Array(values.buffer, values.byteOffset, values.byteLength))
     const bytes = new Uint8Array(values.length * 8)
     const view = new DataView(bytes.buffer)
     for (let k = 0; k < values.length; k++) view.setFloat64(8 * k, values[k], true)
     return this.update(bytes)
   }
 
+  /** Finish and return the digest as lowercase hex; the hasher cannot be updated afterwards. */
   digestHex(): string {
     const bits = this.total * 8
     const pad = new Uint8Array(((this.bufLen < 56 ? 56 : 120) - this.bufLen) + 8)
@@ -74,4 +79,5 @@ export class Sha256 {
   }
 }
 
+/** SHA-256 of the bytes as lowercase hex. */
 export function sha256Hex(data: Uint8Array): string { return new Sha256().update(data).digestHex() }

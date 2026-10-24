@@ -1,21 +1,34 @@
 /*
  * Verity design tokens. Derived from the Nova_A token set (4 pt grid, concentric radii, system font stack
  * with bundled OFL fallbacks; nothing Apple-proprietary is bundled). Light is the default theme because
- * classrooms project on white boards; dark follows the system or the toggle.
+ * classrooms project on white boards; dark is chosen in the settings or follows the system.
+ *
+ * Effects are opt-in classes on <html> set by appearance.ts from the settings:
+ *   fx-glass (translucent panes + pointer highlight), fx-high (real backdrop blur on the panes), fx-ambient
+ *   (soft moving background), fx-smooth (continuous background motion), fx-calm (reduced motion: no
+ *   animations), fx-still (background paused: calm or hidden window), fx-off (effects off), projector (large,
+ *   high contrast).
  */
 :root {
   --font-ui: "Segoe UI Variable Text", "Segoe UI", -apple-system, BlinkMacSystemFont, "Noto Sans SC Variable", "Microsoft YaHei UI", system-ui, sans-serif;
   --font-mono: "JetBrains Mono Variable", "Cascadia Code", ui-monospace, Consolas, monospace;
-  --type-title: 15px;
-  --type-body: 13px;
-  --type-small: 12px;
-  --type-tiny: 11px;
+  --ui-scale: 1;
+  --proj-scale: 1;
+  --zoom: calc(var(--ui-scale) * var(--proj-scale));
+  --type-display: calc(22px * var(--zoom));
+  --type-title: calc(15px * var(--zoom));
+  --type-body: calc(13px * var(--zoom));
+  --type-small: calc(12px * var(--zoom));
+  --type-tiny: calc(11px * var(--zoom));
   --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 20px; --space-6: 24px;
   --radius-pane: 14px; --radius-group: 10px; --radius-row: 7px; --radius-pill: 999px;
-  --control-h: 28px;
+  --control-h: calc(28px * var(--zoom));
+  --left-w: calc(216px * var(--zoom));
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
 
   --bg: #eef0f4;
   --pane: #ffffff;
+  --pane-bg: var(--pane);
   --group: #f5f6f8;
   --fill: rgba(60, 60, 67, 0.08);
   --fill-strong: rgba(60, 60, 67, 0.14);
@@ -37,6 +50,21 @@
   --grid-minor: rgba(60, 60, 67, 0.06);
   --grid-major: rgba(60, 60, 67, 0.14);
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 4px 16px rgba(0, 0, 0, 0.06);
+  --shadow-pop: 0 10px 40px rgba(0, 0, 0, 0.16), 0 1px 3px rgba(0, 0, 0, 0.08);
+
+  /* Glass */
+  --glass-pane: rgba(255, 255, 255, 0.68);
+  --glass-group: rgba(246, 247, 250, 0.62);
+  --glass-pop: rgba(255, 255, 255, 0.78);
+  --glass-rim: rgba(255, 255, 255, 0.7);
+  --glass-blur: 22px;
+  --glass-sat: 1.8;
+  --specular: rgba(255, 255, 255, 0.75);
+  --sheen: rgba(255, 255, 255, 0.45);
+  --amb-1: rgba(122, 170, 255, 0.55);
+  --amb-2: rgba(196, 160, 255, 0.42);
+  --amb-3: rgba(110, 222, 200, 0.40);
+  --amb-4: rgba(255, 196, 150, 0.30);
   color-scheme: light;
 }
 
@@ -63,8 +91,26 @@
   --grid-minor: rgba(235, 235, 245, 0.05);
   --grid-major: rgba(235, 235, 245, 0.12);
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 20px rgba(0, 0, 0, 0.35);
+  --shadow-pop: 0 16px 50px rgba(0, 0, 0, 0.55), 0 1px 3px rgba(0, 0, 0, 0.4);
+
+  --glass-pane: rgba(30, 30, 34, 0.62);
+  --glass-group: rgba(52, 52, 58, 0.5);
+  --glass-pop: rgba(36, 36, 40, 0.8);
+  --glass-rim: rgba(255, 255, 255, 0.09);
+  --specular: rgba(255, 255, 255, 0.10);
+  --sheen: rgba(255, 255, 255, 0.05);
+  --amb-1: rgba(48, 92, 210, 0.42);
+  --amb-2: rgba(120, 70, 210, 0.34);
+  --amb-3: rgba(20, 140, 140, 0.30);
+  --amb-4: rgba(200, 90, 60, 0.16);
   color-scheme: dark;
 }
+
+/* Projector: larger type, stronger text and lines, no translucency */
+:root.projector { --proj-scale: 1.18; --text-2: rgba(0, 0, 0, 0.86); --text-3: rgba(0, 0, 0, 0.68); --separator: rgba(0, 0, 0, 0.26); --fill: rgba(0, 0, 0, 0.09); --fill-strong: rgba(0, 0, 0, 0.16); --bg: #e6e8ec; }
+:root.projector[data-theme="dark"] { --text-2: rgba(255, 255, 255, 0.9); --text-3: rgba(255, 255, 255, 0.72); --separator: rgba(255, 255, 255, 0.26); --fill: rgba(255, 255, 255, 0.14); --fill-strong: rgba(255, 255, 255, 0.22); --bg: #000; }
+:root.projector .pane { box-shadow: 0 0 0 1.5px var(--separator); }
+:root.projector .badge { font-weight: 700; }
 
 * { box-sizing: border-box; }
 html, body, #app { margin: 0; height: 100%; }
@@ -80,6 +126,7 @@ body {
 .mono, .num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 
 button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 .btn {
   height: var(--control-h);
@@ -92,18 +139,20 @@ button, input, select, textarea { font: inherit; color: inherit; }
   align-items: center;
   gap: 6px;
   white-space: nowrap;
-  transition: background 120ms ease, transform 120ms ease;
+  font-size: var(--type-body);
+  transition: background 120ms ease, transform 120ms ease, box-shadow 160ms ease;
 }
 .btn:hover { background: var(--fill-strong); }
 .btn:active { transform: scale(0.97); }
 .btn:disabled { opacity: 0.45; cursor: default; transform: none; }
-.btn.primary { background: var(--accent); color: var(--on-accent); }
+.btn.primary { background: var(--accent); color: var(--on-accent); box-shadow: 0 1px 2px rgba(10, 108, 255, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.18); }
 .btn.primary:hover { filter: brightness(1.06); }
 .btn.ghost { background: transparent; }
 .btn.ghost:hover { background: var(--hover); }
 .btn.active { background: var(--accent-soft); color: var(--accent); }
 .btn.icon { width: var(--control-h); padding: 0; justify-content: center; }
 .btn.danger { color: var(--danger); }
+.btn.small { font-size: var(--type-small); height: calc(26px * var(--zoom)); padding: 0 8px; }
 
 .field {
   height: var(--control-h);
@@ -113,13 +162,16 @@ button, input, select, textarea { font: inherit; color: inherit; }
   padding: 0 8px;
   min-width: 0;
   outline: none;
+  font-size: var(--type-body);
 }
 .field:focus { border-color: var(--accent); background: var(--pane); }
 .field.invalid { border-color: var(--danger); }
+.field:disabled { opacity: 0.5; cursor: default; }
 select.field { padding-right: 4px; }
+textarea.field { height: auto; padding: 6px 8px; resize: vertical; line-height: 1.45; }
 
 .pane {
-  background: var(--pane);
+  background: var(--pane-bg);
   border-radius: var(--radius-pane);
   box-shadow: var(--shadow);
   display: flex;
@@ -138,21 +190,39 @@ select.field { padding-right: 4px; }
 .pane-body { flex: 1; overflow: auto; padding: 4px 12px 12px; min-height: 0; }
 
 .group { background: var(--group); border-radius: var(--radius-group); padding: 6px 10px; margin-bottom: 10px; }
-.group-title { font-size: var(--type-small); color: var(--text-3); font-weight: 600; margin: 10px 2px 4px; text-transform: none; }
-.row { display: flex; align-items: center; gap: var(--space-2); min-height: 32px; }
+.group-title { font-size: var(--type-small); color: var(--text-3); font-weight: 600; margin: 10px 2px 4px; text-transform: none; display: flex; align-items: center; gap: 6px; }
+.row { display: flex; align-items: center; gap: var(--space-2); min-height: calc(32px * var(--zoom)); }
 .row + .row { border-top: 1px solid var(--separator); }
-.row > label { flex: 0 0 auto; width: 104px; color: var(--text-2); font-size: var(--type-small); }
+.row > label { flex: 0 0 auto; width: calc(104px * var(--zoom)); color: var(--text-2); font-size: var(--type-small); }
 .row > .grow { flex: 1; min-width: 0; }
 
 .tabs { display: flex; gap: 2px; padding: 2px; background: var(--fill); border-radius: var(--radius-row); }
-.tabs button { flex: 1; height: 24px; border: 0; background: transparent; border-radius: 6px; cursor: pointer; font-size: var(--type-small); }
-.tabs button.on { background: var(--pane); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12); font-weight: 600; }
+.tabs button { flex: 1 1 0; min-width: 0; padding: 0 4px; height: calc(24px * var(--zoom)); border: 0; background: transparent; border-radius: 6px; cursor: pointer; font-size: var(--type-small); color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: background 140ms ease, color 140ms ease; }
+.tabs button:hover { color: var(--text); }
+.tabs button.on { background: var(--pane); color: var(--text); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12), 0 0 0 0.5px rgba(0, 0, 0, 0.04); font-weight: 600; }
+
+/* Segmented control (page switcher, theme, quality) */
+.segmented { display: inline-flex; gap: 2px; padding: 2px; background: var(--fill); border-radius: 9px; }
+.segmented button { height: calc(26px * var(--zoom)); padding: 0 12px; border: 0; background: transparent; border-radius: 7px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: var(--type-small); color: var(--text-2); white-space: nowrap; transition: background 160ms ease, color 160ms ease, box-shadow 160ms ease; }
+.segmented button:hover { color: var(--text); }
+.segmented button.on { background: var(--pane); color: var(--text); font-weight: 600; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.14), 0 0 0 0.5px rgba(0, 0, 0, 0.05); }
+:root[data-theme="dark"] .segmented button.on, :root[data-theme="dark"] .tabs button.on { background: #3a3a3f; }
+
+/* iOS-style switch on a checkbox */
+input[type="checkbox"].switch { appearance: none; -webkit-appearance: none; width: 34px; height: 20px; border-radius: 999px; background: var(--fill-strong); position: relative; cursor: pointer; flex: 0 0 auto; margin: 0; transition: background 160ms ease; }
+input[type="checkbox"].switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3); transition: transform 180ms var(--ease-out); }
+input[type="checkbox"].switch:checked { background: var(--success); }
+input[type="checkbox"].switch:checked::after { transform: translateX(14px); }
+input[type="checkbox"].switch:disabled { opacity: 0.45; cursor: default; }
+input[type="range"] { accent-color: var(--accent); }
 
 .badge { display: inline-flex; align-items: center; height: 20px; padding: 0 7px; border-radius: var(--radius-pill); font-size: var(--type-tiny); font-weight: 600; background: var(--fill); color: var(--text-2); white-space: nowrap; }
 .badge.ok { background: var(--success-soft); color: var(--success); }
 .badge.warn { background: var(--warning-soft); color: var(--warning); }
 .badge.bad { background: var(--danger-soft); color: var(--danger); }
 .badge.info { background: var(--accent-soft); color: var(--accent); }
+
+kbd { font-family: var(--font-mono); font-size: var(--type-tiny); background: var(--fill); border-radius: 5px; padding: 1px 6px; margin: 0 1px; box-shadow: inset 0 -1px 0 var(--separator); white-space: nowrap; }
 
 .muted { color: var(--text-3); }
 .small { font-size: var(--type-small); }
@@ -165,15 +235,105 @@ select.field { padding-right: 4px; }
 .check { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; font-size: var(--type-small); }
 .check input { accent-color: var(--accent); }
 
-.dialog-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.32); display: flex; align-items: center; justify-content: center; z-index: 9000; }
-.dialog { background: var(--pane); border-radius: 18px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); width: min(880px, calc(100vw - 48px)); max-height: calc(100vh - 48px); display: flex; flex-direction: column; overflow: hidden; }
-.dialog-header { display: flex; align-items: center; padding: 16px 20px 8px; font-size: 17px; font-weight: 600; gap: 8px; }
+/* Menus and popovers */
+.menu { position: absolute; z-index: 8000; min-width: 220px; padding: 5px; border-radius: 12px; background: var(--pane); box-shadow: var(--shadow-pop), 0 0 0 0.5px var(--separator); display: flex; flex-direction: column; gap: 1px; animation: pop-in 140ms var(--ease-out); }
+.menu > button, .menu > label { display: flex; align-items: center; gap: 8px; height: calc(30px * var(--zoom)); padding: 0 10px; border: 0; border-radius: 7px; background: transparent; cursor: pointer; text-align: left; font-size: var(--type-body); white-space: nowrap; }
+.menu > button:hover, .menu > label:hover { background: var(--accent); color: var(--on-accent); }
+.menu > button:hover .muted, .menu > label:hover .muted { color: inherit; opacity: 0.8; }
+.menu > button:disabled { opacity: 0.45; cursor: default; background: transparent; color: inherit; }
+.menu .sep { height: 1px; background: var(--separator); margin: 4px 6px; }
+.menu .menu-title { font-size: var(--type-tiny); color: var(--text-3); font-weight: 600; padding: 4px 10px 2px; }
+@keyframes pop-in { from { opacity: 0; transform: translateY(-4px) scale(0.98); } to { opacity: 1; transform: none; } }
+
+.dialog-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.32); display: flex; align-items: center; justify-content: center; z-index: 9000; animation: fade-in 140ms ease; }
+.dialog { background: var(--pane); border-radius: 18px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); width: min(880px, calc(100vw - 48px)); max-height: calc(100vh - 48px); display: flex; flex-direction: column; overflow: hidden; animation: pop-in 180ms var(--ease-out); }
+.dialog-header { display: flex; align-items: center; padding: 16px 20px 8px; font-size: calc(17px * var(--zoom)); font-weight: 600; gap: 8px; }
 .dialog-body { padding: 8px 20px 16px; overflow: auto; }
 .dialog-footer { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 20px 16px; border-top: 1px solid var(--separator); }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 
-.toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--pane); padding: 8px 14px; border-radius: 12px; box-shadow: var(--shadow); z-index: 9500; font-size: var(--type-small); max-width: 70vw; }
+.toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--pane); padding: 8px 14px; border-radius: 12px; box-shadow: var(--shadow); z-index: 9500; font-size: var(--type-small); max-width: 70vw; animation: fade-in 160ms ease; }
 .toast.error { background: var(--danger); color: #fff; }
+
+/* Progress bar */
+.progress { height: 4px; border-radius: 999px; background: var(--fill); overflow: hidden; }
+.progress > i { display: block; height: 100%; width: 100%; background: var(--accent); transform-origin: left; transition: transform 200ms linear; border-radius: inherit; }
+
+/* Pages and tab panels: shown, hidden (rendering skipped, layout kept), or laid out invisibly once after mount */
+.is-off { content-visibility: hidden; visibility: hidden; pointer-events: none; }
+.is-warming { visibility: hidden; pointer-events: none; }
+/* Page switch: ≤ 180 ms, opacity and transform only */
+.page.is-on { animation: page-in 170ms var(--ease-out); }
+@keyframes page-in { from { opacity: 0; transform: translateY(6px) scale(0.996); } to { opacity: 1; transform: none; } }
+:root.fx-calm .page.is-on, :root.fx-off .page.is-on { animation: none; }
+/* Reduced motion: no transitions or animations at all (the ambient background stays, motionless) */
+:root.fx-calm *, :root.fx-calm *::before, :root.fx-calm *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+:root.fx-calm .ambient i { animation: none !important; }
 
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--fill-strong); border-radius: 10px; border: 2px solid transparent; background-clip: padding-box; }
 ::-webkit-scrollbar-track { background: transparent; }
+
+/* ---- Dynamic glass ---- */
+/* Standard quality: translucent panes over the (already soft) ambient background, no backdrop filter on the large
+   panes, so page and tab switches never re-blur the screen. High quality adds the real backdrop blur and saturation.
+   Menus, dialogs and toasts always blur what is behind them (small, short-lived, and over content). */
+:root.fx-glass { --pane-bg: var(--glass-pane); --group: var(--glass-group); }
+:root.fx-glass .pane, :root.fx-glass .glass {
+  position: relative;
+  isolation: isolate;
+  box-shadow: var(--shadow), inset 0 0 0 0.5px var(--glass-rim), inset 0 1px 0 var(--glass-rim);
+}
+:root.fx-glass .glass { background: var(--glass-pane); }
+:root.fx-glass.fx-high .pane, :root.fx-glass.fx-high .glass {
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+}
+/* Pointer-following specular highlight: a soft disc on its own layer, moved by transform only (no repaint),
+   under the content of the pane (negative z-index inside the isolated pane) */
+:root.fx-glass .pane::before, :root.fx-glass .glass::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 560px;
+  height: 560px;
+  margin: -280px 0 0 -280px;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: -1;
+  background: radial-gradient(closest-side, var(--specular), transparent);
+  transform: translate3d(var(--hx, -2000px), var(--hy, -2000px), 0);
+  opacity: var(--hl, 0);
+  transition: opacity 420ms ease;
+  will-change: transform;
+}
+/* Static sheen along the top edge */
+:root.fx-glass .pane::after, :root.fx-glass .glass::after {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 64px;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: -1;
+  background: linear-gradient(180deg, var(--sheen), transparent);
+}
+:root.fx-glass .menu { background: var(--glass-pop); -webkit-backdrop-filter: blur(28px) saturate(1.9); backdrop-filter: blur(28px) saturate(1.9); box-shadow: var(--shadow-pop), inset 0 0 0 0.5px var(--glass-rim); }
+:root.fx-glass .dialog { background: var(--glass-pop); -webkit-backdrop-filter: blur(34px) saturate(1.9); backdrop-filter: blur(34px) saturate(1.9); box-shadow: 0 24px 70px rgba(0, 0, 0, 0.3), inset 0 0 0 0.5px var(--glass-rim); }
+:root.fx-glass .dialog-backdrop { background: rgba(0, 0, 0, 0.22); }
+:root.fx-glass .toast { -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }
+
+/* ---- Ambient background ---- */
+.ambient { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; display: none; contain: strict; }
+:root.fx-ambient .ambient { display: block; }
+.ambient i { position: absolute; width: 72vmax; height: 72vmax; border-radius: 50%; will-change: transform; animation: amb-drift-a 56s steps(140) infinite alternate; }
+.ambient i:nth-child(1) { background: radial-gradient(closest-side, var(--amb-1), transparent); top: -30vmax; left: -18vmax; }
+.ambient i:nth-child(2) { background: radial-gradient(closest-side, var(--amb-2), transparent); top: -20vmax; right: -26vmax; animation-name: amb-drift-b; animation-duration: 64s; }
+.ambient i:nth-child(3) { background: radial-gradient(closest-side, var(--amb-3), transparent); bottom: -36vmax; left: 12vmax; animation-name: amb-drift-c; animation-duration: 72s; }
+.ambient i:nth-child(4) { background: radial-gradient(closest-side, var(--amb-4), transparent); bottom: -30vmax; right: -10vmax; width: 56vmax; height: 56vmax; animation-name: amb-drift-b; animation-duration: 80s; animation-direction: alternate-reverse; }
+:root.fx-smooth .ambient i { animation-timing-function: ease-in-out; }
+:root.fx-still .ambient i { animation-play-state: paused; }
+@keyframes amb-drift-a { from { transform: translate3d(0, 0, 0) scale(1); } to { transform: translate3d(22vmax, 12vmax, 0) scale(1.18); } }
+@keyframes amb-drift-b { from { transform: translate3d(0, 0, 0) scale(1.1); } to { transform: translate3d(-20vmax, 16vmax, 0) scale(0.92); } }
+@keyframes amb-drift-c { from { transform: translate3d(0, 0, 0) scale(0.95); } to { transform: translate3d(16vmax, -14vmax, 0) scale(1.15); } }

@@ -58,7 +58,7 @@ describe('kinematics vs numerical differentiation', () => {
       for (const f of feats) {
         const k = contactKin(f, poses(0))
         check(`${f.key} gap`, hh => contactKin(f, poses(hh)).gap, k.jn, k.cn, k.vn)
-        // tangential velocity: d vt/dt = ct when a = 0
+        // Tangential velocity: d vt/dt = ct when a = 0
         const dvt = (contactKin(f, poses(h)).vt - contactKin(f, poses(-h)).vt) / (2 * h)
         expect(Math.abs(dvt - k.ct), `${f.key} ct`).toBeLessThan(1e-6 * Math.max(1, Math.abs(k.ct)))
         // vt = Jt·v (+ belt)

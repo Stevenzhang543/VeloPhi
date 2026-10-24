@@ -1,9 +1,11 @@
 /**
  * Formula matching: for a moment t, take the situations active at t, evaluate every formula of each
  * situation with the situation's variables, compare with the simulated measurement and grade the result.
- *   exact formulas   relative error ≤ 1e-6 (absolute ≤ 1e-9 × scale near zero) → 一致
- *   approximations   graded by their approximation condition: 成立 / 近似 / 近似失效
- *   conditions fail  → 不适用 (the card is listed separately with the reason)
+ *   exact formulas    relative error ≤ 1e-6 (energy ledger 1e-8), or absolute ≤ 1e-9 × max(1, |theory|)
+ *                     → 'match', otherwise 'deviate'
+ *   approximations    graded by their approximation condition: 'approx-ok' / 'approx' / 'approx-invalid'
+ *   conditions fail   → 'not-applicable' (the card is listed separately with the reason)
+ *   no measurement    → 'no-measure'
  */
 import type { FormulaDef } from './library'
 import { FORMULAS } from './library'
@@ -12,10 +14,13 @@ import { dimension, evaluate, parse, toLatex } from './expr'
 import { dimEqual, unitDim } from './units'
 import type { Condition, Sample, Situation } from './situations'
 
+/** Limits of 'match': relative, absolute (relative to max(1, |theory|)), and relative for the energy ledger. */
 export const THRESHOLDS = { exactRel: 1e-6, exactAbs: 1e-9, energyRel: 1e-8 }
 
+/** Grade of a formula card (see the module header). */
 export type Verdict = 'match' | 'deviate' | 'approx-ok' | 'approx' | 'approx-invalid' | 'not-applicable' | 'no-measure'
 
+/** A formula evaluated for a situation and compared with the simulation. */
 export interface FormulaCard {
   key: string
   formula: FormulaDef
@@ -23,12 +28,17 @@ export interface FormulaCard {
   verdict: Verdict
   /** Conditions this formula depends on, with their status. */
   conditions: Condition[]
+  /** Theoretical value (SI). */
   theory: number | null
+  /** Simulated measurement (SI). */
   sim: number | null
+  /** Simulation minus theory, and its size relative to the larger of the two. */
   absError: number | null
   relError: number | null
+  /** LaTeX: the symbolic form, and the form with values substituted. */
   symbolic: string
   substituted: string
+  /** User-facing explanation of the verdict. */
   reason: string
   measureLabel: string
   measureNote?: string
@@ -41,8 +51,10 @@ function ast(f: FormulaDef): Node {
   return a
 }
 
+/** Number formatting of the cards. */
 export interface FormatOptions { digits: number }
 
+/** Number in LaTeX with `digits` significant digits (×10ⁿ outside [1e-3, 1e6)). */
 export function formatNumber(v: number, digits: number): string {
   if (!Number.isFinite(v)) return String(v)
   if (v === 0) return '0'
@@ -78,6 +90,7 @@ function unitLatex(u: string): string {
   return `\\,\\mathrm{${u.replace(/·/g, '\\cdot ').replace(/²/g, '^2').replace(/\//g, '/')}}`
 }
 
+/** Evaluate one formula for a situation sample and grade it. */
 export function evaluateCard(f: FormulaDef, sit: Situation, sample: Sample, opts: FormatOptions): FormulaCard {
   const node = ast(f)
   const conds = sample.conditions
@@ -95,7 +108,7 @@ export function evaluateCard(f: FormulaDef, sit: Situation, sample: Sample, opts
     const show = (name: string) => {
       const v = sample.vars[name]
       if (!v) return null
-      // angles are entered and read in degrees; the evaluation itself stays in radians
+      // Angles are shown in degrees; the evaluation itself stays in radians
       if (v.unit === 'rad') return `${formatNumber(v.value * 180 / Math.PI, opts.digits)}^\\circ`
       return formatNumber(v.value, opts.digits)
     }
@@ -138,10 +151,12 @@ export function evaluateCard(f: FormulaDef, sit: Situation, sample: Sample, opts
   }
 }
 
+/** Situations active at t: from their event time (if any, else t0) to t1. */
 export function activeSituations(sits: Situation[], t: number): Situation[] {
   return sits.filter(s => (s.tEvent !== undefined ? t >= s.tEvent - 1e-12 && t <= s.t1 + 1e-12 : t >= s.t0 - 1e-12 && t <= s.t1 + 1e-12))
 }
 
+/** Formula cards of all situations active at t. */
 export function cardsAt(sits: Situation[], t: number, opts: FormatOptions = { digits: 6 }): FormulaCard[] {
   const cards: FormulaCard[] = []
   for (const s of activeSituations(sits, t)) {
@@ -153,7 +168,7 @@ export function cardsAt(sits: Situation[], t: number, opts: FormatOptions = { di
 
 /** Dimension check of one formula against its declared unit with the given variable units. */
 export function checkDimensions(f: FormulaDef, varUnits: Record<string, string>): string | null {
-  if (f.expr.trim() === '0') return null // zero carries any dimension
+  if (f.expr.trim() === '0') return null // Zero carries any dimension
   try {
     const dims: Record<string, readonly [number, number, number]> = {}
     for (const [k, u] of Object.entries(varUnits)) dims[k] = unitDim(u)

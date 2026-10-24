@@ -13,35 +13,55 @@
  */
 import type { Vec2 } from '../math/vec'
 import { atan2 as atan2Det, cos, sin } from '../math/dmath'
-import type { AnchorModel, BodyModel, Model, RopeModel } from './model'
+import type { AnchorModel, BodyModel, Model, PulleyModel, RopeModel } from './model'
 
+/** Pose and velocity of a body: position (m), c = cos θ, s = sin θ, velocity (m/s) and ω (rad/s). */
 export interface Pose { x: number; y: number; c: number; s: number; vx: number; vy: number; w: number }
 
 /** Poses of all bodies (global index) for state X = [q(3n), v(3n), …]. */
 export function computePoses(model: Model, X: Float64Array): Pose[] {
   const n = model.n
-  return model.bodies.map(b => {
+  const bodies = model.bodies
+  const out: Pose[] = new Array(bodies.length)
+  for (let k = 0; k < bodies.length; k++) {
+    const b = bodies[k]
     if (b.index < 0) {
-      return { x: b.staticPos.x, y: b.staticPos.y, c: cos(b.staticAngle), s: sin(b.staticAngle), vx: 0, vy: 0, w: 0 }
+      out[k] = { x: b.staticPos.x, y: b.staticPos.y, c: b.staticC, s: b.staticS, vx: 0, vy: 0, w: 0 }
+      continue
     }
     const i = b.index
     const th = X[3 * i + 2]
-    return { x: X[3 * i], y: X[3 * i + 1], c: cos(th), s: sin(th), vx: X[3 * n + 3 * i], vy: X[3 * n + 3 * i + 1], w: X[3 * n + 3 * i + 2] }
-  })
+    out[k] = { x: X[3 * i], y: X[3 * i + 1], c: cos(th), s: sin(th), vx: X[3 * n + 3 * i], vy: X[3 * n + 3 * i + 1], w: X[3 * n + 3 * i + 2] }
+  }
+  return out
 }
 
-/** A row of the Jacobian with at most two bodies (dynamic index or −1). */
-export interface RowJ { ai: number; ax: number; ay: number; aw: number; bi: number; bx: number; by: number; bw: number }
+/** A term of a Jacobian row on one dynamic body (generalized components x, y, θ). */
+export interface RowTerm { i: number; x: number; y: number; w: number }
 
+/**
+ * A row of the Jacobian. Contacts, hinges, rods and ropes over fixed pulleys involve at most two bodies
+ * (slots a and b, dynamic index or −1); a rope over movable pulleys may involve more, listed in `ex`
+ * (each body at most once over a, b and ex).
+ */
+export interface RowJ { ai: number; ax: number; ay: number; aw: number; bi: number; bx: number; by: number; bw: number; ex?: RowTerm[] }
+
+/** A row with no terms. */
 export const emptyRow = (): RowJ => ({ ai: -1, ax: 0, ay: 0, aw: 0, bi: -1, bx: 0, by: 0, bw: 0 })
 
+/** Position, velocity and velocity-product acceleration of a material point of a body. */
 export interface PointState {
-  /** World position. */ px: number; py: number
-  /** Offset from the body origin (centre of mass). */ rx: number; ry: number
-  /** Velocity of the material point. */ vx: number; vy: number
-  /** Velocity-product part of its acceleration: −ω²r. */ qx: number; qy: number
+  /** World position. */
+  px: number; py: number
+  /** Offset from the body origin (centre of mass). */
+  rx: number; ry: number
+  /** Velocity of the material point. */
+  vx: number; vy: number
+  /** Velocity-product part of its acceleration: −ω²r. */
+  qx: number; qy: number
 }
 
+/** State of the point at body coordinates `local`. */
 export function pointState(pose: Pose, local: Vec2): PointState {
   const rx = pose.c * local.x - pose.s * local.y
   const ry = pose.s * local.x + pose.c * local.y
@@ -55,23 +75,30 @@ export function anchorState(poses: Pose[], anchor: AnchorModel): PointState {
   return pointState(poses[anchor.body.global], anchor.local)
 }
 
-// ---------------------------------------------------------------------------------------------- features
-export interface PointFeature { body: BodyModel; local: Vec2; radius: number; /** polygon vertex index, −1 for a circle centre */ vertex: number }
+// ---- Contact features ----
+/** A point feature: circle centre or polygon vertex (`vertex` −1 for a circle centre) with its radius. */
+export interface PointFeature { body: BodyModel; local: Vec2; radius: number; vertex: number }
+/** A polygon face from e0 to e1 (body coordinates) with its outward normal and length. */
 export interface FaceFeature { body: BodyModel; face: number; e0: Vec2; e1: Vec2; normal: Vec2; len: number }
+/** A possible contact: point against face ('pf'), or point against point ('pp', with the vertex cone of B). */
 export type ContactFeature =
   | { kind: 'pf'; key: string; A: PointFeature; B: FaceFeature }
   | { kind: 'pp'; key: string; A: PointFeature; B: PointFeature; cone: null | { n1: Vec2; n2: Vec2 } }
 
+/** Kinematics of a contact feature: gap (m), frame, contact point, and the normal and tangential rows. */
 export interface ContactKin {
   gap: number
   /** Normal from B to A, tangent t = perp(n). */
   nx: number; ny: number; tx: number; ty: number
   /** Contact point (on A's surface). */
   cx: number; cy: number
+  /** Relative normal velocity (m/s), positive when separating. */
   vn: number
   /** Relative tangential velocity of A against B (surface speed of a conveyor B included). */
   vt: number
+  /** Normal row and its velocity-product term. */
   jn: RowJ; cn: number
+  /** Tangential row and its velocity-product term. */
   jt: RowJ; ct: number
   /** Feature validity: position along the face (pf), or the two cone margins (pp at a vertex); ≥ 0 inside. */
   m1: number; m2: number
@@ -83,6 +110,7 @@ function fill(row: RowJ, A: BodyModel, ax: number, ay: number, aw: number, B: Bo
   return row
 }
 
+/** Kinematics of a contact feature at the given poses. */
 export function contactKin(f: ContactFeature, poses: Pose[]): ContactKin {
   const A = f.A.body, PA = poses[A.global]
   const pa = pointState(PA, f.A.local)
@@ -98,14 +126,14 @@ export function contactKin(f: ContactFeature, poses: Pose[]): ContactKin {
     const Wx = pa.px - p0.px, Wy = pa.py - p0.py
     const dWx = pa.vx - p0.vx, dWy = pa.vy - p0.vy
     const gap = nx * Wx + ny * Wy - radA
-    const tW = tx * Wx + ty * Wy // perp(n)·w
+    const tW = tx * Wx + ty * Wy // t·W = perp(n)·W
     const vn = wB * tW + nx * dWx + ny * dWy
     // n·perp(r) = n.y·r.x − n.x·r.y
     const nPerpRA = ny * pa.rx - nx * pa.ry
     const nPerpR0 = ny * p0.rx - nx * p0.ry
     const jn = fill(emptyRow(), A, nx, ny, nPerpRA, B, -nx, -ny, tW - nPerpR0)
     const cn = -wB * wB * (nx * Wx + ny * Wy) + 2 * wB * (tx * dWx + ty * dWy) + nx * (pa.qx - p0.qx) + ny * (pa.qy - p0.qy)
-    // contact point and tangential kinematics
+    // Contact point and tangential kinematics
     const cx = pa.px - radA * nx, cy = pa.py - radA * ny
     const rhoAx = cx - PA.x, rhoAy = cy - PA.y
     const rhoBx = cx - PB.x, rhoBy = cy - PB.y
@@ -123,7 +151,7 @@ export function contactKin(f: ContactFeature, poses: Pose[]): ContactKin {
     const s = tx * Wx + ty * Wy
     return { gap, nx, ny, tx, ty, cx, cy, vn, vt, jn, cn, jt, ct, m1: s, m2: f.B.len - s }
   }
-  // point–point
+  // Point–point
   const B = f.B.body, PB = poses[B.global]
   const pb = pointState(PB, f.B.local)
   const radB = f.B.radius
@@ -201,12 +229,13 @@ export function pairFeatures(X: BodyModel, Y: BodyModel): ContactFeature[] {
   return out
 }
 
-// ---------------------------------------------------------------------------------------------- connectors
+// ---- Connectors ----
+/** Value, rate, Jacobian row and velocity-product term of a scalar constraint. */
 export interface ConstraintKin { value: number; vel: number; j: RowJ; c: number }
 
 function anchorRow(row: RowJ, side: 'a' | 'b', anchor: AnchorModel, gx: number, gy: number, p: PointState) {
   if (!anchor.body || anchor.body.index < 0) return
-  // generalized force of a unit force (gx, gy) at the point: (gx, gy, r × g)
+  // Generalized force of a unit force (gx, gy) at the point: (gx, gy, r × g)
   const w = p.rx * gy - p.ry * gx
   if (side === 'a') { row.ai = anchor.body.index; row.ax = gx; row.ay = gy; row.aw = w } else { row.bi = anchor.body.index; row.bx = gx; row.by = gy; row.bw = w }
 }
@@ -239,15 +268,19 @@ export function hingeKin(poses: Pose[], a: AnchorModel, b: AnchorModel): [Constr
   ]
 }
 
+/** Geometry of a rope's path over its pulleys. */
 export interface RopePath {
   /** Total path length (m). */
   length: number
+  /** Free segments in order from A to B: unit direction (towards B) and length. */
+  segs: Array<{ u: Vec2; s: number }>
   /** Points of the drawn rope: A, the tangent points on each pulley (in, out), B. */
   points: Vec2[]
   /** Pulley arcs for drawing: centre, radius, start and end angle, direction. */
   arcs: Array<{ x: number; y: number; r: number; from: number; to: number; wrap: 1 | -1 }>
   /** Unit vector of the first free segment (from A towards the first pulley) and of the last (towards B). */
   u1: Vec2; uLast: Vec2
+  /** Lengths of the first and last free segments (m). */
   s1: number; sLast: number
 }
 
@@ -257,7 +290,7 @@ function tangent(c1: Vec2, rho1: number, c2: Vec2, rho2: number): { p1: Vec2; p2
   const L2 = Dx * Dx + Dy * Dy, L = Math.sqrt(L2)
   const k = (rho1 - rho2) / L
   const q = Math.sqrt(Math.max(0, 1 - k * k))
-  // n = k·D/|D| + σ q·perp(D)/|D|; travel direction perp(n) must point along D.
+  // n = k·D/|D| + σ q·perp(D)/|D|; travel direction perp(n) must point along D
   let nx = (k * Dx + q * -Dy) / L, ny = (k * Dy + q * Dx) / L
   if (-ny * Dx + nx * Dy < 0) { nx = (k * Dx - q * -Dy) / L; ny = (k * Dy - q * Dx) / L }
   const p1 = { x: c1.x + rho1 * nx, y: c1.y + rho1 * ny }
@@ -269,43 +302,62 @@ function tangent(c1: Vec2, rho1: number, c2: Vec2, rho2: number): { p1: Vec2; p2
 function dist2(ax: number, bx: number, ay: number, by: number): number { const dx = ax - bx, dy = ay - by; return Math.sqrt(dx * dx + dy * dy) }
 
 function angleOf(cx: number, cy: number, p: Vec2): number {
-  return Math.atan2(p.y - cy, p.x - cx) // drawing only
+  return Math.atan2(p.y - cy, p.x - cx) // Drawing only
 }
 
+/** Axle of a pulley: fixed in the world, or a point of the dynamic body carrying it. */
+export function pulleyState(poses: Pose[], pulley: PulleyModel): PointState {
+  if (!pulley.body) return { px: pulley.position.x, py: pulley.position.y, rx: 0, ry: 0, vx: 0, vy: 0, qx: 0, qy: 0 }
+  return pointState(poses[pulley.body.global], pulley.position)
+}
+
+/** World position of a pulley's axle (drawing, picking). */
+export function pulleyCenter(poses: Pose[], pulley: PulleyModel): Vec2 {
+  if (!pulley.body) return pulley.position
+  const p = pulleyState(poses, pulley)
+  return { x: p.px, y: p.py }
+}
+
+/** Path of a rope at the given poses. */
 export function ropePath(poses: Pose[], rope: RopeModel): RopePath {
   const pa = anchorState(poses, rope.a), pb = anchorState(poses, rope.b)
   const A = { x: pa.px, y: pa.py }, B = { x: pb.px, y: pb.py }
   if (rope.pulleys.length === 0) {
     const dx = B.x - A.x, dy = B.y - A.y, d = Math.sqrt(dx * dx + dy * dy)
     const u = d > 0 ? { x: dx / d, y: dy / d } : { x: 0, y: 0 }
-    return { length: d, points: [A, B], arcs: [], u1: u, uLast: u, s1: d, sLast: d }
+    return { length: d, segs: [{ u, s: d }], points: [A, B], arcs: [], u1: u, uLast: u, s1: d, sLast: d }
   }
-  const circles = rope.pulleys.map(p => ({ c: p.pulley.position, rho: p.wrap * p.pulley.radius, r: p.pulley.radius, wrap: p.wrap }))
+  const circles = rope.pulleys.map(p => ({ c: rope.movable ? pulleyCenter(poses, p.pulley) : p.pulley.position, rho: p.wrap * p.pulley.radius, r: p.pulley.radius, wrap: p.wrap }))
   const points: Vec2[] = [A]
+  const segs: RopePath['segs'] = []
   let length = 0
   const arrivals: Vec2[] = [], departures: Vec2[] = []
   const first = tangent(A, 0, circles[0].c, circles[0].rho)
   length += dist2(first.p2.x, A.x, first.p2.y, A.y)
   const u1 = first.u, s1 = length
+  segs.push({ u: u1, s: s1 })
   arrivals.push(first.p2)
   points.push(first.p2)
   for (let i = 0; i + 1 < circles.length; i++) {
     const seg = tangent(circles[i].c, circles[i].rho, circles[i + 1].c, circles[i + 1].rho)
     departures.push(seg.p1); arrivals.push(seg.p2)
     points.push(seg.p1, seg.p2)
-    length += dist2(seg.p2.x, seg.p1.x, seg.p2.y, seg.p1.y)
+    const sk = dist2(seg.p2.x, seg.p1.x, seg.p2.y, seg.p1.y)
+    segs.push({ u: seg.u, s: sk })
+    length += sk
   }
   const lastC = circles[circles.length - 1]
   const last = tangent(lastC.c, lastC.rho, B, 0)
   departures.push(last.p1)
   points.push(last.p1, B)
   const sLast = dist2(B.x, last.p1.x, B.y, last.p1.y)
+  segs.push({ u: last.u, s: sLast })
   length += sLast
   const arcs: RopePath['arcs'] = []
   circles.forEach((circle, i) => {
     if (circle.r <= 0) return
     const a0 = angleOf(circle.c.x, circle.c.y, arrivals[i]), a1 = angleOf(circle.c.x, circle.c.y, departures[i])
-    // arc swept in the wrap direction, using the exact geometry (dot/cross) for the length
+    // Arc swept in the wrap direction, using the exact geometry (dot/cross) for the length
     const ux = arrivals[i].x - circle.c.x, uy = arrivals[i].y - circle.c.y
     const vx = departures[i].x - circle.c.x, vy = departures[i].y - circle.c.y
     const cr = ux * vy - uy * vx, dt = ux * vx + uy * vy
@@ -315,16 +367,68 @@ export function ropePath(poses: Pose[], rope: RopeModel): RopePath {
     length += circle.r * Math.abs(sweep)
     arcs.push({ x: circle.c.x, y: circle.c.y, r: circle.r, from: a0, to: a1, wrap: circle.wrap })
   })
-  return { length, points, arcs, u1, uLast: last.u, s1, sLast }
+  return { length, segs, points, arcs, u1, uLast: last.u, s1, sLast }
 }
 
 
+/** Accumulates the terms of a row over any number of bodies (each body once, in order of appearance). */
+class RowBuilder {
+  private terms: RowTerm[] = []
+  /** Generalized force of a unit force (gx, gy) at a point of the body with dynamic index i. */
+  add(i: number, gx: number, gy: number, p: PointState) {
+    if (i < 0) return
+    const w = p.rx * gy - p.ry * gx
+    for (const t of this.terms) if (t.i === i) { t.x += gx; t.y += gy; t.w += w; return }
+    this.terms.push({ i, x: gx, y: gy, w })
+  }
+  /** The accumulated row: the first two terms in slots a and b, the rest in `ex`. */
+  row(): RowJ {
+    const r = emptyRow()
+    const t = this.terms
+    if (t.length > 0) { r.ai = t[0].i; r.ax = t[0].x; r.ay = t[0].y; r.aw = t[0].w }
+    if (t.length > 1) { r.bi = t[1].i; r.bx = t[1].x; r.by = t[1].y; r.bw = t[1].w }
+    if (t.length > 2) r.ex = t.slice(2)
+    return r
+  }
+}
+
 /**
- * Rope as a unilateral constraint g = L − ℓ ≥ 0 (λ ≥ 0 is the tension). Pulleys are fixed, so
+ * Rope over movable pulleys. With the free segments k (unit direction u_k from endpoint k to k + 1, length
+ * s_k; endpoints: anchor A, the pulley axles in order, anchor B) the path length changes as
+ *   ℓ̇ = Σ u_k·(V_{k+1} − V_k),   ℓ̈ = Σ [u_k·(A_{k+1} − A_k) + |ΔV_k⊥|²/s_k],
+ * the arcs on the wheels changing exactly as the tangent points slide (the same argument as for fixed
+ * pulleys). The tension T pulls anchor A along u_0, anchor B along −u_last and each axle along u_out − u_in.
+ */
+function movableRopeKin(poses: Pose[], rope: RopeModel): ConstraintKin & { path: RopePath } {
+  const path = ropePath(poses, rope)
+  const ends: Array<{ i: number; p: PointState }> = [{ i: rope.a.body ? rope.a.body.index : -1, p: anchorState(poses, rope.a) }]
+  for (const pl of rope.pulleys) ends.push({ i: pl.pulley.body ? pl.pulley.body.index : -1, p: pulleyState(poses, pl.pulley) })
+  ends.push({ i: rope.b.body ? rope.b.body.index : -1, p: anchorState(poses, rope.b) })
+  const rb = new RowBuilder()
+  let lenRate = 0, c = 0
+  path.segs.forEach((seg, k) => {
+    const e0 = ends[k], e1 = ends[k + 1]
+    const ux = seg.u.x, uy = seg.u.y
+    // g = L − ℓ: gradient +u at the start, −u at the end of each segment
+    rb.add(e0.i, ux, uy, e0.p)
+    rb.add(e1.i, -ux, -uy, e1.p)
+    const dvx = e1.p.vx - e0.p.vx, dvy = e1.p.vy - e0.p.vy
+    const along = ux * dvx + uy * dvy
+    lenRate += along
+    const perpSq = dvx * dvx + dvy * dvy - along * along
+    c += ux * (e1.p.qx - e0.p.qx) + uy * (e1.p.qy - e0.p.qy) + (seg.s > 0 ? perpSq / seg.s : 0)
+  })
+  return { value: rope.length - path.length, vel: -lenRate, j: rb.row(), c: -c, path }
+}
+
+/**
+ * Rope as a unilateral constraint g = L − ℓ ≥ 0 (λ ≥ 0 is the tension). With fixed pulleys
  * ℓ̇ = −u1·V_A + uLast·V_B and ℓ̈ = −u1·A_A + uLast·A_B + |V_A⊥|²/s1 + |V_B⊥|²/sLast
- * (the wrap arcs change exactly as the tangent points move along the free segments).
+ * (the wrap arcs change exactly as the tangent points move along the free segments); movable pulleys add
+ * the terms of their axles (movableRopeKin).
  */
 export function ropeKin(poses: Pose[], rope: RopeModel): ConstraintKin & { path: RopePath } {
+  if (rope.movable) return movableRopeKin(poses, rope)
   if (rope.pulleys.length === 0) {
     // g = L − |PA − PB|: J = −∂|PA − PB|/∂q
     const k = distanceKin(poses, rope.a, rope.b)
@@ -347,7 +451,7 @@ export function ropeKin(poses: Pose[], rope: RopeModel): ConstraintKin & { path:
   return { value: rope.length - path.length, vel, j: row, c, path }
 }
 
-// ---------------------------------------------------------------------------------------------- probes
+// ---- Probes ----
 /**
  * A probe watches one point of body A (polygon vertex, or circle centre with its radius) against the whole
  * of body B. Its value is the signed distance from the point to B minus the radius: continuous, and negative
@@ -356,12 +460,15 @@ export function ropeKin(poses: Pose[], rope: RopeModel): ConstraintKin & { path:
  */
 export interface Probe { key: string; A: BodyModel; local: Vec2; radius: number; vertex: number; B: BodyModel }
 
+/** Key of the probe of vertex `vertex` of A (−1: the circle centre) against B. */
 export function probeKey(A: BodyModel, vertex: number, B: BodyModel): string { return `${A.id}#${vertex}>${B.id}` }
 
+/** Key of the probe that watches the point of a feature. */
 export function featureProbeKey(f: ContactFeature): string {
   return probeKey(f.A.body, f.A.vertex, f.B.body)
 }
 
+/** Probes of a body pair: a circle against the other body, or each polygon's vertices against the other polygon. */
 export function pairProbes(X: BodyModel, Y: BodyModel): Probe[] {
   const out: Probe[] = []
   const add = (A: BodyModel, B: BodyModel) => {
@@ -401,6 +508,7 @@ export function signedDistance(B: BodyModel, pose: Pose, px: number, py: number)
   return Math.sqrt(best)
 }
 
+/** Value of a probe: signed distance from its point to B minus its radius (m). */
 export function probeValue(p: Probe, poses: Pose[]): number {
   const pa = poses[p.A.global]
   const px = pa.x + pa.c * p.local.x - pa.s * p.local.y

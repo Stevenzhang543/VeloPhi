@@ -3690,7 +3690,7 @@ dependencies = [
 
 [[package]]
 name = "verity"
-version = "26.48.0"
+version = "26.49.0"
 dependencies = [
  "serde",
  "serde_json",

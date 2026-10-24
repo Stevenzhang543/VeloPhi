@@ -5,19 +5,28 @@
  * are set to 0 and the remaining equations are checked for consistency. Loop order and pivot choice are
  * fixed (first maximum wins), so the result is deterministic.
  */
+
+/** Result of `solveDense`. */
 export interface SolveResult {
+  /** Solution; unknowns of columns that never got a pivot are 0. */
   x: Float64Array
+  /** Number of pivots found. */
   rank: number
   /** Rows whose equation was satisfied only up to the residual (dependent rows). */
   dependent: number[]
   /** Largest residual of a dependent row, relative to the scale of the system. */
   residual: number
+  /** Whether the dependent rows hold within a relative residual of 1e-8. */
   consistent: boolean
 }
 
-export function solveDense(n: number, matrix: Float64Array, rhs: Float64Array, relativeTolerance = 1e-12): SolveResult {
-  const a = Float64Array.from(matrix)
-  const b = Float64Array.from(rhs)
+/**
+ * Solve A·x = b (n×n, row-major). With `consume` the inputs are used as work space (the caller does not
+ * need them afterwards); the result is the same either way.
+ */
+export function solveDense(n: number, matrix: Float64Array, rhs: Float64Array, relativeTolerance = 1e-12, consume = false): SolveResult {
+  const a = consume ? matrix : Float64Array.from(matrix)
+  const b = consume ? rhs : Float64Array.from(rhs)
   const colOrder = new Int32Array(n)
   for (let i = 0; i < n; i++) colOrder[i] = i
   let scale = 0
@@ -53,7 +62,7 @@ export function solveDense(n: number, matrix: Float64Array, rhs: Float64Array, r
     }
     rank++
   }
-  // Dependent rows: their eliminated right-hand side must vanish.
+  // Dependent rows: their eliminated right-hand side must vanish
   const dependent: number[] = []
   let residual = 0
   for (let i = rank; i < n; i++) {

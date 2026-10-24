@@ -1,10 +1,14 @@
 /**
- * One-step integrators for the smooth motion inside a mode. The right-hand side does not depend on time
- * explicitly in 26.48 (constant forces). All loops run in a fixed order, so a step is a pure function of
- * (X0, h) and can be repeated exactly — the event locator and exactStateAt rely on that.
+ * One-step integrators for the smooth motion inside a mode. Time enters the right-hand side only through
+ * the optional clock entry of the state (scenes with variable forces): `clock` is its index, and every
+ * stage sets it exactly to t₀ + cᵢ·h instead of integrating dt/dt = 1. All loops run in a fixed order, so
+ * a step is a pure function of (X0, h) and can be repeated exactly — the event locator and exactStateAt
+ * rely on that.
  */
+/** Right-hand side f of Ẋ = f(X), written into `out`. */
 export type Rhs = (X: Float64Array, out: Float64Array) => void
 
+/** Dormand–Prince 5(4) coefficients: stages a, solution weights b, error weights e. */
 const C = {
   a21: 1 / 5,
   a31: 3 / 40, a32: 9 / 40,
@@ -15,34 +19,57 @@ const C = {
   e1: 71 / 57600, e3: -71 / 16695, e4: 71 / 1920, e5: -17253 / 339200, e6: 22 / 525, e7: -1 / 40
 }
 
+/** Result of one integrator step. */
 export interface StepResult {
+  /** State at the end of the step. */
   X: Float64Array
   /** Scaled error norm (≤ 1 accepted); 0 for fixed-step methods. */
   err: number
+  /** Dormand–Prince: f(X) at the end of the step (equals the next step's k1 when X is kept as it is). */
+  k7?: Float64Array
 }
 
-export interface ErrorControl { relTol: number; absTol: number; /** Number of leading entries in the norm. */ count: number }
+/** Error control of an adaptive step; `count` is the number of leading state entries in the error norm. */
+export interface ErrorControl { relTol: number; absTol: number; count: number }
 
-/** Dormand–Prince 5(4). k1 = f(X0) may be passed in (first-same-as-last is not used: X1 is projected). */
-export function dopri5Step(f: Rhs, X0: Float64Array, h: number, ctl: ErrorControl, k1In?: Float64Array): StepResult {
+/** Stage buffers of dopri5Step, reused between calls (never returned; a step does not call itself). */
+const stageWork = new Map<number, Float64Array[]>()
+function stages(N: number): Float64Array[] {
+  let w = stageWork.get(N)
+  if (!w) { w = [0, 1, 2, 3, 4, 5].map(() => new Float64Array(N)); stageWork.set(N, w) }
+  return w
+}
+
+/**
+ * Dormand–Prince 5(4). k1 = f(X0) may be passed in. The result carries k7 = f(X1), which the driver
+ * reuses as the next k1 when X1 is kept unchanged (first same as last).
+ */
+export function dopri5Step(f: Rhs, X0: Float64Array, h: number, ctl: ErrorControl, k1In?: Float64Array, clock = -1): StepResult {
   const N = X0.length
   const k1 = k1In ?? new Float64Array(N)
   if (!k1In) f(X0, k1)
-  const k2 = new Float64Array(N), k3 = new Float64Array(N), k4 = new Float64Array(N)
-  const k5 = new Float64Array(N), k6 = new Float64Array(N), k7 = new Float64Array(N)
-  const Y = new Float64Array(N)
+  // Stage values are overwritten completely before use, so scratch buffers give the same bits as fresh ones
+  const [k2, k3, k4, k5, k6, Y] = stages(N)
+  const k7 = new Float64Array(N)
+  const t0 = clock >= 0 ? X0[clock] : 0
   for (let i = 0; i < N; i++) Y[i] = X0[i] + h * (C.a21 * k1[i])
+  if (clock >= 0) Y[clock] = t0 + 0.2 * h
   f(Y, k2)
   for (let i = 0; i < N; i++) Y[i] = X0[i] + h * (C.a31 * k1[i] + C.a32 * k2[i])
+  if (clock >= 0) Y[clock] = t0 + 0.3 * h
   f(Y, k3)
   for (let i = 0; i < N; i++) Y[i] = X0[i] + h * (C.a41 * k1[i] + C.a42 * k2[i] + C.a43 * k3[i])
+  if (clock >= 0) Y[clock] = t0 + 0.8 * h
   f(Y, k4)
   for (let i = 0; i < N; i++) Y[i] = X0[i] + h * (C.a51 * k1[i] + C.a52 * k2[i] + C.a53 * k3[i] + C.a54 * k4[i])
+  if (clock >= 0) Y[clock] = t0 + (8 / 9) * h
   f(Y, k5)
   for (let i = 0; i < N; i++) Y[i] = X0[i] + h * (C.a61 * k1[i] + C.a62 * k2[i] + C.a63 * k3[i] + C.a64 * k4[i] + C.a65 * k5[i])
+  if (clock >= 0) Y[clock] = t0 + h
   f(Y, k6)
   const X1 = new Float64Array(N)
   for (let i = 0; i < N; i++) X1[i] = X0[i] + h * (C.b1 * k1[i] + C.b3 * k3[i] + C.b4 * k4[i] + C.b5 * k5[i] + C.b6 * k6[i])
+  if (clock >= 0) X1[clock] = t0 + h
   f(X1, k7)
   let sum = 0
   for (let i = 0; i < ctl.count; i++) {
@@ -51,24 +78,29 @@ export function dopri5Step(f: Rhs, X0: Float64Array, h: number, ctl: ErrorContro
     const r = e / sc
     sum += r * r
   }
-  return { X: X1, err: Math.sqrt(sum / Math.max(1, ctl.count)) }
+  return { X: X1, err: Math.sqrt(sum / Math.max(1, ctl.count)), k7 }
 }
 
 /** Classical Runge–Kutta, fixed step. */
-export function rk4Step(f: Rhs, X0: Float64Array, h: number, k1In?: Float64Array): StepResult {
+export function rk4Step(f: Rhs, X0: Float64Array, h: number, k1In?: Float64Array, clock = -1): StepResult {
   const N = X0.length
   const k1 = k1In ?? new Float64Array(N)
   if (!k1In) f(X0, k1)
   const k2 = new Float64Array(N), k3 = new Float64Array(N), k4 = new Float64Array(N)
   const Y = new Float64Array(N)
+  const t0 = clock >= 0 ? X0[clock] : 0
   for (let i = 0; i < N; i++) Y[i] = X0[i] + 0.5 * h * k1[i]
+  if (clock >= 0) Y[clock] = t0 + 0.5 * h
   f(Y, k2)
   for (let i = 0; i < N; i++) Y[i] = X0[i] + 0.5 * h * k2[i]
+  if (clock >= 0) Y[clock] = t0 + 0.5 * h
   f(Y, k3)
   for (let i = 0; i < N; i++) Y[i] = X0[i] + h * k3[i]
+  if (clock >= 0) Y[clock] = t0 + h
   f(Y, k4)
   const X1 = new Float64Array(N)
   for (let i = 0; i < N; i++) X1[i] = X0[i] + (h / 6) * (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i])
+  if (clock >= 0) X1[clock] = t0 + h
   return { X: X1, err: 0 }
 }
 
@@ -76,7 +108,7 @@ export function rk4Step(f: Rhs, X0: Float64Array, h: number, k1In?: Float64Array
  * Semi-implicit (symplectic) Euler: v₁ = v₀ + h·a(X₀), q₁ = q₀ + h·v₁. First order; offered for teaching
  * how integrator choice affects energy drift.
  */
-export function eulerStep(f: Rhs, X0: Float64Array, h: number, nq: number, k1In?: Float64Array): StepResult {
+export function eulerStep(f: Rhs, X0: Float64Array, h: number, nq: number, k1In?: Float64Array, clock = -1): StepResult {
   const N = X0.length
   const k1 = k1In ?? new Float64Array(N)
   if (!k1In) f(X0, k1)
@@ -84,5 +116,6 @@ export function eulerStep(f: Rhs, X0: Float64Array, h: number, nq: number, k1In?
   for (let i = 0; i < nq; i++) X1[nq + i] = X0[nq + i] + h * k1[nq + i]
   for (let i = 0; i < nq; i++) X1[i] = X0[i] + h * X1[nq + i]
   for (let i = 2 * nq; i < N; i++) X1[i] = X0[i] + h * k1[i]
+  if (clock >= 0) X1[clock] = X0[clock] + h
   return { X: X1, err: 0 }
 }

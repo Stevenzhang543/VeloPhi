@@ -14,16 +14,29 @@
 import type { ContactFeature, ContactKin, Pose } from './kinematics'
 import { computePoses, contactKin, ropeKin } from './kinematics'
 import type { Friction, Mode, ModeSolution, PairInfo, System, UnitMode } from './dynamics'
-import { TOL, solveMode } from './dynamics'
+import { TOL, solveMode, switchBranches } from './dynamics'
 
+/** A touching feature with its kinematics. */
 export interface Touch { pair: PairInfo; feature: ContactFeature; kin: ContactKin }
 
+/** Whether a contact lies within its feature's region (face extent or vertex cone), up to TOL.ext. */
 export function inRegion(k: ContactKin): boolean { return k.m1 >= -TOL.ext && k.m2 >= -TOL.ext }
+
+/**
+ * Broad phase: can the two bodies of a pair be within `margin` of each other? (Bounding circles about the
+ * body origins; a pair rejected here has no feature with a gap below the margin.)
+ */
+export function pairMayTouch(pair: PairInfo, poses: Pose[], margin: number): boolean {
+  const a = poses[pair.X.global], b = poses[pair.Y.global]
+  const dx = a.x - b.x, dy = a.y - b.y, r = pair.X.bound + pair.Y.bound + margin
+  return dx * dx + dy * dy <= r * r
+}
 
 /** Touching features (gap ≈ 0 within the feature's region), deduplicated by contact point. */
 export function touchingFeatures(sys: System, poses: Pose[]): Touch[] {
   const out: Touch[] = []
   for (const pair of sys.pairs) {
+    if (!pairMayTouch(pair, poses, 1e-6)) continue
     const local: Touch[] = []
     for (const f of pair.features) {
       const k = contactKin(f, poses)
@@ -69,12 +82,15 @@ function unitOptions(u: UnitCandidate): UnitOption[] {
   return out
 }
 
+/** Result of determineMode. */
 export interface ModeChoice {
   mode: Mode
   solution: ModeSolution
   /** Violation of the chosen mode (0 when consistent). */
   violation: number
+  /** Number of combinations tried. */
   tried: number
+  /** No combination was fully consistent; the least violating one was taken. */
   ambiguous: boolean
 }
 
@@ -119,13 +135,13 @@ function rowAcc(k: ContactKin, sol: ModeSolution): number {
 
 /**
  * Determine the mode at state X. Touching points that approach must have been resolved by an impact
- * before; points that separate are left open.
+ * before; points that separate are left open. `prefer.slack` lists ropes whose slack event located X.
  */
-export function determineMode(sys: System, X: Float64Array, maxTries = 20000): ModeChoice {
+export function determineMode(sys: System, X: Float64Array, maxTries = 20000, prefer: { slack?: number[] } = {}): ModeChoice {
   const model = sys.model
   const poses = computePoses(model, X)
   const touches = touchingFeatures(sys, poses).filter(t => t.kin.vn <= TOL.vel)
-  // group by pair
+  // Group by pair
   const byPair = new Map<number, Touch[]>()
   for (const t of touches) {
     const list = byPair.get(t.pair.index) ?? []
@@ -144,10 +160,13 @@ export function determineMode(sys: System, X: Float64Array, maxTries = 20000): M
   const ropeInfo = model.ropes.map(r => ropeKin(poses, r))
   const ropeCandidate = ropeInfo.map(k => k.value <= TOL.touch && Math.abs(k.vel) <= TOL.vel)
   const options = candidates.map(unitOptions)
-  const ropeOptions = ropeCandidate.map(c => (c ? [true, false] : [false]))
+  // A rope whose slack event just fired is tried slack first (its tension is already a rounding error below 0)
+  const ropeOptions = ropeCandidate.map((c, k) => (c ? (prefer.slack?.includes(k) ? [false, true] : [true, false]) : [false]))
   const radices = [...options.map(o => o.length), ...ropeOptions.map(o => o.length)]
   const digits = radices.map(() => 0)
   const slideFromRest = candidates.map(c => Math.abs(c.vt) <= TOL.vel)
+  // Branches of the variable forces follow from the state alone (the located state lies past a switch)
+  const sw = model.switches.length > 0 ? switchBranches(sys, X) : undefined
   let best: ModeChoice | null = null
   let tried = 0
   for (;;) {
@@ -163,13 +182,13 @@ export function determineMode(sys: System, X: Float64Array, maxTries = 20000): M
       }
     })
     const taut = ropeOptions.map((o, k) => o[digits[candidates.length + k]])
-    const mode: Mode = { units, taut }
+    const mode: Mode = sw ? { units, taut, sw } : { units, taut }
     const sol = solveMode(sys, X, mode, poses)
     const violation = modeViolation(sys, mode, sol, slideFromRest, ropeCandidate)
     tried++
     if (!best || violation < best.violation) best = { mode, solution: sol, violation, tried, ambiguous: false }
     if (violation === 0) break
-    // next combination (last entity varies fastest)
+    // Next combination (last entity varies fastest)
     let k = radices.length - 1
     while (k >= 0) { digits[k]++; if (digits[k] < radices[k]) break; digits[k] = 0; k-- }
     if (k < 0 || tried >= maxTries) break
@@ -180,8 +199,39 @@ export function determineMode(sys: System, X: Float64Array, maxTries = 20000): M
   return chosen
 }
 
+/**
+ * The mode a state is in, without enumeration (used by the time-stepping fallback for readouts): every
+ * touching point closed (at most two per pair), sticking when the relative tangential speed is below
+ * `stickSpeed`, otherwise sliding against it; ropes at full length taut; variable-force switches by sign.
+ */
+export function stateMode(sys: System, X: Float64Array, stickSpeed = 1e-6): Mode {
+  const poses = computePoses(sys.model, X)
+  const byPair = new Map<number, Touch[]>()
+  for (const t of touchingFeatures(sys, poses)) {
+    const list = byPair.get(t.pair.index) ?? []
+    list.push(t); byPair.set(t.pair.index, list)
+  }
+  const units: UnitMode[] = []
+  for (const pair of sys.pairs) {
+    const list = byPair.get(pair.index)
+    if (!list) continue
+    const ref = pickReference(list)
+    const points = reducePoints([ref, ...list.filter(t => t !== ref)], ref)
+    if (!points.includes(ref)) points.unshift(ref)
+    const vt = ref.kin.vt
+    const mat = pair.material
+    const friction: Friction = mat.muS <= 0 && mat.muK <= 0 ? 'none' : Math.abs(vt) <= stickSpeed ? 'stick' : 'slide'
+    units.push({ pair, ref: ref.feature, points: points.slice(0, 2).map(t => t.feature), open: [], friction, s: friction === 'slide' ? (vt > 0 ? 1 : -1) : 0 })
+  }
+  const taut = sys.model.ropes.map(r => ropeKin(poses, r).value <= TOL.touch)
+  const sw = sys.model.switches.length ? switchBranches(sys, X) : undefined
+  return sw ? { units, taut, sw } : { units, taut }
+}
+
+/** Compact text form of a mode, used as the segment label. */
 export function describeMode(mode: Mode): string {
   const parts = mode.units.filter(u => u.points.length > 0).map(u => `${u.pair.key}:${u.points.length}${u.friction === 'slide' ? (u.s > 0 ? 'slide+' : 'slide-') : u.friction}`)
   mode.taut.forEach((t, k) => parts.push(`rope${k}:${t ? 'taut' : 'slack'}`))
+  if (mode.sw && mode.sw.length) parts.push(`sw:${mode.sw.map(b => (b > 0 ? '+' : b < 0 ? '-' : '0')).join('')}`)
   return parts.join(' ')
 }

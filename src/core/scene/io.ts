@@ -3,16 +3,18 @@
  * (shortest round-trip form), so a saved scene reloads bit-identically and diffs are readable. Older
  * versions are migrated step by step; unknown fields of newer files are kept in `extra`.
  */
-import type { BodyDef, ConnectorDef, Scene } from './types'
+import type { AnnotationDef, BodyDef, ConnectorDef, Scene } from './types'
 import { ENGINE_VERSION, SCENE_FORMAT, SCENE_VERSION } from './types'
 import { emptyScene } from './build'
+import { checkForceExpr } from '../solver/forceExpr'
 
+/** Invalid scene file; the message is user-facing. */
 export class SceneFileError extends Error {}
 
 type Json = null | boolean | number | string | Json[] | { [k: string]: Json }
 
 const BODY_KEYS = ['id', 'name', 'kind', 'role', 'shape', 'position', 'angle', 'velocity', 'angularVelocity', 'mass', 'inertia', 'fixedRotation', 'material', 'beltSpeed', 'color'] as const
-const SCENE_KEYS = ['format', 'version', 'dimension', 'engine', 'name', 'description', 'settings', 'bodies', 'pulleys', 'connectors', 'contactPairs', 'view', 'watch', 'extra'] as const
+const SCENE_KEYS = ['format', 'version', 'dimension', 'engine', 'name', 'description', 'settings', 'bodies', 'pulleys', 'connectors', 'contactPairs', 'view', 'watch', 'annotations', 'extra'] as const
 
 function ordered(value: unknown, order?: readonly string[]): Json {
   if (value === null || value === undefined) return null
@@ -28,6 +30,7 @@ function ordered(value: unknown, order?: readonly string[]): Json {
   return value as Json
 }
 
+/** Serialize a scene to the canonical file text (fixed key order, trailing newline). */
 export function serializeScene(scene: Scene): string {
   const doc = {
     ...scene,
@@ -56,8 +59,12 @@ const vec = (v: unknown, path: string, def?: { x: number; y: number }) => {
 }
 
 /** Migrations from version k to k + 1. */
-const MIGRATIONS: Record<number, (doc: Record<string, unknown>) => Record<string, unknown>> = {}
+const MIGRATIONS: Record<number, (doc: Record<string, unknown>) => Record<string, unknown>> = {
+  // 26.48 -> 26.49: annotations, movable pulleys and expression forces are new optional fields
+  1: doc => ({ ...doc, annotations: doc.annotations ?? [] })
+}
 
+/** Parse, migrate and validate scene file text; `warnings` are user-facing messages. */
 export function parseScene(text: string): { scene: Scene; warnings: string[] } {
   let raw: unknown
   try { raw = JSON.parse(text) } catch (e) { throw new SceneFileError(`不是有效的 JSON：${(e as Error).message}`) }
@@ -80,18 +87,19 @@ export function parseScene(text: string): { scene: Scene; warnings: string[] } {
     settings: {
       gravity: vec(st.gravity, 'settings.gravity', base.settings.gravity),
       outputStep: num(st.outputStep, 'settings.outputStep', base.settings.outputStep),
-      integrator: (['dopri5', 'rk4', 'euler'].includes(st.integrator as string) ? st.integrator : 'dopri5') as Scene['settings']['integrator'],
+      integrator: (['dopri5', 'rk4', 'euler', 'moreau'].includes(st.integrator as string) ? st.integrator : 'dopri5') as Scene['settings']['integrator'],
       relTol: num(st.relTol, 'settings.relTol', base.settings.relTol),
       absTol: num(st.absTol, 'settings.absTol', base.settings.absTol),
       duration: num(st.duration, 'settings.duration', base.settings.duration),
       energyZeroY: num(st.energyZeroY, 'settings.energyZeroY', 0)
     },
     bodies: ((doc.bodies ?? []) as unknown[]).map((b, i) => parseBody(b as Record<string, unknown>, `bodies[${i}]`)),
-    pulleys: ((doc.pulleys ?? []) as Array<Record<string, unknown>>).map((p, i) => ({ id: str(p.id, `pulleys[${i}].id`), name: str(p.name, `pulleys[${i}].name`, '滑轮'), position: vec(p.position, `pulleys[${i}].position`), radius: num(p.radius, `pulleys[${i}].radius`, 0) })),
+    pulleys: ((doc.pulleys ?? []) as Array<Record<string, unknown>>).map((p, i) => ({ id: str(p.id, `pulleys[${i}].id`), name: str(p.name, `pulleys[${i}].name`, '滑轮'), position: vec(p.position, `pulleys[${i}].position`), radius: num(p.radius, `pulleys[${i}].radius`, 0), ...(typeof p.body === 'string' ? { body: p.body } : {}) })),
     connectors: ((doc.connectors ?? []) as unknown[]).map(c => c as ConnectorDef),
     contactPairs: ((doc.contactPairs ?? []) as Array<Record<string, unknown>>).map((p, i) => ({ a: str(p.a, `contactPairs[${i}].a`), b: str(p.b, `contactPairs[${i}].b`), muS: num(p.muS, 'muS'), muK: num(p.muK, 'muK'), restitution: num(p.restitution, 'restitution') })),
     view: { center: vec((doc.view as Record<string, unknown> | undefined)?.center, 'view.center', base.view.center), pixelsPerMeter: num((doc.view as Record<string, unknown> | undefined)?.pixelsPerMeter, 'view.pixelsPerMeter', base.view.pixelsPerMeter) },
-    watch: Array.isArray(doc.watch) ? (doc.watch as unknown[]).filter((w): w is string => typeof w === 'string') : []
+    watch: Array.isArray(doc.watch) ? (doc.watch as unknown[]).filter((w): w is string => typeof w === 'string') : [],
+    annotations: Array.isArray(doc.annotations) ? (doc.annotations as unknown[]).filter(isAnnotation) : []
   }
   const known = new Set<string>(SCENE_KEYS)
   const extra: Record<string, unknown> = { ...((doc.extra as Record<string, unknown>) ?? {}) }
@@ -99,6 +107,19 @@ export function parseScene(text: string): { scene: Scene; warnings: string[] } {
   if (Object.keys(extra).length) scene.extra = extra
   validateScene(scene)
   return { scene, warnings }
+}
+
+function isAnnotation(a: unknown): a is AnnotationDef {
+  if (!a || typeof a !== 'object') return false
+  const o = a as Record<string, unknown>
+  const v = (p: unknown) => !!p && typeof p === 'object' && Number.isFinite((p as { x: unknown }).x) && Number.isFinite((p as { y: unknown }).y)
+  if (typeof o.id !== 'string') return false
+  switch (o.type) {
+    case 'text': return v(o.at) && typeof o.text === 'string'
+    case 'arrow': case 'ruler': return v(o.from) && v(o.to)
+    case 'angle': return v(o.vertex) && v(o.a) && v(o.b)
+    default: return false
+  }
 }
 
 function parseBody(b: Record<string, unknown>, path: string): BodyDef {
@@ -136,10 +157,28 @@ export function validateScene(scene: Scene) {
     if (m.muS < 0 || m.muK < 0 || m.restitution < 0 || m.restitution > 1) throw new SceneFileError(`${b.name}：摩擦因数应 ≥ 0，恢复系数应在 0…1`)
   }
   const pulleys = new Set(scene.pulleys.map(p => p.id))
+  for (const p of scene.pulleys) if (p.body && !ids.has(p.body)) throw new SceneFileError(`${p.name}：所在的物体 ${p.body} 不存在`)
   for (const c of scene.connectors) {
     for (const a of c.type === 'force' ? [c.a] : [c.a, c.b]) if (a.body && !ids.has(a.body)) throw new SceneFileError(`${c.name}：连接的物体 ${a.body} 不存在`)
-    if (c.type === 'rope') for (const p of c.pulleys) if (!pulleys.has(p.pulley)) throw new SceneFileError(`${c.name}：滑轮 ${p.pulley} 不存在`)
+    if (c.type === 'rope') {
+      for (const p of c.pulleys) if (!pulleys.has(p.pulley)) throw new SceneFileError(`${c.name}：滑轮 ${p.pulley} 不存在`)
+      // A rope end cannot sit on the body that carries the very wheel it runs onto
+      const first = c.pulleys.length ? scene.pulleys.find(p => p.id === c.pulleys[0].pulley) : undefined
+      const last = c.pulleys.length ? scene.pulleys.find(p => p.id === c.pulleys[c.pulleys.length - 1].pulley) : undefined
+      if (first?.body && c.a.body === first.body) throw new SceneFileError(`${c.name}：绳端固定在${bodyName(scene, first.body)}上，不能直接绕过同一物体上的${first.name}（请把绳端系在别处，或去掉该滑轮）`)
+      if (last?.body && c.b.body === last.body) throw new SceneFileError(`${c.name}：绳端固定在${bodyName(scene, last.body)}上，不能直接绕过同一物体上的${last.name}（请把绳端系在别处，或去掉该滑轮）`)
+      for (let i = 0; i + 1 < c.pulleys.length; i++) {
+        if (c.pulleys[i].pulley === c.pulleys[i + 1].pulley) throw new SceneFileError(`${c.name}：连续两次绕过同一个滑轮`)
+      }
+    }
     if (c.type === 'spring' && !(c.stiffness > 0)) throw new SceneFileError(`${c.name}：劲度系数必须大于 0`)
+    if (c.type === 'force' && c.expr) {
+      if (!c.a.body) throw new SceneFileError(`${c.name}：变力必须作用在物体上`)
+      for (const comp of ['x', 'y'] as const) {
+        const r = checkForceExpr(c.expr[comp])
+        if (!r.ok) throw new SceneFileError(`${c.name}：F${comp} 表达式有误：${r.message}`)
+      }
+    }
   }
   const s = scene.settings
   if (!(s.outputStep > 0 && s.outputStep <= 0.1)) throw new SceneFileError('时间步长应在 (0, 0.1] s')
@@ -147,4 +186,7 @@ export function validateScene(scene: Scene) {
   if (!(s.relTol > 0 && s.absTol > 0)) throw new SceneFileError('容差必须大于 0')
 }
 
+function bodyName(scene: Scene, id: string): string { return scene.bodies.find(b => b.id === id)?.name ?? id }
+
+/** Deep copy of a scene (through JSON). */
 export function cloneScene(scene: Scene): Scene { return JSON.parse(JSON.stringify(scene)) as Scene }

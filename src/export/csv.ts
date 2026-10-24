@@ -1,32 +1,102 @@
 /**
- * CSV export of recorded quantities. Values are written with full double precision (shortest round-trip
- * form) so the numbers in a spreadsheet are exactly the solver's. A UTF-8 BOM lets Excel read the Chinese
- * headers; '#' comment lines record where the data came from.
+ * CSV export of recorded quantities. In SI mode values are written with full double precision (shortest
+ * round-trip form) so the numbers in a spreadsheet are exactly the solver's; in display mode they are converted
+ * to the chosen display units (one multiplication, so the last digit may differ from SI). Every column header
+ * names its unit explicitly. A UTF-8 BOM lets Excel read the Chinese headers; '#' comment lines record where
+ * the data came from.
+ *
+ * Separator and decimal mark follow the export settings. When both would be ',' the separator becomes ';'
+ * (the convention of spreadsheets in comma-decimal locales) so that no number has to be quoted.
  */
-import type { Recording } from '../core/solver/simulation'
+import type { ChangeDetail, Recording } from '../core/solver/simulation'
 import { listQuantities, quantitySeries } from '../core/observe/quantities'
 import { ENGINE_VERSION } from '../core/scene/types'
+import type { UnitChoice } from '../units/units'
+import { displayLabel, toDisplay } from '../units/units'
 
-export interface CsvOptions { ids: string[]; stride: number; from: number; to: number }
+/** Field separator of CSV exports. */
+export type CsvSeparator = ',' | ';' | '\t'
+/** Decimal mark of CSV exports. */
+export type CsvDecimal = '.' | ','
 
+/** Separator and decimal mark (defaults ',' and '.'). */
+export interface CsvFormat {
+  separator?: CsvSeparator
+  decimal?: CsvDecimal
+}
+
+/** Options of recordingCsv: quantity ids, frame range [from, to] and stride. */
+export interface CsvOptions extends CsvFormat {
+  ids: string[]
+  stride: number
+  from: number
+  to: number
+  /** 'si' (default): SI values with SI units in the headers; 'display': converted to `unitChoice`. */
+  units?: 'si' | 'display'
+  /** Display unit choice (required for units = 'display'). */
+  unitChoice?: UnitChoice
+}
+
+/** Separator actually used: never equal to the decimal mark. */
+export function effectiveSeparator(f: CsvFormat): CsvSeparator {
+  const sep = f.separator ?? ','
+  return sep === ',' && (f.decimal ?? '.') === ',' ? ';' : sep
+}
+
+/** Number cell: shortest round-trip form, decimal mark applied; empty for non-finite values. */
+export function csvNumber(v: number, decimal: CsvDecimal = '.'): string {
+  if (!Number.isFinite(v)) return ''
+  const s = String(v)
+  return decimal === ',' ? s.replace('.', ',') : s
+}
+
+/** Text cell, quoted when it contains the separator, a quote or a line break. */
+export function csvText(v: string, sep: CsvSeparator): string {
+  return v.includes(sep) || /["\r\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v
+}
+
+/**
+ * Generic table: header row plus rows of numbers or text; `comments` become '#' lines at the top.
+ * Returns the file text with BOM and CRLF line ends.
+ */
+export function tableCsv(header: string[], rows: Array<Array<number | string | null>>, f: CsvFormat = {}, comments: string[] = []): string {
+  const sep = effectiveSeparator(f)
+  const dec = f.decimal ?? '.'
+  const cell = (v: number | string | null) => (v === null ? '' : typeof v === 'number' ? csvNumber(v, dec) : csvText(v, sep))
+  const lines = comments.map(c => `# ${c}`)
+  lines.push(header.map(h => csvText(h, sep)).join(sep))
+  for (const r of rows) lines.push(r.map(cell).join(sep))
+  return '﻿' + lines.join('\r\n') + '\r\n'
+}
+
+/** CSV of quantities over the recorded frames, with '#' lines describing the run. */
 export function recordingCsv(rec: Recording, opts: CsvOptions): string {
   const defs = new Map(listQuantities(rec.system).map(q => [q.id, q]))
   const ids = opts.ids.filter(id => defs.has(id))
   const { t, values } = quantitySeries(rec, ids, opts.from, opts.to, Math.max(1, Math.round(opts.stride)))
+  const display = opts.units === 'display' && !!opts.unitChoice
+  const choice = opts.unitChoice
+  const conv = (v: number, unit: string) => (display ? toDisplay(v, unit, choice!) : v)
+  const label = (unit: string) => (display ? displayLabel(unit, choice!) : unit) || '1'
   const s = rec.scene.settings
-  const esc = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v)
-  const lines: string[] = []
-  lines.push(`# Verity ${ENGINE_VERSION}`)
-  lines.push(`# 场景: ${rec.scene.name}`)
-  lines.push(`# 记录步长 Δt = ${rec.dt} s; 积分方法 ${s.integrator}; 相对容差 ${s.relTol}; 绝对容差 ${s.absTol}; g = (${s.gravity.x}, ${s.gravity.y}) m/s²`)
-  lines.push(`# 结果指纹 SHA-256 ${rec.hash}`)
-  lines.push(['t [s]', ...ids.map(id => { const q = defs.get(id)!; return esc(`${q.owner} ${q.label} [${q.unit || '1'}] (${id})`) })].join(','))
+  const sep = effectiveSeparator(opts)
+  const comments = [
+    `Verity ${ENGINE_VERSION}`,
+    `场景: ${rec.scene.name}`,
+    `记录步长 Δt = ${rec.dt} s; 积分方法 ${s.integrator}; 相对容差 ${s.relTol}; 绝对容差 ${s.absTol}; g = (${s.gravity.x}, ${s.gravity.y}) m/s²`,
+    `结果指纹 SHA-256 ${rec.hash}`,
+    display ? '数值单位: 显示单位（由国际单位换算，见各列表头）' : '数值单位: 国际单位（SI，见各列表头）；数值为双精度完整写出，与仿真结果逐位一致',
+    `分隔符 ${sep === '\t' ? '制表符' : `“${sep}”`}，小数点 “${opts.decimal ?? '.'}”`
+  ]
+  const header = [`t [${label('s')}]`, ...ids.map(id => { const q = defs.get(id)!; return `${q.owner} ${q.label} [${label(q.unit)}] (${id})` })]
+  const units = ids.map(id => defs.get(id)!.unit)
+  const rows: number[][] = []
   for (let i = 0; i < t.length; i++) {
-    const row = [String(t[i])]
-    for (const v of values) row.push(Number.isFinite(v[i]) ? String(v[i]) : '')
-    lines.push(row.join(','))
+    const row = [conv(t[i], 's')]
+    values.forEach((v, j) => row.push(conv(v[i], units[j])))
+    rows.push(row)
   }
-  return '﻿' + lines.join('\r\n') + '\r\n'
+  return tableCsv(header, rows, opts, comments)
 }
 
 /** Default columns: every body's position, velocity and acceleration plus the watch list and energies. */
@@ -36,4 +106,23 @@ export function defaultCsvIds(rec: Recording): string[] {
   for (const w of rec.scene.watch) if (!ids.includes(w)) ids.push(w)
   for (const e of ['system.ek', 'system.ep', 'system.es', 'system.e', 'ledger.balance']) if (!ids.includes(e)) ids.push(e)
   return ids
+}
+
+/** Events table (impacts, sticking, slack …) as CSV: time, change, objects and impact data. */
+export function eventsCsv(rec: Recording, opts: CsvFormat & { units?: 'si' | 'display'; unitChoice?: UnitChoice; labelOf: (c: ChangeDetail) => string; whoOf: (c: ChangeDetail) => string }): string {
+  const display = opts.units === 'display' && !!opts.unitChoice
+  const conv = (v: number | undefined, unit: string) => (v === undefined ? null : display ? toDisplay(v, unit, opts.unitChoice!) : v)
+  const label = (unit: string) => (display ? displayLabel(unit, opts.unitChoice!) : unit)
+  const header = [`t [${label('s')}]`, '事件', '对象', `碰前法向速度 [${label('m/s')}]`, `碰后法向速度 [${label('m/s')}]`, `冲量 [${label('N·s')}]`, `摩擦冲量 [${label('N·s')}]`, '恢复系数', `本次损失动能 [${label('J')}]`]
+  const rows: Array<Array<number | string | null>> = []
+  for (const e of rec.events) {
+    e.changes.forEach((c, i) => rows.push([
+      conv(e.t, 's'), opts.labelOf(c), opts.whoOf(c),
+      conv(c.vnBefore, 'm/s'), conv(c.vnAfter, 'm/s'), conv(c.impulse, 'N·s'), conv(c.tangentImpulse, 'N·s'), c.restitution ?? null,
+      i === 0 && e.impact ? conv(e.impact.loss, 'J') : null
+    ]))
+  }
+  const comments = [`Verity ${ENGINE_VERSION}`, `场景: ${rec.scene.name}`, `结果指纹 SHA-256 ${rec.hash}`, '事件时刻由求解器精确定位（约 1e-12 s）']
+  if (rec.reducedFrom !== null && rec.reducedFrom !== undefined) comments.push(`精度降级: 自 t = ${rec.reducedFrom} s 起改用 Moreau–Jean 时间步进，此后的事件时刻不精确定位`)
+  return tableCsv(header, rows, opts, comments)
 }
