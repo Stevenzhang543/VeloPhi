@@ -24,7 +24,10 @@ const TEMPLATE_HASHES: Record<string, string> = {
   'hinged-rod': '62d49e470f4c2fd2a316a8639174f52ab17bdb8b43f8ef8e869290787fcab6cc',
   rolling: '66dbf7b0345065a9cc180602be4f0f44dcfaa5ddd6362e367ba2f1929c2e2da3',
   'ball-rod': '99b59dab2e58994d0ad3f47aa79bfe0790139107c3f69c2da9d376340882c2a0',
-  atwood: 'c80279a5336ec92e6a32e3bd3f7728fc1361958998c8b8716ac9d19e28d98dd2',
+  // 26.51: the light block reaches the pulley at t ≈ 0.958 s and the run stops there ("reaches the pulley" event);
+  // 26.48 ran on past it (the body passed through the pulley). The frames up to the event are unchanged (the new
+  // event function cannot influence the integration before it fires); 26.48 hash: c80279a5…19e28d98dd2
+  atwood: 'c9210c01363e849ccd58069a1d9b973dcad226219c764afd504412322b9169c5',
   'table-pulley': 'e241acf043adb1844e5b0742910dda2fb571b4e8d8a82148b6225556bd06cb9a'
 }
 

@@ -88,13 +88,14 @@ export function recordingCsv(rec: Recording, opts: CsvOptions): string {
     tl('记录步长 Δt = {0} s; 积分方法 {1}; 相对容差 {2}; 绝对容差 {3}; g = ({4}, {5}) m/s²', [rec.dt, s.integrator, s.relTol, s.absTol, s.gravity.x, s.gravity.y]),
     tl('结果指纹 {0}', [fingerprintText(rec)]),
     display ? tl('数值单位: 显示单位（由国际单位换算，见各列表头）') : tl('数值单位: 国际单位（SI，见各列表头）；数值为双精度完整写出，与仿真结果逐位一致'),
-    tl('分隔符 {0}，小数点 “{1}”', [sep === '\t' ? tl('制表符') : `“${sep}”`, opts.decimal ?? '.'])
+    tl('分隔符 {0}，小数点 “{1}”', [sep === '\t' ? tl('制表符') : `“${sep}”`, opts.decimal ?? '.']),
+    ...(s.startTime ? [tl('分支：从 t = {0} s 开始，表中 t 为绝对时间', [s.startTime])] : [])
   ]
   const header = [`t [${label('s')}]`, ...ids.map(id => { const q = defs.get(id)!; return `${q.owner} ${q.label} [${label(q.unit)}] (${id})` })]
   const units = ids.map(id => defs.get(id)!.unit)
   const rows: number[][] = []
   for (let i = 0; i < t.length; i++) {
-    const row = [conv(t[i], 's')]
+    const row = [conv(t[i] + (s.startTime ?? 0), 's')]
     values.forEach((v, j) => row.push(conv(v[i], units[j])))
     rows.push(row)
   }

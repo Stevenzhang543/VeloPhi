@@ -41,7 +41,16 @@ const T = (zh: string, en: string, de: string): Tri => ({ zh, en, de })
 /** Texts of the formula detail (content, in the three languages). */
 export const FORMULA_TEXT = {
   derivation: T('推导', 'Derivation', 'Herleitung'),
-  solution: T('代入求解', 'Substitution', 'Einsetzen und Ausrechnen'),
+  solution: T('解题过程', 'Worked solution', 'Lösungsweg'),
+  given: T('已知', 'Given', 'Gegeben'),
+  find: T('求', 'Find', 'Gesucht'),
+  solve: T('解', 'Solution', 'Lösung'),
+  answer: T('答', 'Answer', 'Antwort'),
+  findText: T('{t}：${l}$', '{t}: ${l}$', '{t}: ${l}$'),
+  byFormula: T('由公式（{t}）：', 'Use the formula ({t}):', 'Mit der Formel ({t}):'),
+  conversion: T('单位换算（计算用国际单位）：{c}', 'Convert to SI units (the calculation uses SI): {c}', 'In SI-Einheiten umrechnen (gerechnet wird in SI): {c}'),
+  calcLead: T('代入数据，由内向外逐步计算（中间结果显示 {d} 位有效数字，计算保留全部精度）：', 'Substitute and evaluate from the inside out (intermediate results shown to {d} significant digits; full precision is kept):', 'Einsetzen und von innen nach außen ausrechnen (Zwischenergebnisse mit {d} geltenden Ziffern; gerechnet wird mit voller Genauigkeit):'),
+  answerText: T('${l} = {v}$', '${l} = {v}$', '${l} = {v}$'),
   conditions: T('适用条件', 'Conditions', 'Gültigkeitsbedingungen'),
   compare: T('与仿真对照', 'Comparison with the simulation', 'Vergleich mit der Simulation'),
   pending: T('这条公式的推导待补充。下面的代入求解、适用条件和对照照常给出。', 'The derivation of this formula is still to be written. Substitution, conditions and comparison are shown below as usual.', 'Die Herleitung dieser Formel folgt noch. Einsetzen, Bedingungen und Vergleich stehen wie gewohnt unten.'),
@@ -187,27 +196,35 @@ export function buildFormulaDetail(rec: Recording | null, situation: Situation, 
   // ---- Derivation ----
   const derivation: DetailSection = { id: 'derivation', title: tr(FORMULA_TEXT.derivation), blocks: derivationBlocks(f, d, lang, shared) }
 
-  // ---- Substitution ----
+  // ---- Worked solution (D45): given / find / solution / answer ----
   const sol = solveFormula(f, sample, { digits, units, lang })
   const solution: DetailSection = { id: 'solution', title: tr(FORMULA_TEXT.solution), blocks: [] }
   if (sol.known.length) {
-    solution.blocks.push({ kind: 'text', text: tr(FORMULA_TEXT.known) })
+    solution.blocks.push({ kind: 'subhead', text: tr(FORMULA_TEXT.given) })
     const head = [tr(FORMULA_TEXT.symbol), tr(FORMULA_TEXT.quantity), tr(FORMULA_TEXT.value)]
     if (sol.converted) head.push(tr(FORMULA_TEXT.inSi))
     const rows: DetailCell[][] = sol.known.map(k => {
-      const row: DetailCell[] = [{ tex: k.symbol }, { text: st(k.label) }, { tex: k.display }]
+      const row: DetailCell[] = [{ tex: `\\textcolor{${k.color}}{${k.symbol}}` }, { text: st(k.label) }, { tex: `\\textcolor{${k.color}}{${k.display}}` }]
       if (sol.converted) row.push(k.si ? { tex: k.si } : { text: '' })
       return row
     })
     solution.blocks.push({ kind: 'table', head, rows, align: sol.converted ? ['left', 'left', 'right', 'right'] : ['left', 'left', 'right'] })
-    if (sol.converted) solution.blocks.push({ kind: 'text', text: tr(FORMULA_TEXT.convert), small: true })
   }
+  solution.blocks.push({ kind: 'subhead', text: tr(FORMULA_TEXT.find) })
+  solution.blocks.push({ kind: 'text', text: tr(FORMULA_TEXT.findText, { t: d ? tr(d.title) : st(f.title), l: sol.lhs }) })
+  solution.blocks.push({ kind: 'subhead', text: tr(FORMULA_TEXT.solve) })
+  solution.blocks.push({ kind: 'equation', tex: `${sol.lhs} = ${sol.coloredSymbolic}`, text: tr(FORMULA_TEXT.byFormula, { t: d ? tr(d.title) : st(f.title) }) })
+  if (sol.conversions.length) solution.blocks.push({ kind: 'text', text: tr(FORMULA_TEXT.conversion, { c: sol.conversions.map(c => `$${c}$`).join(lang === 'zh' ? '，' : ', ') }), small: true })
   if (sol.error) {
     solution.blocks.push({ kind: 'chain', lhs: sol.lhs, rhs: sol.rhs })
     solution.blocks.push({ kind: 'text', text: tr(FORMULA_TEXT.cannot, { e: sol.error }), tone: 'bad' })
   } else {
-    solution.blocks.push({ kind: 'text', text: tr(FORMULA_TEXT.substitute, { d: digits }) })
-    solution.blocks.push({ kind: 'chain', lhs: sol.lhs, rhs: sol.rhs })
+    if (sol.lines.length) {
+      solution.blocks.push({ kind: 'text', text: tr(FORMULA_TEXT.calcLead, { d: digits }) })
+      solution.blocks.push({ kind: 'calc', lhs: sol.lhs, lines: sol.lines })
+    }
+    solution.blocks.push({ kind: 'subhead', text: tr(FORMULA_TEXT.answer) })
+    solution.blocks.push({ kind: 'text', text: tr(FORMULA_TEXT.answerText, { l: sol.lhs, v: sol.resultDisplay }) })
   }
 
   // ---- Conditions ----

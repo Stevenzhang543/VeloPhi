@@ -52,9 +52,14 @@ const TEXT: Record<string, [Render, Render, Render]> = {
     p => `Kein vollständig konsistenter Kontaktzustand zum Zeitpunkt t (Verletzung ${num(p.violation).toExponential(2)}); der nächstliegende wurde gewählt`
   ],
   'warn.multiImpactFriction': [
-    () => '多个接触点同时碰撞时，碰撞冲量未计摩擦（只对单点碰撞计入摩擦冲量）；之后的滑动摩擦照常计算',
-    () => 'When several contact points collide at once, the impact impulse ignores friction (friction impulses are only computed for single-point impacts); sliding friction afterwards is computed as usual',
-    () => 'Stoßen mehrere Kontaktpunkte gleichzeitig, wird der Stoßkraftstoß ohne Reibung berechnet (Reibungskraftstöße nur bei Einpunktstößen); die Gleitreibung danach wird normal berechnet'
+    () => '多个接触点同时碰撞时没有找到满足库仑摩擦且不增能的冲量组合（或接触点超过 8 个），本次碰撞冲量未计摩擦；之后的滑动摩擦照常计算',
+    () => 'For an impact at several contact points at once, no combination of impulses obeyed Coulomb friction without adding energy (or there were more than 8 points), so this impact ignores friction; sliding friction afterwards is computed as usual',
+    () => 'Für einen Stoß an mehreren Kontaktpunkten zugleich erfüllte keine Kombination von Kraftstößen die Coulomb-Reibung ohne Energiezuwachs (oder es waren mehr als 8 Punkte), daher ohne Reibung berechnet; die Gleitreibung danach wird normal berechnet'
+  ],
+  'warn.multiImpactPlastic': [
+    () => '多个接触点同时碰撞时，按牛顿恢复定律逐点反弹会使动能增加，这类碰撞已按完全非弹性（e = 0）处理',
+    () => 'When several contact points collide at once and bouncing each by Newton\'s restitution law would add kinetic energy, the impact is treated as perfectly inelastic (e = 0)',
+    () => 'Stoßen mehrere Kontaktpunkte gleichzeitig und würde das Zurückprallen nach Newtons Stoßgesetz an jedem Punkt kinetische Energie erzeugen, wird der Stoß als vollständig unelastisch (e = 0) behandelt'
   ],
   'warn.polygonCentred': [
     p => `${str(p.body)}：多边形顶点按质心为原点处理`,

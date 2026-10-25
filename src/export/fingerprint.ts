@@ -17,7 +17,9 @@ export function exportFingerprint(rec: Recording): { hash: string; upTo: number 
 export function fingerprintText(rec: Recording): string {
   const f = exportFingerprint(rec)
   if (!f.hash) return tl('（仍在计算，尚无指纹）')
-  return f.upTo === null ? `SHA-256 ${f.hash}` : tl('SHA-256 {0}（滚动指纹，截至 t = {1} s）', [f.hash, Number(f.upTo.toPrecision(10))])
+  const text = f.upTo === null ? `SHA-256 ${f.hash}` : tl('SHA-256 {0}（滚动指纹，截至 t = {1} s）', [f.hash, Number(f.upTo.toPrecision(10))])
+  // 26.51: a run that ended at approximate rest says so next to its fingerprint
+  return rec.stopReason === 'restApprox' ? tl('{0}（近似静止后停止）', [text]) : text
 }
 
 /** The first `n` hex digits of the fingerprint (footers). */

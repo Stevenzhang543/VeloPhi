@@ -215,5 +215,133 @@ export const COLLISION_DERIVATIONS: Derivation[] = [
           'Beim schiefen Stoß bewegen sich danach beide Körper, keine Geschwindigkeit ist null, also stehen sie senkrecht aufeinander (beim geraden Stoß bleibt Körper 1 stehen, die Körper tauschen ihre Geschwindigkeiten).'),
         tri('数量积为零 ⇔ 两矢量垂直', 'Zero scalar product ⇔ perpendicular vectors', 'Skalarprodukt null ⇔ Vektoren senkrecht'), ['phi', 'pi/2'], { phi: 'rad' })
     ]
+  },
+  // ---- 26.51: textbook special cases (D44) ----
+  {
+    formula: 'col.el.v1',
+    title: tri('弹性碰撞后物体 1 的速度', 'Velocity of body 1 after an elastic collision', 'Geschwindigkeit von Körper 1 nach einem elastischen Stoß'),
+    note: tri('动量守恒与动能守恒联立；u、v 为沿连心线的分量', 'Conservation of momentum and of kinetic energy together; u, v are components along the line of centres', 'Impuls- und Energieerhaltung zusammen; u, v sind Komponenten längs der Stoßnormalen'),
+    steps: [
+      st("m_1u_1 + m_2u_2 = m_1v_1' + m_2v_2'",
+        tri('碰撞时间极短，系统动量守恒（沿连心线，从物体 1 指向物体 2 为正）。',
+          'The collision is short: the total momentum is conserved (along the line of centres, positive from body 1 towards body 2).',
+          'Der Stoß ist kurz: Der Gesamtimpuls bleibt erhalten (längs der Stoßnormalen, positiv von Körper 1 zu Körper 2).'),
+        B.momentum, ['m1*u1 + m2*u2', 'm1*v1p + m2*v2p'], { v1p: 'm/s', v2p: 'm/s' }),
+      st("\\tfrac{1}{2}m_1u_1^2 + \\tfrac{1}{2}m_2u_2^2 = \\tfrac{1}{2}m_1{v_1'}^2 + \\tfrac{1}{2}m_2{v_2'}^2",
+        tri('弹性碰撞没有动能损失：碰后的总动能等于碰前的总动能。',
+          'An elastic collision loses no kinetic energy: the total kinetic energy after equals that before.',
+          'Ein elastischer Stoß verliert keine kinetische Energie: Die gesamte kinetische Energie danach ist gleich der davor.'),
+        tri('弹性碰撞动能守恒', 'Kinetic energy conserved in an elastic collision', 'Erhaltung der kinetischen Energie beim elastischen Stoß'), ['m1*u1^2/2 + m2*u2^2/2', 'm1*v1p^2/2 + m2*v2p^2/2'], { v1p: 'm/s', v2p: 'm/s' }),
+      st("m_1(u_1 - v_1') = m_2(v_2' - u_2)",
+        tri('把动量守恒式整理成两物体动量变化的形式。',
+          'Write the momentum equation as the change of momentum of each body.',
+          'Die Impulsgleichung als Impulsänderung der beiden Körper schreiben.'),
+        B.rearrange, ['m1*(u1 - v1p)', 'm2*(v2p - u2)'], { v1p: 'm/s', v2p: 'm/s' }),
+      st("m_1(u_1^2 - {v_1'}^2) = m_2({v_2'}^2 - u_2^2)",
+        tri('动能守恒式同样整理（约去 ½）。',
+          'Rearrange the energy equation the same way (cancel ½).',
+          'Die Energiegleichung ebenso umstellen (½ kürzen).'),
+        B.rearrange, ['m1*(u1^2 - v1p^2)', 'm2*(v2p^2 - u2^2)'], { v1p: 'm/s', v2p: 'm/s' }),
+      st("u_1 + v_1' = u_2 + v_2'",
+        tri('两式相除（平方差公式），得到一个一次方程：分离速度等于接近速度。',
+          'Divide the two equations (difference of squares): a linear equation remains — the speed of separation equals the speed of approach.',
+          'Die beiden Gleichungen dividieren (dritte binomische Formel): Es bleibt eine lineare Gleichung — Trennungsgeschwindigkeit gleich Annäherungsgeschwindigkeit.'),
+        B.algebra, ['u1 + v1p', 'u2 + v2p'], { v1p: 'm/s', v2p: 'm/s' }),
+      st("v_1' = \\dfrac{(m_1 - m_2)u_1 + 2m_2u_2}{m_1 + m_2}",
+        tri('与动量守恒式联立，解出 v₁′。',
+          'Solve together with the momentum equation for v₁′.',
+          'Zusammen mit der Impulsgleichung nach v₁′ auflösen.'),
+        B.combine, ['v1p', '((m1 - m2)*u1 + 2*m2*u2)/(m1 + m2)'], { v1p: 'm/s' })
+    ]
+  },
+  {
+    formula: 'col.el.v2',
+    title: tri('弹性碰撞后物体 2 的速度', 'Velocity of body 2 after an elastic collision', 'Geschwindigkeit von Körper 2 nach einem elastischen Stoß'),
+    steps: [
+      st("v_2' - v_1' = u_1 - u_2",
+        tri('弹性碰撞中分离速度等于接近速度（由动量守恒与动能守恒得出，见物体 1 的推导）。',
+          'In an elastic collision the speed of separation equals the speed of approach (from momentum and energy conservation, see the derivation for body 1).',
+          'Beim elastischen Stoß ist die Trennungsgeschwindigkeit gleich der Annäherungsgeschwindigkeit (aus Impuls- und Energieerhaltung, siehe Herleitung für Körper 1).'),
+        B.earlier, ['v2p - v1p', 'u1 - u2'], { v1p: 'm/s', v2p: 'm/s' }),
+      st("v_1' = v_2' - u_1 + u_2",
+        tri('解出 v₁′。',
+          'Solve for v₁′.',
+          'Nach v₁′ auflösen.'),
+        B.rearrange, ['v1p', 'v2p - u1 + u2'], { v1p: 'm/s', v2p: 'm/s' }),
+      st("m_1u_1 + m_2u_2 = m_1(v_2' - u_1 + u_2) + m_2v_2'",
+        tri('代入动量守恒式 m₁u₁ + m₂u₂ = m₁v₁′ + m₂v₂′。',
+          "Insert into the momentum equation m₁u₁ + m₂u₂ = m₁v₁′ + m₂v₂′.",
+          'In die Impulsgleichung m₁u₁ + m₂u₂ = m₁v₁′ + m₂v₂′ einsetzen.'),
+        B.momentum, ['m1*u1 + m2*u2', 'm1*(v2p - u1 + u2) + m2*v2p'], { v2p: 'm/s' }),
+      st("v_2' = \\dfrac{(m_2 - m_1)u_2 + 2m_1u_1}{m_1 + m_2}",
+        tri('解出 v₂′。物体 2 原来静止时 v₂′ = 2m₁u₁/(m₁ + m₂)，总与 u₁ 同向。',
+          'Solve for v₂′. With body 2 initially at rest, v₂′ = 2m₁u₁/(m₁ + m₂), always in the direction of u₁.',
+          'Nach v₂′ auflösen. Ruht Körper 2 anfangs, ist v₂′ = 2m₁u₁/(m₁ + m₂), stets in Richtung von u₁.'),
+        B.solve, ['v2p', '((m2 - m1)*u2 + 2*m1*u1)/(m1 + m2)'], { v2p: 'm/s' })
+    ]
+  },
+  {
+    formula: 'col.swap',
+    title: tri('等质量弹性正碰：交换速度', 'Equal masses, elastic head-on collision: velocities are exchanged', 'Gleiche Massen, elastischer gerader Stoß: Geschwindigkeiten werden getauscht'),
+    steps: [
+      st('m_1 = m_2',
+        tri('两球质量相等。',
+          'The two masses are equal.',
+          'Die beiden Massen sind gleich.'),
+        tri('条件：质量相等', 'Condition: equal masses', 'Bedingung: gleiche Massen'), ['m1', 'm2']),
+      st("v_1' = \\dfrac{(m_1 - m_2)u_1 + 2m_2u_2}{m_1 + m_2}",
+        tri('弹性碰撞后物体 1 的速度（前面的结论）。',
+          'Velocity of body 1 after an elastic collision (earlier result).',
+          'Geschwindigkeit von Körper 1 nach einem elastischen Stoß (früheres Ergebnis).'),
+        B.earlier, ['v1p', '((m1 - m2)*u1 + 2*m2*u2)/(m1 + m2)'], { v1p: 'm/s' }),
+      st("v_1' = u_2",
+        tri('m₁ = m₂ 时第一项为零，第二项化为 u₂：两球交换速度。被碰球原来静止时，碰后入射球停下，被碰球以入射球的速度离开（牛顿摆）。',
+          "For m₁ = m₂ the first term vanishes and the second becomes u₂: the balls exchange velocities. If the struck ball was at rest, the incoming ball stops and the struck one leaves with its velocity (Newton's cradle).",
+          'Für m₁ = m₂ verschwindet der erste Term, der zweite wird u₂: Die Kugeln tauschen ihre Geschwindigkeiten. Ruhte die gestoßene Kugel, bleibt die stoßende liegen und die gestoßene läuft mit deren Geschwindigkeit weiter (Kugelstoßpendel).'),
+        B.prev, ['v1p', 'u2'], { v1p: 'm/s' })
+    ]
+  },
+  {
+    formula: 'col.in.v',
+    title: tri('完全非弹性碰撞后的共同速度', 'Common velocity after a perfectly inelastic collision', 'Gemeinsame Geschwindigkeit nach einem vollkommen unelastischen Stoß'),
+    steps: [
+      st("v_1' = v_2' = v'",
+        tri('完全非弹性碰撞（e = 0）：碰后两物体不再分开，以共同速度运动。',
+          'Perfectly inelastic collision (e = 0): after the collision the bodies stay together and move with a common velocity.',
+          'Vollkommen unelastischer Stoß (e = 0): Nach dem Stoß bleiben die Körper zusammen und bewegen sich mit gemeinsamer Geschwindigkeit.'),
+        tri('完全非弹性碰撞：碰后共速', 'Perfectly inelastic collision: common velocity', 'Vollkommen unelastischer Stoß: gemeinsame Geschwindigkeit'), ['v1p', 'v2p'], { v1p: 'm/s', v2p: 'm/s' }),
+      st("m_1u_1 + m_2u_2 = (m_1 + m_2)v'",
+        tri('系统动量守恒。',
+          'The total momentum is conserved.',
+          'Der Gesamtimpuls bleibt erhalten.'),
+        B.momentum, ['m1*u1 + m2*u2', '(m1 + m2)*vp'], { vp: 'm/s' }),
+      st("v' = \\dfrac{m_1u_1 + m_2u_2}{m_1 + m_2}",
+        tri('解出共同速度。',
+          'Solve for the common velocity.',
+          'Nach der gemeinsamen Geschwindigkeit auflösen.'),
+        B.solve, ['vp', '(m1*u1 + m2*u2)/(m1 + m2)'], { vp: 'm/s' })
+    ]
+  },
+  {
+    formula: 'col.in.dE',
+    title: tri('完全非弹性碰撞损失的动能', 'Kinetic energy lost in a perfectly inelastic collision', 'Verlust an kinetischer Energie beim vollkommen unelastischen Stoß'),
+    note: tri('损失的动能最多', 'The largest possible loss', 'Der größtmögliche Verlust'),
+    steps: [
+      st("v' = \\dfrac{m_1u_1 + m_2u_2}{m_1 + m_2}",
+        tri('碰后的共同速度（前面的结论）。',
+          'The common velocity after the collision (earlier result).',
+          'Die gemeinsame Geschwindigkeit nach dem Stoß (früheres Ergebnis).'),
+        B.earlier, ['vp', '(m1*u1 + m2*u2)/(m1 + m2)'], { vp: 'm/s' }),
+      st("\\Delta E_k = \\tfrac{1}{2}m_1u_1^2 + \\tfrac{1}{2}m_2u_2^2 - \\tfrac{1}{2}(m_1 + m_2){v'}^2",
+        tri('损失的动能等于碰前的总动能减去碰后的总动能。',
+          'The kinetic energy lost is the total before minus the total after.',
+          'Der Verlust ist die gesamte kinetische Energie davor minus die danach.'),
+        tri('损失的动能 = 碰前动能 − 碰后动能', 'Energy lost = kinetic energy before − after', 'Verlust = kinetische Energie vorher − nachher'), ['dE', 'm1*u1^2/2 + m2*u2^2/2 - (m1 + m2)*vp^2/2'], { dE: 'J', vp: 'm/s' }),
+      st('\\Delta E_k = \\dfrac{m_1m_2(u_1 - u_2)^2}{2(m_1 + m_2)}',
+        tri('代入 v′ 化简。所有碰撞中，完全非弹性碰撞损失的动能最多（一般情况乘 1 − e²）。',
+          'Insert v′ and simplify. Of all collisions the perfectly inelastic one loses the most kinetic energy (in general multiply by 1 − e²).',
+          'v′ einsetzen und vereinfachen. Von allen Stößen verliert der vollkommen unelastische am meisten kinetische Energie (allgemein mit 1 − e² multiplizieren).'),
+        B.algebra, ['dE', 'm1*m2*(u1 - u2)^2/(2*(m1 + m2))'], { dE: 'J' })
+    ]
   }
 ]

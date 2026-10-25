@@ -38,7 +38,8 @@ beforeAll(() => {
       values.set(s.type, v)
     }
   }
-})
+  // 31 templates since 26.51: more than the default 10 s hook timeout on slower machines
+}, 120000)
 
 const steps = (d: Derivation): DerivationStep[] => [...(d.uses ?? []).flatMap(id => sharedById.get(id)?.steps ?? []), ...d.steps]
 const formulaOf = (id: string): FormulaDef => FORMULAS.find(f => f.id === id)!

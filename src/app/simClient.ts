@@ -20,6 +20,7 @@ import { cloneScene } from '../core/scene/io'
 import type { EnginePref, FromWorker, SimJob, ToWorker } from '../worker/simJob'
 import { MessageError } from '../i18n/message'
 import { DEFAULT_LOOK_AHEAD, startSimJob } from '../worker/simJob'
+import { remoteRebuild } from './rebuildClient'
 
 /** Options of a run. */
 export interface SimRunOptions {
@@ -50,7 +51,7 @@ export interface RunStats {
   chunks: number
   residentChunks: number
   checkpoints: number
-  /** Chunks recomputed from checkpoints on this thread, and the time it took (ms). */
+  /** Chunks recomputed from checkpoints (on this thread or in the rebuild worker), and the time it took here (ms). */
   rebuilds: number
   rebuildMs: number
   /** Engine that computes the run, and why Rust/WASM is not used (null when it is). */
@@ -116,7 +117,7 @@ export function startSimulation(scene: Scene, opts: SimRunOptions, cb: SimCallba
     const tComputed = (stream!.frameCount - 1) * stream!.dt
     return {
       tComputed, speed: computeMs > 0 ? tComputed / (computeMs / 1000) : 0, memoryBytes: m.memoryBytes, chunks: m.chunks, residentChunks: m.residentChunks,
-      checkpoints: m.checkpoints, rebuilds: m.rebuilds, rebuildMs: m.rebuildMs, engine, engineReason, paused, fingerprint: stream!.rollingFingerprint()
+      checkpoints: m.checkpoints, rebuilds: m.rebuilds + m.remoteRebuilds, rebuildMs: m.rebuildMs, engine, engineReason, paused, fingerprint: stream!.rollingFingerprint()
     }
   }
 
@@ -127,6 +128,8 @@ export function startSimulation(scene: Scene, opts: SimRunOptions, cb: SimCallba
       if (msg.type === 'engine') { engine = msg.engine; engineReason = msg.engine === 'wasm' ? null : msg.reason ?? null; return false }
       if (msg.type === 'started') {
         stream = new StreamRecording({ scene: plain, chunkFrames: msg.chunkFrames, duration: msg.duration, budgetBytes: opts.memoryBytes })
+        // Evicted chunks the interface is about to need are recomputed in the rebuild worker (26.51)
+        if (opts.useWorker && typeof Worker !== 'undefined') stream.setRemote(remoteRebuild)
         return false
       }
       if (msg.type === 'error') throw msg.msg ? new MessageError(msg.msg) : new Error(msg.message)

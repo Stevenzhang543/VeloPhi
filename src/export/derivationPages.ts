@@ -13,6 +13,7 @@ import { buildFormulaDetail } from '../formula/detail'
 import { buildEventDetail } from '../formula/eventDetail'
 import type { ImageBackground } from './still'
 import { shownCards } from './formulaImage'
+import type { LevelFilter } from './formulaImage'
 import { cardsForMoment } from './moments'
 import type { KeyMoment } from './moments'
 import { detailImage } from './detailImage'
@@ -40,14 +41,16 @@ export interface DerivationPageOptions {
   caption?: string
   /** Most formula pages (default 40). */
   maxFormulas?: number
+  /** Knowledge-level filter (D44); null or absent: all formulas. */
+  level?: LevelFilter
 }
 
 /** The formula cards of the key moments, each formula of each situation once, with the moment's time. */
-export function derivationTargets(sits: Situation[], moments: KeyMoment[], digits: number, units: UnitChoice): Array<{ situation: Situation; formulaId: string; title: string; t: number }> {
+export function derivationTargets(sits: Situation[], moments: KeyMoment[], digits: number, units: UnitChoice, level: LevelFilter = null): Array<{ situation: Situation; formulaId: string; title: string; t: number }> {
   const seen = new Set<string>()
   const out: Array<{ situation: Situation; formulaId: string; title: string; t: number }> = []
   for (const m of moments) {
-    for (const c of shownCards(cardsForMoment(sits, m.t, digits, units))) {
+    for (const c of shownCards(cardsForMoment(sits, m.t, digits, units), level)) {
       const key = `${c.situation.key}|${c.formula.id}`
       if (seen.has(key)) continue
       seen.add(key)
@@ -61,7 +64,7 @@ export function derivationTargets(sits: Situation[], moments: KeyMoment[], digit
  * Render the pages. `check` is called between pages (throws to cancel); `step` reports progress (0–1).
  */
 export async function derivationPages(rec: Recording, sits: Situation[], moments: KeyMoment[], o: DerivationPageOptions, check: () => void = () => {}, step: (p: number) => void = () => {}): Promise<DerivationPage[]> {
-  const targets = derivationTargets(sits, moments, o.digits, o.units).slice(0, o.maxFormulas ?? 40)
+  const targets = derivationTargets(sits, moments, o.digits, o.units, o.level ?? null).slice(0, o.maxFormulas ?? 40)
   const events = moments.filter(m => m.eventIndex !== undefined && rec.events[m.eventIndex]?.changes.length)
   const total = targets.length + events.length
   const pages: DerivationPage[] = []

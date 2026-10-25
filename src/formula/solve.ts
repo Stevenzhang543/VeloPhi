@@ -14,6 +14,11 @@
  *
  * Angles: a quantity in rad (an angle variable, an inverse trigonometric function, a multiple of an angle) is shown
  * in the display unit of angles (degrees by default) in every line, as the card does.
+ *
+ * 26.51 (D45): the solution is also structured for the textbook layout "given / find / solution / answer": every
+ * known value has a colour, used for its symbol in the formula, its value in the substitution and its row in the
+ * table of known values; every calculation line carries a short note saying what was evaluated (functions, powers,
+ * products, sums), with the function values spelled out; unit conversions are listed as their own step.
  */
 import type { Node } from './expr'
 import { FUNCS, evaluate, parse, variables } from './expr'
@@ -48,6 +53,14 @@ export interface KnownValue {
   display: string
   /** KaTeX value in SI when the display unit differs (null otherwise; angles are never converted). */
   si: string | null
+  /** Colour of the value (CSS hex), shared by its symbol, its substituted value and its table row. */
+  color: string
+}
+
+/** One calculation line: the right-hand side after "=", and what was done to get it. */
+export interface CalcLine {
+  tex: string
+  note: string | null
 }
 
 /** A generated solution. */
@@ -70,6 +83,43 @@ export interface Solution {
   resultDisplay: string
   /** Error message when the expression could not be evaluated. */
   error: string | null
+  /** The expression in symbols with every known symbol in its colour (KaTeX). */
+  coloredSymbolic: string
+  /** The substitution line with every value in its colour (KaTeX), '' for a constant formula. */
+  coloredSubstituted: string
+  /**
+   * The calculation after the formula: substitution, reduction lines and the result, each with its note (the first
+   * line is the coloured substitution).
+   */
+  lines: CalcLine[]
+  /** Unit conversions done before substituting: "50\,\mathrm{cm} = 0.5\,\mathrm{m}" (KaTeX each). */
+  conversions: string[]
+}
+
+/**
+ * Colours of known values (D45): distinguishable, readable on light and dark backgrounds (the 500/600 tones of a
+ * common palette), and in an order where neighbours differ in hue.
+ */
+export const VALUE_COLORS = ['#2563eb', '#ea580c', '#059669', '#db2777', '#7c3aed', '#0891b2', '#b45309', '#dc2626']
+
+/** KaTeX in a colour. */
+const colored = (color: string, t: string) => `\\textcolor{${color}}{${t}}`
+
+/** Texts of the calculation notes. */
+const NOTE: Record<string, Tri> = {
+  substitute: { zh: '代入数据（国际单位）', en: 'substitute the values (SI units)', de: 'Werte einsetzen (SI-Einheiten)' },
+  result: { zh: '结果', en: 'result', de: 'Ergebnis' },
+  inDisplay: { zh: '换算为显示单位', en: 'in the display unit', de: 'in der Anzeigeeinheit' },
+  lead: { zh: '计算', en: 'evaluate ', de: 'berechne ' },
+  trig: { zh: '三角函数', en: 'trigonometric functions', de: 'Winkelfunktionen' },
+  root: { zh: '开方', en: 'square roots', de: 'Wurzeln' },
+  func: { zh: '函数值', en: 'functions', de: 'Funktionen' },
+  pow: { zh: '乘方', en: 'powers', de: 'Potenzen' },
+  mul: { zh: '乘除', en: 'products and quotients', de: 'Produkte und Quotienten' },
+  add: { zh: '加减', en: 'sums and differences', de: 'Summen und Differenzen' },
+  neg: { zh: '变号', en: 'signs', de: 'Vorzeichen' },
+  pick: { zh: '按条件选取', en: 'choose by the condition', de: 'nach der Bedingung auswählen' },
+  join: { zh: '、', en: ', ', de: ', ' }
 }
 
 const OTHERWISE: Tri = { zh: '否则', en: 'otherwise', de: 'sonst' }
@@ -210,6 +260,8 @@ interface Work {
   values: Record<string, number>
   angles: Set<string>
   next: number
+  /** Operations evaluated in the current level: their kind and (for functions) the evaluated subtree and leaf. */
+  ops: Array<{ kind: string; node: Node; leaf: Node }>
 }
 
 function newLeaf(w: Work, value: number, angle: boolean): Node {
@@ -246,7 +298,11 @@ function mapChain(n: Node, f: (x: Node) => Node): Node {
  */
 function reduceLevel(n: Node, w: Work): Node {
   const angle = (x: Node) => isAngle(x, name => w.angles.has(name))
-  const done = (x: Node) => newLeaf(w, evaluate(x, w.values), angle(x))
+  const done = (x: Node) => {
+    const leaf = newLeaf(w, evaluate(x, w.values), angle(x))
+    w.ops.push({ kind: opKind(x), node: x, leaf })
+    return leaf
+  }
   const sub = (x: Node) => (isAtom(x) ? x : reduceLevel(x, w))
   switch (n.type) {
     case 'num': case 'var': return n
@@ -260,11 +316,21 @@ function reduceLevel(n: Node, w: Work): Node {
       if (n.fn === 'if') {
         const cond = n.args[0]
         // `evaluate` evaluates only the branch the condition selects: so does the reduction
-        if (cond.type === 'cmp' && isAtom(cond.left) && isAtom(cond.right)) return evaluate(cond, w.values) ? n.args[1] : n.args[2]
+        if (cond.type === 'cmp' && isAtom(cond.left) && isAtom(cond.right)) { w.ops.push({ kind: 'pick', node: n, leaf: n }); return evaluate(cond, w.values) ? n.args[1] : n.args[2] }
         return { type: 'call', fn: n.fn, args: [sub(cond), n.args[1], n.args[2]] }
       }
       return n.args.every(isAtom) ? done(n) : { type: 'call', fn: n.fn, args: n.args.map(sub) }
     }
+  }
+}
+
+/** Kind of an evaluated operation (for the notes). */
+function opKind(n: Node): string {
+  switch (n.type) {
+    case 'neg': return 'neg'
+    case 'bin': return n.op === '^' ? (n.right.type === 'num' && n.right.value === 0.5 ? 'root' : 'pow') : chainClass(n.op) === 1 ? 'add' : 'mul'
+    case 'call': return TRIG.has(n.fn) || INVERSE_TRIG.has(n.fn) ? 'trig' : n.fn === 'sqrt' ? 'root' : 'func'
+    default: return 'func'
   }
 }
 
@@ -304,23 +370,29 @@ export function solveTree(tree: Node, lhs: string, unit: string, sample: Sample,
   const vars: Record<string, number> = {}
   for (const [k, v] of Object.entries(sample.vars)) vars[k] = v.value
   const used = [...variables(tree)]
-  const known: KnownValue[] = used.filter(name => sample.vars[name]).map(name => {
+  const known: KnownValue[] = used.filter(name => sample.vars[name]).map((name, i) => {
     const v = sample.vars[name]
     const conv = v.unit !== 'rad' && isConverted(v.unit, units)
     return {
       name, symbol: v.symbol, label: v.label, unit: v.unit, value: v.value,
       display: latexQuantity(v.value, v.unit, units, digits),
-      si: conv ? latexQuantity(v.value, v.unit, si, digits) : null
+      si: conv ? latexQuantity(v.value, v.unit, si, digits) : null,
+      color: VALUE_COLORS[i % VALUE_COLORS.length]
     }
   })
+  const colorOf = new Map(known.map(k => [k.name, k.color]))
   const converted = known.some(k => k.si !== null)
+  const conversions = known.filter(k => k.si !== null).map(k => `${k.display} = ${k.si}`)
   const symbolic = printExpr(tree, name => (sample.vars[name] ? sample.vars[name].symbol : null), false, lang)
+  const coloredSymbolic = printExpr(tree, name => (sample.vars[name] ? colored(colorOf.get(name)!, sample.vars[name].symbol) : null), false, lang)
   const rhs: string[] = [symbolic]
-  const fail = (error: string): Solution => ({ known, converted, lhs, rhs, value: null, resultSi: '', resultDisplay: '', error })
+  const lines: CalcLine[] = []
+  const note = (key: string) => NOTE[key][lang]
+  const fail = (error: string): Solution => ({ known, converted, lhs, rhs, value: null, resultSi: '', resultDisplay: '', error, coloredSymbolic, coloredSubstituted: '', lines, conversions })
   const missing = used.filter(name => vars[name] === undefined)
   if (missing.length) return fail(`${missing.join(', ')}?`)
 
-  const w: Work = { values: {}, angles: new Set(), next: 0 }
+  const w: Work = { values: {}, angles: new Set(), next: 0, ops: [] }
   const origin = new Map<string, string>()
   const angleVar = (name: string) => sample.vars[name]?.unit === 'rad'
   let work = substitute(tree, vars, w, angleVar, origin)
@@ -329,9 +401,17 @@ export function solveTree(tree: Node, lhs: string, unit: string, sample: Sample,
     const v = sample.vars[origin.get(name) ?? '']
     return v ? latexQuantity(v.value, v.unit, si, digits) : null
   }, true, lang)
+  const coloredSubstituted = isLeaf(tree) && tree.type === 'num' ? '' : printExpr(work, name => {
+    const o = origin.get(name) ?? ''
+    const v = sample.vars[o]
+    return v ? colored(colorOf.get(o)!, latexQuantity(v.value, v.unit, si, digits)) : null
+  }, true, lang)
   if (isLeaf(tree) && tree.type === 'num') {
     // A constant formula (a = 0): nothing to substitute
-  } else if (withUnits !== symbolic) rhs.push(withUnits)
+  } else if (withUnits !== symbolic) {
+    rhs.push(withUnits)
+    lines.push({ tex: coloredSubstituted, note: note('substitute') })
+  }
 
   const rootAngle = unit === 'rad'
   const plain = (name: string): string | null => {
@@ -341,13 +421,16 @@ export function solveTree(tree: Node, lhs: string, unit: string, sample: Sample,
     if (angle && si.angle !== 'rad') return `${latexNumber(toDisplay(v, 'rad', si), digits)}^{\\circ}`
     return latexNumber(v, digits)
   }
-  // Reduce level by level
+  // Reduce level by level, remembering what each level evaluated
   const levels: Node[] = []
+  const levelOps: Array<Work['ops']> = []
   let guard = 0
   try {
     while (!isLeaf(work) && guard++ < 200) {
+      w.ops = []
       work = reduceLevel(work, w)
       levels.push(work)
+      levelOps.push(w.ops)
     }
     if (work.type === 'num') {
       // Constant expression (no operation at all): its value is the number itself
@@ -368,15 +451,43 @@ export function solveTree(tree: Node, lhs: string, unit: string, sample: Sample,
     if (v === undefined || v === 0 || (w.angles.has(name) && si.angle !== 'rad')) return null
     return `${latexNumber(v, digits)}\\,\\mathrm{rad}`
   }
-  for (const n of shown) {
+  // Notes: the kinds of operations evaluated since the previous shown line, with function values spelled out
+  const ORDER = ['pick', 'trig', 'root', 'func', 'pow', 'mul', 'add', 'neg']
+  const noteOf = (ops: Work['ops']): string | null => {
+    if (!ops.length) return null
+    const kinds = ORDER.filter(k => ops.some(o => o.kind === k))
+    const words = kinds.map(k => note(k)).join(note('join'))
+    const fn = ops.filter(o => o.kind === 'trig' || o.kind === 'root' || o.kind === 'func').slice(0, 3)
+    const vals = fn.map(o => `$${printExpr(o.node, plain, true, lang, trigArg)} = ${plain((o.leaf as { name: string }).name) ?? ''}$`)
+    const lead = note('lead')
+    const sep = lang === 'zh' ? '：' : ': '
+    const text = lang === 'zh' ? `${lead}${words}` : `${lead}${words}`
+    return vals.length ? `${text}${sep}${vals.join(lang === 'zh' ? '，' : ', ')}` : text
+  }
+  const shownSet = new Set(shown)
+  let pending: Work['ops'] = []
+  for (let i = 0; i < levels.length; i++) {
+    pending = pending.concat(levelOps[i])
+    const n = levels[i]
+    if (!shownSet.has(n)) continue
     const line = printExpr(n, plain, true, lang, trigArg)
-    if (line !== rhs[rhs.length - 1]) rhs.push(line)
+    if (line !== rhs[rhs.length - 1]) {
+      rhs.push(line)
+      lines.push({ tex: line, note: noteOf(pending) })
+      pending = []
+    }
   }
   const resultSi = latexQuantity(value, unit, si, digits)
   const resultDisplay = latexQuantity(value, unit, units, digits)
-  if (rhs[rhs.length - 1] !== resultSi) rhs.push(resultSi)
-  if (resultDisplay !== resultSi) rhs.push(resultDisplay)
-  return { known, converted, lhs, rhs, value, resultSi, resultDisplay, error: null }
+  if (rhs[rhs.length - 1] !== resultSi) {
+    rhs.push(resultSi)
+    lines.push({ tex: resultSi, note: noteOf(pending) ?? note('result') })
+  } else if (lines.length) lines[lines.length - 1].note = lines[lines.length - 1].note ?? note('result')
+  if (resultDisplay !== resultSi) {
+    rhs.push(resultDisplay)
+    lines.push({ tex: resultDisplay, note: note('inDisplay') })
+  }
+  return { known, converted, lhs, rhs, value, resultSi, resultDisplay, error: null, coloredSymbolic, coloredSubstituted, lines, conversions }
 }
 
 /** KaTeX of the unit written after a number in `unit` under a unit choice (e.g. "\,\mathrm{m/s^2}"; '' when dimensionless). */

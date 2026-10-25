@@ -13,9 +13,10 @@ import { state, edit } from '../store'
 import { canonicalQuantityId, evaluateQuantity, listQuantities, makeContext } from '../../core/observe/quantities'
 import type { QuantityDef } from '../../core/observe/quantities'
 import { cardsAt } from '../../formula/match'
+import { withinLevel } from '../../formula/levels'
 import type { Verdict } from '../../formula/match'
 import { PAGE_ACTIVE, recentWindow, seriesFor, seriesWindow, useGated } from '../live'
-import { fmtQ, fmtTime, unitLabel } from '../settings'
+import { fmtQ, fmtTime, unitLabel, effectiveCurriculum, settings } from '../settings'
 import Viewport from './Viewport.vue'
 import Timeline from './Timeline.vue'
 import ChartPanel from './ChartPanel.vue'
@@ -70,7 +71,8 @@ const VERDICT: Record<Verdict, { text: string; cls: string }> = {
 const cards = computed(() => {
   const r = rec.value
   if (!r || !state.situations.length) return []
-  return cardsAt(state.situations, tNow.value, { digits: state.digits }).filter(c => c.verdict !== 'not-applicable')
+  const cur = effectiveCurriculum(), level = settings.knowledge.level
+  return cardsAt(state.situations, tNow.value, { digits: state.digits }).filter(c => c.verdict !== 'not-applicable' && withinLevel(c.formula.id, cur, level))
 })
 const counts = computed(() => {
   const c = { match: 0, approx: 0, deviate: 0, none: 0 }

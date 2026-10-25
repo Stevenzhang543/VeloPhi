@@ -81,6 +81,12 @@ export const FORMULAS: FormulaDef[] = trDeep([
   { id: 'col.dE', situation: 'collision', title: '碰撞损失的动能', latex: '\\Delta E_k = \\dfrac{m_1m_2(1 - e^2)(u_1 - u_2)^2}{2(m_1 + m_2)}', lhs: '\\Delta E_k', expr: 'm1*m2*(1 - e^2)*(u1 - u2)^2/(2*(m1 + m2))', unit: 'J', measure: 'dE', kind: 'exact', requires: ['frictionless'], note: '有摩擦冲量时动能损失更多' },
   { id: 'col.tangent', situation: 'collision', title: '光滑球切向速度不变', latex: "v_{1t}' = v_{1t}", lhs: "v_{1t}'", expr: 'w1', unit: 'm/s', measure: 'w1after', kind: 'exact', requires: ['oblique', 'frictionless'] },
   { id: 'col.angle', situation: 'collision', title: '等质量弹性斜碰：碰后速度互相垂直', latex: '\\angle(\\vec v_1\\,\', \\vec v_2\\,\') = \\dfrac{\\pi}{2}', lhs: '\\varphi', expr: 'pi/2', unit: 'rad', measure: 'angle', kind: 'exact', requires: ['oblique', 'equalMassElasticRest', 'frictionless'] },
+  // 26.51: textbook special cases (D44)
+  { id: 'col.el.v1', situation: 'collision', title: '弹性碰撞后物体 1 的速度', latex: "v_1' = \\dfrac{(m_1 - m_2)u_1 + 2m_2u_2}{m_1 + m_2}", lhs: "v_1'", expr: '((m1 - m2)*u1 + 2*m2*u2)/(m1 + m2)', unit: 'm/s', measure: 'v1', kind: 'exact', requires: ['elastic'], note: '动量守恒与动能守恒联立；u、v 为沿连心线的分量' },
+  { id: 'col.el.v2', situation: 'collision', title: '弹性碰撞后物体 2 的速度', latex: "v_2' = \\dfrac{(m_2 - m_1)u_2 + 2m_1u_1}{m_1 + m_2}", lhs: "v_2'", expr: '((m2 - m1)*u2 + 2*m1*u1)/(m1 + m2)', unit: 'm/s', measure: 'v2', kind: 'exact', requires: ['elastic'] },
+  { id: 'col.swap', situation: 'collision', title: '等质量弹性正碰：交换速度', latex: "v_1' = u_2", lhs: "v_1'", expr: 'u2', unit: 'm/s', measure: 'v1', kind: 'exact', requires: ['elastic', 'equalMass'] },
+  { id: 'col.in.v', situation: 'collision', title: '完全非弹性碰撞后的共同速度', latex: "v' = \\dfrac{m_1u_1 + m_2u_2}{m_1 + m_2}", lhs: "v'", expr: '(m1*u1 + m2*u2)/(m1 + m2)', unit: 'm/s', measure: 'v1', kind: 'exact', requires: ['perfectlyInelastic'] },
+  { id: 'col.in.dE', situation: 'collision', title: '完全非弹性碰撞损失的动能', latex: '\\Delta E_k = \\dfrac{m_1m_2(u_1 - u_2)^2}{2(m_1 + m_2)}', lhs: '\\Delta E_k', expr: 'm1*m2*(u1 - u2)^2/(2*(m1 + m2))', unit: 'J', measure: 'dE', kind: 'exact', requires: ['perfectlyInelastic', 'frictionless'], note: '损失的动能最多' },
   { id: 'bounce.v', situation: 'bounce', title: '与固定面碰撞后的法向速度', latex: "v_n' = -e\\,v_n", lhs: "v_n'", expr: '-e*u', unit: 'm/s', measure: 'v', kind: 'exact' },
 
   // ---- Projectile ----
@@ -90,6 +96,12 @@ export const FORMULAS: FormulaDef[] = trDeep([
   { id: 'pr.vy', situation: 'projectile', title: '竖直速度', latex: 'v_y = v_{0y} - gt', lhs: 'v_y', expr: 'vy0 - g*t', unit: 'm/s', measure: 'vy', kind: 'exact' },
   { id: 'pr.T', situation: 'projectile', title: '飞行时间（落到 y₁ 高度）', latex: 'T = \\dfrac{v_{0y} + \\sqrt{v_{0y}^2 + 2g(y_0 - y_1)}}{g}', lhs: 'T', expr: '(vy0 + sqrt(vy0^2 + 2*g*(y0 - y1)))/g', unit: 's', measure: 'T', kind: 'exact', requires: ['lands'] },
   { id: 'pr.R', situation: 'projectile', title: '水平射程', latex: 'R = v_{0x}\\,T', lhs: 'R', expr: 'vx0*(vy0 + sqrt(vy0^2 + 2*g*(y0 - y1)))/g', unit: 'm', measure: 'R', kind: 'exact', requires: ['lands'] },
+  // 26.51: free fall and conservation of mechanical energy (D44)
+  { id: 'ff.v', situation: 'projectile', title: '自由落体的速度', latex: 'v = gt', lhs: 'v', expr: 'g*t', unit: 'm/s', measure: 'speed', kind: 'exact', requires: ['fromRest'] },
+  { id: 'ff.h', situation: 'projectile', title: '自由落体的下落高度', latex: 'h = \\tfrac{1}{2}gt^2', lhs: 'h', expr: 'g*t^2/2', unit: 'm', measure: 'drop', kind: 'exact', requires: ['fromRest'] },
+  { id: 'ff.v2', situation: 'projectile', title: '下落 h 时的速度', latex: 'v = \\sqrt{2gh}', lhs: 'v', expr: 'sqrt(2*g*h)', unit: 'm/s', measure: 'speed', kind: 'exact', requires: ['fromRest'], note: 'h 取仿真中已下落的高度' },
+  { id: 'pr.E', situation: 'projectile', title: '机械能守恒', latex: '\\tfrac{1}{2}mv^2 + mgy = \\tfrac{1}{2}mv_0^2 + mgy_0', lhs: 'E', expr: 'm*(vx0^2 + vy0^2)/2 + m*g*y0', unit: 'J', measure: 'E', kind: 'exact', note: '只有重力做功' },
+  { id: 'pr.v', situation: 'projectile', title: '由机械能守恒求速率', latex: 'v = \\sqrt{v_0^2 + 2g(y_0 - y)}', lhs: 'v', expr: 'sqrt(vx0^2 + vy0^2 + 2*g*(y0 - y))', unit: 'm/s', measure: 'speed', kind: 'exact', note: 'y 取仿真中此刻的高度' },
   { id: 'pr.H', situation: 'projectile', title: '最高点高度', latex: 'H = y_0 + \\dfrac{v_{0y}^2}{2g}', lhs: 'H', expr: 'y0 + vy0^2/(2*g)', unit: 'm', measure: 'H', kind: 'exact', requires: ['rises'] },
 
   // ---- Pendulum ----
@@ -182,6 +194,54 @@ export const FORMULAS: FormulaDef[] = trDeep([
   { id: 'vf.W', situation: 'var-force', title: '动能定理（变力做功）', latex: 'W = \\tfrac12 mv_x^2 - \\tfrac12 mv_0^2', lhs: 'W', expr: 'm*(v0 + J/m)^2/2 - m*v0^2/2', unit: 'J', measure: 'W', kind: 'exact', requires: ['timeOnly', 'noVerticalWork'] },
   { id: 'vf.sin.v', situation: 'var-force', title: 'F = F₀ sin ωt 时的速度', latex: 'v_x = v_0 + \\dfrac{F_0}{m\\omega}\\left(\\cos\\omega t_0 - \\cos\\omega t\\right)', lhs: 'v_x', expr: 'v0 + F0*(cos(omega*t0) - cos(omega*t))/(m*omega)', unit: 'm/s', measure: 'v', kind: 'exact', requires: ['sinusoid'] },
   { id: 'vf.sin.x', situation: 'var-force', title: 'F = F₀ sin ωt 时的位置', latex: 'x = x_0 + v_0\\tau + \\dfrac{F_0}{m\\omega}\\left[\\tau\\cos\\omega t_0 - \\dfrac{\\sin\\omega t - \\sin\\omega t_0}{\\omega}\\right],\\ \\tau = t - t_0', lhs: 'x', expr: 'x0 + v0*(t - t0) + F0/(m*omega)*((t - t0)*cos(omega*t0) - (sin(omega*t) - sin(omega*t0))/omega)', unit: 'm', measure: 'x', kind: 'exact', requires: ['sinusoid'] },
+
+  // ---- 26.51: graded library (D44) and the physics of D50/D51 ----
+  // Uniform motion
+  { id: 'uni.s', situation: 'uniform', title: '匀速直线运动的路程', latex: 's = vt', lhs: 's', expr: 'v*t', unit: 'm', measure: 's', kind: 'exact', causes: NUM },
+  { id: 'uni.v', situation: 'uniform', title: '速度 = 路程 ÷ 时间', latex: 'v = \\dfrac{s}{t}', lhs: 'v', expr: 's/t', unit: 'm/s', measure: 'v', kind: 'exact', note: 's 取仿真中通过的路程；匀速运动中平均速度等于瞬时速度' },
+  { id: 'uni.F', situation: 'uniform', title: '牛顿第一定律：合力为零', latex: '\\textstyle\\sum F = 0', lhs: '\\textstyle\\sum F', expr: '0', unit: 'N', measure: 'F', kind: 'exact' },
+  // Constant force on a horizontal surface
+  { id: 'cf.a', situation: 'const-force', title: '恒力拉动物块的加速度', latex: 'a = \\dfrac{F\\cos\\alpha - \\mu(mg - F\\sin\\alpha)}{m}', lhs: 'a', expr: '(F*cos(alpha) - muK*(m*g - F*sin(alpha)))/m', unit: 'm/s²', measure: 'a', kind: 'exact', requires: ['forward'], method: '正交分解', causes: NUM },
+  { id: 'cf.N', situation: 'const-force', title: '斜拉时的支持力', latex: 'N = mg - F\\sin\\alpha', lhs: 'N', expr: 'm*g - F*sin(alpha)', unit: 'N', measure: 'N', kind: 'exact' },
+  { id: 'cf.W0', situation: 'const-force', title: '功 = 力 × 距离', latex: 'W = Fs', lhs: 'W', expr: 'F*s', unit: 'J', measure: 'W', kind: 'exact', requires: ['horizontalForce'], note: 's 取仿真中的位移' },
+  { id: 'cf.W', situation: 'const-force', title: '恒力做功', latex: 'W = Fs\\cos\\alpha', lhs: 'W', expr: 'F*s*cos(alpha)', unit: 'J', measure: 'W', kind: 'exact', note: 's 取仿真中的位移' },
+  { id: 'cf.P', situation: 'const-force', title: '功率 = 力 × 速度', latex: 'P = Fv\\cos\\alpha', lhs: 'P', expr: 'F*v*cos(alpha)', unit: 'W', measure: 'P', kind: 'exact', note: 'v 取仿真中此刻的速度' },
+  { id: 'cf.dEk', situation: 'const-force', title: '动能定理', latex: '\\Delta E_k = [F\\cos\\alpha - \\mu(mg - F\\sin\\alpha)]\\,s', lhs: '\\Delta E_k', expr: '(F*cos(alpha) - muK*(m*g - F*sin(alpha)))*s', unit: 'J', measure: 'dEk', kind: 'exact', requires: ['forward'], note: '合力做的功等于动能的增加量；s 取仿真中的位移' },
+  { id: 'cf.J', situation: 'const-force', title: '动量定理', latex: '\\Delta p = [F\\cos\\alpha - \\mu(mg - F\\sin\\alpha)]\\,t', lhs: '\\Delta p', expr: '(F*cos(alpha) - muK*(m*g - F*sin(alpha)))*t', unit: 'kg·m/s', measure: 'dp', kind: 'exact', requires: ['forward'] },
+  // Lever
+  { id: 'lever.F', situation: 'lever', title: '杠杆平衡条件', latex: 'F_1l_1 = F_2l_2', lhs: 'F_1', expr: 'm*g*l2/l1', unit: 'N', measure: 'T', kind: 'exact', note: 'F₂ = mg 为重物的重力；杠杆的重心在支点，自重不产生力矩' },
+  { id: 'lever.N', situation: 'lever', title: '支点对杠杆的支持力', latex: 'N = Mg + mg + F_1', lhs: 'N', expr: 'M*g + m*g + m*g*l2/l1', unit: 'N', measure: 'N', kind: 'exact', requires: ['verticalRope'], method: '整体受力平衡' },
+  // Uniform circular motion
+  { id: 'uc.w', situation: 'circle', title: '角速度与线速度', latex: '\\omega = \\dfrac{v}{r}', lhs: '\\omega', expr: 'v/r', unit: 'rad/s', measure: 'omega', kind: 'exact' },
+  { id: 'uc.T', situation: 'circle', title: '周期', latex: 'T = \\dfrac{2\\pi r}{v}', lhs: 'T', expr: '2*pi*r/v', unit: 's', measure: 'T', kind: 'exact' },
+  { id: 'uc.a', situation: 'circle', title: '向心加速度', latex: 'a = \\dfrac{v^2}{r}', lhs: 'a', expr: 'v^2/r', unit: 'm/s²', measure: 'a', kind: 'exact' },
+  { id: 'uc.F', situation: 'circle', title: '向心力', latex: 'F = \\dfrac{mv^2}{r}', lhs: 'F', expr: 'm*v^2/r', unit: 'N', measure: 'F', kind: 'exact' },
+  // Orbits
+  { id: 'or.F', situation: 'orbit', title: '万有引力定律', latex: 'F = \\dfrac{GMm}{r^2}', lhs: 'F', expr: 'G*M*m/r^2', unit: 'N', measure: 'F', kind: 'exact', note: 'r 取仿真中此刻的距离' },
+  { id: 'or.v', situation: 'orbit', title: '圆轨道的环绕速度', latex: 'v = \\sqrt{\\dfrac{GM}{r}}', lhs: 'v', expr: 'sqrt(G*M/r0)', unit: 'm/s', measure: 'v', kind: 'exact', requires: ['circular'] },
+  { id: 'or.T', situation: 'orbit', title: '开普勒第三定律（周期）', latex: 'T = 2\\pi\\sqrt{\\dfrac{a^3}{GM}}', lhs: 'T', expr: '2*pi*sqrt(a^3/(G*M))', unit: 's', measure: 'T', kind: 'exact', requires: ['bound'], note: '圆轨道 a = r' },
+  { id: 'or.A', situation: 'orbit', title: '开普勒第二定律（掠面速度不变）', latex: '\\dfrac{\\mathrm{d}A}{\\mathrm{d}t} = \\tfrac{1}{2}r_0v_{0\\perp}', lhs: '\\dfrac{\\mathrm{d}A}{\\mathrm{d}t}', expr: 'L/(2*m)', unit: 'm²/s', measure: 'areal', kind: 'exact', note: '角动量守恒' },
+  { id: 'or.vis', situation: 'orbit', title: '活力公式', latex: 'v^2 = GM\\left(\\dfrac{2}{r} - \\dfrac{1}{a}\\right)', lhs: 'v', expr: 'sqrt(G*M*(2/r - 1/a))', unit: 'm/s', measure: 'v', kind: 'exact', requires: ['bound'], note: 'r 取仿真中此刻的距离' },
+  { id: 'or.E', situation: 'orbit', title: '轨道机械能', latex: 'E = -\\dfrac{GMm}{2a}', lhs: 'E', expr: '-G*M*m/(2*a)', unit: 'J', measure: 'E', kind: 'exact', requires: ['bound'] },
+  { id: 'or.ecc', situation: 'orbit', title: '轨道偏心率', latex: 'e = \\sqrt{1 - \\dfrac{L^2}{GMm^2a}}', lhs: 'e', expr: 'sqrt(1 - L^2/(G*M*m^2*a))', unit: '', measure: 'ecc', kind: 'exact', requires: ['elliptic'], note: '仿真值由近点、远点距离求得 e = (r_max − r_min)/(r_max + r_min)' },
+  // Air drag
+  { id: 'dr.F', situation: 'drag', title: '空气阻力', latex: 'f = bv + cv^2', lhs: 'f', expr: 'b*v + c*v^2', unit: 'N', measure: 'F', kind: 'exact', note: 'v 取仿真中此刻的速度' },
+  { id: 'dr.vt', situation: 'drag', title: '终端速度（线性阻力）', latex: 'v_t = \\dfrac{mg}{b}', lhs: 'v_t', expr: 'm*g/b', unit: 'm/s', measure: 'speed', kind: 'approx', requires: ['linearDrag'], approxOf: 'nearTerminal', note: '下落足够久后才接近终端速度' },
+  { id: 'dr.vt2', situation: 'drag', title: '终端速度（平方阻力）', latex: 'v_t = \\sqrt{\\dfrac{mg}{c}}', lhs: 'v_t', expr: 'sqrt(m*g/c)', unit: 'm/s', measure: 'speed', kind: 'approx', requires: ['quadDrag'], approxOf: 'nearTerminal', note: '下落足够久后才接近终端速度' },
+  { id: 'dr.v', situation: 'drag', title: '线性阻力下的下落速度', latex: 'v = \\dfrac{mg}{b}\\left(1 - \\mathrm{e}^{-bt/m}\\right)', lhs: 'v', expr: 'm*g/b*(1 - exp(-b*t/m))', unit: 'm/s', measure: 'speed', kind: 'exact', requires: ['linearDrag', 'fromRest'], causes: NUM },
+  { id: 'dr.v2', situation: 'drag', title: '平方阻力下的下落速度', latex: 'v = \\sqrt{\\dfrac{mg}{c}}\\tanh\\!\\left(t\\sqrt{\\dfrac{gc}{m}}\\right)', lhs: 'v', expr: 'sqrt(m*g/c)*tanh(t*sqrt(g*c/m))', unit: 'm/s', measure: 'speed', kind: 'exact', requires: ['quadDrag', 'fromRest'], causes: NUM },
+  // Damped oscillation
+  { id: 'dm.T', situation: 'damped', title: '阻尼振动的周期', latex: 'T_d = \\dfrac{2\\pi}{\\sqrt{\\dfrac{k}{m} - \\dfrac{c^2}{4m^2}}}', lhs: 'T_d', expr: '2*pi/sqrt(k/m - c^2/(4*m^2))', unit: 's', measure: 'Td', kind: 'exact', note: '比无阻尼时略长' },
+  { id: 'dm.ratio', situation: 'damped', title: '振幅每周期衰减的比例', latex: '\\dfrac{A_{n+1}}{A_n} = \\mathrm{e}^{-cT_d/(2m)}', lhs: '\\dfrac{A_{n+1}}{A_n}', expr: 'exp(-c/(2*m)*2*pi/sqrt(k/m - c^2/(4*m^2)))', unit: '', measure: 'ratio', kind: 'exact' },
+  // Rotation under a constant torque
+  { id: 'spin.beta', situation: 'spin', title: '转动定律', latex: '\\beta = \\dfrac{M}{I}', lhs: '\\beta', expr: 'M/I', unit: 'rad/s²', measure: 'beta', kind: 'exact' },
+  { id: 'spin.omega', situation: 'spin', title: '匀变速转动的角速度', latex: '\\omega = \\omega_0 + \\dfrac{M}{I}t', lhs: '\\omega', expr: 'omega0 + M/I*t', unit: 'rad/s', measure: 'omega', kind: 'exact' },
+  { id: 'spin.theta', situation: 'spin', title: '匀变速转动的角位移', latex: '\\theta = \\omega_0t + \\dfrac{M}{2I}t^2', lhs: '\\theta', expr: 'omega0*t + M/(2*I)*t^2', unit: 'rad', measure: 'theta', kind: 'exact' },
+  { id: 'spin.W', situation: 'spin', title: '力矩做功等于转动动能的增加', latex: '\\tfrac{1}{2}I\\omega^2 - \\tfrac{1}{2}I\\omega_0^2 = M\\theta', lhs: '\\Delta E_k', expr: 'M*theta', unit: 'J', measure: 'dEk', kind: 'exact', note: 'θ 取仿真中转过的角度' },
+  // Gears
+  { id: 'gear.w', situation: 'gear', title: '齿轮传动的角速度', latex: '\\omega_B = -\\dfrac{\\omega_A}{r}', lhs: '\\omega_B', expr: '-omegaA/r', unit: 'rad/s', measure: 'omegaB', kind: 'exact', note: '外啮合齿轮转向相反；ω_A 取仿真值' },
+  { id: 'gear.v', situation: 'gear', title: '啮合点线速度相等', latex: 'v = \\omega_Ar_A = \\omega_Br_B', lhs: 'v', expr: 'abs(omegaA)*rA', unit: 'm/s', measure: 'vB', kind: 'exact', requires: ['discs'] },
+  { id: 'gear.beta', situation: 'gear', title: '齿轮系的角加速度', latex: '\\beta_A = \\dfrac{M}{I_A + I_B/r^2}', lhs: '\\beta_A', expr: 'M/(IA + IB/r^2)', unit: 'rad/s²', measure: 'betaA', kind: 'exact', requires: ['driven'], method: '等效转动惯量' },
 
   // ---- Conservation laws ----
   { id: 'en.ledger', situation: 'energy', title: '能量守恒（能量账本）', latex: 'E_k + E_p + E_s + Q + \\Delta E_{\\mathrm{coll}} - W = E_0', lhs: 'E_{\\Sigma}', expr: 'E0', unit: 'J', measure: 'balance', kind: 'exact', note: 'Q 含摩擦生热与阻尼耗散；W 含外力与传送带电机做的功' },

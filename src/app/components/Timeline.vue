@@ -5,7 +5,8 @@
  * (decision D26) grows: the track spans the computed range plus the look-ahead target, playback waits (buffering)
  * when it catches up with the computation, clicking beyond the computed part asks the run to compute there, and
  * the track can show everything or a recent window. `active` = false (hidden page) stops it from following
- * playback.
+ * playback. 26.51 (D52): "branch from this moment", the branch selector, and markers where branches leave the
+ * scene on screen; times are shown on the clock of that scene (a branch starts at its branch point).
  */
 import { tl, listSep } from '../../i18n'
 import { computed, ref, watch } from 'vue'
@@ -15,6 +16,9 @@ import { fmtNum, fmtTime, unitLabel } from '../settings'
 import Icon from './Icon.vue'
 import { eventLabel } from '../../render/renderer'
 import { openEventDetail } from '../details'
+import { branchDepth, branchHere, branchList, canBranch, deleteBranch, showBranch } from '../branches'
+import { shownTime } from '../../units/clock'
+import { ask } from '../../platform/ask'
 
 const props = withDefaults(defineProps<{ active?: boolean }>(), { active: true })
 
@@ -64,7 +68,7 @@ const markers = computed(() => {
   const every = Math.max(1, Math.ceil(list.length / MAX_MARKERS))
   return list.filter((_, i) => i % every === 0).map(({ index, t }) => {
     const e = r.events[index]
-    return { index, t, left: ((t - t0) / span.value) * 100, text: `${e.changes.map(eventLabel).filter((v, i, a) => a.indexOf(v) === i).join(listSep())} @ ${fmtNum(t, 's', Math.min(10, state.digits + 2))} ${unitLabel('s')}` }
+    return { index, t, left: ((t - t0) / span.value) * 100, text: `${e.changes.map(eventLabel).filter((v, i, a) => a.indexOf(v) === i).join(listSep())} @ ${fmtNum(shownTime(t), 's', Math.min(10, state.digits + 2))} ${unitLabel('s')}` }
   })
 })
 
@@ -103,6 +107,24 @@ function onMarker(m: { index: number; t: number }) {
 }
 /** Fixed decimals (the readout must not jitter), fine enough for Δt, in the display time unit. */
 const fmtT = (t: number) => fmtTime(t, rec.value?.dt ?? 1e-3, false)
+
+// ---- Branches (D52) ----
+const branches = computed(() => branchList())
+const branchOptions = computed(() => [{ id: '', label: tl('主线') }, ...branches.value.map(b => ({ id: b.id, label: `${'　'.repeat(branchDepth(b.id) - 1)}↳ ${b.name}` }))])
+const branchValue = computed({ get: () => state.branch ?? '', set: (v: string) => showBranch(v === '' ? null : v) })
+const branchable = computed(() => !state.playing && canBranch())
+/** Branches leaving the scene on screen, as markers on its track. */
+const branchMarks = computed(() => {
+  const r = rec.value
+  if (!r) return []
+  const origin = r.scene.settings.startTime ?? 0
+  const { t0, t1 } = view.value
+  return branches.value.filter(b => b.parent === state.branch).map(b => ({ id: b.id, name: b.name, t: b.t - origin })).filter(m => m.t >= t0 && m.t <= t1).map(m => ({ ...m, left: ((m.t - t0) / span.value) * 100 }))
+})
+async function removeBranch() {
+  const id = state.branch
+  if (id && (await ask(tl('删除当前分支（及由它派生的分支）？'))) && state.branch === id) deleteBranch(id)
+}
 </script>
 
 <template>
@@ -127,6 +149,14 @@ const fmtT = (t: number) => fmtTime(t, rec.value?.dt ?? 1e-3, false)
         <option :value="4">4×</option>
       </select>
       <button class="btn icon ghost" :class="{ active: state.loop }" :title="tl('循环播放')" :aria-pressed="state.loop" @click="state.loop = !state.loop"><Icon name="loop" /></button>
+      <span class="sep" />
+      <button class="btn ghost small branch-btn" :disabled="!branchable" :title="tl('从当前时刻建立分支：之后修改物体、连接件或参数，从此刻继续计算；原记录保留，可切换和在曲线中叠加对照（先暂停）')" @click="branchHere()"><Icon name="branch" :size="15" /><span class="br-lbl"> {{ tl('从此刻分支') }}</span></button>
+      <template v-if="branches.length">
+        <select v-model="branchValue" class="field branch-sel" :title="tl('切换主线与分支')">
+          <option v-for="o in branchOptions" :key="o.id" :value="o.id">{{ o.label }}</option>
+        </select>
+        <button v-if="state.branch" class="btn icon ghost" :title="tl('删除此分支')" @click="removeBranch"><Icon name="trash" :size="15" /></button>
+      </template>
       <span class="spacer" />
       <span v-if="state.buffering" class="badge warn computing" :title="tl('播放追上了计算，等待新的帧')">{{ tl('缓冲中…') }}</span>
       <template v-if="unbounded">
@@ -143,6 +173,7 @@ const fmtT = (t: number) => fmtTime(t, rec.value?.dt ?? 1e-3, false)
       <input type="range" :min="kMin" :max="kMax" step="1" :value="rec ? Math.round(tNow / rec.dt) : 0" :disabled="!rec" :aria-label="tl('时间')" @input="onTrack" />
       <div class="markers">
         <button v-for="m in markers" :key="m.index" class="marker" :style="{ left: `${m.left}%` }" :title="tl('{0}（点击查看详情）', [m.text])" @click="onMarker(m)" />
+        <button v-for="b in branchMarks" :key="`br-${b.id}`" class="marker branch" :style="{ left: `${b.left}%` }" :title="tl('分支“{0}”从这里开始（点击切换）', [b.name])" @click="showBranch(b.id)" />
       </div>
     </div>
   </div>
@@ -157,7 +188,9 @@ const fmtT = (t: number) => fmtTime(t, rec.value?.dt ?? 1e-3, false)
 .controls > .btn { flex: 0 0 auto; }
 .computing { margin-right: 4px; flex: 0 1 auto; min-width: 6em; display: block; line-height: 20px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Narrow: drop the secondary texts before anything gets squeezed */
-@container (max-width: 820px) { .frames, .ev-lbl, .zoom-btn { display: none; } }
+@container (max-width: 820px) { .frames, .ev-lbl, .zoom-btn, .br-lbl { display: none; } }
+.branch-sel { width: 180px; flex: 0 1 auto; min-width: 80px; }
+.branch-btn { display: inline-flex; align-items: center; gap: 2px; white-space: nowrap; }
 @container (max-width: 560px) { .computing, .sep, .stop-btn { display: none; } .speed { width: 62px; } }
 .time { font-size: var(--type-body); font-weight: 600; margin: 0 8px; white-space: nowrap; }
 .frames { white-space: nowrap; }
@@ -167,4 +200,6 @@ const fmtT = (t: number) => fmtTime(t, rec.value?.dt ?? 1e-3, false)
 .markers { position: absolute; left: 8px; right: 8px; top: 0; height: 100%; pointer-events: none; }
 .marker { position: absolute; top: 0; width: 8px; height: 8px; margin-left: -4px; border-radius: 2px; transform: rotate(45deg); background: var(--warning); border: 0; padding: 0; cursor: pointer; pointer-events: auto; }
 .marker:hover { transform: rotate(45deg) scale(1.35); }
+.marker.branch { width: 4px; height: 18px; margin-left: -2px; top: 2px; border-radius: 2px; transform: none; background: var(--accent); }
+.marker.branch:hover { transform: scaleX(1.6); }
 </style>

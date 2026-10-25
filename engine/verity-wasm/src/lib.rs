@@ -74,6 +74,12 @@ pub extern "C" fn abi_version() -> u32 {
     ABI_VERSION
 }
 
+/// Newest scene file format the engine reads (26.51: 4). The loader refuses an older engine for newer scenes.
+#[no_mangle]
+pub extern "C" fn scene_version() -> u32 {
+    verity_core::scene::SCENE_VERSION as u32
+}
+
 /// Allocate `len` bytes of linear memory for the caller (free with `dealloc(ptr, len)`).
 #[no_mangle]
 pub extern "C" fn alloc(len: u32) -> *mut u8 {

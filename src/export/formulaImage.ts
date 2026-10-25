@@ -14,6 +14,8 @@
  *
  * `cardHtml` and the font-selection helpers are pure and run in Node for the tests.
  */
+import type { Curriculum } from '../formula/levels'
+import { withinLevel } from '../formula/levels'
 import { tl, trDeep, paren } from '../i18n'
 import katex from 'katex'
 import type { FormulaCard, Verdict } from '../formula/match'
@@ -445,7 +447,10 @@ export async function cardImage(card: FormulaCard, o: CardImageOptions, opts: { 
   })
 }
 
-/** Formula cards worth showing: applicable ones (a card whose conditions fail is left out). */
-export function shownCards(cards: FormulaCard[]): FormulaCard[] {
-  return cards.filter(c => c.verdict !== 'not-applicable')
+/** Knowledge-level filter of exported cards (D44): curriculum and ceiling; null: all formulas. */
+export type LevelFilter = { curriculum: Curriculum; level: number } | null
+
+/** Formula cards worth showing: applicable ones (a card whose conditions fail is left out), within the level. */
+export function shownCards(cards: FormulaCard[], level: LevelFilter = null): FormulaCard[] {
+  return cards.filter(c => c.verdict !== 'not-applicable' && (!level || withinLevel(c.formula.id, level.curriculum, level.level)))
 }

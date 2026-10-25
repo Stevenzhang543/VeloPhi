@@ -113,6 +113,16 @@ export const TRIGGER_TEXT: Record<EventType, TriggerTemplate> = {
       'Der Kraftterm enthält eine abschnittsweise definierte Funktion (step, sign, if, abs, min, max). u ist ihr Umschaltargument und b = ±1 der aktuelle Zweig, sodass g > 0. Fällt g auf 0, wechselt der Term in den anderen Zweig: Die Kraft springt (step, sign, if) oder hat einen Knick (abs, min, max).'
     ),
     unit: ''
+  },
+  pulley: {
+    name: T('到达滑轮检测', 'Reaching the pulley', 'Erreichen der Rolle'),
+    g: 'g(t) = s(t) - s_\\mathrm{min}',
+    meaning: T(
+      'g 为物体与它所绕过的滑轮之间那段绳的长度 s，减去 1 mm。g 减小到 0，物体到达滑轮，计算停止。',
+      'g is the length s of the rope between the body and the pulley it runs onto, minus 1 mm. When g falls to 0 the body has reached the pulley and the computation stops.',
+      'g ist die Länge s des Seilstücks zwischen dem Körper und der Rolle, über die es läuft, minus 1 mm. Fällt g auf 0, hat der Körper die Rolle erreicht, und die Rechnung endet.'
+    ),
+    unit: 'm'
   }
 }
 
@@ -219,6 +229,15 @@ export const CHANGE_TEXT: Record<ChangeType, ChangeTemplate> = {
       'Stöße oder Kontaktwechsel folgen zu dicht aufeinander (oder die Szeneneinstellungen verlangen es), daher rechnet der Löser ab hier mit dem Moreau–Jean-Zeitschrittverfahren: feste Schritte, Kontaktkraftstöße in jedem Schritt, keine einzelne Ereignisortung mehr. Kontaktkräfte sind Näherungswerte: verringerte Genauigkeit.'
     ),
     law: T('Moreau–Jean 时间步进（冲量形式的接触条件）', 'Moreau–Jean time stepping (contact conditions in impulse form)', 'Moreau–Jean-Zeitschrittverfahren (Kontaktbedingungen in Kraftstoßform)')
+  },
+  pulley: {
+    name: T('到达滑轮', 'Reaches the pulley', 'Erreicht die Rolle'),
+    text: T(
+      '绳端的物体被拉到它所绕过的滑轮处：物体与滑轮之间的那段绳长减小到零。此后物体会撞上滑轮（模型中滑轮与物体之间没有接触），所以计算在这一刻停止。',
+      'The body on the rope end has been pulled up to the pulley the rope runs onto: the rope between them has shrunk to zero. Beyond this the body would run into the pulley (the model has no contact between pulleys and bodies), so the computation stops here.',
+      'Der Körper am Seilende ist bis an die Rolle gezogen worden, über die das Seil läuft: Das Seilstück dazwischen ist auf null geschrumpft. Danach würde der Körper gegen die Rolle laufen (im Modell gibt es keinen Kontakt zwischen Rollen und Körpern), deshalb endet die Rechnung hier.'
+    ),
+    law: T('绳长不变：一端缩短多少，另一端就伸长多少', 'The rope length is constant: what one end loses, the other gains', 'Die Seillänge ist konstant: Was ein Ende verliert, gewinnt das andere')
   }
 }
 

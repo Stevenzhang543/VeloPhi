@@ -20,6 +20,7 @@ import type { ImageBackground, StillOptions } from './still'
 import { stillPng } from './still'
 import type { CardImage } from './formulaImage'
 import { cardImage, shownCards } from './formulaImage'
+import type { LevelFilter } from './formulaImage'
 import type { VideoOptions, VideoResult } from './video'
 import { exportVideo, timeLabel } from './video'
 import type { DeckImage, DeckMoment } from './pptx'
@@ -50,6 +51,8 @@ export interface CoursewareOptions {
   derivations: { lang: Lang } | null
   /** Quantities read out on the slides at each moment. */
   readoutIds: string[]
+  /** Knowledge-level filter of the formula cards and pages (D44); null or absent: all formulas. */
+  level?: LevelFilter
 }
 
 /** A file of the package; `path` is relative to its root. */
@@ -154,7 +157,7 @@ export async function buildCourseware(rec: Recording, sits: Situation[], o: Cour
     const f = o.formulas ?? { png: false, svg: false, background: 'white' as ImageBackground }
     const lists = o.moments.map(m => {
       const seen = new Set<string>()
-      return shownCards(cardsForMoment(sits, m.t, o.digits, o.units)).filter(c => (seen.has(c.key) ? false : (seen.add(c.key), true)))
+      return shownCards(cardsForMoment(sits, m.t, o.digits, o.units), o.level ?? null).filter(c => (seen.has(c.key) ? false : (seen.add(c.key), true)))
     })
     const count = lists.reduce((a, l) => a + l.length, 0)
     let k = 0
@@ -189,7 +192,7 @@ export async function buildCourseware(rec: Recording, sits: Situation[], o: Cour
   // Derivations and step-by-step solutions (one page per formula and per key event)
   let derivations: DerivationPage[] = []
   if (o.derivations) {
-    derivations = await derivationPages(rec, sits, o.moments, { digits: o.digits, units: o.units, lang: o.derivations.lang, theme: 'light', background: 'white', caption: o.title }, check, p => step(w.derivations, p, tl('正在生成推导与解题过程')))
+    derivations = await derivationPages(rec, sits, o.moments, { digits: o.digits, units: o.units, lang: o.derivations.lang, theme: 'light', background: 'white', caption: o.title, level: o.level ?? null }, check, p => step(w.derivations, p, tl('正在生成推导与解题过程')))
     derivations.forEach((d, i) => {
       const stem = tl('推导与解题过程/{0}_{1}{2}', [String(i + 1).padStart(2, '0'), d.kind === 'event' ? tl('事件_') : '', safeName(d.title)])
       if (d.png) files.push({ path: `${stem}.png`, data: d.png })

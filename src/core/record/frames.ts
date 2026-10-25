@@ -23,6 +23,11 @@ export interface FrameStore {
   cheap?(k: number): boolean
   /** Frames per chunk, when the store is chunked. */
   readonly chunkFrames?: number
+  /**
+   * Start recomputing evicted chunk c off this thread (26.51); true when it is in memory or on its way, false when
+   * reading it would recompute it here. Stores without a remote rebuilder omit it.
+   */
+  prefetch?(c: number): boolean
 }
 
 /** One chunk of frames. Only the first `count` frames are valid. */

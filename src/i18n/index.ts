@@ -11,11 +11,11 @@
  * Physics symbols, LaTeX and unit symbols are not translated. The language is an application setting, never part
  * of a scene file; switching it re-renders the interface without recomputing anything.
  */
-import { locale } from './locale'
+import { activeLang, locale } from './locale'
 import type { Lang } from './tri'
 import { buildTables } from './tables'
 
-export { locale, pick, msgText } from './locale'
+export { locale, pick, msgText, activeLang, exportOverride } from './locale'
 export type { Lang, Tri } from './tri'
 
 const TABLES: Record<Exclude<Lang, 'zh'>, Record<string, string>> = buildTables()
@@ -34,7 +34,7 @@ function fill(text: string, params?: ReadonlyArray<unknown> | Record<string, unk
 
 /** The text in the current language (the Chinese source text when no translation exists). */
 export function tl(zh: string, params?: ReadonlyArray<unknown> | Record<string, unknown>): string {
-  return tIn(locale.lang, zh, params)
+  return tIn(activeLang(), zh, params)
 }
 
 /** The text in a given language (exports with their own language). */
@@ -69,7 +69,8 @@ export function setLanguage(pref: 'auto' | Lang) {
 
 /** BCP 47 tag of the current language (dates, sorting). */
 export function localeTag(): string {
-  return locale.lang === 'zh' ? 'zh-CN' : locale.lang === 'de' ? 'de-DE' : 'en-GB'
+  const l = activeLang()
+  return l === 'zh' ? 'zh-CN' : l === 'de' ? 'de-DE' : 'en-GB'
 }
 
 const deepCache = new WeakMap<object, object>()
@@ -96,14 +97,14 @@ export function trDeep<T extends object>(data: T): T {
 }
 
 /** List separator of the current language ('、' in Chinese, ', ' otherwise). */
-export function listSep(): string { return locale.lang === 'zh' ? '、' : ', ' }
+export function listSep(): string { return activeLang() === 'zh' ? '、' : ', ' }
 /** Clause separator ('；' / '; '). */
-export function semiSep(): string { return locale.lang === 'zh' ? '；' : '; ' }
+export function semiSep(): string { return activeLang() === 'zh' ? '；' : '; ' }
 /** Comma ('，' / ', '). */
-export function commaSep(): string { return locale.lang === 'zh' ? '，' : ', ' }
+export function commaSep(): string { return activeLang() === 'zh' ? '，' : ', ' }
 /** A parenthetical remark: '（x）' in Chinese, ' (x)' otherwise. */
-export function paren(x: string): string { return locale.lang === 'zh' ? `（${x}）` : ` (${x})` }
+export function paren(x: string): string { return activeLang() === 'zh' ? `（${x}）` : ` (${x})` }
 /** Colon ('：' / ': '). */
-export function colonSep(): string { return locale.lang === 'zh' ? '：' : ': ' }
+export function colonSep(): string { return activeLang() === 'zh' ? '：' : ': ' }
 /** Remove a leading "label: " (either colon) from a text, e.g. a notice whose label is shown as a badge. */
 export function stripLabel(text: string): string { return text.replace(/^[^:：]{1,40}[:：]\s*/, '') }

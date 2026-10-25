@@ -117,7 +117,9 @@ describe('Rust/WASM engine', () => {
     const out = run.rebuildChunk(cp.data, 3 * info.chunkFrames) as { chunk: { states: Float64Array; first: number; count: number } }
     run.free()
     const ref = runJob('ts', scene, { duration: null, until: 5 }).rec
-    for (let j = 0; j < out.chunk.count; j += 37) {
+    // 26.51: the run ends at approximate rest inside chunk 2; a rebuild restarts the rest counter at the checkpoint and
+    // may run on past that end, so only the frames the original run recorded are compared
+    for (let j = 0; j < Math.min(out.chunk.count, ref.frameCount - out.chunk.first); j += 37) {
       expect(Array.from(out.chunk.states.subarray(j * info.size, (j + 1) * info.size))).toEqual(Array.from(frameState(ref, out.chunk.first + j)))
     }
   })

@@ -38,6 +38,8 @@ export type DetailBlock =
   | { kind: 'table'; head?: string[]; rows: DetailCell[][]; align?: Array<'left' | 'right' | 'center'> }
   /** Applicability conditions with their status. */
   | { kind: 'conditions'; items: DetailCondition[] }
+  /** A worked calculation: lhs = line₀ = line₁ = …, each line with a note saying what was done (D45). */
+  | { kind: 'calc'; lhs: string; lines: Array<{ tex: string; note?: string | null }> }
 
 /** One condition: status, label, why (situation detail), and its role (required / grades the approximation). */
 export interface DetailCondition {
@@ -76,6 +78,7 @@ export function detailLatex(view: DetailView): string {
       if (b.kind === 'equation') parts.push(b.tex)
       else if (b.kind === 'steps') for (const st of b.steps) parts.push(st.tex)
       else if (b.kind === 'chain') parts.push(chainLatex(b.lhs, b.rhs))
+      else if (b.kind === 'calc') parts.push(chainLatex(b.lhs, b.lines.map(l => l.tex)))
     }
     if (parts.length) out.push('', `% ${s.title}`, ...parts)
   }

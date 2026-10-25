@@ -3,8 +3,8 @@
 
 use crate::expr::{branch_of, fill_env, ENV_SIZE};
 use crate::kinematics::{
-    anchor_state, compute_poses_into, contact_kin, distance_kin, hinge_kin, pair_features, pair_probes, rope_kin, rope_path, ContactFeature, ContactKin,
-    FeatureB, Pose, Probe, RowJ, RowTerm,
+    anchor_state, compute_poses_into, contact_kin, distance_kin, equality_kins_into, pair_features, pair_probes, rope_kin, rope_path, ContactFeature,
+    ContactKin, EqualityKin, EqualityKind, FeatureB, Pose, Probe, RowJ, RowTerm,
 };
 use crate::linalg::{solve_dense_into, LinWork};
 use crate::message::{Message, SimResult};
@@ -89,10 +89,31 @@ pub struct Mode {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RowKind {
     Hinge,
+    /// Connectors of 26.51: weld, motor (pin rows), drive (speed motor), slider, gear.
+    Weld,
+    Motor,
+    Drive,
     Rod,
+    Slider,
+    Gear,
     Rope,
     Normal,
     Tangent,
+}
+
+impl RowKind {
+    /// Row kind of an equality constraint.
+    pub fn of(k: EqualityKind) -> RowKind {
+        match k {
+            EqualityKind::Hinge => RowKind::Hinge,
+            EqualityKind::Weld => RowKind::Weld,
+            EqualityKind::Motor => RowKind::Motor,
+            EqualityKind::Drive => RowKind::Drive,
+            EqualityKind::Rod => RowKind::Rod,
+            EqualityKind::Slider => RowKind::Slider,
+            EqualityKind::Gear => RowKind::Gear,
+        }
+    }
 }
 
 /// One active constraint at acceleration level: J·a + c = 0.
@@ -190,6 +211,7 @@ struct SolveWork {
     g: Vec<f64>,
     lin: LinWork,
     rope_rows: Vec<(RowJ, f64)>,
+    eqs: Vec<EqualityKin>,
 }
 
 /// Set the length of a buffer whose entries are all written afterwards (no zeroing when it already fits).
@@ -267,6 +289,26 @@ pub fn build_system(model: Model) -> System {
             model.springs[k].rest_length = d.value;
         }
     }
+    // 26.51: the relative angles of welds and sliders, and the angle sum of gears, are kept as they start
+    let th = |b: Option<usize>| match b {
+        Some(g) => poses[g].th,
+        None => 0.0,
+    };
+    for w in model.welds.iter_mut() {
+        if !w.angle0.is_finite() {
+            w.angle0 = th(w.b.body) - th(w.a.body);
+        }
+    }
+    for sl in model.sliders.iter_mut() {
+        if !sl.angle0.is_finite() {
+            sl.angle0 = th(sl.b.body) - th(sl.a.body);
+        }
+    }
+    for g in model.gears.iter_mut() {
+        if !g.offset0.is_finite() {
+            g.offset0 = th(g.a) + g.ratio * th(g.b);
+        }
+    }
     sys
 }
 
@@ -283,6 +325,20 @@ pub fn initial_state(sys: &System) -> Vec<f64> {
         x[3 * n + 3 * i] = b.def_velocity.x;
         x[3 * n + 3 * i + 1] = b.def_velocity.y;
         x[3 * n + 3 * i + 2] = if b.inv_inertia > 0.0 { b.def_angular_velocity } else { 0.0 };
+    }
+    // A branch (D52) continues its parent's energy ledger
+    if let Some(l) = &sys.model.settings.start_ledger {
+        let a = sys.aux_base;
+        x[a + AUX_HEAT] = l.friction_heat;
+        x[a + AUX_WORK] = l.applied_work;
+        x[a + AUX_DAMP] = l.damping;
+        x[a + AUX_BELT] = l.belt_work;
+        for p in &sys.pairs {
+            if let Some((_, slide, heat)) = l.pairs.iter().find(|(k, _, _)| *k == p.key) {
+                x[a + AUX_FIXED + 2 * p.index] = *slide;
+                x[a + AUX_FIXED + 2 * p.index + 1] = *heat;
+            }
+        }
     }
     x
 }
@@ -442,14 +498,16 @@ pub fn force_value(sys: &System, k: usize, x: &[f64], sw: Option<&[i8]>) -> SimR
     }
     let mut env = [0.0; ENV_SIZE];
     fill_env(&mut env, x, sys.n, body.index as usize, sys.time_slot, body.mass, gravity_size(model));
+    // A branch (D52) runs from 0 on its own clock; its variable forces see the absolute time
+    let t0 = model.settings.start_time;
+    if t0 != 0.0 {
+        env[0] += t0;
+    }
     let s = effective_sw(model, sw);
     let fx = model.arena.eval(ex, &env, s);
     let fy = model.arena.eval(ey, &env, s);
     if !fx.is_finite() || !fy.is_finite() {
-        let t = match sys.time_slot {
-            Some(slot) => x[slot],
-            None => 0.0,
-        };
+        let t = env[0];
         return Err(Message::new("err.forceNotFinite").text("force", f.name.clone()).num("t", t).num("fx", fx).num("fy", fy));
     }
     Ok((fx, fy))
@@ -466,6 +524,10 @@ pub fn switch_arg(sys: &System, s: usize, x: &[f64], sw: Option<&[i8]>) -> f64 {
     }
     let mut env = [0.0; ENV_SIZE];
     fill_env(&mut env, x, sys.n, body.index as usize, sys.time_slot, body.mass, gravity_size(model));
+    let t0 = model.settings.start_time;
+    if t0 != 0.0 {
+        env[0] += t0;
+    }
     model.arena.switch_arg(s, &env, effective_sw(model, sw))
 }
 
@@ -486,6 +548,79 @@ pub fn applied_forces_into(sys: &System, poses: &[Pose], mut rates: Option<&mut 
         let i = b.index as usize;
         q[3 * i] = b.mass * g.x;
         q[3 * i + 1] = b.mass * g.y;
+    }
+    // 26.51 (D50): drag on the centre of mass, F = −(b + c|v|)v; its power is dissipated (damping entry)
+    for &bg in &model.dynamic {
+        let b = &model.bodies[bg];
+        if b.drag_lin == 0.0 && b.drag_quad == 0.0 {
+            continue;
+        }
+        let p = &poses[bg];
+        let sp = (p.vx * p.vx + p.vy * p.vy).sqrt();
+        let k = b.drag_lin + b.drag_quad * sp;
+        let i = b.index as usize;
+        q[3 * i] -= k * p.vx;
+        q[3 * i + 1] -= k * p.vy;
+        if let Some(r) = rates.as_deref_mut() {
+            r.damping += k * sp * sp;
+        }
+    }
+    // 26.51 (D50): gravitation between every pair of bodies with mass, at least one of them moving
+    if model.g_const > 0.0 {
+        let at = &model.attractors;
+        for i in 0..at.len() {
+            for j in i + 1..at.len() {
+                let a = &model.bodies[at[i]];
+                let b = &model.bodies[at[j]];
+                if !a.dynamic && !b.dynamic {
+                    continue;
+                }
+                let (pax, pay) = if a.dynamic { (poses[at[i]].x, poses[at[i]].y) } else { (a.grav_pos.x, a.grav_pos.y) };
+                let (pbx, pby) = if b.dynamic { (poses[at[j]].x, poses[at[j]].y) } else { (b.grav_pos.x, b.grav_pos.y) };
+                let dx = pbx - pax;
+                let dy = pby - pay;
+                let d2 = dx * dx + dy * dy;
+                #[allow(clippy::neg_cmp_op_on_partial_ord)]
+                if !(d2 > 0.0) {
+                    continue;
+                }
+                let d = d2.sqrt();
+                // Softened inside the sum of the bounding radii (see dynamics.ts)
+                let rr = a.bound + b.bound;
+                let f = if d >= rr { model.g_const * a.attract * b.attract / d2 } else { model.g_const * a.attract * b.attract * d / (rr * rr * rr) };
+                let fx = f * dx / d;
+                let fy = f * dy / d;
+                if a.dynamic {
+                    let k = a.index as usize;
+                    q[3 * k] += fx;
+                    q[3 * k + 1] += fy;
+                }
+                if b.dynamic {
+                    let k = b.index as usize;
+                    q[3 * k] -= fx;
+                    q[3 * k + 1] -= fy;
+                }
+            }
+        }
+    }
+    // 26.51 (D51): torque motors act on b and react on a; their power is motor work
+    for m in &model.motors {
+        if !m.torque_mode {
+            continue;
+        }
+        let ib = m.b.body.map_or(-1, |g| model.bodies[g].index);
+        let ia = m.a.body.map_or(-1, |g| model.bodies[g].index);
+        if ib >= 0 {
+            q[3 * ib as usize + 2] += m.torque;
+        }
+        if ia >= 0 {
+            q[3 * ia as usize + 2] -= m.torque;
+        }
+        if let Some(r) = rates.as_deref_mut() {
+            let wb = m.b.body.map_or(0.0, |g| poses[g].w);
+            let wa = m.a.body.map_or(0.0, |g| poses[g].w);
+            r.belt_work += m.torque * (wb - wa);
+        }
     }
     for k in 0..model.forces.len() {
         let f = &model.forces[k];
@@ -516,7 +651,8 @@ pub fn applied_forces_into(sys: &System, poses: &[Pose], mut rates: Option<&mut 
         let ux = dx / l;
         let uy = dy / l;
         let vrel = ux * (pa.vx - pb.vx) + uy * (pa.vy - pb.vy);
-        let mag = -s.stiffness * (l - s.rest_length) - s.damping * vrel;
+        let ext = l - s.rest_length;
+        let mag = if s.cubic != 0.0 { -s.stiffness * ext - s.cubic * ext * ext * ext - s.damping * vrel } else { -s.stiffness * ext - s.damping * vrel };
         if let Some(bg) = s.a.body {
             let idx = model.bodies[bg].index;
             if idx >= 0 {
@@ -556,15 +692,12 @@ pub fn belt_of(model: &Model, f: &ContactFeature) -> f64 {
 pub(crate) fn build_rows_into(sys: &System, poses: &[Pose], mode: &Mode, sol: &mut ModeSolution) {
     let model = &sys.model;
     sol.rows.clear();
-    for (k, h) in model.hinges.iter().enumerate() {
-        let [rx, ry] = hinge_kin(model, poses, &h.a, &h.b);
-        sol.rows.push(Row { kind: RowKind::Hinge, owner: k, sub: 0, j: rx.j, f: None, c: rx.c, value: rx.value, vel: rx.vel });
-        sol.rows.push(Row { kind: RowKind::Hinge, owner: k, sub: 1, j: ry.j, f: None, c: ry.c, value: ry.value, vel: ry.vel });
+    let mut eqs = std::mem::take(&mut sol.work.eqs);
+    equality_kins_into(model, poses, &mut eqs);
+    for e in eqs.drain(..) {
+        sol.rows.push(Row { kind: RowKind::of(e.kind), owner: e.owner, sub: e.sub, j: e.kin.j, f: None, c: e.kin.c, value: e.kin.value, vel: e.kin.vel });
     }
-    for (k, r) in model.rods.iter().enumerate() {
-        let (d, _, _) = distance_kin(model, poses, &r.a, &r.b);
-        sol.rows.push(Row { kind: RowKind::Rod, owner: k, sub: 0, j: d.j, f: None, c: d.c, value: d.value - r.length, vel: d.vel });
-    }
+    sol.work.eqs = eqs;
     sol.rope_kin.clear();
     sol.work.rope_rows.clear();
     for (k, r) in model.ropes.iter().enumerate() {
@@ -712,6 +845,17 @@ pub fn solve_mode_into(sys: &System, x: &[f64], mode: &Mode, poses_in: Option<&[
         st.vt = vt;
         st.at = at;
     }
+    // 26.51: the drive of a speed motor delivers λ·(ω_b − ω_a) (motor work)
+    for r in 0..m {
+        let row = &sol.rows[r];
+        if row.kind != RowKind::Drive {
+            continue;
+        }
+        let mo = &model.motors[row.owner];
+        let wa = mo.a.body.map_or(0.0, |g| sol.poses[g].w);
+        let wb = mo.b.body.map_or(0.0, |g| sol.poses[g].w);
+        sol.rates.belt_work += sol.lambda[r] * (wb - wa);
+    }
     sol.rope_tension.clear();
     for k in 0..model.ropes.len() {
         let mut t = 0.0;
@@ -787,12 +931,39 @@ pub fn energy(sys: &System, x: &[f64], poses: &[Pose]) -> EnergyParts {
         gravity += -b.mass * (g.x * x[3 * i] + g.y * (x[3 * i + 1] - y0));
     }
     for s in &model.springs {
+        if s.damper {
+            continue;
+        }
         let pa = anchor_state(poses, &s.a);
         let pb = anchor_state(poses, &s.b);
         let dx = pa.px - pb.px;
         let dy = pa.py - pb.py;
         let e = (dx * dx + dy * dy).sqrt() - s.rest_length;
-        spring += 0.5 * s.stiffness * e * e;
+        spring += if s.cubic != 0.0 { 0.5 * s.stiffness * e * e + 0.25 * s.cubic * e * e * e * e } else { 0.5 * s.stiffness * e * e };
+    }
+    // 26.51: potential energy of gravitation, −G·m₁m₂/r per pair (counted with gravity)
+    if model.g_const > 0.0 {
+        let at = &model.attractors;
+        for i in 0..at.len() {
+            for j in i + 1..at.len() {
+                let a = &model.bodies[at[i]];
+                let b = &model.bodies[at[j]];
+                if !a.dynamic && !b.dynamic {
+                    continue;
+                }
+                let (pax, pay) = if a.dynamic { (poses[at[i]].x, poses[at[i]].y) } else { (a.grav_pos.x, a.grav_pos.y) };
+                let (pbx, pby) = if b.dynamic { (poses[at[j]].x, poses[at[j]].y) } else { (b.grav_pos.x, b.grav_pos.y) };
+                let dx = pbx - pax;
+                let dy = pby - pay;
+                let d = (dx * dx + dy * dy).sqrt();
+                let rr = a.bound + b.bound;
+                if d >= rr && d > 0.0 {
+                    gravity -= model.g_const * a.attract * b.attract / d;
+                } else if d < rr {
+                    gravity -= model.g_const * a.attract * b.attract * (3.0 * rr * rr - d * d) / (2.0 * rr * rr * rr);
+                }
+            }
+        }
     }
     EnergyParts { kinetic, gravity, spring, total: kinetic + gravity + spring }
 }

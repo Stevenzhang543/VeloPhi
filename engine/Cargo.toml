@@ -3,7 +3,7 @@ resolver = "2"
 members = ["verity-core", "verity-cli", "verity-wasm"]
 
 [workspace.package]
-version = "26.50.0"
+version = "26.51.0"
 edition = "2021"
 publish = false
 

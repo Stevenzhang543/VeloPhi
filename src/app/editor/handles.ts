@@ -164,6 +164,8 @@ export interface DragOptions {
   shift: boolean
   /** Angle snap (rad); 0 = off. */
   angleSnap: number
+  /** Magnetic angle snapping (D47): maps a free angle to the snapped one; null: none. */
+  magnet?: ((angle: number) => number) | null
   /** Formats a length / an angle for labels. */
   fmtLen: (v: number) => string
   fmtAng: (v: number) => string
@@ -271,6 +273,7 @@ function rotateBody(def: BodyDef, orig: BodyDef, d: HandleDrag, p: Pt, o: DragOp
   }
   let ang = orig.angle + delta
   if (snap) ang = Math.round(ang / o.angleSnap) * o.angleSnap
+  else if (o.magnet && !o.shift) ang = o.magnet(ang)
   // Keep the stored angle in (−π, π]
   while (ang > Math.PI) ang -= 2 * Math.PI
   while (ang <= -Math.PI) ang += 2 * Math.PI

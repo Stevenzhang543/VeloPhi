@@ -7,17 +7,17 @@
  * Mounted by App.vue while `state.showCourseware` is true (and a recording exists); closes itself by setting
  * the flag to false. No props, no emits.
  */
-import { tl, listSep, paren, stripLabel } from '../../i18n'
-import { locale } from '../../i18n/locale'
+import { tl, listSep, paren, stripLabel, activeLang } from '../../i18n'
+import { exportSituations, inExportLanguage } from '../exportLang'
 import { computed, reactive, ref } from 'vue'
 import { state, showToast, viewCamera } from '../store'
-import { settings, toDisp, unitLabel } from '../settings'
+import { settings, toDisp, unitLabel, effectiveCurriculum } from '../settings'
 import { listQuantities } from '../../core/observe/quantities'
 import { DARK, LIGHT, computeTrajectories, vectorScales } from '../../render/renderer'
 import { PROJECTOR_STYLE } from '../../render/frame'
 import { defaultCsvIds } from '../../export/csv'
 import type { KeyMoment } from '../../export/moments'
-import { cardsForMoment, defaultReadoutIds, keyMoments, momentTolerance, reducedNotice } from '../../export/moments'
+import { cardsForMoment, defaultReadoutIds, keyMoments, momentTolerance, reducedNotice, relabelMoments } from '../../export/moments'
 import { shownCards } from '../../export/formulaImage'
 import { buildCourseware, coursewareZip, safeName } from '../../export/courseware'
 import type { CoursewareFile } from '../../export/courseware'
@@ -63,6 +63,8 @@ const opt = reactive({
   csv: true, csvUnits: 'si' as 'si' | 'display',
   pptx: true,
   derivations: true,
+  /** Only formulas within the chosen knowledge level (D44). */
+  levelOnly: true,
   output: 'zip' as 'zip' | 'files'
 })
 const readoutChoices = computed(() => {
@@ -84,7 +86,8 @@ const shotSize = computed(() => {
 
 const cardCount = computed(() => {
   if (!rec.value || !(opt.cardsPng || opt.cardsSvg || opt.pptx)) return 0
-  return moments.value.reduce((n, m) => n + new Set(shownCards(cardsForMoment(state.situations, m.t, state.digits)).map(c => c.key)).size, 0)
+  const level = opt.levelOnly ? { curriculum: effectiveCurriculum(), level: settings.knowledge.level } : null
+  return moments.value.reduce((n, m) => n + new Set(shownCards(cardsForMoment(state.situations, m.t, state.digits), level).map(c => c.key)).size, 0)
 })
 const summary = computed(() => {
   const parts: string[] = []
@@ -134,7 +137,8 @@ async function saveIndividually(files: CoursewareFile[], prefix: string): Promis
   return saved
 }
 
-async function run() {
+async function run() { await inExportLanguage(runInner) }
+async function runInner() {
   const r = rec.value
   if (!r || busy.value) return
   busy.value = true
@@ -148,8 +152,9 @@ async function run() {
     const view = { cx: viewCamera.cx, cy: viewCamera.cy, ppmAtHeight: viewCamera.ppm, viewHeight: viewCamera.height }
     const [vw, vh] = opt.res === '1080' ? [1920, 1080] : [1280, 720]
     const name = safeName(state.scene.name)
-    const result = await buildCourseware(r, state.situations, {
-      title: state.scene.name, description: state.scene.description, moments: moments.value,
+    // Moment labels and situation titles in the export language
+    const result = await buildCourseware(r, exportSituations(r, state.situations), {
+      title: state.scene.name, description: state.scene.description, moments: relabelMoments(r, moments.value),
       units: settings.units, digits: state.digits, theme: state.theme,
       still: { view, options: { ...state.display }, palette, digits: state.digits, selectedId: state.selection?.id ?? null, effects: null, annotations: state.scene.annotations, units: settings.units, style, trajectories: computeTrajectories(r), scales: vectorScales(r, r.system) },
       screenshots: opt.shots ? { ...shotSize.value, background: opt.shotBg } : null,
@@ -161,7 +166,8 @@ async function run() {
         units: settings.units, effects: null, annotations: state.scene.annotations, style, bitrate: settings.export.bitrate
       } : null,
       pptx: opt.pptx,
-      derivations: opt.derivations ? { lang: locale.lang } : null,
+      derivations: opt.derivations ? { lang: activeLang() } : null,
+      level: opt.levelOnly ? { curriculum: effectiveCurriculum(), level: settings.knowledge.level } : null,
       readoutIds: readouts.value
     }, (p, s) => { progress.value = p; stepText.value = s }, () => cancel)
     let where: string | null = null
@@ -222,6 +228,7 @@ async function run() {
           <section>
             <div class="group-title">{{ tl('内容') }}</div>
             <div class="group">
+              <div class="row"><label>{{ tl('导出语言') }}</label><select v-model="settings.export.language" class="field grow" :title="tl('报告、课件、视频叠字与 CSV 表头使用的语言，可与界面语言不同')"><option value="ui">{{ tl('跟随界面') }}</option><option value="zh">{{ tl('简体中文') }}</option><option value="en">English</option><option value="de">Deutsch</option></select></div>
               <div class="row"><label class="check"><input v-model="opt.video" type="checkbox" />{{ tl('视频') }}</label>
                 <select v-model="opt.res" class="field grow" :disabled="!opt.video"><option value="1080">1920 × 1080</option><option value="720">1280 × 720</option></select>
                 <select v-model.number="opt.fps" class="field" :disabled="!opt.video"><option :value="30">{{ tl('30 帧/秒') }}</option><option :value="60">{{ tl('60 帧/秒') }}</option></select>
@@ -239,6 +246,7 @@ async function run() {
               <div class="row"><label class="check"><input v-model="opt.csv" type="checkbox" />{{ tl('CSV 数据') }}</label>
                 <select v-model="opt.csvUnits" class="field grow" :disabled="!opt.csv"><option value="si">{{ tl('国际单位（逐位一致）') }}</option><option value="display">{{ tl('显示单位') }}</option></select>
               </div>
+              <div class="row"><label class="check"><input v-model="opt.levelOnly" type="checkbox" />{{ tl('只含所选知识水平内的公式') }}</label><span class="tiny muted">{{ tl('与公式对照面板相同（设置 › 知识与公式）') }}</span></div>
               <div class="row"><label class="check"><input v-model="opt.derivations" type="checkbox" />{{ tl('附带推导与解题过程') }}</label><span class="tiny muted">{{ tl('关键时刻用到的每条公式一页（推导、代入求解、适用条件、与仿真对照），关键事件各一页') }}</span></div>
               <div class="row"><label class="check"><input v-model="opt.pptx" type="checkbox" />{{ tl('PPTX 演示文稿') }}</label><span class="tiny muted">{{ tl('每个关键时刻一页：截图 + 读数 + 公式{0}', [opt.video ? tl('；末页嵌入视频') : '']) }}</span></div>
             </div>

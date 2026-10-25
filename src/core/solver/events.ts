@@ -8,22 +8,27 @@
  *   slack    rope tension — the rope goes slack;
  *   taut     L − ℓ of a slack rope — the rope becomes taut;
  *   switch   b·(switching argument) of a variable-force switch on branch b — the expression jumps or has a
- *            kink (−|argument| for sign() sitting at zero).
+ *            kink (−|argument| for sign() sitting at zero);
+ *   pulley   length of a rope's end segment, between a body and the pulley it runs onto, minus PULLEY_REACH —
+ *            the body reaches the pulley and the run stops there (26.51; before, the step size collapsed).
  * Hysteresis: a function that starts at (or within ε of) zero fires only after falling ε below its start, so
  * a mode chosen exactly at a boundary does not trigger itself again.
  */
 import type { Pose, Probe } from './kinematics'
-import { computePoses, featureProbeKey, probeValue } from './kinematics'
+import { computePoses, featureProbeKey, probeValue, ropePath } from './kinematics'
 import type { Mode, ModeSolution, System } from './dynamics'
 import { TOL, solveMode, switchArg } from './dynamics'
 
 /** Kind of event function (see the module header). */
-export type EventType = 'contact' | 'liftoff' | 'leave' | 'slip' | 'stop' | 'slack' | 'taut' | 'switch'
+export type EventType = 'contact' | 'liftoff' | 'leave' | 'slip' | 'stop' | 'slack' | 'taut' | 'switch' | 'pulley'
+
+/** A rope end closer than this to the pulley it runs onto has reached it (m). */
+export const PULLEY_REACH = 1e-3
 
 /** An event function of the current mode with its hysteresis state. */
 export interface EventFn {
   type: EventType
-  /** Unit, point and rope the function belongs to; −1 when not applicable. */
+  /** Unit, point and rope the function belongs to; −1 when not applicable (pulley: point 0 = end a, 1 = end b). */
   unit: number
   point: number
   rope: number
@@ -77,6 +82,12 @@ export function buildEventFns(sys: System, mode: Mode, poses: Pose[], sol: ModeS
   mode.taut.forEach((taut, k) => {
     if (taut) add('slack', epsF, (_, s) => s.ropeTension[k], { rope: k })
     else add('taut', TOL.ext, (_, s) => s.ropeKin[k].value, { rope: k })
+  })
+  // A body on a rope end reaching the pulley the rope runs onto
+  model.ropes.forEach((r, k) => {
+    if (!r.pulleys.length) return
+    if (r.a.body?.dynamic) add('pulley', TOL.ext, poses => ropePath(poses, r).s1 - PULLEY_REACH, { rope: k, point: 0 })
+    if (r.b.body?.dynamic) add('pulley', TOL.ext, poses => ropePath(poses, r).sLast - PULLEY_REACH, { rope: k, point: 1 })
   })
   const sw = mode.sw
   if (sw && sw.length === model.switches.length) {

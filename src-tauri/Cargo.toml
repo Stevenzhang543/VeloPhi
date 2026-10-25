@@ -1,6 +1,6 @@
 [package]
 name = "verity"
-version = "26.50.0"
+version = "26.51.0"
 description = "Verity: physics simulation and teaching engine with verifiable results"
 authors = ["Verity maintainers"]
 edition = "2021"

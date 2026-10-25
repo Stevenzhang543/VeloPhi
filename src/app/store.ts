@@ -10,7 +10,7 @@
  */
 import type { Message } from '../i18n/message'
 import { MessageError } from '../i18n/message'
-import { markRaw, reactive } from 'vue'
+import { markRaw, reactive, watchEffect } from 'vue'
 import type { Scene } from '../core/scene/types'
 import { cloneScene, parseScene, serializeScene, validateScene } from '../core/scene/io'
 import type { Recording, RollingFingerprint } from '../core/solver/simulation'
@@ -25,6 +25,7 @@ import { startSimulation } from './simClient'
 import type { RunStats, SimHandle } from './simClient'
 import type { DisplayOptions } from './settings'
 import { settings } from './settings'
+import { clock } from '../units/clock'
 
 export type { DisplayOptions } from './settings'
 
@@ -34,6 +35,7 @@ export type Tool =
   | 'add-ball' | 'add-block' | 'add-disc' | 'add-wedge' | 'add-ground' | 'add-incline' | 'add-wall' | 'add-conveyor' | 'add-pulley'
   | 'add-polygon'
   | 'connect-rope' | 'connect-rod' | 'connect-spring' | 'connect-hinge' | 'add-force'
+  | 'connect-damper' | 'connect-weld' | 'connect-slider' | 'connect-motor' | 'connect-gear'
   | 'measure-ruler' | 'measure-angle' | 'annotate-text' | 'annotate-arrow'
 
 /** Selected object, if any. */
@@ -137,6 +139,17 @@ export interface AppState {
   cameraRequest: number
   /** Fit the view to the motion once the next recording is ready. */
   fitPending: boolean
+  /** 26.51 learning handbook (D46): settings section to open, formula entry to show there. */
+  settingsSection: string | null
+  handbookFocus: string | null
+  /** Formula card to bring into view in the formula panel (opened from the handbook). */
+  formulaFocus: string | null
+  /** Time to show as soon as the recording reaches it (an example opened from the handbook). */
+  pendingSeek: number | null
+  /** 26.51 branches (D52): the branch shown (null: the main scene). */
+  branch: string | null
+  /** The main scene (with its `branches`) while a branch is shown in `scene`; null on the main scene. */
+  mainScene: Scene | null
 }
 
 const initialScene = buildTemplate('incline')
@@ -187,19 +200,33 @@ export const state = reactive<AppState>({
   showSweep: false,
   showReport: false,
   cameraRequest: 0,
-  fitPending: true
+  fitPending: true,
+  settingsSection: null,
+  handbookFocus: null,
+  branch: null,
+  mainScene: null,
+  formulaFocus: null,
+  pendingSeek: null
 }) as AppState
 
 // ---- Editing ----
 const HISTORY_LIMIT = 200
 
 /** Apply a change to the scene as one undoable step. */
+/** A continuous gesture (scrubbing a number): its edits form one undo step. */
+let gesture: { pushed: boolean } | null = null
+/** Start a gesture: the edits until `endEditGesture` are undone together. */
+export function beginEditGesture() { gesture = { pushed: false } }
+/** End the gesture started by `beginEditGesture`. */
+export function endEditGesture() { gesture = null }
+
 export function edit(mutator: (scene: Scene) => void) {
   const before = serializeScene(state.scene)
   mutator(state.scene)
   const after = serializeScene(state.scene)
   if (before === after) return
-  state.past.push(before)
+  if (!gesture?.pushed) state.past.push(before)
+  if (gesture) gesture.pushed = true
   if (state.past.length > HISTORY_LIMIT) state.past.shift()
   state.future = []
   state.dirty = true
@@ -244,6 +271,8 @@ function normalizeWatch(scene: Scene) {
 /** Replace the whole document (new, open, template). */
 export function loadScene(scene: Scene, name: string | null, path: string | null = null) {
   normalizeWatch(scene)
+  state.branch = null
+  state.mainScene = null
   state.scene = scene
   state.fileName = name
   state.filePath = path
@@ -350,6 +379,12 @@ function acceptRecording(rec: Recording, first: boolean, freshScene: boolean, ke
   if (first && freshScene) setFrame(0)
   else if (!state.playing && state.frame > last) setFrame(last)
   else if (!state.playing && rec.completed !== false && keepFrame !== state.frame && keepFrame <= last && !freshScene) setFrame(keepFrame)
+  // An example opened from the handbook: show its time once it is computed
+  const ts = state.pendingSeek
+  if (ts !== null && (last * rec.dt >= ts - 1e-9 || rec.completed)) {
+    state.pendingSeek = null
+    setFrame(Math.min(last, Math.max(0, Math.round(ts / rec.dt))))
+  }
 }
 
 let recognitionTimer: ReturnType<typeof setTimeout> | null = null
@@ -557,6 +592,9 @@ export function play() {
       else { setTime(tMax, now, true); state.playing = false; state.buffering = false; return }
     } else if (state.buffering) state.buffering = false
     setTime(t, now, false)
+    // The next chunk, if evicted, is recomputed off this thread before playback reaches it (26.51)
+    const F = r.frames.chunkFrames
+    if (F && r.frames.prefetch) r.frames.prefetch(Math.floor(state.frame / F) + 1)
     rafId = requestAnimationFrame(tick)
   }
   rafId = requestAnimationFrame(tick)
@@ -592,8 +630,24 @@ export function seekAfter(t: number) {
   setFrame(Math.ceil(t / rec.dt - 1e-9))
 }
 
-/** The current scene as file text. */
-export function serializeCurrent(): string { return serializeScene(state.scene) }
+/**
+ * The whole document: the main scene with its branches, the branch shown (if any) as currently edited (26.51,
+ * D52). On the main scene this is `state.scene` itself.
+ */
+export function documentScene(): Scene {
+  if (state.branch === null || !state.mainScene) return state.scene
+  const doc = cloneScene(state.mainScene)
+  const shown = cloneScene(state.scene)
+  delete shown.branches
+  doc.branches = (doc.branches ?? []).map(b => (b.id === state.branch ? { ...b, scene: shown } : b))
+  return doc
+}
+
+/** The current document as file text (main scene and branches). */
+export function serializeCurrent(): string { return serializeScene(documentScene()) }
+
+// Every time shown is on the clock of the scene on screen (a branch starts at its branch point)
+watchEffect(() => { clock.origin = state.scene.settings.startTime ?? 0 })
 
 /** Last camera of the viewport (for video export: "what you see is what you export"). */
 export const viewCamera = { cx: 0, cy: 0, ppm: 80, width: 800, height: 600 }

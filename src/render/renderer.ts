@@ -265,6 +265,38 @@ function drawSpring(ctx: CanvasRenderingContext2D, x0: number, y0: number, x1: n
   ctx.stroke()
 }
 
+/** Damper (dashpot): a rod from A ending in a piston inside a cup fixed to B. */
+function drawDamper(ctx: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number, color: string, ppm: number) {
+  const dx = x1 - x0, dy = y1 - y0, len = Math.sqrt(dx * dx + dy * dy)
+  if (len < 1) return
+  const ux = dx / len, uy = dy / len, nx = -uy, ny = ux
+  const w = Math.max(5, Math.min(10, 0.045 * ppm))
+  const at = (t: number, side = 0): [number, number] => [x0 + ux * t + nx * side, y0 + uy * t + ny * side]
+  const cupOpen = len * 0.3, cupBottom = len * 0.68, piston = len * 0.5
+  ctx.strokeStyle = color
+  ctx.lineWidth = lw(1.8)
+  ctx.beginPath()
+  // Rod and piston from A
+  ctx.moveTo(x0, y0); ctx.lineTo(...at(piston))
+  ctx.moveTo(...at(piston, -w * 0.75)); ctx.lineTo(...at(piston, w * 0.75))
+  // Cup from B
+  ctx.moveTo(...at(cupOpen, -w)); ctx.lineTo(...at(cupBottom, -w)); ctx.lineTo(...at(cupBottom, w)); ctx.lineTo(...at(cupOpen, w))
+  ctx.moveTo(...at(cupBottom)); ctx.lineTo(x1, y1)
+  ctx.stroke()
+}
+
+/** Small gear glyph (teeth as ticks) at a screen point. */
+function drawGearGlyph(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, angle: number) {
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke()
+  ctx.beginPath()
+  for (let k = 0; k < 8; k++) {
+    const a = angle + (k * Math.PI) / 4
+    ctx.moveTo(x + Math.cos(a) * r, y - Math.sin(a) * r)
+    ctx.lineTo(x + Math.cos(a) * (r + 3), y - Math.sin(a) * (r + 3))
+  }
+  ctx.stroke()
+}
+
 /** A force to draw: application point (m), components (N), colour and label. */
 export interface ForceArrow { x: number; y: number; fx: number; fy: number; color: string; label: string }
 
@@ -302,13 +334,16 @@ export function bodyForces(input: DrawInput, b: BodyModel, poses: Pose[]): Force
       if (r.b.body === b) { const p = anchorState(poses, r.b); out.push({ x: p.px, y: p.py, fx: -T * rk.path.uLast.x, fy: -T * rk.path.uLast.y, color: P.tension, label: 'T' }) }
     })
     sol.rows.forEach((row, k) => {
-      if (row.kind !== 'hinge' && row.kind !== 'rod') return
-      const c = row.kind === 'hinge' ? sys.model.hinges[row.owner] : sys.model.rods[row.owner]
+      if (row.kind !== 'hinge' && row.kind !== 'rod' && row.kind !== 'weld' && row.kind !== 'motor' && row.kind !== 'slider') return
+      // Pin forces of hinges, welds and motors (rows x, y); the reaction of rods and the normal force of sliders
+      const pin = row.kind === 'hinge' || row.kind === 'weld' || row.kind === 'motor'
+      const c = row.kind === 'hinge' ? sys.model.hinges[row.owner] : row.kind === 'weld' ? sys.model.welds[row.owner] : row.kind === 'motor' ? sys.model.motors[row.owner] : row.kind === 'slider' ? sys.model.sliders[row.owner] : sys.model.rods[row.owner]
       if (c.a.body !== b && c.b.body !== b) return
-      if (row.kind === 'hinge' && row.sub === 1) return
-      if (row.kind === 'hinge') {
+      if (pin && row.sub !== 0) return
+      if (row.kind === 'slider' && row.sub !== 0) return
+      if (pin) {
         let Fx = 0, Fy = 0
-        sol.rows.forEach((r2, k2) => { if (r2.kind === 'hinge' && r2.owner === row.owner) { if (r2.sub === 0) Fx = sol.lambda[k2]; else Fy = sol.lambda[k2] } })
+        sol.rows.forEach((r2, k2) => { if (r2.kind === row.kind && r2.owner === row.owner) { if (r2.sub === 0) Fx = sol.lambda[k2]; else if (r2.sub === 1) Fy = sol.lambda[k2] } })
         const side = c.a.body === b ? c.a : c.b
         const sign = c.a.body === b ? 1 : -1
         const p = anchorState(poses, side)
@@ -330,9 +365,28 @@ export function bodyForces(input: DrawInput, b: BodyModel, poses: Pose[]): Force
     if (L === 0) continue
     const ux = dx / L, uy = dy / L
     const vrel = ux * (pa.vx - pb.vx) + uy * (pa.vy - pb.vy)
-    const mag = -s.stiffness * (L - s.restLength) - s.damping * vrel
-    if (s.a.body === b) out.push({ x: pa.px, y: pa.py, fx: mag * ux, fy: mag * uy, color: P.spring, label: tl('F弹') })
-    else out.push({ x: pb.px, y: pb.py, fx: -mag * ux, fy: -mag * uy, color: P.spring, label: tl('F弹') })
+    const ext = L - s.restLength
+    const mag = -s.stiffness * ext - s.cubic * ext * ext * ext - s.damping * vrel
+    const label = s.damper ? tl('F阻') : tl('F弹')
+    if (s.a.body === b) out.push({ x: pa.px, y: pa.py, fx: mag * ux, fy: mag * uy, color: P.spring, label })
+    else out.push({ x: pb.px, y: pb.py, fx: -mag * ux, fy: -mag * uy, color: P.spring, label })
+  }
+  // 26.51: air drag at the centre of mass and gravitation from every other body with mass
+  if (b.dragLin > 0 || b.dragQuad > 0) {
+    const sp = Math.hypot(pose.vx, pose.vy), k = b.dragLin + b.dragQuad * sp
+    if (k * sp > 0) out.push({ x: pose.x, y: pose.y, fx: -k * pose.vx, fy: -k * pose.vy, color: P.friction, label: tl('f阻') })
+  }
+  if (sys.model.G > 0 && b.attract > 0) {
+    let fx = 0, fy = 0
+    for (const o of sys.model.attractors) {
+      if (o === b) continue
+      const po = o.dynamic ? poses[o.global] : o.gravPos
+      const dx = po.x - pose.x, dy = po.y - pose.y, d2 = dx * dx + dy * dy
+      if (!(d2 > 0)) continue
+      const d = Math.sqrt(d2), R = b.bound + o.bound, f = d >= R ? sys.model.G * b.attract * o.attract / d2 : sys.model.G * b.attract * o.attract * d / (R * R * R)
+      fx += f * dx / d; fy += f * dy / d
+    }
+    if (fx !== 0 || fy !== 0) out.push({ x: pose.x, y: pose.y, fx, fy, color: P.gravity, label: tl('F引') })
   }
   for (const f of sys.model.forces) {
     if (f.a.body !== b) continue
@@ -502,7 +556,8 @@ export function drawScene(ctx: CanvasRenderingContext2D, cam: Camera, input: Dra
   for (const s of model.springs) {
     const pa = anchorState(poses, s.a), pb = anchorState(poses, s.b)
     const [x0, y0] = toScreen(cam, pa.px, pa.py), [x1, y1] = toScreen(cam, pb.px, pb.py)
-    drawSpring(ctx, x0, y0, x1, y1, s.id === input.selectedId ? P.accent : P.rope, cam.ppm)
+    if (s.damper) drawDamper(ctx, x0, y0, x1, y1, s.id === input.selectedId ? P.accent : P.rope, cam.ppm)
+    else drawSpring(ctx, x0, y0, x1, y1, s.id === input.selectedId ? P.accent : P.rope, cam.ppm)
   }
   for (const r of model.rods) {
     const pa = anchorState(poses, r.a), pb = anchorState(poses, r.b)
@@ -512,6 +567,68 @@ export function drawScene(ctx: CanvasRenderingContext2D, cam: Camera, input: Dra
     ctx.lineCap = 'round'
     ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke()
     ctx.lineCap = 'butt'
+  }
+  // Connectors of 26.51: sliders (rail and carriage), welds, motors, gears
+  for (const sl of model.sliders) {
+    const pa = anchorState(poses, sl.a), pb = anchorState(poses, sl.b)
+    const A = sl.a.body && sl.a.body.dynamic ? poses[sl.a.body.global] : null
+    const ax = A ? A.c * sl.axis.x - A.s * sl.axis.y : sl.axis.x, ay = A ? A.s * sl.axis.x + A.c * sl.axis.y : sl.axis.y
+    const reach = Math.max(1.5, Math.hypot(pb.px - pa.px, pb.py - pa.py) + 0.5)
+    const [x0, y0] = toScreen(cam, pa.px - ax * reach, pa.py - ay * reach), [x1, y1] = toScreen(cam, pa.px + ax * reach, pa.py + ay * reach)
+    const sel = sl.id === input.selectedId
+    ctx.strokeStyle = sel ? P.accent : P.staticStroke
+    ctx.lineWidth = lw(sel ? 2 : 1.4)
+    ctx.setLineDash([6, 4])
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke()
+    ctx.setLineDash([])
+    const [bx, by] = toScreen(cam, pb.px, pb.py)
+    const ang = Math.atan2(ay, ax)
+    ctx.save(); ctx.translate(bx, by); ctx.rotate(-ang)
+    ctx.fillStyle = P.bg; ctx.lineWidth = lw(2)
+    ctx.beginPath(); ctx.roundRect(-9, -5, 18, 10, 2); ctx.fill(); ctx.stroke()
+    ctx.restore()
+  }
+  for (const w of model.welds) {
+    const pa = anchorState(poses, w.a)
+    const [x, y] = toScreen(cam, pa.px, pa.py)
+    ctx.fillStyle = w.id === input.selectedId ? P.accent : P.staticStroke
+    const th = w.a.body && w.a.body.dynamic ? poses[w.a.body.global].th : 0
+    ctx.save(); ctx.translate(x, y); ctx.rotate(-th)
+    ctx.fillRect(-5, -5, 10, 10)
+    ctx.strokeStyle = P.bg; ctx.lineWidth = lw(1.4)
+    ctx.beginPath(); ctx.moveTo(-3.5, -3.5); ctx.lineTo(3.5, 3.5); ctx.moveTo(3.5, -3.5); ctx.lineTo(-3.5, 3.5); ctx.stroke()
+    ctx.restore()
+    if (!w.a.body?.dynamic || !w.b.body?.dynamic) { ctx.strokeStyle = P.staticStroke; ctx.lineWidth = lw(2); ctx.beginPath(); ctx.moveTo(x - 8, y - 12); ctx.lineTo(x + 8, y - 12); ctx.stroke() }
+  }
+  for (const m of model.motors) {
+    const pa = anchorState(poses, m.a)
+    const [x, y] = toScreen(cam, pa.px, pa.py)
+    const sel = m.id === input.selectedId
+    ctx.strokeStyle = sel ? P.accent : P.applied
+    ctx.lineWidth = lw(2)
+    // Arc arrow in the sense of the drive (counter-clockwise for a positive speed or torque)
+    const sense = (m.mode === 'speed' ? m.speed : m.torque) >= 0 ? 1 : -1
+    const r = 11, a0 = -0.6, a1 = 3.6
+    ctx.beginPath(); ctx.arc(x, y, r, -a0, -a1, true); ctx.stroke()
+    const end = sense > 0 ? a1 : a0, tip = { x: x + Math.cos(end) * r, y: y - Math.sin(end) * r }
+    const dir = sense > 0 ? end + Math.PI / 2 : end - Math.PI / 2
+    ctx.beginPath()
+    ctx.moveTo(tip.x, tip.y); ctx.lineTo(tip.x - Math.cos(dir - 0.5) * 6, tip.y + Math.sin(dir - 0.5) * 6)
+    ctx.moveTo(tip.x, tip.y); ctx.lineTo(tip.x - Math.cos(dir + 0.5) * 6, tip.y + Math.sin(dir + 0.5) * 6)
+    ctx.stroke()
+    ctx.fillStyle = P.bg; ctx.strokeStyle = sel ? P.accent : P.staticStroke
+    ctx.beginPath(); ctx.arc(x, y, 4.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke()
+    if (!m.a.body?.dynamic) { ctx.beginPath(); ctx.moveTo(x - 8, y + 16); ctx.lineTo(x + 8, y + 16); ctx.stroke() }
+  }
+  for (const g of model.gears) {
+    const sel = g.id === input.selectedId
+    ctx.strokeStyle = sel ? P.accent : P.staticStroke
+    ctx.lineWidth = lw(1.5)
+    const pa = g.a ? poses[g.a.global] : null, pb = g.b ? poses[g.b.global] : null
+    const sa = pa ? toScreen(cam, pa.x, pa.y) : null, sb = pb ? toScreen(cam, pb.x, pb.y) : null
+    if (sa && sb) { ctx.setLineDash([3, 4]); ctx.beginPath(); ctx.moveTo(sa[0], sa[1]); ctx.lineTo(sb[0], sb[1]); ctx.stroke(); ctx.setLineDash([]) }
+    if (sa && pa) drawGearGlyph(ctx, sa[0], sa[1], 6, pa.th)
+    if (sb && pb) drawGearGlyph(ctx, sb[0], sb[1], 6, pb.th)
   }
   for (const h of model.hinges) {
     const pa = anchorState(poses, h.a)
@@ -552,9 +669,12 @@ export function drawScene(ctx: CanvasRenderingContext2D, cam: Camera, input: Dra
     }
     if (options.acceleration && input.sol) {
       const ax = input.sol.acc[3 * b.index], ay = input.sol.acc[3 * b.index + 1]
-      arrow(ctx, sx, sy, sx + ax * input.scales.a, sy - ay * input.scales.a, P.acceleration, 2.2)
       const am = Math.sqrt(ax * ax + ay * ay)
-      if (am * input.scales.a > 14) tag(ctx, sx + ax * input.scales.a + 4, sy - ay * input.scales.a + fpx(14), `a = ${q(am, 'm/s²', input.digits)}`, P.acceleration, P, valueFont)
+      // Like forces, very large accelerations are drawn shortened (the label keeps the true value)
+      const len = am * input.scales.a, maxLen = 0.3 * Math.min(cam.width, cam.height), k = len > maxLen ? maxLen / len : 1
+      const x1 = sx + ax * input.scales.a * k, y1 = sy - ay * input.scales.a * k
+      arrow(ctx, sx, sy, x1, y1, P.acceleration, 2.2)
+      if (len > 14) tag(ctx, x1 + 4, y1 + fpx(14), `a = ${q(am, 'm/s²', input.digits)}${k < 1 ? tl('（箭头已缩短）') : ''}`, P.acceleration, P, valueFont)
     }
   }
   if (options.forces && !input.editing) {
@@ -648,7 +768,7 @@ function drawBelt(ctx: CanvasRenderingContext2D, cam: Camera, b: BodyModel, pose
 /** Display text of each change type. */
 const CHANGE_TEXT: Record<string, string> = {
   impact: '碰撞', touch: '接触', separate: '分离', stick: '相对静止（共速）', slip: '开始相对滑动', reverse: '相对滑动反向', slack: '绳松弛', taut: '绳绷紧', leave: '离开',
-  switch: '变力切换', timestep: '改用时间步进（精度降级）'
+  switch: '变力切换', timestep: '改用时间步进（精度降级）', pulley: '到达滑轮'
 }
 
 /** Display text of a change (a switch that is a kink has its own text). */
@@ -821,6 +941,7 @@ export function vectorScales(rec: Recording | null, sys: System): { v: number; a
 function computeScales(rec: Recording | null, sys: System): { v: number; a: number; f: number } {
   let vmax = 0, amax = 0
   const n = sys.n
+  const g = Math.hypot(sys.model.settings.gravity.x, sys.model.settings.gravity.y)
   if (rec) {
     // Sampled frames that are in memory (a long run's evicted chunks are not recomputed for this)
     const stride = Math.max(1, Math.floor(rec.frameCount / 400))
@@ -832,14 +953,32 @@ function computeScales(rec: Recording | null, sys: System): { v: number; a: numb
         vmax = Math.max(vmax, Math.hypot(X[o], X[o + 1]))
       }
     }
-    const g = Math.hypot(sys.model.settings.gravity.x, sys.model.settings.gravity.y)
     amax = Math.max(g, 1)
   } else {
     for (const b of sys.model.dynamic) vmax = Math.max(vmax, Math.hypot(b.def.velocity.x, b.def.velocity.y))
   }
+  // 26.51: without uniform gravity (orbits) the scale follows the gravitational acceleration at the start
   let fmax = 0
-  for (const b of sys.model.dynamic) fmax = Math.max(fmax, b.mass * Math.max(1, Math.hypot(sys.model.settings.gravity.x, sys.model.settings.gravity.y)))
+  for (const b of sys.model.dynamic) {
+    const ga = gravitationAt(sys, b)
+    if (rec) amax = Math.max(amax, ga)
+    fmax = Math.max(fmax, b.mass * Math.max(1, g, ga))
+  }
   return { v: 70 / Math.max(vmax, 0.5), a: 55 / Math.max(amax, 0.5), f: 90 / Math.max(fmax, 1e-6) }
+}
+
+/** Magnitude of the gravitational acceleration of a body at the initial positions (0 without gravitation). */
+function gravitationAt(sys: System, b: BodyModel): number {
+  if (!(sys.model.G > 0) || !(b.attract > 0)) return 0
+  let ax = 0, ay = 0
+  for (const o of sys.model.attractors) {
+    if (o === b) continue
+    const dx = o.gravPos.x - b.gravPos.x, dy = o.gravPos.y - b.gravPos.y, d = Math.hypot(dx, dy)
+    if (!(d > 0)) continue
+    const R = b.bound + o.bound, a = d >= R ? sys.model.G * o.attract / (d * d) : sys.model.G * o.attract * d / (R * R * R)
+    ax += a * dx / d; ay += a * dy / d
+  }
+  return Math.hypot(ax, ay)
 }
 
 export { FONT, MONO }

@@ -6,9 +6,12 @@
  * Unit helpers live here so every component formats values through the same reactive unit choice: values are
  * SI everywhere and are converted only when shown (`fmtQ`, `toDisp`, `unitLabel`) or entered (`fromDisp`).
  */
-import { reactive, watch } from 'vue'
+import { reactive, watch, watchEffect } from 'vue'
 import type { UnitChoice } from '../units/units'
-import { defaultChoice, displayLabel, formatQuantity, formatSig, fromDisplay, latexQuantity, presetChoice, toDisplay } from '../units/units'
+import { defaultChoice, displayLabel, formatQuantity, formatSig, fromDisplay, latexQuantity, numberStyle, presetChoice, toDisplay, withDecimal } from '../units/units'
+import type { Curriculum } from '../formula/levels'
+import { locale } from '../i18n/locale'
+import { shownTime } from '../units/clock'
 
 /** Theme choice; 'system' follows the OS appearance. */
 export type ThemeMode = 'system' | 'light' | 'dark'
@@ -61,11 +64,13 @@ export interface EffectSettings {
 
 /** Editor preferences. */
 export interface EditorSettings {
-  /** Snap positions, sizes and vertices to the grid. Hold Alt to bypass. */
+  /** Snap positions, sizes and vertices to the grid (optional, off by default since 26.51). Hold Alt to bypass. */
   snap: boolean
+  /** Pull a dragged object into contact with nearby objects, with hysteresis (D47). Hold Alt to bypass. */
+  objectSnap: boolean
   /** Snap step in metres; 0 = the visible minor grid step. */
   snapStep: number
-  /** Angle snap for rotation handles (degrees); 0 = off. */
+  /** Fixed angle steps for rotation handles (degrees); 0 = free rotation with magnetic snapping (D47). */
   angleSnap: number
 }
 
@@ -97,6 +102,16 @@ export interface ExportSettings {
   csvDecimal: '.' | ','
   /** Background of still images. */
   imageBackground: 'theme' | 'white' | 'transparent'
+  /** Language of reports, courseware, videos and CSV headers (26.51); 'ui': the interface language. */
+  language: 'ui' | 'zh' | 'en' | 'de'
+}
+
+/** Knowledge level of the formulas shown (D44). */
+export interface KnowledgeSettings {
+  /** Curriculum of the level names and tags; 'auto': Chinese curriculum for the Chinese interface, else IB. */
+  curriculum: 'auto' | Curriculum
+  /** Ceiling on the ordinal scale of formula/levels.ts (1 lower secondary … 5 beyond). */
+  level: number
 }
 
 /** All preferences. */
@@ -116,16 +131,22 @@ export interface AppSettings {
   units: UnitChoice
   /** Significant digits of every readout (3 … 12). */
   digits: number
+  /** Decimal separator of readouts (26.51): point, comma with the German interface, or always comma. */
+  decimalSeparator: 'point' | 'auto' | 'comma'
   /** Overlays shown by default (the toggles in the interface change these directly). */
   display: DisplayOptions
   /** Gravity g for new scenes and templates (m/s²); each scene keeps its own g once created. */
   defaultGravity: number
   effects: EffectSettings
   editor: EditorSettings
+  /** Knowledge level: which formulas the cards show (D44). */
+  knowledge: KnowledgeSettings
   sim: SimSettings
   export: ExportSettings
   /** Local operation log for trials (D16): off by default, never uploaded. */
   trialLog: boolean
+  /** Version of the stored settings (for one-time migrations), e.g. 2651 for 26.51. */
+  rev: number
 }
 
 function defaults(): AppSettings {
@@ -139,15 +160,21 @@ function defaults(): AppSettings {
     unitPreset: 'si',
     units: defaultChoice(),
     digits: 4,
+    decimalSeparator: 'point',
     display: { velocity: true, acceleration: false, forces: true, forcesAll: false, trajectory: true, labels: true, grid: true, axes: true, names: true, strobe: false, strobeInterval: 0.1, strobeCount: 10, strobeOpacity: 0.55, strobeLabels: false },
     defaultGravity: 9.8,
     effects: { quality: 'standard', glass: true, ambient: true, motionBlur: true, shutter: 0.5, particles: true, trails: false, trailSeconds: 0.6, respectReducedMotion: true },
-    editor: { snap: true, snapStep: 0, angleSnap: 15 },
+    editor: { snap: false, objectSnap: true, snapStep: 0, angleSnap: 0 },
+    knowledge: { curriculum: 'auto', level: 2 },
     sim: { worker: true, progressive: true, budgetSeconds: 60, lookAheadSeconds: 20, memoryMB: 512, engine: 'auto' },
-    export: { fps: 60, scale: 1, bitrate: 0, csvSeparator: ',', csvDecimal: '.', imageBackground: 'theme' },
-    trialLog: false
+    export: { fps: 60, scale: 1, bitrate: 0, csvSeparator: ',', csvDecimal: '.', imageBackground: 'theme', language: 'ui' },
+    trialLog: false,
+    rev: SETTINGS_REV
   }
 }
+
+/** Current settings revision. */
+const SETTINGS_REV = 2651
 
 /** The live, reactive preferences (saved automatically). */
 export const settings = reactive<AppSettings>(defaults())
@@ -155,10 +182,11 @@ export const settings = reactive<AppSettings>(defaults())
 /** Settings page sections and the keys each one resets. */
 export const SETTINGS_SECTIONS = {
   general: ['language', 'themeMode', 'uiScale', 'autoRun', 'defaultGravity'],
-  units: ['unitPreset', 'units', 'digits'],
+  units: ['unitPreset', 'units', 'digits', 'decimalSeparator'],
   display: ['display', 'projector'],
   effects: ['effects'],
   editor: ['editor'],
+  knowledge: ['knowledge'],
   sim: ['sim'],
   export: ['export'],
   privacy: ['trialLog']
@@ -203,11 +231,14 @@ export function fmtQ(v: number | null, siUnit: string, digits: number = settings
 export function fmtNum(v: number | null, siUnit: string, digits: number = settings.digits): string {
   return v === null || !Number.isFinite(v) ? '—' : formatSig(toDisplay(v, siUnit, settings.units), digits)
 }
-/** Time with fixed decimals fine enough for the recording step `dt` (readouts that must not jitter): "0.250 s". */
+/**
+ * Time of the recording clock as shown (from the start time of a branch, D52), with fixed decimals fine enough for
+ * the recording step `dt` (readouts that must not jitter): "0.250 s".
+ */
 export function fmtTime(t: number, dt: number, withUnit = true): string {
   const si = Math.max(3, Math.min(6, Math.ceil(-Math.log10(dt > 0 ? dt : 1e-3) - 1e-9)))
   const decimals = Math.max(0, si - Math.round(Math.log10(toDisplay(1, 's', settings.units))))
-  const s = toDisplay(t, 's', settings.units).toFixed(decimals)
+  const s = withDecimal(toDisplay(shownTime(t), 's', settings.units).toFixed(decimals))
   return withUnit ? `${s} ${displayLabel('s', settings.units)}` : s
 }
 /** An SI value as KaTeX with its display unit, e.g. "12.5\,\mathrm{cm}". */
@@ -285,12 +316,16 @@ function sanitize() {
   settings.effects.trailSeconds = clamp(settings.effects.trailSeconds, 0.1, 10, d.effects.trailSeconds)
   settings.editor.snapStep = clamp(settings.editor.snapStep, 0, 100, 0)
   settings.editor.angleSnap = clamp(settings.editor.angleSnap, 0, 90, d.editor.angleSnap)
+  if (!['auto', 'cn', 'ib'].includes(settings.knowledge.curriculum)) settings.knowledge.curriculum = d.knowledge.curriculum
+  settings.knowledge.level = Math.round(clamp(settings.knowledge.level, 1, 5, d.knowledge.level))
   settings.sim.budgetSeconds = clamp(settings.sim.budgetSeconds, 1, 600, d.sim.budgetSeconds)
   settings.sim.lookAheadSeconds = clamp(settings.sim.lookAheadSeconds, 2, 600, d.sim.lookAheadSeconds)
   settings.sim.memoryMB = clamp(settings.sim.memoryMB, 16, 8192, d.sim.memoryMB)
   settings.export.fps = clamp(settings.export.fps, 1, 240, d.export.fps)
   settings.export.scale = clamp(settings.export.scale, 0.5, 4, d.export.scale)
   settings.export.bitrate = clamp(settings.export.bitrate, 0, 2e8, 0)
+  if (!['point', 'auto', 'comma'].includes(settings.decimalSeparator)) settings.decimalSeparator = d.decimalSeparator
+  if (!['ui', 'zh', 'en', 'de'].includes(settings.export.language)) settings.export.language = d.export.language
 }
 
 /** The 26.48 preferences: theme, digits, overlays and auto-run. */
@@ -306,8 +341,17 @@ function migrateOld(raw: string) {
 export function loadSettings() {
   try {
     const raw = localStorage.getItem(KEY)
-    if (raw) merge(settings, JSON.parse(raw))
-    else {
+    if (raw) {
+      const stored = JSON.parse(raw) as { rev?: unknown }
+      merge(settings, stored)
+      const rev = typeof stored.rev === 'number' ? stored.rev : 0
+      if (rev < 2651) {
+        // 26.51 (D47): editing is continuous; grid snapping and fixed angle steps become opt-in
+        settings.editor.snap = false
+        settings.editor.angleSnap = 0
+      }
+      settings.rev = SETTINGS_REV
+    } else {
       const old = localStorage.getItem(OLD_KEY)
       if (old) {
         migrateOld(old)
@@ -328,3 +372,17 @@ watch(settings, () => {
         try { localStorage.setItem(KEY, JSON.stringify(settings)) } catch { /* Ignore */ }
   }, 200)
 }, { deep: true })
+
+/** Decimal separator of readouts in a language (26.51): ',' for 'comma', and for 'auto' in German. */
+export function decimalFor(lang: 'zh' | 'en' | 'de'): '.' | ',' {
+  const s = settings.decimalSeparator
+  return s === 'comma' || (s === 'auto' && lang === 'de') ? ',' : '.'
+}
+// Readouts follow the setting and the interface language
+watchEffect(() => { numberStyle.decimal = decimalFor(locale.lang) })
+
+/** The curriculum in effect (D44): the choice, or for 'auto' the Chinese curriculum in the Chinese interface, else IB. */
+export function effectiveCurriculum(): Curriculum {
+  const c = settings.knowledge.curriculum
+  return c === 'auto' ? (locale.lang === 'zh' ? 'cn' : 'ib') : c
+}

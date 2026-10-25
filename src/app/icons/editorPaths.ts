@@ -20,5 +20,7 @@ export const EDITOR_ICONS: Record<string, string> = {
   norotate: 'M18.5 12a6.5 6.5 0 1 1-1.9-4.6M17 3.5v4h-4M4 20L20 4',
   zero: 'M4 12h9M9.5 8.5L13 12l-3.5 3.5M18 5v14',
   fit: 'M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5M9 12h6',
-  snap: 'M4 4h16v16H4zM4 12h16M12 4v16M12 12m-2.5 0a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0-5 0'
+  snap: 'M4 4h16v16H4zM4 12h16M12 4v16M12 12m-2.5 0a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0-5 0',
+  grid: 'M4 4h16v16H4zM4 9.33h16M4 14.67h16M9.33 4v16M14.67 4v16',
+  magnet: 'M6 4v8a6 6 0 0 0 12 0V4h-4v8a2 2 0 0 1-4 0V4zM6 8h4M14 8h4'
 }

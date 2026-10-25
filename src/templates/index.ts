@@ -14,7 +14,7 @@ import { tl, trDeep } from '../i18n'
 import type { Scene } from '../core/scene/types'
 import { DEG, cos, sin, tan } from '../core/math/dmath'
 import { addBody, addConnector, addGround, addIncline, addPulley, anchor, defaultGravity, emptyScene, onIncline, setDefaultGravity } from '../core/scene/build'
-import type { ForceDef, RodDef, RopeDef, SpringDef, HingeDef } from '../core/scene/types'
+import type { ForceDef, RodDef, RopeDef, SpringDef, HingeDef, WeldDef, MotorDef, GearDef } from '../core/scene/types'
 
 /** A template parameter: key, label, display unit ('°' for angles), default value and limits. */
 export interface TemplateParam { key: string; label: string; unit: string; value: number; min?: number; max?: number; step?: number }
@@ -378,8 +378,163 @@ export const TEMPLATES: TemplateInfo[] = trDeep([
   { id: 'movable-wedge', group: '动量守恒', name: '可动斜面', description: '光滑地面上的斜面与下滑物块：水平动量守恒', params: [p('M', '斜面质量 M', 'kg', 3, 0.01), p('m', '物块质量 m', 'kg', 1, 0.01), p('theta', '倾角 θ', '°', 30, 5, 70), gp()], build: movableWedge },
   { id: 'spring-blocks', group: '动量守恒', name: '弹簧连接体', description: '压缩最大时共速，动量守恒，弹性势能最大值', params: [p('m1', '物块1质量 m₁', 'kg', 1, 0.01), p('m2', '物块2质量 m₂', 'kg', 2, 0.01), p('k', '劲度系数 k', 'N/m', 50, 0.01), p('v0', '物块1初速度 v₀', 'm/s', 2), gp()], build: springBlocks },
   { id: 'rolling-slip', group: '刚体转动', name: '滚动带滑动', description: '圆柱以 v₀、ω₀ = 0 放在粗糙地面上：先打滑后纯滚动', params: [p('r', '半径 r', 'm', 0.15, 0.01), p('m', '质量 m', 'kg', 1, 0.001), p('v0', '初速度 v₀', 'm/s', 3), p('mu', '动摩擦因数 μ', '', 0.2, 0.001, 2, 0.01), gp()], build: rollingSlip },
-  { id: 'variable-force', group: '变力', name: '变力 F = F₀ sin ωt', description: '光滑水平面上受正弦变力的物块', params: [p('F0', '力的幅值 F₀', 'N', 5), p('omega', '角频率 ω', 'rad/s', 3, 0.01), p('m', '质量 m', 'kg', 1, 0.001), gp()], build: variableForce }
+  { id: 'variable-force', group: '变力', name: '变力 F = F₀ sin ωt', description: '光滑水平面上受正弦变力的物块', params: [p('F0', '力的幅值 F₀', 'N', 5), p('omega', '角频率 ω', 'rad/s', 3, 0.01), p('m', '质量 m', 'kg', 1, 0.001), gp()], build: variableForce },
+  // 26.51 models
+  { id: 'uniform-motion', group: '直线运动', name: '匀速直线运动', description: '光滑水平面上的匀速运动：s = vt', params: [p('v', '速度 v', 'm/s', 2), p('m', '质量 m', 'kg', 1, 0.01), gp()], build: uniformMotion },
+  { id: 'pull-force', group: '直线运动', name: '拉力作用下的物块', description: '恒力做功、功率、动能定理与动量定理', params: [p('F', '拉力 F', 'N', 10, 0), p('alpha', '拉力仰角 α', '°', 0, -80, 80), p('m', '质量 m', 'kg', 2, 0.01), p('mu', '动摩擦因数 μ', '', 0.2, 0, 2, 0.01), gp()], build: pullForce },
+  { id: 'free-fall', group: '抛体', name: '自由落体', description: 'h = ½gt²，v = gt，机械能守恒', params: [p('h', '下落高度 h', 'm', 5, 0.05, 500), p('m', '质量 m', 'kg', 0.1, 0.001), gp()], build: freeFall },
+  { id: 'lever', group: '力与平衡', name: '杠杆平衡', description: '杠杆平衡条件 F₁l₁ = F₂l₂', params: [p('m', '重物质量 m', 'kg', 2, 0.01), p('l2', '阻力臂 l₂', 'm', 0.3, 0.05, 2), p('l1', '动力臂 l₁', 'm', 0.5, 0.05, 2), p('M', '杠杆质量 M', 'kg', 1, 0.01), gp()], build: lever },
+  { id: 'uniform-circle', group: '圆周运动', name: '匀速圆周运动（俯视）', description: '向心力 F = mv²/r，周期 T = 2πr/v', params: [p('r', '半径 r', 'm', 0.5, 0.05, 5), p('v', '线速度 v', 'm/s', 2, 0.01), p('m', '小球质量 m', 'kg', 0.2, 0.001)], build: uniformCircle },
+  { id: 'orbit', group: '万有引力', name: '行星绕恒星运动', description: '圆轨道与椭圆轨道：开普勒定律、活力公式（G = 1）', params: [p('M', '恒星质量 M', 'kg', 1000, 1), p('r0', '初始距离 r₀', 'm', 5, 1, 50), p('k', '速度倍数 k = v₀/√(GM/r₀)', '', 1, 0.5, 1.4, 0.05), p('m', '行星质量 m', 'kg', 1, 0.001)], build: orbit },
+  { id: 'drag-fall', group: '空气阻力', name: '有空气阻力的下落', description: '终端速度；线性阻力 v = v_t(1 − e^(−bt/m))', params: [p('m', '质量 m', 'kg', 0.5, 0.001), p('b', '线性阻力系数 b', 'N·s/m', 0.5, 0), p('c', '平方阻力系数 c', 'N·s²/m²', 0, 0), p('h', '下落高度 h', 'm', 100, 1, 10000), gp()], build: dragFall },
+  { id: 'damped-spring', group: '振动', name: '阻尼振动', description: '振幅按指数衰减，周期比无阻尼时略长', params: [p('k', '劲度系数 k', 'N/m', 50, 0.01), p('m', '质量 m', 'kg', 0.5, 0.001), p('c', '阻尼系数 c', 'N·s/m', 0.5, 0), p('A', '振幅 A', 'm', 0.1, 0.001, 0.6), gp()], build: dampedSpring },
+  { id: 'motor-disc', group: '刚体转动', name: '恒力矩转盘', description: '转动定律 β = M/I', params: [p('M', '力矩 M', 'N·m', 0.5), p('m', '圆盘质量 m', 'kg', 2, 0.001), p('r', '半径 r', 'm', 0.3, 0.01), gp()], build: motorDisc },
+  { id: 'gears', group: '刚体转动', name: '齿轮传动', description: '啮合点线速度相等；等效转动惯量', params: [p('rA', '主动轮半径 r_A', 'm', 0.2, 0.01), p('rB', '从动轮半径 r_B', 'm', 0.4, 0.01), p('mA', '主动轮质量 m_A', 'kg', 1, 0.001), p('mB', '从动轮质量 m_B', 'kg', 2, 0.001), p('M', '马达力矩 M', 'N·m', 0.5), gp()], build: gears }
 ])
+
+// ---- 26.51 models (graded formula library, D44; fields and connectors, D50/D51) ----
+function uniformMotion(v: Record<string, number>): Scene {
+  const s = emptyScene(tl('匀速直线运动'))
+  s.description = tl('光滑水平面上的物块以速度 v 运动：合力为零，速度保持不变（牛顿第一定律）。')
+  addGround(s, { id: 'ground', top: 0, left: -1, right: 30 })
+  addBody(s, { id: 'block', name: tl('物块'), role: 'block', shape: { type: 'box', width: 0.3, height: 0.2 }, position: { x: 0.15, y: 0.1 }, velocity: { x: v.v, y: 0 }, mass: v.m, material: { muS: 0, muK: 0, restitution: 0 } })
+  s.settings.gravity = { x: 0, y: -v.g }
+  s.settings.legacyDuration = 2
+  s.view = { center: { x: 2.5, y: 0.6 }, pixelsPerMeter: 110 }
+  s.watch = ['block.x', 'block.vx', 'block.a']
+  return s
+}
+
+function pullForce(v: Record<string, number>): Scene {
+  const s = emptyScene(tl('拉力作用下的物块'))
+  s.description = tl('粗糙水平面上质量 m 的物块，受与水平成 α 角的恒定拉力 F，从静止开始运动。')
+  addGround(s, { id: 'ground', top: 0, left: -1, right: 40, material: { muS: v.mu, muK: v.mu } })
+  const blk = addBody(s, { id: 'block', name: tl('物块'), role: 'block', shape: { type: 'box', width: 0.3, height: 0.2 }, position: { x: 0.15, y: 0.1 }, mass: v.m, material: { muS: v.mu, muK: v.mu } })
+  const a = v.alpha * DEG
+  addConnector<ForceDef>(s, { id: 'pull', name: tl('拉力'), type: 'force', a: anchor(blk), force: { x: v.F * cos(a), y: v.F * sin(a) } })
+  s.settings.gravity = { x: 0, y: -v.g }
+  s.settings.legacyDuration = 2
+  s.view = { center: { x: 2.5, y: 0.6 }, pixelsPerMeter: 110 }
+  s.watch = ['block.vx', 'block.ax', 'pull.P', 'ledger.appliedWork', 'contact.block|ground.N']
+  return s
+}
+
+function freeFall(v: Record<string, number>): Scene {
+  const s = emptyScene(tl('自由落体'))
+  s.description = tl('小球从高 h 处由静止释放，只受重力。')
+  addGround(s, { id: 'ground', top: 0, left: -2, right: 2 })
+  const r = 0.05
+  addBody(s, { id: 'ball', name: tl('小球'), kind: 'particle', role: 'ball', shape: { type: 'circle', radius: r }, position: { x: 0, y: v.h + r }, mass: v.m })
+  s.settings.gravity = { x: 0, y: -v.g }
+  s.settings.legacyDuration = Math.min(60, Math.sqrt(2 * v.h / Math.max(v.g, 1e-3)) + 0.3)
+  s.view = { center: { x: 0, y: v.h / 2 }, pixelsPerMeter: Math.max(10, Math.min(200, 500 / Math.max(v.h, 0.5))) }
+  s.watch = ['ball.y', 'ball.vy', 'ball.ek', 'ball.ep', 'system.e']
+  return s
+}
+
+function lever(v: Record<string, number>): Scene {
+  const s = emptyScene(tl('杠杆平衡'))
+  s.description = tl('支点在杠杆的中点（自重不产生力矩）。左边距支点 l₂ 处固定重物 m，右边距支点 l₁ 处用绳竖直向下拉住，杠杆保持水平。')
+  const pivot = { x: 0, y: 1 }, th = 0.05, half = Math.max(v.l1, v.l2) + 0.1
+  const bar = addBody(s, { id: 'lever', name: tl('杠杆'), role: 'board', shape: { type: 'box', width: 2 * half, height: th }, position: pivot, mass: v.M })
+  addConnector<HingeDef>(s, { id: 'fulcrum', name: tl('支点'), type: 'hinge', a: anchor(bar), b: anchor(null, pivot) })
+  const box = 0.12
+  const load = addBody(s, { id: 'load', name: tl('重物'), role: 'block', shape: { type: 'box', width: box, height: box }, position: { x: pivot.x - v.l2, y: pivot.y + th / 2 + box / 2 }, mass: v.m, color: '#b45309' })
+  addConnector<WeldDef>(s, { id: 'weld', name: tl('固定点'), type: 'weld', a: anchor(load, { x: 0, y: -box / 2 }), b: anchor(bar, { x: -v.l2, y: th / 2 }) })
+  addConnector<RopeDef>(s, { id: 'rope', name: tl('绳'), type: 'rope', a: anchor(bar, { x: v.l1, y: -th / 2 }), b: anchor(null, { x: pivot.x + v.l1, y: pivot.y - th / 2 - 0.6 }), pulleys: [], length: null })
+  s.settings.gravity = { x: 0, y: -v.g }
+  s.settings.legacyDuration = 1
+  s.view = { center: { x: 0, y: 0.85 }, pixelsPerMeter: 260 }
+  s.watch = ['rope.T', 'fulcrum.F', 'lever.omega']
+  return s
+}
+
+function uniformCircle(v: Record<string, number>): Scene {
+  const s = emptyScene(tl('匀速圆周运动（俯视）'))
+  s.description = tl('光滑水平桌面上，小球用长 r 的轻绳系在中心的钉子上，以速度 v 做匀速圆周运动（俯视图，重力与支持力平衡，不画出）。')
+  const ball = addBody(s, { id: 'ball', name: tl('小球'), kind: 'particle', role: 'ball', shape: { type: 'circle', radius: 0.04 }, position: { x: v.r, y: 0 }, velocity: { x: 0, y: v.v }, mass: v.m })
+  addConnector<RopeDef>(s, { id: 'rope', name: tl('绳'), type: 'rope', a: anchor(null, { x: 0, y: 0 }), b: anchor(ball), pulleys: [], length: null })
+  s.settings.gravity = { x: 0, y: 0 }
+  s.settings.legacyDuration = Math.min(600, 1.2 * 2 * Math.PI * v.r / Math.max(Math.abs(v.v), 1e-3))
+  s.view = { center: { x: 0, y: 0 }, pixelsPerMeter: Math.max(20, Math.min(400, 180 / Math.max(v.r, 0.05))) }
+  s.watch = ['ball.v', 'ball.a', 'rope.T']
+  return s
+}
+
+function orbit(v: Record<string, number>): Scene {
+  const s = emptyScene(tl('行星绕恒星运动'))
+  s.description = tl('只受恒星引力的行星（教学用 G = 1）。k = 1 时为圆轨道，其他值为椭圆轨道。')
+  s.settings.gravitation = { G: 1 }
+  s.settings.gravity = { x: 0, y: 0 }
+  const GM = v.M
+  addBody(s, { id: 'star', name: tl('恒星'), kind: 'static', role: 'generic', shape: { type: 'circle', radius: 0.3 }, position: { x: 0, y: 0 }, mass: v.M, color: '#f59e0b' })
+  const v0 = v.k * Math.sqrt(GM / v.r0)
+  addBody(s, { id: 'planet', name: tl('行星'), kind: 'particle', role: 'ball', shape: { type: 'circle', radius: 0.08 }, position: { x: v.r0, y: 0 }, velocity: { x: 0, y: v0 }, mass: v.m, color: '#2563eb' })
+  const eps = v0 * v0 / 2 - GM / v.r0
+  const a = eps < 0 ? -GM / (2 * eps) : v.r0 * 3
+  const T = eps < 0 ? 2 * Math.PI * Math.sqrt(a * a * a / GM) : 10
+  s.settings.legacyDuration = Math.min(600, 1.15 * T)
+  s.view = { center: { x: eps < 0 ? v.r0 - a : 0, y: 0 }, pixelsPerMeter: Math.max(10, Math.min(200, 300 / Math.max(a, v.r0))) }
+  s.watch = ['planet.v', 'planet.Fg', 'system.e']
+  return s
+}
+
+function dragFall(v: Record<string, number>): Scene {
+  const s = emptyScene(tl('有空气阻力的下落'))
+  s.description = tl('小球由静止下落，受空气阻力 f = bv + cv²；速度逐渐趋于终端速度。')
+  addGround(s, { id: 'ground', top: 0, left: -5, right: 5 })
+  const r = 0.3
+  addBody(s, { id: 'ball', name: tl('小球'), kind: 'particle', role: 'ball', shape: { type: 'circle', radius: r }, position: { x: 0, y: v.h + r }, mass: v.m, drag: { linear: v.b, quadratic: v.c } })
+  s.settings.gravity = { x: 0, y: -v.g }
+  s.settings.legacyDuration = 8
+  s.view = { center: { x: 0, y: v.h / 2 }, pixelsPerMeter: Math.max(2, Math.min(100, 450 / Math.max(v.h, 1))) }
+  s.watch = ['ball.vy', 'ball.fd', 'ledger.damping']
+  return s
+}
+
+function dampedSpring(v: Record<string, number>): Scene {
+  const s = emptyScene(tl('阻尼振动'))
+  s.description = tl('光滑水平面上的弹簧振子带阻尼器（阻尼系数 c），拉开 A 后释放：振幅按指数衰减。')
+  addGround(s, { id: 'ground', top: 0, left: -0.4, right: 3 })
+  const L0 = 0.8, w = 0.2
+  addBody(s, { id: 'wall', name: tl('墙'), kind: 'static', role: 'wall', shape: { type: 'box', width: 0.1, height: 0.6 }, position: { x: -0.05, y: 0.3 } })
+  addBody(s, { id: 'block', name: tl('振子'), role: 'block', shape: { type: 'box', width: w, height: w }, position: { x: L0 + v.A + w / 2, y: w / 2 }, mass: v.m })
+  addConnector<SpringDef>(s, { id: 'spring', name: tl('弹簧'), type: 'spring', a: anchor(s.bodies[2], { x: -w / 2, y: 0 }), b: anchor(null, { x: 0, y: w / 2 }), stiffness: v.k, restLength: L0, damping: v.c })
+  s.settings.gravity = { x: 0, y: -v.g }
+  s.settings.legacyDuration = 4
+  s.view = { center: { x: 1, y: 0.4 }, pixelsPerMeter: 220 }
+  s.watch = ['block.x', 'block.vx', 'spring.F', 'system.e', 'ledger.damping']
+  return s
+}
+
+function motorDisc(v: Record<string, number>): Scene {
+  const s = emptyScene(tl('恒力矩转盘'))
+  s.description = tl('绕中心光滑轴转动的匀质圆盘，马达对它施加恒定力矩 M，从静止开始转动。')
+  const c = { x: 0, y: 1 }
+  const disc = addBody(s, { id: 'disc', name: tl('圆盘'), role: 'wheel', shape: { type: 'circle', radius: v.r }, position: c, mass: v.m })
+  addConnector<MotorDef>(s, { id: 'motor', name: tl('马达'), type: 'motor', a: anchor(null, c), b: anchor(disc), mode: 'torque', speed: 0, torque: v.M })
+  s.settings.gravity = { x: 0, y: -v.g }
+  s.settings.legacyDuration = 2
+  s.view = { center: c, pixelsPerMeter: Math.max(40, Math.min(400, 120 / Math.max(v.r, 0.05))) }
+  s.watch = ['disc.omega', 'disc.alpha', 'motor.P', 'ledger.beltWork']
+  return s
+}
+
+function gears(v: Record<string, number>): Scene {
+  const s = emptyScene(tl('齿轮传动'))
+  s.description = tl('两个圆盘齿轮外啮合，主动轮 A 受马达的恒定力矩 M，从动轮 B 反向转动。')
+  const ca = { x: 0, y: 1 }, cb = { x: v.rA + v.rB, y: 1 }
+  const A = addBody(s, { id: 'gearA', name: tl('主动轮'), role: 'wheel', shape: { type: 'circle', radius: v.rA }, position: ca, mass: v.mA, color: '#2563eb' })
+  const B = addBody(s, { id: 'gearB', name: tl('从动轮'), role: 'wheel', shape: { type: 'circle', radius: v.rB }, position: cb, mass: v.mB, color: '#0d9488' })
+  addConnector<MotorDef>(s, { id: 'motor', name: tl('马达'), type: 'motor', a: anchor(null, ca), b: anchor(A), mode: 'torque', speed: 0, torque: v.M })
+  addConnector<HingeDef>(s, { id: 'axle', name: tl('轴'), type: 'hinge', a: anchor(B), b: anchor(null, cb) })
+  addConnector<GearDef>(s, { id: 'gear', name: tl('齿轮'), type: 'gear', a: anchor(A), b: anchor(B), ratio: v.rB / v.rA })
+  s.settings.gravity = { x: 0, y: -v.g }
+  s.settings.legacyDuration = 2
+  s.view = { center: { x: (v.rA + v.rB) / 2, y: 1 }, pixelsPerMeter: Math.max(40, Math.min(400, 180 / Math.max(v.rA + v.rB, 0.1))) }
+  s.watch = ['gearA.omega', 'gearB.omega', 'gear.M', 'motor.P']
+  return s
+}
 
 /**
  * Set the default gravity magnitude (m/s²): the value of every template's g parameter and of new empty

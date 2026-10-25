@@ -36,7 +36,13 @@ export const UNITS: Record<string, Dim> = {
   W: [2, 1, -3],
   'N·m': [2, 1, -2],
   'Hz': [0, 0, -1],
-  '1/s': [0, 0, -1]
+  '1/s': [0, 0, -1],
+  // 26.51: drag, gravitation, areal velocity, nonlinear springs
+  'N·s²/m²': [-1, 1, 0],
+  'N·m²/kg²': [3, -1, -2],
+  'm²/s': [2, 0, -1],
+  'm²': [2, 0, 0],
+  'N/m³': [-2, 1, -2]
 }
 
 /** Dimension of a unit of UNITS; throws for unknown units. */

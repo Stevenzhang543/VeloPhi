@@ -31,6 +31,12 @@ function stepOf(x: number): number { return x >= 0 ? 1 : x < 0 ? 0 : Number.NaN 
 function clampOf(x: number, lo: number, hi: number): number { return Math.min(Math.max(x, lo), hi) }
 
 /** Functions of the language. `if` is listed for its arity and LaTeX; its condition is a comparison node. */
+/** Hyperbolic tangent through the deterministic exp (stable for large |x|). */
+function tanhOf(x: number): number {
+  const e = dm.exp(-2 * Math.abs(x))
+  return (x < 0 ? -1 : 1) * (1 - e) / (1 + e)
+}
+
 export const FUNCS: Record<string, { arity: number; fn: (...a: number[]) => number; latex: string }> = {
   sin: { arity: 1, fn: dm.sin, latex: '\\sin' },
   cos: { arity: 1, fn: dm.cos, latex: '\\cos' },
@@ -42,6 +48,7 @@ export const FUNCS: Record<string, { arity: number; fn: (...a: number[]) => numb
   sqrt: { arity: 1, fn: Math.sqrt, latex: '\\sqrt' },
   abs: { arity: 1, fn: Math.abs, latex: '' },
   exp: { arity: 1, fn: dm.exp, latex: '\\exp' },
+  tanh: { arity: 1, fn: tanhOf, latex: '\\tanh' },
   ln: { arity: 1, fn: dm.log, latex: '\\ln' },
   log: { arity: 1, fn: dm.log, latex: '\\ln' },
   lg: { arity: 1, fn: x => dm.log(x) / LN10, latex: '\\lg' },

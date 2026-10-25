@@ -5,14 +5,16 @@
 import type { Derivation, SharedSteps } from './types'
 import { DERIVATIONS_A, SHARED_A } from './groupA'
 import { DERIVATIONS_B, SHARED_B } from './groupB'
+import { DERIVATIONS_C, SHARED_C } from './groupC'
 
 /*
  * Group A: incline, flat, board-block, board-together, collision, momentum, energy, bounce, projectile, wedge,
  * atwood, pulley, movable-pulley. Group B: pendulum, spring, spring-pair, vcircle-rope, vcircle-rod, rotation,
- * rolling, roll-slip, hinged-impact, var-force.
+ * rolling, roll-slip, hinged-impact, var-force. Group C (26.51): uniform, const-force, lever, circle, orbit, drag,
+ * damped, spin, gear.
  */
-const DERIVATIONS: Derivation[] = [...DERIVATIONS_A, ...DERIVATIONS_B]
-const SHARED: SharedSteps[] = [...SHARED_A, ...SHARED_B]
+const DERIVATIONS: Derivation[] = [...DERIVATIONS_A, ...DERIVATIONS_B, ...DERIVATIONS_C]
+const SHARED: SharedSteps[] = [...SHARED_A, ...SHARED_B, ...SHARED_C]
 
 const byId = new Map<string, Derivation>()
 const sharedById = new Map<string, SharedSteps>()

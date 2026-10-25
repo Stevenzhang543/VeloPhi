@@ -15,6 +15,7 @@ import { Sha256 } from '../src/core/record/sha256'
 import { cloneScene, parseScene, serializeScene, validateScene } from '../src/core/scene/io'
 import { addBody, addConnector, addGround, anchor, emptyScene } from '../src/core/scene/build'
 import type { ForceDef, Scene, SpringDef } from '../src/core/scene/types'
+import { SCENE_VERSION } from '../src/core/scene/types'
 
 /** 26.49 fingerprint of the board-block template at its 2.5 s duration (tests/golden.test.ts). */
 const BOARD_BLOCK_HASH = 'bb1283491e1cb3e5cbd463c2d839f0cdee83def25231b27c43a11edd10c9d2d5'
@@ -129,7 +130,8 @@ describe('chunk rebuild is bit-identical', () => {
       const u = new SimulationRun(make(), { duration: null, chunkSeconds: 0.3 })
       u.advance(Infinity, Math.round(T / u.dt))
       u.stop()
-      expect(['user', 'rest']).toContain(u.stopReason)
+      // 26.51: the blocks stick with the spring held by static friction; that is approximate rest
+      expect(['user', 'rest', 'restApprox']).toContain(u.stopReason)
       checkRebuilds(scene, u, null, 0.3)
     })
   }
@@ -183,7 +185,8 @@ describe('stream recording with eviction', () => {
       ref.advance(Infinity, Math.round(T / ref.dt))
       ref.stop()
       const refRec = ref.result()
-      const { stream } = streamRun(scene, null, Math.round(T / ref.dt), 600_000)
+      // spring2 comes to approximate rest after a few seconds (26.51): a smaller budget still forces evictions
+      const { stream } = streamRun(scene, null, Math.round(T / ref.dt), name === 'spring2' ? 200_000 : 600_000)
       const rec = stream.snapshot()
       expect(rec.frameCount, name).toBe(refRec.frameCount)
       expect(rec.hash, name).toBe(refRec.hash)
@@ -291,7 +294,7 @@ describe('scene format 3', () => {
     delete doc.settings.legacyDuration
     delete doc.settings.stopAt
     const old = parseScene(JSON.stringify(doc)).scene
-    expect(old.version).toBe(3)
+    expect(old.version).toBe(SCENE_VERSION)
     expect(old.settings.duration).toBe(2.5)
     expect(old.settings.legacyDuration).toBe(2.5)
     expect(old.settings.stopAt).toBeNull()
@@ -316,5 +319,56 @@ describe('scene format 3', () => {
     s.settings.stopAt = null
     s.settings.legacyDuration = 0
     expect(() => validateScene(s)).toThrow(/有限计算时长/)
+  })
+})
+
+describe('remote rebuilds (26.51)', () => {
+  it('prefetches an evicted chunk off the interface thread and checks it like a local rebuild', async () => {
+    const scene = pile()
+    const { stream } = streamRun(scene, 3, Infinity)
+    const ref = simulate(pile(), { duration: 3 })
+    expect(stream.evictChunk(1)).toBe(true)
+    let asked = 0
+    stream.setRemote(async req => {
+      asked++
+      const r = rebuildChunk(req.scene, stream.system, req.checkpoint, { duration: req.duration, chunkSeconds: req.chunkSeconds }, req.endFrame)
+      return { first: r.chunk.first, count: r.chunk.count, states: r.chunk.states, segment: r.chunk.segment, impactLoss: r.chunk.impactLoss, next: r.next }
+    })
+    const arrived: number[] = []
+    stream.onChunk(c => arrived.push(c))
+    expect(stream.prefetch(1)).toBe(true)
+    expect(stream.prefetch(1)).toBe(true)
+    await new Promise(r => setTimeout(r, 0))
+    expect(asked).toBe(1)
+    expect(arrived).toEqual([1])
+    expect(stream.isResident(1)).toBe(true)
+    expect(stream.memory().remoteRebuilds).toBe(1)
+    expect(stream.memory().rebuilds).toBe(0)
+    const rec = stream.snapshot()
+    expectSameFrames(rec, ref, [stream.chunkFrames, stream.chunkFrames + 7, 2 * stream.chunkFrames - 1])
+  })
+
+  it('rejects a remote chunk that does not match the digest; the frame is then recomputed here', async () => {
+    const { stream } = streamRun(pile(), 3, Infinity)
+    const ref = simulate(pile(), { duration: 3 })
+    stream.evictChunk(1)
+    stream.setRemote(async req => {
+      const r = rebuildChunk(req.scene, stream.system, req.checkpoint, { duration: req.duration, chunkSeconds: req.chunkSeconds }, req.endFrame)
+      r.chunk.states[5] += 1e-9
+      return { first: r.chunk.first, count: r.chunk.count, states: r.chunk.states, segment: r.chunk.segment, impactLoss: r.chunk.impactLoss, next: r.next }
+    })
+    stream.prefetch(1)
+    await new Promise(r => setTimeout(r, 0))
+    expect(stream.isResident(1)).toBe(false)
+    expect(stream.memory().remoteRebuilds).toBe(0)
+    expectSameFrames(stream.snapshot(), ref, [stream.chunkFrames + 3])
+    expect(stream.memory().rebuilds).toBe(1)
+  })
+
+  it('without a remote rebuilder, prefetch declines', () => {
+    const { stream } = streamRun(pile(), 3, Infinity)
+    stream.evictChunk(1)
+    expect(stream.prefetch(1)).toBe(false)
+    expect(stream.prefetch(0)).toBe(true)
   })
 })

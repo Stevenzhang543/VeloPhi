@@ -15,6 +15,8 @@ export type UnitKind =
   | 'length' | 'mass' | 'time' | 'velocity' | 'acceleration' | 'force' | 'energy' | 'power'
   | 'momentum' | 'angularMomentum' | 'angle' | 'angularVelocity' | 'angularAcceleration'
   | 'stiffness' | 'damping' | 'inertia' | 'torque' | 'frequency'
+  // 26.51: drag, nonlinear springs, gravitation, Kepler's second law
+  | 'quadDrag' | 'cubicStiffness' | 'gravConst' | 'area' | 'arealVelocity'
 
 /** A display unit of a kind. */
 export interface UnitOption {
@@ -57,7 +59,12 @@ export const KINDS: KindInfo[] = trDeep([
   { kind: 'damping', label: '阻尼系数', si: 'N·s/m', options: [u('N·s/m', 1)] },
   { kind: 'inertia', label: '转动惯量', si: 'kg·m²', options: [u('kg·m²', 1), per('g·cm²', 1e7)] },
   { kind: 'torque', label: '力矩', si: 'N·m', options: [u('N·m', 1)] },
-  { kind: 'frequency', label: '频率', si: 'Hz', options: [u('Hz', 1)] }
+  { kind: 'frequency', label: '频率', si: 'Hz', options: [u('Hz', 1)] },
+  { kind: 'quadDrag', label: '平方阻力系数', si: 'N·s²/m²', options: [u('N·s²/m²', 1)] },
+  { kind: 'cubicStiffness', label: '非线性劲度系数', si: 'N/m³', options: [u('N/m³', 1)] },
+  { kind: 'gravConst', label: '引力常量', si: 'N·m²/kg²', options: [u('N·m²/kg²', 1)] },
+  { kind: 'area', label: '面积', si: 'm²', options: [u('m²', 1), per('cm²', 1e4)] },
+  { kind: 'arealVelocity', label: '掠面速度', si: 'm²/s', options: [u('m²/s', 1)] }
 ])
 
 const BY_KIND = new Map(KINDS.map(k => [k.kind, k]))
@@ -67,7 +74,8 @@ const SI_TO_KIND: Record<string, UnitKind> = {
   m: 'length', kg: 'mass', s: 'time', 'm/s': 'velocity', 'm/s²': 'acceleration', N: 'force', J: 'energy', W: 'power',
   'kg·m/s': 'momentum', 'N·s': 'momentum', 'kg·m²/s': 'angularMomentum', rad: 'angle', 'rad/s': 'angularVelocity',
   'rad/s²': 'angularAcceleration', 'N/m': 'stiffness', 'N·s/m': 'damping', 'kg·m²': 'inertia', 'N·m': 'torque',
-  Hz: 'frequency', '1/s': 'frequency'
+  Hz: 'frequency', '1/s': 'frequency',
+  'N·s²/m²': 'quadDrag', 'N/m³': 'cubicStiffness', 'N·m²/kg²': 'gravConst', 'm²': 'area', 'm²/s': 'arealVelocity'
 }
 
 /** Chosen display unit id per kind. */
@@ -134,6 +142,14 @@ export function displayLabel(siUnit: string, choice: UnitChoice): string {
   return o ? o.label : siUnit
 }
 
+/**
+ * Decimal separator of readouts (26.51, carry-over of 26.50): '.' or ',' (German style), set by the application
+ * from the settings and the language. Input fields accept both.
+ */
+export const numberStyle: { decimal: '.' | ',' } = { decimal: '.' }
+/** A plain-text number with the decimal separator of the readouts. */
+export function withDecimal(s: string): string { return numberStyle.decimal === ',' ? s.replace('.', ',') : s }
+
 function trimZeros(s: string): string {
   if (!s.includes('.')) return s
   return s.replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '')
@@ -144,8 +160,8 @@ export function formatSig(v: number | null, digits: number): string {
   if (v === null || !Number.isFinite(v)) return '—'
   if (v === 0) return '0'
   const a = Math.abs(v)
-  if (a >= 1e-3 && a < 1e6) return trimZeros(v.toPrecision(digits))
-  return v.toExponential(Math.max(0, digits - 1)).replace(/\.?0+e/, 'e')
+  if (a >= 1e-3 && a < 1e6) return withDecimal(trimZeros(v.toPrecision(digits)))
+  return withDecimal(v.toExponential(Math.max(0, digits - 1)).replace(/\.?0+e/, 'e'))
 }
 
 /** Format an SI value in the chosen display unit, e.g. "12.5 cm". */
@@ -164,11 +180,14 @@ export function latexNumber(v: number | null, digits: number): string {
   const a = Math.abs(v)
   if (a >= 1e-3 && a < 1e6) {
     const s = v.toPrecision(digits)
-    if (!s.includes('e')) return trimZeros(s)
+    if (!s.includes('e')) return texDecimal(trimZeros(s))
   }
   const [m, e] = v.toExponential(Math.max(0, digits - 1)).split('e')
-  return `${trimZeros(m)}\\times 10^{${Number(e)}}`
+  return `${texDecimal(trimZeros(m))}\\times 10^{${Number(e)}}`
 }
+
+/** KaTeX decimal comma: `{,}` keeps TeX from adding the space of a punctuation comma. */
+function texDecimal(s: string): string { return numberStyle.decimal === ',' ? s.replace('.', '{,}') : s }
 
 /** SI value in KaTeX form with its display unit, e.g. 12.5 cm or 30° (thin space before the unit). */
 export function latexQuantity(v: number | null, siUnit: string, choice: UnitChoice, digits: number): string {

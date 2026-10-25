@@ -4,6 +4,7 @@
  * commands, run / stop, canvas overlays, analysis and output menus, theme and about.
  * Overlay toggles are inline on wide windows and collapse into the "显示" menu on narrower ones (CSS only).
  */
+import AppLogo from './AppLogo.vue'
 import { tl, paren } from '../../i18n'
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { state, undo, redo, runSimulation, cancelSimulation } from '../store'
@@ -87,7 +88,7 @@ function toggleTheme() {
 <template>
   <header ref="root" class="topbar" :class="`fit-${level}`">
     <div class="brand">
-      <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="vlogo" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3d8bff" /><stop offset="1" stop-color="#0a5ae0" /></linearGradient></defs><rect x="1" y="1" width="22" height="22" rx="6" fill="url(#vlogo)" /><path d="M6 7l6 11 6-11" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round" /></svg>
+      <AppLogo :size="22" />
       <span class="name">Verity</span>
       <span class="doc small" :title="state.filePath ?? state.fileName ?? state.scene.name"><span class="doc-text">{{ state.fileName ?? state.scene.name }}</span><span class="dot" :class="{ on: state.dirty }" :title="tl('有未保存的修改')">●</span></span>
     </div>

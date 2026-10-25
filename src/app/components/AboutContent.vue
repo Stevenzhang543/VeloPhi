@@ -3,6 +3,7 @@
  * About Verity: version, what makes results verifiable, shortcuts (optional) and third-party licenses.
  * Shared by the about dialog and the settings page.
  */
+import AppLogo from './AppLogo.vue'
 import { tl } from '../../i18n'
 import { ENGINE_VERSION } from '../../core/scene/types'
 import { SHORTCUTS } from '../shortcuts'
@@ -24,7 +25,7 @@ const LICENSES: Array<{ name: string; license: string; use: string }> = [
 <template>
   <div class="about-content">
     <div class="hero">
-      <svg width="44" height="44" viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="vlogo-about" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3d8bff" /><stop offset="1" stop-color="#0a5ae0" /></linearGradient></defs><rect x="1" y="1" width="22" height="22" rx="6" fill="url(#vlogo-about)" /><path d="M6 7l6 11 6-11" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round" /></svg>
+      <AppLogo :size="44" />
       <div>
         <div class="title">Verity <span class="mono ver">{{ ENGINE_VERSION }}</span></div>
         <div class="small muted">{{ tl('（暂名）面向物理专业学生与教师的力学仿真与教学引擎') }}</div>

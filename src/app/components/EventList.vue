@@ -8,6 +8,7 @@
 import { tl, commaSep, colonSep } from '../../i18n'
 import { computed } from 'vue'
 import { state, seekAfter } from '../store'
+import { shownTime } from '../../units/clock'
 import { eventLabel } from '../../render/renderer'
 import { useGated } from '../live'
 import { fmtNum, fmtQ, unitLabel } from '../settings'
@@ -75,7 +76,7 @@ const currentIndex = computed(() => {
       <tbody>
         <template v-for="(row, ri) in rows" :key="row.e.index">
           <tr v-for="(it, i) in row.items" :key="i" :class="{ current: ri === currentIndex, future: ri > currentIndex, warn: it.warn }" :title="tl('跳到事件后的第一帧并查看详情')" @click="seekAfter(row.e.t); openEventDetail(row.index)">
-            <td v-if="i === 0" :rowspan="row.items.length" class="mono">{{ fmtNum(row.e.t, 's', compact ? Math.max(state.digits, 6) : Math.max(state.digits, 9)) }}</td>
+            <td v-if="i === 0" :rowspan="row.items.length" class="mono">{{ fmtNum(shownTime(row.e.t), 's', compact ? Math.max(state.digits, 6) : Math.max(state.digits, 9)) }}</td>
             <td>{{ it.text }}<div v-if="compact && it.detail" class="tiny muted sub">{{ it.detail }}<template v-if="i === 0 && row.loss > 1e-12">{{ tl('；损失动能 {0}', [fmtQ(row.loss, 'J', 4)]) }}</template></div></td>
             <td>{{ it.who }}</td>
             <td v-if="!compact" class="small muted">{{ it.detail }}<template v-if="i === 0 && row.loss > 1e-12">{{ tl('；损失动能 {0}', [fmtQ(row.loss, 'J', 5)]) }}</template></td>

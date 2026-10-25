@@ -7,9 +7,9 @@ import type { Vec2 } from '../math/vec'
 /** Value of the `format` field of every scene file. */
 export const SCENE_FORMAT = 'verity-scene'
 /** Current scene file format version; older files are migrated on load (see io.ts). */
-export const SCENE_VERSION = 3
+export const SCENE_VERSION = 4
 /** Engine version written into saved scenes. */
-export const ENGINE_VERSION = '26.50.0'
+export const ENGINE_VERSION = '26.51.0'
 
 /** Shape of a body, in body coordinates (m). */
 export type ShapeDef =
@@ -33,6 +33,12 @@ export interface Material {
   /** Coefficient of restitution e (0 … 1). */
   restitution: number
 }
+
+/**
+ * Air drag on a body (26.51, D50): F = −(b + c·|v|)·v at the centre of mass, b in N·s/m (linear, Stokes) and c in
+ * N·s²/m² (quadratic, Newton). The dissipated power is booked as damping in the energy ledger.
+ */
+export interface DragDef { linear: number; quadratic: number }
 
 /** A body as authored: shape, material and initial state. */
 export interface BodyDef {
@@ -59,6 +65,8 @@ export interface BodyDef {
   /** Conveyor belt speed (m/s, static bodies): the surface runs clockwise for u > 0, so the top moves right. */
   beltSpeed: number
   color: string
+  /** Air drag (26.51); null or absent: none. */
+  drag?: DragDef | null
 }
 
 /** Pulley wheel: fixed in the world or carried by a body (movable pulley). */
@@ -90,11 +98,13 @@ export interface RopeDef {
 }
 /** Rigid rod (distance constraint) between two anchors; `length` (m), null: the initial distance. */
 export interface RodDef { id: string; name: string; type: 'rod'; a: Anchor; b: Anchor; length: number | null }
-/** Linear spring with viscous damping between two anchors. */
+/** Spring with viscous damping between two anchors; F = −k·x − k₃·x³ − c·v along the spring. */
 export interface SpringDef {
   id: string; name: string; type: 'spring'; a: Anchor; b: Anchor
   /** Stiffness (N/m). */
   stiffness: number
+  /** Cubic stiffness k₃ (N/m³) of a nonlinear spring (26.51); 0 or absent: linear. */
+  cubic?: number
   /** Rest length (m); null: the initial distance. */
   restLength: number | null
   /** Damping coefficient (N·s/m). */
@@ -114,8 +124,27 @@ export interface ForceDef {
    */
   expr?: { x: string; y: string } | null
 }
+/** Damper (dashpot, 26.51): F = −c·v along the line of its anchors, no stiffness. */
+export interface DamperDef { id: string; name: string; type: 'damper'; a: Anchor; b: Anchor; damping: number }
+/** Weld (26.51, D51): the anchors coincide and the relative angle of the two bodies stays as it was. */
+export interface WeldDef { id: string; name: string; type: 'weld'; a: Anchor; b: Anchor }
+/**
+ * Slider (prismatic joint, 26.51): anchor b stays on the line through anchor a along `axis` (a direction in the
+ * frame of a's body, world when a has no body). `free`: b's body may turn; otherwise the relative angle is kept.
+ */
+export interface SliderDef { id: string; name: string; type: 'slider'; a: Anchor; b: Anchor; axis: Vec2; free?: boolean }
+/**
+ * Motor (26.51): a pin joint that also drives b relative to a — at constant relative angular velocity `speed`
+ * (rad/s, counter-clockwise) or with constant torque `torque` (N·m on b, the reaction on a).
+ */
+export interface MotorDef { id: string; name: string; type: 'motor'; a: Anchor; b: Anchor; mode: 'speed' | 'torque'; speed: number; torque: number }
+/**
+ * Gear or belt (26.51): ω_a + ratio·ω_b = 0 between the bodies of the two anchors (b without a body: the world,
+ * i.e. a brake). Meshing gears have a positive ratio r_b/r_a; a crossed belt the same, an open belt a negative one.
+ */
+export interface GearDef { id: string; name: string; type: 'gear'; a: Anchor; b: Anchor; ratio: number }
 /** Any connector between two anchors (a force has only `a`). */
-export type ConnectorDef = RopeDef | RodDef | SpringDef | HingeDef | ForceDef
+export type ConnectorDef = RopeDef | RodDef | SpringDef | HingeDef | ForceDef | DamperDef | WeldDef | SliderDef | MotorDef | GearDef
 
 /** Teaching annotations drawn over the scene (world coordinates, m). They never affect the simulation. */
 export type AnnotationDef =
@@ -177,6 +206,30 @@ export interface SceneSettings {
   legacyDuration: number
   /** Height of zero gravitational potential energy (m). */
   energyZeroY: number
+  /**
+   * Gravitation between bodies (26.51, D50): F = G·m₁m₂/r² between every pair of bodies with mass (a static body
+   * attracts with its `mass` but does not move); null or absent: off.
+   */
+  gravitation?: { G: number } | null
+  /**
+   * Time at which this scene starts (s; 26.51, D52): a branch continues its parent from this moment. The
+   * recording still counts from 0; the interface shows startTime + t, and variable forces see the absolute time.
+   * Absent: 0.
+   */
+  startTime?: number
+  /** Energy ledger at the start (a branch continues its parent's); absent: all zero. */
+  startLedger?: StartLedgerDef | null
+}
+
+/** Initial values of the energy ledger (26.51, D52). */
+export interface StartLedgerDef {
+  frictionHeat: number
+  appliedWork: number
+  damping: number
+  beltWork: number
+  impactLoss: number
+  /** Sliding distance and friction heat of each contact pair, by pair key (`a|b`, sorted). */
+  pairs?: Record<string, [number, number]>
 }
 
 /** The duration of a bounded run of the scene: `duration`, or `legacyDuration` when the scene is unbounded. */
@@ -186,6 +239,30 @@ export function finiteDuration(settings: Pick<SceneSettings, 'duration' | 'legac
 
 /** Initial camera of the scene: view centre (m) and zoom (px/m). */
 export interface SceneView { center: Vec2; pixelsPerMeter: number }
+
+/**
+ * A branch (26.51, D52): a scene that continues its parent from time `t` with changes. Its scene is complete —
+ * the state at t as initial conditions, `settings.startTime = t`, the ledger at t — so it reruns on its own.
+ */
+export interface BranchDef {
+  id: string
+  name: string
+  /** Parent branch id; null: the main scene. */
+  parent: string | null
+  /** Time of the branch point (s, absolute). */
+  t: number
+  scene: Scene
+}
+
+/** A custom (expression) quantity of the scene (26.51, D41; compiled by observe/custom). */
+export interface CustomQuantityDef {
+  /** Identifier, unique in the scene (letters, digits, _); the quantity id is `custom.<id>`. */
+  id: string
+  /** Display name. */
+  name: string
+  /** Expression, e.g. `ek(b1) + ep(b1)`. */
+  expr: string
+}
 
 /** The scene document as saved to a .verity.json file. */
 export interface Scene {
@@ -205,6 +282,10 @@ export interface Scene {
   watch: string[]
   /** Text, arrows and measurements placed by the teacher. */
   annotations: AnnotationDef[]
+  /** Expression quantities (26.51, D41; see observe/custom), watched as `custom.<id>`. */
+  customQuantities?: CustomQuantityDef[]
+  /** Branches of this scene (26.51, D52; only on the main scene, in creation order: parents first). */
+  branches?: BranchDef[]
   /** Unknown fields of newer files, kept as they are. */
   extra?: Record<string, unknown>
 }

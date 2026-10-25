@@ -16,7 +16,7 @@ import { pairKey, pairMaterial } from './model'
 import { ENV_SIZE, ForceExprError, branchOf, fillEnv } from './forceExpr'
 import { msg } from '../../i18n/message'
 import type { ContactFeature, ContactKin, Pose, Probe, RowJ, RowTerm } from './kinematics'
-import { anchorState, computePoses, contactKin, distanceKin, hingeKin, pairFeatures, pairProbes, ropeKin, ropePath } from './kinematics'
+import { anchorState, computePoses, contactKin, distanceKin, equalityKins, pairFeatures, pairProbes, ropeKin, ropePath } from './kinematics'
 
 /**
  * Tolerances shared by the solver. Lengths in m, velocities in m/s, times in s; force and acceleration
@@ -80,8 +80,8 @@ export interface UnitMode {
  */
 export interface Mode { units: UnitMode[]; taut: boolean[]; sw?: number[] }
 
-/** Kind of a constraint row. */
-export type RowKind = 'hinge' | 'rod' | 'rope' | 'normal' | 'tangent'
+/** Kind of a constraint row ('weld', 'motor', 'drive', 'slider' and 'gear' since 26.51). */
+export type RowKind = 'hinge' | 'weld' | 'motor' | 'drive' | 'rod' | 'slider' | 'gear' | 'rope' | 'normal' | 'tangent'
 /** One active constraint at acceleration level: J·a + c = 0. */
 export interface Row {
   kind: RowKind
@@ -148,7 +148,7 @@ export interface Rates {
   appliedWork: number
   /** Spring damping dissipation. */
   damping: number
-  /** Power delivered by conveyor belts. */
+  /** Power delivered by conveyor belts and motors (26.51). */
   beltWork: number
   /** Relative sliding speed per pair index (m/s). */
   pairSlide: Float64Array
@@ -204,6 +204,11 @@ export function buildSystem(model: Model, initial: Float64Array | null = null): 
   for (const r of model.ropes) if (!Number.isFinite(r.length)) r.length = ropePath(poses, r).length
   for (const r of model.rods) if (!Number.isFinite(r.length)) r.length = distanceKin(poses, r.a, r.b).value
   for (const s of model.springs) if (!Number.isFinite(s.restLength)) s.restLength = distanceKin(poses, s.a, s.b).value
+  // 26.51: the relative angles of welds and sliders, and the angle sum of gears, are kept as they start
+  const th = (b: BodyModel | null) => (b ? poses[b.global].th : 0)
+  for (const w of model.welds) if (!Number.isFinite(w.angle0)) w.angle0 = th(w.b.body) - th(w.a.body)
+  for (const sl of model.sliders) if (!Number.isFinite(sl.angle0)) sl.angle0 = th(sl.b.body) - th(sl.a.body)
+  for (const g of model.gears) if (!Number.isFinite(g.offset0)) g.offset0 = th(g.a) + g.ratio * th(g.b)
   return sys
 }
 
@@ -216,6 +221,13 @@ export function initialState(sys: System): Float64Array {
     X[3 * i] = b.def.position.x; X[3 * i + 1] = b.def.position.y; X[3 * i + 2] = b.def.angle
     X[3 * n + 3 * i] = b.def.velocity.x; X[3 * n + 3 * i + 1] = b.def.velocity.y
     X[3 * n + 3 * i + 2] = b.invInertia > 0 ? b.def.angularVelocity : 0
+  }
+  // A branch (D52) continues its parent's energy ledger
+  const l = sys.model.settings.startLedger
+  if (l) {
+    const a = sys.auxBase
+    X[a + AUX_HEAT] = l.frictionHeat; X[a + AUX_WORK] = l.appliedWork; X[a + AUX_DAMP] = l.damping; X[a + AUX_BELT] = l.beltWork
+    if (l.pairs) for (const p of sys.pairs) { const v = l.pairs[p.key]; if (v) { X[a + AUX_FIXED + 2 * p.index] = v[0]; X[a + AUX_FIXED + 2 * p.index + 1] = v[1] } }
   }
   return X
 }
@@ -309,10 +321,13 @@ export function forceValue(sys: System, k: number, X: Float64Array, sw: ArrayLik
   if (!body || body.index < 0) return { x: 0, y: 0 }
   const g = model.settings.gravity
   fillEnv(envScratch, X, sys.n, body.index, sys.timeSlot, body.mass, Math.sqrt(g.x * g.x + g.y * g.y))
+  // A branch (D52) runs from 0 on its own clock; its variable forces see the absolute time
+  const t0 = model.settings.startTime
+  if (t0) envScratch[0] += t0
   const s = sw && sw.length === model.switches.length ? sw : null
   const fx = f.expr.x.fn(envScratch, s), fy = f.expr.y.fn(envScratch, s)
   if (!Number.isFinite(fx) || !Number.isFinite(fy)) {
-    const t = sys.timeSlot >= 0 ? X[sys.timeSlot] : 0
+    const t = envScratch[0]
     throw new ForceExprError(msg('err.forceNotFinite', { force: f.name, t, fx, fy }))
   }
   return { x: fx, y: fy }
@@ -326,6 +341,8 @@ export function switchArg(sys: System, s: number, X: Float64Array, sw: ArrayLike
   if (!body || body.index < 0) return 1
   const g = model.settings.gravity
   fillEnv(envScratch, X, sys.n, body.index, sys.timeSlot, body.mass, Math.sqrt(g.x * g.x + g.y * g.y))
+  const t0 = model.settings.startTime
+  if (t0) envScratch[0] += t0
   return model.switches[s].arg(envScratch, sw && sw.length === model.switches.length ? sw : null)
 }
 
@@ -343,6 +360,45 @@ export function appliedForces(sys: System, poses: Pose[], rates: Rates | null, X
   const Q = new Float64Array(3 * sys.n)
   const g = model.settings.gravity
   for (const b of model.dynamic) { Q[3 * b.index] = b.mass * g.x; Q[3 * b.index + 1] = b.mass * g.y }
+  // 26.51 (D50): drag on the centre of mass, F = −(b + c|v|)v; its power is dissipated (damping entry)
+  for (const b of model.dynamic) {
+    if (b.dragLin === 0 && b.dragQuad === 0) continue
+    const p = poses[b.global]
+    const sp = Math.sqrt(p.vx * p.vx + p.vy * p.vy)
+    const k = b.dragLin + b.dragQuad * sp
+    Q[3 * b.index] -= k * p.vx; Q[3 * b.index + 1] -= k * p.vy
+    if (rates) rates.damping += k * sp * sp
+  }
+  // 26.51 (D50): gravitation between every pair of bodies with mass, at least one of them moving
+  if (model.G > 0) {
+    const at = model.attractors
+    for (let i = 0; i < at.length; i++) {
+      for (let j = i + 1; j < at.length; j++) {
+        const A = at[i], B = at[j]
+        if (!A.dynamic && !B.dynamic) continue
+        const pa = A.dynamic ? poses[A.global] : A.gravPos, pb = B.dynamic ? poses[B.global] : B.gravPos
+        const dx = pb.x - pa.x, dy = pb.y - pa.y
+        const d2 = dx * dx + dy * dy
+        if (!(d2 > 0)) continue
+        const d = Math.sqrt(d2)
+        // Inside the sum of the bounding radii (bodies that may overlap: joined, or passing through) the pull falls
+        // off linearly, as inside a uniform sphere; it is the inverse square outside and continuous at R
+        const R = A.bound + B.bound
+        const f = d >= R ? model.G * A.attract * B.attract / d2 : model.G * A.attract * B.attract * d / (R * R * R)
+        const fx = f * dx / d, fy = f * dy / d
+        if (A.dynamic) { Q[3 * A.index] += fx; Q[3 * A.index + 1] += fy }
+        if (B.dynamic) { Q[3 * B.index] -= fx; Q[3 * B.index + 1] -= fy }
+      }
+    }
+  }
+  // 26.51 (D51): torque motors act on b and react on a; their power is motor work
+  for (const m of model.motors) {
+    if (m.mode !== 'torque') continue
+    const a = m.a.body, b = m.b.body
+    if (b && b.index >= 0) Q[3 * b.index + 2] += m.torque
+    if (a && a.index >= 0) Q[3 * a.index + 2] -= m.torque
+    if (rates) rates.beltWork += m.torque * ((b ? poses[b.global].w : 0) - (a ? poses[a.global].w : 0))
+  }
   for (let k = 0; k < model.forces.length; k++) {
     const f = model.forces[k]
     if (!f.a.body || f.a.body.index < 0) continue
@@ -359,7 +415,8 @@ export function appliedForces(sys: System, poses: Pose[], rates: Rates | null, X
     if (L === 0) continue
     const ux = dx / L, uy = dy / L
     const vrel = ux * (pa.vx - pb.vx) + uy * (pa.vy - pb.vy)
-    const mag = -s.stiffness * (L - s.restLength) - s.damping * vrel
+    const ext = L - s.restLength
+    const mag = s.cubic !== 0 ? -s.stiffness * ext - s.cubic * ext * ext * ext - s.damping * vrel : -s.stiffness * ext - s.damping * vrel
     if (s.a.body && s.a.body.index >= 0) {
       const i = s.a.body.index
       Q[3 * i] += mag * ux; Q[3 * i + 1] += mag * uy; Q[3 * i + 2] += pa.rx * mag * uy - pa.ry * mag * ux
@@ -391,15 +448,7 @@ export interface ModeRows { rows: Row[]; unitKin: UnitKin[]; ropeKins: ReturnTyp
 export function buildRows(sys: System, poses: Pose[], mode: Mode): ModeRows {
   const model = sys.model
   const rows: Row[] = []
-  model.hinges.forEach((h, k) => {
-    const [rx, ry] = hingeKin(poses, h.a, h.b)
-    rows.push({ kind: 'hinge', owner: k, sub: 0, j: rx.j, f: rx.j, c: rx.c, value: rx.value, vel: rx.vel })
-    rows.push({ kind: 'hinge', owner: k, sub: 1, j: ry.j, f: ry.j, c: ry.c, value: ry.value, vel: ry.vel })
-  })
-  model.rods.forEach((r, k) => {
-    const d = distanceKin(poses, r.a, r.b)
-    rows.push({ kind: 'rod', owner: k, sub: 0, j: d.j, f: d.j, c: d.c, value: d.value - r.length, vel: d.vel })
-  })
+  for (const e of equalityKins(model, poses)) rows.push({ kind: e.kind, owner: e.owner, sub: e.sub, j: e.kin.j, f: e.kin.j, c: e.kin.c, value: e.kin.value, vel: e.kin.vel })
   const ropeKins = model.ropes.map((r, k) => {
     const rk = ropeKin(poses, r)
     if (mode.taut[k]) rows.push({ kind: 'rope', owner: k, sub: 0, j: rk.j, f: rk.j, c: rk.c, value: rk.value, vel: rk.vel })
@@ -480,6 +529,14 @@ export function solveMode(sys: System, X: Float64Array, mode: Mode, posesIn?: Po
     }
     return { normal, tangent, vt, at, refKin, pointKin, pointLambda, openKin }
   })
+  // 26.51: the drive of a speed motor delivers λ·(ω_b − ω_a) (motor work)
+  for (let r = 0; r < m; r++) {
+    const row = rows[r]
+    if (row.kind !== 'drive') continue
+    const mo = model.motors[row.owner]
+    const wa = mo.a.body ? poses[mo.a.body.global].w : 0, wb = mo.b.body ? poses[mo.b.body.global].w : 0
+    rates.beltWork += lambda[r] * (wb - wa)
+  }
   const ropeTension = model.ropes.map((_, k) => {
     for (let r = 0; r < m; r++) if (rows[r].kind === 'rope' && rows[r].owner === k) return lambda[r]
     return 0
@@ -523,10 +580,27 @@ export function energy(sys: System, X: Float64Array, posesIn?: Pose[]): EnergyPa
     gravity += -b.mass * (g.x * X[3 * i] + g.y * (X[3 * i + 1] - y0))
   }
   for (const s of model.springs) {
+    if (s.damper) continue
     const pa = anchorState(poses, s.a), pb = anchorState(poses, s.b)
     const dx = pa.px - pb.px, dy = pa.py - pb.py
     const e = Math.sqrt(dx * dx + dy * dy) - s.restLength
-    spring += 0.5 * s.stiffness * e * e
+    spring += s.cubic !== 0 ? 0.5 * s.stiffness * e * e + 0.25 * s.cubic * e * e * e * e : 0.5 * s.stiffness * e * e
+  }
+  // 26.51: potential energy of gravitation, −G·m₁m₂/r per pair (counted with gravity)
+  if (model.G > 0) {
+    const at = model.attractors
+    for (let i = 0; i < at.length; i++) {
+      for (let j = i + 1; j < at.length; j++) {
+        const A = at[i], B = at[j]
+        if (!A.dynamic && !B.dynamic) continue
+        const pa = A.dynamic ? poses[A.global] : A.gravPos, pb = B.dynamic ? poses[B.global] : B.gravPos
+        const dx = pb.x - pa.x, dy = pb.y - pa.y
+        const d = Math.sqrt(dx * dx + dy * dy)
+        const R = A.bound + B.bound
+        if (d >= R && d > 0) gravity -= model.G * A.attract * B.attract / d
+        else if (d < R) gravity -= model.G * A.attract * B.attract * (3 * R * R - d * d) / (2 * R * R * R)
+      }
+    }
   }
   return { kinetic, gravity, spring, total: kinetic + gravity + spring }
 }

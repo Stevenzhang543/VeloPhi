@@ -85,7 +85,7 @@ describe('core messages', () => {
   })
 
   it('cover every run message key of the engines', () => {
-    const runKeys = ['warn.initialOverlapRemoved', 'warn.initialDeepOverlap', 'warn.reducedAccuracy', 'reason.moreauSelected', 'reason.eventsAtInstant', 'reason.eventStorm', 'warn.ambiguousMode', 'warn.multiImpactFriction', 'warn.polygonCentred', 'warn.muSBelowMuK', 'err.forceNotFinite', 'err.stepTooSmall', 'err.switchChatter', 'err.eventChatter', 'err.stepLimit', 'err.chunkStepLimit', 'err.budget', 'err.cancelled', 'err.internal']
+    const runKeys = ['warn.initialOverlapRemoved', 'warn.initialDeepOverlap', 'warn.reducedAccuracy', 'reason.moreauSelected', 'reason.eventsAtInstant', 'reason.eventStorm', 'warn.ambiguousMode', 'warn.multiImpactFriction', 'warn.multiImpactPlastic', 'warn.polygonCentred', 'warn.muSBelowMuK', 'err.forceNotFinite', 'err.stepTooSmall', 'err.switchChatter', 'err.eventChatter', 'err.stepLimit', 'err.chunkStepLimit', 'err.budget', 'err.cancelled', 'err.internal']
     expect(runKeys.filter(k => !coreKeys().includes(k))).toEqual([])
   })
 })

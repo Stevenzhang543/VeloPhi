@@ -13,10 +13,13 @@
  */
 import type { Vec2 } from '../math/vec'
 import { atan2 as atan2Det, cos, sin } from '../math/dmath'
-import type { AnchorModel, BodyModel, Model, PulleyModel, RopeModel } from './model'
+import type { AnchorModel, BodyModel, Model, PulleyModel, RopeModel, SliderModel } from './model'
 
-/** Pose and velocity of a body: position (m), c = cos θ, s = sin θ, velocity (m/s) and ω (rad/s). */
-export interface Pose { x: number; y: number; c: number; s: number; vx: number; vy: number; w: number }
+/**
+ * Pose and velocity of a body: position (m), c = cos θ, s = sin θ, velocity (m/s), ω (rad/s), and the angle θ itself
+ * as integrated (not wrapped; used by the angle rows of welds, sliders and gears).
+ */
+export interface Pose { x: number; y: number; c: number; s: number; vx: number; vy: number; w: number; th: number }
 
 /** Poses of all bodies (global index) for state X = [q(3n), v(3n), …]. */
 export function computePoses(model: Model, X: Float64Array): Pose[] {
@@ -26,12 +29,12 @@ export function computePoses(model: Model, X: Float64Array): Pose[] {
   for (let k = 0; k < bodies.length; k++) {
     const b = bodies[k]
     if (b.index < 0) {
-      out[k] = { x: b.staticPos.x, y: b.staticPos.y, c: b.staticC, s: b.staticS, vx: 0, vy: 0, w: 0 }
+      out[k] = { x: b.staticPos.x, y: b.staticPos.y, c: b.staticC, s: b.staticS, vx: 0, vy: 0, w: 0, th: b.staticAngle }
       continue
     }
     const i = b.index
     const th = X[3 * i + 2]
-    out[k] = { x: X[3 * i], y: X[3 * i + 1], c: cos(th), s: sin(th), vx: X[3 * n + 3 * i], vy: X[3 * n + 3 * i + 1], w: X[3 * n + 3 * i + 2] }
+    out[k] = { x: X[3 * i], y: X[3 * i + 1], c: cos(th), s: sin(th), vx: X[3 * n + 3 * i], vy: X[3 * n + 3 * i + 1], w: X[3 * n + 3 * i + 2], th }
   }
   return out
 }
@@ -266,6 +269,109 @@ export function hingeKin(poses: Pose[], a: AnchorModel, b: AnchorModel): [Constr
     { value: pa.px - pb.px, vel: pa.vx - pb.vx, j: rx, c: pa.qx - pb.qx },
     { value: pa.py - pb.py, vel: pa.vy - pb.vy, j: ry, c: pa.qy - pb.qy }
   ]
+}
+
+// ---- Connectors of 26.51 (D51) ----
+
+/** Angle θ (rad) and angular velocity ω of a body (the world: 0, 0). */
+function angular(poses: Pose[], body: BodyModel | null): { th: number; w: number } {
+  if (!body) return { th: 0, w: 0 }
+  const p = poses[body.global]
+  return { th: p.th, w: p.w }
+}
+
+/** Put generalized angle coefficients ka (body a) and kb (body b) into a row. */
+function angleRow(a: BodyModel | null, ka: number, b: BodyModel | null, kb: number): RowJ {
+  const row = emptyRow()
+  if (a && a.index >= 0) { row.ai = a.index; row.aw = ka }
+  if (b && b.index >= 0) { row.bi = b.index; row.bw = kb }
+  return row
+}
+
+/** Relative angle: value = (θ_b − θ_a) − offset, J = (−1 on θ_a, +1 on θ_b), no velocity-product term. */
+export function relAngleKin(poses: Pose[], a: BodyModel | null, b: BodyModel | null, offset: number): ConstraintKin {
+  const A = angular(poses, a), B = angular(poses, b)
+  return { value: B.th - A.th - offset, vel: B.w - A.w, j: angleRow(a, -1, b, 1), c: 0 }
+}
+
+/** Gear or belt: value = θ_a + r·θ_b − offset, J = (1 on θ_a, r on θ_b). */
+export function gearKin(poses: Pose[], a: BodyModel | null, b: BodyModel | null, r: number, offset: number): ConstraintKin {
+  const A = angular(poses, a), B = angular(poses, b)
+  return { value: A.th + r * B.th - offset, vel: A.w + r * B.w, j: angleRow(a, 1, b, r), c: 0 }
+}
+
+/** Speed drive of a motor: ω_b − ω_a = speed (velocity level only: value 0, vel = ω_b − ω_a − speed). */
+export function driveKin(poses: Pose[], a: BodyModel | null, b: BodyModel | null, speed: number): ConstraintKin {
+  const A = angular(poses, a), B = angular(poses, b)
+  return { value: 0, vel: B.w - A.w - speed, j: angleRow(a, -1, b, 1), c: 0 }
+}
+
+/**
+ * Slider: anchor b stays on the line through anchor a along the axis, g = n·(P_b − P_a) with n the axis normal
+ * turning with a's body. With d = P_b − P_a, r = P_b − x_a and k×n = (−n_y, n_x):
+ *   J_a = (−n, (k×n)·r), J_b = (n, n·(k×r_b)), c = −ω_a²·n·d + 2ω_a·(k×n)·ḋ + n·(q_b − q_a).
+ */
+export function sliderKin(poses: Pose[], s: SliderModel): ConstraintKin {
+  const pa = anchorState(poses, s.a), pb = anchorState(poses, s.b)
+  const A = s.a.body && s.a.body.index >= 0 ? poses[s.a.body.global] : null
+  const ax = A ? A.c * s.axis.x - A.s * s.axis.y : s.axis.x
+  const ay = A ? A.s * s.axis.x + A.c * s.axis.y : s.axis.y
+  // Normal n = (−a_y, a_x) and k×n = (−n_y, n_x) = −axis
+  const nx = -ay, ny = ax
+  const knx = -ny, kny = nx
+  const dx = pb.px - pa.px, dy = pb.py - pa.py
+  const dvx = pb.vx - pa.vx, dvy = pb.vy - pa.vy
+  const wa = A ? A.w : 0
+  const row = emptyRow()
+  if (A && s.a.body) { row.ai = s.a.body.index; row.ax = -nx; row.ay = -ny; row.aw = knx * (pb.px - A.x) + kny * (pb.py - A.y) }
+  if (s.b.body && s.b.body.index >= 0) { row.bi = s.b.body.index; row.bx = nx; row.by = ny; row.bw = nx * -pb.ry + ny * pb.rx }
+  const value = nx * dx + ny * dy
+  const vel = wa * (knx * dx + kny * dy) + nx * dvx + ny * dvy
+  const c = -wa * wa * value + 2 * wa * (knx * dvx + kny * dvy) + nx * (pb.qx - pa.qx) + ny * (pb.qy - pa.qy)
+  return { value, vel, j: row, c }
+}
+
+/** Kind of an equality constraint row. */
+export type EqualityKind = 'hinge' | 'weld' | 'motor' | 'drive' | 'rod' | 'slider' | 'gear'
+
+/**
+ * An equality constraint row of a connector: its kind, connector index and sub-row, kinematics, whether it is a
+ * position-level (holonomic) constraint, and its velocity target (`vel` already has it subtracted).
+ */
+export interface EqualityKin { kind: EqualityKind; owner: number; sub: number; kin: ConstraintKin; holonomic: boolean }
+
+/**
+ * All equality rows of the connectors, in a fixed order: hinges, welds, motors, rods, sliders, gears (each with its
+ * sub-rows). Scenes without the connectors of 26.51 get exactly the rows of 26.50 (hinges, then rods).
+ */
+export function equalityKins(model: Model, poses: Pose[]): EqualityKin[] {
+  const out: EqualityKin[] = []
+  model.hinges.forEach((h, k) => {
+    const [rx, ry] = hingeKin(poses, h.a, h.b)
+    out.push({ kind: 'hinge', owner: k, sub: 0, kin: rx, holonomic: true }, { kind: 'hinge', owner: k, sub: 1, kin: ry, holonomic: true })
+  })
+  model.welds.forEach((w, k) => {
+    const [rx, ry] = hingeKin(poses, w.a, w.b)
+    out.push({ kind: 'weld', owner: k, sub: 0, kin: rx, holonomic: true }, { kind: 'weld', owner: k, sub: 1, kin: ry, holonomic: true })
+    out.push({ kind: 'weld', owner: k, sub: 2, kin: relAngleKin(poses, w.a.body, w.b.body, w.angle0), holonomic: true })
+  })
+  model.motors.forEach((m, k) => {
+    const [rx, ry] = hingeKin(poses, m.a, m.b)
+    out.push({ kind: 'motor', owner: k, sub: 0, kin: rx, holonomic: true }, { kind: 'motor', owner: k, sub: 1, kin: ry, holonomic: true })
+    if (m.mode === 'speed') out.push({ kind: 'drive', owner: k, sub: 2, kin: driveKin(poses, m.a.body, m.b.body, m.speed), holonomic: false })
+  })
+  model.rods.forEach((r, k) => {
+    const d = distanceKin(poses, r.a, r.b)
+    out.push({ kind: 'rod', owner: k, sub: 0, kin: { value: d.value - r.length, vel: d.vel, j: d.j, c: d.c }, holonomic: true })
+  })
+  model.sliders.forEach((sl, k) => {
+    out.push({ kind: 'slider', owner: k, sub: 0, kin: sliderKin(poses, sl), holonomic: true })
+    if (!sl.free) out.push({ kind: 'slider', owner: k, sub: 1, kin: relAngleKin(poses, sl.a.body, sl.b.body, sl.angle0), holonomic: true })
+  })
+  model.gears.forEach((g, k) => {
+    out.push({ kind: 'gear', owner: k, sub: 0, kin: gearKin(poses, g.a, g.b, g.ratio, g.offset0), holonomic: true })
+  })
+  return out
 }
 
 /** Geometry of a rope's path over its pulleys. */

@@ -3,7 +3,7 @@
 
 use crate::dynamics::{add_row, kinetic_energy, row_dot, row_minv_row, tol, System};
 use crate::js::js_max;
-use crate::kinematics::{compute_poses, distance_kin, hinge_kin, rope_kin, ContactKin, RowJ};
+use crate::kinematics::{compute_poses, equality_kins, rope_kin, ContactKin, RowJ};
 use crate::linalg::solve_dense;
 use crate::message::Message;
 use crate::modes::touching_features;
@@ -97,29 +97,42 @@ fn advance(digits: &mut [u8]) -> bool {
     false
 }
 
-/// Resolve the impact at state X; None when nothing approaches.
+/// Warning recorded when Newton's law at several points at once would add energy and the impact is made plastic.
+pub fn multi_impact_plastic_warning() -> Message {
+    Message::new("warn.multiImpactPlastic")
+}
+
+/// Resolve the impact at state X; None when nothing approaches. When the frictionless result of a multi-point
+/// impact would add kinetic energy, the impact is solved again as plastic (26.51, D37).
 pub fn resolve_impact(sys: &System, x: &[f64]) -> Option<ImpactResult> {
-    let model = &sys.model;
-    let n = sys.n;
-    let poses = compute_poses(model, x);
-    let mut rows: Vec<IRow> = Vec::new();
-    for h in &model.hinges {
-        for k in hinge_kin(model, &poses, &h.a, &h.b) {
-            rows.push(IRow { j: k.j, u: k.vel, target: 0.0, unilateral: false, approach: false, info: None, kin: None });
-        }
+    let poses = compute_poses(&sys.model, x);
+    let mut rows = impact_rows(sys, &poses, false)?;
+    let res = solve_impact(sys, x, &mut rows);
+    if res.frictionless && res.active >= 2 && res.result.energy_after > res.result.energy_before + 1e-12 * js_max(1.0, res.result.energy_before) {
+        let mut plastic_rows = impact_rows(sys, &poses, true).expect("approaching rows found above");
+        let mut plastic = solve_impact(sys, x, &mut plastic_rows);
+        plastic.result.warning = Some(multi_impact_plastic_warning());
+        return Some(plastic.result);
     }
-    for r in &model.rods {
-        let (k, _, _) = distance_kin(model, &poses, &r.a, &r.b);
-        rows.push(IRow { j: k.j, u: k.vel, target: 0.0, unilateral: false, approach: false, info: None, kin: None });
+    Some(res.result)
+}
+
+/// The rows of an impact; None when nothing approaches.
+fn impact_rows(sys: &System, poses: &[crate::kinematics::Pose], plastic: bool) -> Option<Vec<IRow>> {
+    let model = &sys.model;
+    let mut rows: Vec<IRow> = Vec::new();
+    // Equality constraints (hinges, rods and the connectors of 26.51) stay satisfied at velocity level
+    for e in equality_kins(model, poses) {
+        rows.push(IRow { j: e.kin.j, u: e.kin.vel, target: 0.0, unilateral: false, approach: false, info: None, kin: None });
     }
     let mut any = false;
-    for t in touching_features(sys, &poses) {
+    for t in touching_features(sys, poses) {
         let u = t.kin.vn;
         let approach = u < -tol::VEL;
         if approach {
             any = true;
         }
-        let e = if approach && -u >= tol::ZENO { sys.pairs[t.pair].material.restitution } else { 0.0 };
+        let e = if approach && -u >= tol::ZENO && !plastic { sys.pairs[t.pair].material.restitution } else { 0.0 };
         let info = ImpactPoint {
             kind: ImpactKind::Contact,
             pair: Some(t.pair),
@@ -141,7 +154,7 @@ pub fn resolve_impact(sys: &System, x: &[f64]) -> Option<ImpactResult> {
         rows.push(IRow { j: t.kin.jn.clone(), u, target: if approach { -e * u } else { 0.0 }, unilateral: true, approach, info: Some(info), kin: Some(t.kin) });
     }
     for (k, r) in model.ropes.iter().enumerate() {
-        let (rk, path) = rope_kin(model, &poses, r);
+        let (rk, path) = rope_kin(model, poses, r);
         if rk.value > tol::TOUCH {
             continue;
         }
@@ -170,9 +183,23 @@ pub fn resolve_impact(sys: &System, x: &[f64]) -> Option<ImpactResult> {
         };
         rows.push(IRow { j: rk.j, u: rk.vel, target: 0.0, unilateral: true, approach, info: Some(info), kin: None });
     }
-    if !any {
-        return None;
+    if any {
+        Some(rows)
+    } else {
+        None
     }
+}
+
+struct Solved {
+    result: ImpactResult,
+    frictionless: bool,
+    active: usize,
+}
+
+/// Solve an impact: the frictionless impulses, then friction (one point: Stronge; several: multi_friction).
+fn solve_impact(sys: &System, x: &[f64], rows: &mut [IRow]) -> Solved {
+    let model = &sys.model;
+    let n = sys.n;
     let m = rows.len();
     let mut w = vec![0.0; m * m];
     for r in 0..m {
@@ -186,7 +213,7 @@ pub fn resolve_impact(sys: &System, x: &[f64]) -> Option<ImpactResult> {
     let mut best_violation = f64::INFINITY;
     let scale_p = {
         let mut s = 0.0;
-        for r in &rows {
+        for r in rows.iter() {
             for &bg in &model.dynamic {
                 s = js_max(s, model.bodies[bg].mass * r.u.abs());
             }
@@ -250,12 +277,23 @@ pub fn resolve_impact(sys: &System, x: &[f64]) -> Option<ImpactResult> {
         }
     }
     let p = best_p.unwrap_or_else(|| vec![0.0; m]);
-    let friction = friction_pass(sys, x, &mut rows, &p, &w);
+    let mut active = 0usize;
+    for &ri in &uni {
+        if p[ri] > 0.0 {
+            active += 1;
+        }
+    }
+    let friction = friction_pass(sys, x, rows, &p, &w);
     let fallback = match friction {
-        FrictionOutcome::Result(r) => return Some(r),
+        FrictionOutcome::Result(r) => return Solved { result: r, frictionless: false, active },
         FrictionOutcome::Fallback => true,
         FrictionOutcome::NotApplicable => false,
     };
+    if !fallback && friction_acts(sys, x, rows, &p) {
+        if let Some(multi) = multi_friction(sys, x, rows) {
+            return Solved { result: multi, frictionless: false, active };
+        }
+    }
     let before = kinetic_energy(sys, x);
     let mut dv = vec![0.0; 3 * n];
     for (i, r) in rows.iter().enumerate() {
@@ -293,14 +331,18 @@ pub fn resolve_impact(sys: &System, x: &[f64]) -> Option<ImpactResult> {
             }
         }
     }
-    Some(ImpactResult {
-        x: y,
-        points,
-        energy_before: before,
-        energy_after: after,
-        loss: before - after,
-        warning: if friction_would_act { Some(multi_impact_warning()) } else { None },
-    })
+    Solved {
+        result: ImpactResult {
+            x: y,
+            points,
+            energy_before: before,
+            energy_after: after,
+            loss: before - after,
+            warning: if friction_would_act { Some(multi_impact_warning()) } else { None },
+        },
+        frictionless: true,
+        active,
+    }
 }
 
 /// Outcome of Stronge's impact.
@@ -547,4 +589,425 @@ fn friction_pass(sys: &System, x: &[f64], rows: &mut [IRow], p: &[f64], w: &[f64
     info.friction = Some(res.end);
     let point = info.clone();
     FrictionOutcome::Result(ImpactResult { x: y, points: vec![point], energy_before: before, energy_after: after, loss: before - after, warning: None })
+}
+
+/// Whether the frictionless impulses leave several unilateral rows active and friction would act on one of them.
+#[allow(clippy::neg_cmp_op_on_partial_ord)]
+fn friction_acts(sys: &System, x: &[f64], rows: &[IRow], p: &[f64]) -> bool {
+    let model = &sys.model;
+    let n = sys.n;
+    let mut active = 0usize;
+    for (i, r) in rows.iter().enumerate() {
+        if r.unilateral && p[i] > 0.0 {
+            active += 1;
+        }
+    }
+    if active < 2 {
+        return false;
+    }
+    let mut dv = vec![0.0; 3 * n];
+    for (i, r) in rows.iter().enumerate() {
+        if p[i] != 0.0 {
+            add_row(&mut dv, &r.j, p[i]);
+        }
+    }
+    let mut y = x.to_vec();
+    for i in 0..n {
+        let im = model.dyn_inv_mass[i];
+        let ii = model.dyn_inv_inertia[i];
+        y[3 * n + 3 * i] += dv[3 * i] * im;
+        y[3 * n + 3 * i + 1] += dv[3 * i + 1] * im;
+        y[3 * n + 3 * i + 2] += dv[3 * i + 2] * ii;
+    }
+    for (i, r) in rows.iter().enumerate() {
+        if !(p[i] > 0.0) {
+            continue;
+        }
+        let (Some(kin), Some(info)) = (r.kin.as_ref(), r.info.as_ref()) else { continue };
+        let Some(pair) = info.pair else { continue };
+        let mat = sys.pairs[pair].material;
+        if !(mat.mu_k > 0.0 || mat.mu_s > 0.0) {
+            continue;
+        }
+        let belt = kin.vt - row_dot(&kin.jt, x, 3 * n);
+        if js_max(kin.vt.abs(), (row_dot(&kin.jt, &y, 3 * n) + belt).abs()) > tol::VEL {
+            return true;
+        }
+    }
+    false
+}
+
+/// Most frictional contact points of a simultaneous frictional impact (D37).
+pub const MULTI_FRICTION_POINTS: usize = 8;
+/// Most combinations tried by one enumeration of multi_friction (3⁸).
+pub const MULTI_FRICTION_TRIES: usize = 6561;
+
+struct FrictionRows {
+    ext: Vec<RowJ>,
+    ext_u: Vec<f64>,
+    w: Vec<f64>,
+    tan: Vec<isize>,
+    belt: Vec<f64>,
+    mu_k: Vec<f64>,
+    mu_s: Vec<f64>,
+    dir: Vec<f64>,
+    scale_p: f64,
+}
+
+struct FrictionSolution {
+    p: Vec<f64>,
+    y: Vec<f64>,
+    after: f64,
+    fr: Vec<usize>,
+    states: Vec<u8>,
+}
+
+#[allow(clippy::neg_cmp_op_on_partial_ord)]
+fn friction_rows(sys: &System, x: &[f64], rows: &[IRow]) -> Option<FrictionRows> {
+    let model = &sys.model;
+    let n = sys.n;
+    let m = rows.len();
+    let mut ext: Vec<RowJ> = rows.iter().map(|r| r.j.clone()).collect();
+    let mut u: Vec<f64> = rows.iter().map(|r| r.u).collect();
+    let mut tan = vec![-1isize; m];
+    let mut belt = vec![0.0; m];
+    let mut mu_k = vec![0.0; m];
+    let mut mu_s = vec![0.0; m];
+    let mut dir = vec![0.0; m];
+    let mut frictional = 0usize;
+    for (i, r) in rows.iter().enumerate() {
+        if !r.unilateral {
+            continue;
+        }
+        let (Some(kin), Some(info)) = (r.kin.as_ref(), r.info.as_ref()) else { continue };
+        let Some(pair) = info.pair else { continue };
+        let mat = sys.pairs[pair].material;
+        if !(mat.mu_k > 0.0 || mat.mu_s > 0.0) {
+            continue;
+        }
+        frictional += 1;
+        tan[i] = ext.len() as isize;
+        let ut = row_dot(&kin.jt, x, 3 * n);
+        ext.push(kin.jt.clone());
+        u.push(ut);
+        belt[i] = kin.vt - ut;
+        mu_k[i] = mat.mu_k;
+        mu_s[i] = js_max(mat.mu_s, mat.mu_k);
+        dir[i] = if kin.vt < 0.0 { -1.0 } else { 1.0 };
+    }
+    if frictional == 0 || frictional > MULTI_FRICTION_POINTS {
+        return None;
+    }
+    let me = ext.len();
+    let mut w = vec![0.0; me * me];
+    for r in 0..me {
+        for k in 0..me {
+            w[r * me + k] = row_minv_row(model, &ext[r], &ext[k]);
+        }
+    }
+    let mut sc = 0.0;
+    for &v in &u {
+        for &bg in &model.dynamic {
+            sc = js_max(sc, model.bodies[bg].mass * v.abs());
+        }
+    }
+    Some(FrictionRows { ext, ext_u: u, w, tan, belt, mu_k, mu_s, dir, scale_p: js_max(sc, 1e-12) })
+}
+
+fn apply_ext(sys: &System, x: &[f64], ext: &[RowJ], p: &[f64]) -> Vec<f64> {
+    let model = &sys.model;
+    let n = sys.n;
+    let mut dv = vec![0.0; 3 * n];
+    for (k, j) in ext.iter().enumerate() {
+        if p[k] != 0.0 {
+            add_row(&mut dv, j, p[k]);
+        }
+    }
+    let mut y = x.to_vec();
+    for i in 0..n {
+        let im = model.dyn_inv_mass[i];
+        let ii = model.dyn_inv_inertia[i];
+        y[3 * n + 3 * i] += dv[3 * i] * im;
+        y[3 * n + 3 * i + 1] += dv[3 * i + 1] * im;
+        y[3 * n + 3 * i + 2] += dv[3 * i + 2] * ii;
+    }
+    y
+}
+
+fn belt_work_of(fx: &FrictionRows, fr: &[usize], p: &[f64]) -> f64 {
+    let mut w = 0.0;
+    for &i in fr {
+        w -= fx.belt[i] * p[fx.tan[i] as usize];
+    }
+    w
+}
+
+/// Simultaneous frictional impact at several points (D37): Newton, then Poisson, then plastic (see impact.ts).
+fn multi_friction(sys: &System, x: &[f64], rows: &mut [IRow]) -> Option<ImpactResult> {
+    let fx = friction_rows(sys, x, rows)?;
+    let before = kinetic_energy(sys, x);
+    let m = rows.len();
+    let newton: Vec<f64> = rows.iter().map(|r| r.target).collect();
+    if let Some(sol) = enumerate_friction(sys, x, rows, &fx, &newton, before) {
+        return Some(friction_result(sys, rows, &fx, &sol, before));
+    }
+    let zero = vec![0.0; m];
+    let plastic = enumerate_friction(sys, x, rows, &fx, &zero, before)?;
+    if let Some(poisson) = poisson_step(sys, x, rows, &fx, &plastic, before) {
+        return Some(friction_result(sys, rows, &fx, &poisson, before));
+    }
+    for r in rows.iter_mut() {
+        if let Some(info) = r.info.as_mut() {
+            info.restitution = 0.0;
+        }
+    }
+    let mut out = friction_result(sys, rows, &fx, &plastic, before);
+    out.warning = Some(multi_impact_plastic_warning());
+    Some(out)
+}
+
+fn advance_base(digits: &mut [u8], base: u8) -> bool {
+    let mut k = digits.len() as isize - 1;
+    while k >= 0 {
+        let ku = k as usize;
+        digits[ku] += 1;
+        if digits[ku] < base {
+            return true;
+        }
+        digits[ku] = 0;
+        k -= 1;
+    }
+    false
+}
+
+fn enumerate_friction(sys: &System, x: &[f64], rows: &[IRow], fx: &FrictionRows, targets: &[f64], before: f64) -> Option<FrictionSolution> {
+    let m = rows.len();
+    let uni: Vec<usize> = (0..m).filter(|&i| rows[i].unilateral).collect();
+    let mut digits = vec![0u8; uni.len()];
+    let mut tries = 0usize;
+    let outer_max = 1usize << uni.len().min(14);
+    for _ in 0..outer_max {
+        let mut active: Vec<bool> = rows.iter().map(|r| !r.unilateral).collect();
+        for (k, &ri) in uni.iter().enumerate() {
+            let prefer_active = rows[ri].approach;
+            active[ri] = if digits[k] == 0 { prefer_active } else { !prefer_active };
+        }
+        let fr: Vec<usize> = (0..m).filter(|&i| active[i] && fx.tan[i] >= 0).collect();
+        let mut states = vec![0u8; fr.len()];
+        if !fr.is_empty() {
+            loop {
+                tries += 1;
+                if tries > MULTI_FRICTION_TRIES {
+                    return None;
+                }
+                if let Some(sol) = try_combination(sys, x, rows, fx, targets, &active, &fr, &states, before) {
+                    return Some(sol);
+                }
+                if !advance_base(&mut states, 3) {
+                    break;
+                }
+            }
+        }
+        if !advance(&mut digits) {
+            break;
+        }
+    }
+    None
+}
+
+// `!(a <= b)` is not `a > b`: NaN takes the negated branch, as in the TypeScript source
+#[allow(clippy::too_many_arguments, clippy::neg_cmp_op_on_partial_ord)]
+fn try_combination(
+    sys: &System,
+    x: &[f64],
+    rows: &[IRow],
+    fx: &FrictionRows,
+    targets: &[f64],
+    active: &[bool],
+    fr: &[usize],
+    states: &[u8],
+    before: f64,
+) -> Option<FrictionSolution> {
+    let m = rows.len();
+    let me = fx.ext.len();
+    let w = &fx.w;
+    let tan = &fx.tan;
+    let mut coef = vec![0.0; m];
+    let mut stick: Vec<usize> = Vec::new();
+    for (k, &i) in fr.iter().enumerate() {
+        if states[k] == 0 {
+            stick.push(i);
+        } else {
+            coef[i] = -fx.mu_k[i] * (if states[k] == 1 { fx.dir[i] } else { -fx.dir[i] });
+        }
+    }
+    let cols: Vec<usize> = (0..m).filter(|&i| active[i]).collect();
+    let nc = cols.len();
+    let q = nc + stick.len();
+    let mut a = vec![0.0; q * q];
+    let mut b = vec![0.0; q];
+    for ai in 0..q {
+        let ra = if ai < nc { cols[ai] } else { tan[stick[ai - nc]] as usize };
+        for ci in 0..q {
+            a[ai * q + ci] = if ci < nc {
+                let rc = cols[ci];
+                if coef[rc] != 0.0 {
+                    w[ra * me + rc] + coef[rc] * w[ra * me + tan[rc] as usize]
+                } else {
+                    w[ra * me + rc]
+                }
+            } else {
+                w[ra * me + tan[stick[ci - nc]] as usize]
+            };
+        }
+        b[ai] = if ai < nc { targets[ra] - fx.ext_u[ra] } else { -fx.belt[stick[ai - nc]] - fx.ext_u[ra] };
+    }
+    let sol = solve_dense(q, &a, &b, 1e-12);
+    if !sol.consistent {
+        return None;
+    }
+    let mut p = vec![0.0; me];
+    for (ci, &ri) in cols.iter().enumerate() {
+        p[ri] = sol.x[ci];
+        if coef[ri] != 0.0 {
+            p[tan[ri] as usize] = coef[ri] * sol.x[ci];
+        }
+    }
+    for (k, &ri) in stick.iter().enumerate() {
+        p[tan[ri] as usize] = sol.x[nc + k];
+    }
+    let vel = |r: usize, p: &[f64]| -> f64 {
+        let mut v = fx.ext_u[r];
+        for k in 0..me {
+            v += w[r * me + k] * p[k];
+        }
+        v
+    };
+    for i in 0..m {
+        if !rows[i].unilateral {
+            continue;
+        }
+        if active[i] {
+            if p[i] < -1e-12 * fx.scale_p {
+                return None;
+            }
+        } else if vel(i, &p) < targets[i] - tol::VEL {
+            return None;
+        }
+    }
+    for (k, &i) in fr.iter().enumerate() {
+        let pn = js_max(p[i], 0.0);
+        let ti = tan[i] as usize;
+        if states[k] == 0 {
+            if p[ti].abs() > fx.mu_s[i] * pn + 1e-12 * fx.scale_p {
+                return None;
+            }
+        } else {
+            let s = if states[k] == 1 { fx.dir[i] } else { -fx.dir[i] };
+            if s * (vel(ti, &p) + fx.belt[i]) < -tol::VEL {
+                return None;
+            }
+        }
+    }
+    let y = apply_ext(sys, x, &fx.ext, &p);
+    let after = kinetic_energy(sys, &y);
+    if !(after <= before + belt_work_of(fx, fr, &p) + 1e-12 * js_max(1.0, before)) {
+        return None;
+    }
+    Some(FrictionSolution { p, y, after, fr: fr.to_vec(), states: states.to_vec() })
+}
+
+#[allow(clippy::neg_cmp_op_on_partial_ord)]
+fn poisson_step(sys: &System, x: &[f64], rows: &[IRow], fx: &FrictionRows, plastic: &FrictionSolution, before: f64) -> Option<FrictionSolution> {
+    let m = rows.len();
+    let me = fx.ext.len();
+    let w = &fx.w;
+    let mut p = plastic.p.clone();
+    let mut any = false;
+    for i in 0..m {
+        let e = rows[i].info.as_ref().map(|f| f.restitution).unwrap_or(0.0);
+        if !rows[i].unilateral || !(e > 0.0) || !(p[i] > 0.0) {
+            continue;
+        }
+        any = true;
+        p[i] *= 1.0 + e;
+        if fx.tan[i] >= 0 {
+            p[fx.tan[i] as usize] *= 1.0 + e;
+        }
+    }
+    if !any {
+        return None;
+    }
+    let bil: Vec<usize> = (0..m).filter(|&i| !rows[i].unilateral).collect();
+    if !bil.is_empty() {
+        let nb = bil.len();
+        let mut a = vec![0.0; nb * nb];
+        let mut b = vec![0.0; nb];
+        for (ai, &ra) in bil.iter().enumerate() {
+            for (ci, &rc) in bil.iter().enumerate() {
+                a[ai * nb + ci] = w[ra * me + rc];
+            }
+            let mut v = fx.ext_u[ra];
+            for k in 0..me {
+                if k >= m || rows[k].unilateral {
+                    v += w[ra * me + k] * p[k];
+                }
+            }
+            b[ai] = -v;
+        }
+        let sol = solve_dense(nb, &a, &b, 1e-12);
+        if !sol.consistent {
+            return None;
+        }
+        for (ai, &ri) in bil.iter().enumerate() {
+            p[ri] = sol.x[ai];
+        }
+    }
+    for i in 0..m {
+        if !rows[i].unilateral {
+            continue;
+        }
+        let mut v = fx.ext_u[i];
+        for k in 0..me {
+            v += w[i * me + k] * p[k];
+        }
+        if v < -tol::VEL {
+            return None;
+        }
+    }
+    let y = apply_ext(sys, x, &fx.ext, &p);
+    let after = kinetic_energy(sys, &y);
+    if !(after <= before + belt_work_of(fx, &plastic.fr, &p) + 1e-12 * js_max(1.0, before)) {
+        return None;
+    }
+    Some(FrictionSolution { p, y, after, fr: plastic.fr.clone(), states: plastic.states.clone() })
+}
+
+#[allow(clippy::neg_cmp_op_on_partial_ord)]
+fn friction_result(sys: &System, rows: &mut [IRow], fx: &FrictionRows, sol: &FrictionSolution, before: f64) -> ImpactResult {
+    let n = sys.n;
+    let mut points = Vec::new();
+    for (i, r) in rows.iter_mut().enumerate() {
+        let Some(info) = r.info.as_mut() else { continue };
+        if !(r.approach || sol.p[i] > 0.0) {
+            continue;
+        }
+        // + 0.0: a zero impulse is reported as +0 (as in the TypeScript engine)
+        info.impulse = sol.p[i] + 0.0;
+        info.vn_after = row_dot(&r.j, &sol.y, 3 * n);
+        if let (Some(k), Some(kin)) = (sol.fr.iter().position(|&f| f == i), r.kin.as_ref()) {
+            info.tangent_impulse = Some(sol.p[fx.tan[i] as usize] + 0.0);
+            info.vt_before = Some(kin.vt);
+            info.vt_after = Some(row_dot(&kin.jt, &sol.y, 3 * n) + fx.belt[i]);
+            info.friction = Some(if sol.states[k] == 0 {
+                "stick"
+            } else if sol.states[k] == 1 || kin.vt.abs() <= tol::VEL {
+                "slip"
+            } else {
+                "reverse"
+            });
+        }
+        points.push(info.clone());
+    }
+    ImpactResult { x: sol.y.clone(), points, energy_before: before, energy_after: sol.after, loss: before - sol.after, warning: None }
 }

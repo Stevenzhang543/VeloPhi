@@ -309,7 +309,13 @@ export function chartEnvelope(rec: Recording, req: EnvelopeRequest): Envelope {
     scan(rec, lod, w.c, w.qs)
     scanned++
   }
-  // Recompute one evicted chunk (the stream verifies it against its digest) and scan it
+  // Evicted chunks in view are recomputed off this thread when the store can (26.51): they arrive later and are
+  // scanned in a following call; meanwhile the columns stay pending
+  if (rec.frames.prefetch) {
+    let asked = 0
+    for (let i = 0; i < evicted.length && asked < 4; i++) if (rec.frames.prefetch(evicted[i])) { evicted.splice(i--, 1); asked++ }
+  }
+  // Recompute one evicted chunk here (the stream verifies it against its digest) and scan it
   if (req.rebuild && evicted.length) {
     const c = evicted.shift()!
     try {

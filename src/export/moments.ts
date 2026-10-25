@@ -108,6 +108,29 @@ export function keyMoments(rec: Recording, o: MomentOptions): KeyMoment[] {
   return list.sort((a, b) => a.t - b.t)
 }
 
+/**
+ * The key moments with their labels in the current language (26.51 hand check): the dialogs list the moments in
+ * the interface language, exports label them again inside `inExportLanguage`.
+ */
+export function relabelMoments(rec: Recording, ms: KeyMoment[]): KeyMoment[] {
+  const tol = momentTolerance(rec)
+  return ms.map(m => ({ ...m, kinds: [...m.kinds], label: momentLabel(rec, m, tol) }))
+}
+
+function momentLabel(rec: Recording, m: KeyMoment, tol: number): string {
+  if (m.eventIndex !== undefined) return eventText(rec, m.eventIndex)
+  switch (m.kinds[0]) {
+    case 'start': return tl('初始时刻')
+    case 'segment': {
+      const i = rec.segments.findIndex((s, j) => j > 0 && Math.abs(s.t0 - m.t) <= tol)
+      return i > 0 ? tl('第 {0} 运动阶段开始', [i + 1]) : m.label
+    }
+    case 'user': return tl('自选时刻')
+    case 'end': return tl('记录结束')
+    default: return m.label
+  }
+}
+
 /** A formatted value of a quantity at a moment. */
 export interface Readout { id: string; label: string; value: string }
 

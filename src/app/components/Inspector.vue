@@ -39,12 +39,26 @@ function setPulley(fn: (p: PulleyDef, s: Scene) => void) {
   edit(s => { const p = s.pulleys.find(x => x.id === id); if (p) fn(p, s) })
 }
 
+/** Display name of each connector type (forces: constant or variable, decided in the template). */
+const CONN_TYPES: Record<string, string> = { rope: tl('轻绳（只能拉）'), rod: tl('轻杆（可拉可压）'), spring: tl('轻弹簧'), hinge: tl('光滑铰链'), damper: tl('阻尼器（只有阻尼）'), weld: tl('焊接（连成一体）'), slider: tl('滑轨（移动副）'), motor: tl('马达（驱动转轴）'), gear: tl('齿轮 / 皮带') }
+
 const bodyName = (id: string | null) => (id ? state.scene.bodies.find(b => b.id === id)?.name ?? id : tl('固定点（世界）'))
 
 const gScene = computed(() => Math.hypot(state.scene.settings.gravity.x, state.scene.settings.gravity.y))
 const autoInertia = computed(() => (body.value && body.value.kind !== 'static' ? shapeInertia(body.value.shape, body.value.mass) : 0))
 const speed = computed(() => (body.value ? Math.hypot(body.value.velocity.x, body.value.velocity.y) : 0))
 const direction = computed(() => (body.value ? Math.atan2(body.value.velocity.y, body.value.velocity.x) : 0))
+
+/** Terminal speed of a fall under the scene's gravity with the body's drag. */
+const terminalText = computed(() => {
+  const d = body.value?.drag
+  if (!d || !body.value) return ''
+  const mg = body.value.mass * gScene.value
+  const b = d.linear, c = d.quadratic
+  if (mg <= 0 || (b <= 0 && c <= 0)) return tl('阻力系数为 0 时没有阻力。')
+  const vt = c > 0 ? (-b + Math.sqrt(b * b + 4 * c * mg)) / (2 * c) : mg / b
+  return tl('竖直下落的终端速度 v_t = {0}（由 mg = bv + cv² 求得）；耗散的能量计入“阻尼耗散”。', [fmtQ(vt, 'm/s')])
+})
 
 function setSpeed(v: number) { const d = direction.value; setBody(b => { b.velocity = { x: v * Math.cos(d), y: v * Math.sin(d) } }) }
 function setDirection(d: number) { const v = speed.value; setBody(b => { b.velocity = { x: v * Math.cos(d), y: v * Math.sin(d) } }) }
@@ -225,6 +239,23 @@ function setPulleyBody(bodyId: string) {
             <div class="row"><label>{{ tl('禁止转动') }}</label><label class="check grow"><input type="checkbox" :checked="body.fixedRotation" @change="setBody(b => { b.fixedRotation = ($event.target as HTMLInputElement).checked })" />{{ tl('只平动（如方块在面上滑动）') }}</label></div>
           </template>
         </div>
+        <div class="group-title">{{ tl('空气阻力') }}</div>
+        <div class="group">
+          <div class="row"><label>{{ tl('考虑阻力') }}</label><label class="check grow"><input type="checkbox" :checked="!!body.drag" @change="setBody(b => { if (($event.target as HTMLInputElement).checked) b.drag = { linear: 0.1, quadratic: 0 }; else delete b.drag })" />{{ tl('F = −(b + c|v|)v，作用在质心') }}</label></div>
+          <template v-if="body.drag">
+            <div class="row"><label>{{ tl('线性系数 b') }}</label><NumField class="grow" :model-value="body.drag.linear" unit="N·s/m" :min="0" @update:model-value="v => setBody(b => { if (b.drag) b.drag.linear = v })" /></div>
+            <div class="row"><label>{{ tl('平方系数 c') }}</label><NumField class="grow" :model-value="body.drag.quadratic" unit="N·s²/m²" :min="0" @update:model-value="v => setBody(b => { if (b.drag) b.drag.quadratic = v })" /></div>
+            <div class="tiny muted note">{{ terminalText }}</div>
+          </template>
+        </div>
+      </template>
+
+      <template v-if="body.kind === 'static' && state.scene.settings.gravitation">
+        <div class="group-title">{{ tl('引力质量') }}</div>
+        <div class="group">
+          <div class="row"><label>{{ tl('质量 M') }}</label><NumField class="grow" :model-value="body.mass" unit="kg" :min="0" @update:model-value="v => setBody(b => { b.mass = v })" /></div>
+          <div class="tiny muted note">{{ tl('固定物体不动，但以这个质量吸引其他物体（如恒星、行星）。') }}</div>
+        </div>
       </template>
 
       <div class="group-title">{{ tl('材料') }}</div>
@@ -296,7 +327,7 @@ function setPulleyBody(bodyId: string) {
     <template v-if="conn">
       <div class="group">
         <div class="row"><label>{{ tl('名称') }}</label><input class="field grow" :value="conn.name" @change="setConn(c => { c.name = ($event.target as HTMLInputElement).value || c.name })" /></div>
-        <div class="row"><label>{{ tl('类型') }}</label><span class="grow">{{ { rope: tl('轻绳（只能拉）'), rod: tl('轻杆（可拉可压）'), spring: tl('轻弹簧'), hinge: tl('光滑铰链'), force: force?.expr ? tl('变力') : tl('恒力') }[conn.type] }}</span></div>
+        <div class="row"><label>{{ tl('类型') }}</label><span class="grow">{{ CONN_TYPES[conn.type] ?? (force?.expr ? tl('变力') : tl('恒力')) }}</span></div>
         <div class="row"><label>{{ conn.type === 'force' ? tl('作用于') : tl('端点 A') }}</label><span class="grow small">{{ bodyName(conn.a.body) }}</span></div>
         <div v-if="conn.type !== 'force'" class="row"><label>{{ tl('端点 B') }}</label><span class="grow small">{{ bodyName(conn.b.body) }}</span></div>
       </div>
@@ -329,6 +360,35 @@ function setPulleyBody(bodyId: string) {
         </div>
         <div v-if="conn.restLength !== null" class="row"><label>L₀</label><NumField class="grow" :model-value="conn.restLength" unit="m" :min="0" @update:model-value="v => setConn(c => { if (c.type === 'spring') c.restLength = v })" /></div>
         <div class="row"><label>{{ tl('阻尼 c') }}</label><NumField class="grow" :model-value="conn.damping" unit="N·s/m" :min="0" @update:model-value="v => setConn(c => { if (c.type === 'spring') c.damping = v })" /></div>
+        <div class="row"><label>{{ tl('非线性 k₃') }}</label><NumField class="grow" :model-value="conn.cubic ?? 0" unit="N/m³" @update:model-value="v => setConn(c => { if (c.type === 'spring') { if (v === 0) delete c.cubic; else c.cubic = v } })" /></div>
+        <div class="tiny muted note">{{ tl('弹力 F = −kx − k₃x³ − cv（x 为形变量，v 为伸长速度）；k₃ = 0 时就是胡克弹簧。弹性势能 ½kx² + ¼k₃x⁴。') }}</div>
+      </div>
+      <div v-if="conn.type === 'damper'" class="group">
+        <div class="row"><label>{{ tl('阻尼系数 c') }}</label><NumField class="grow" :model-value="conn.damping" unit="N·s/m" :min="0" @update:model-value="v => setConn(c => { if (c.type === 'damper') c.damping = v })" /></div>
+        <div class="tiny muted note">{{ tl('阻尼器只产生与两端相对速度成正比的阻力 F = −cv，没有弹力；消耗的能量计入能量账本的“阻尼耗散”。') }}</div>
+      </div>
+      <div v-if="conn.type === 'weld'" class="group">
+        <div class="tiny muted note">{{ tl('焊接点两侧的物体保持开始时的相对位置和相对角度，像一个刚体一样运动；连到世界时物体被固定。') }}</div>
+      </div>
+      <div v-if="conn.type === 'slider'" class="group">
+        <div class="row"><label>{{ tl('滑动方向') }}</label><NumField class="grow" :model-value="Math.atan2(conn.axis.y, conn.axis.x)" unit="rad" @update:model-value="v => setConn(c => { if (c.type === 'slider') c.axis = { x: Number(Math.cos(v).toPrecision(12)), y: Number(Math.sin(v).toPrecision(12)) } })" /></div>
+        <div class="row"><label>{{ tl('允许转动') }}</label><label class="check grow"><input type="checkbox" :checked="!!conn.free" @change="setConn(c => { if (c.type === 'slider') { if (($event.target as HTMLInputElement).checked) c.free = true; else delete c.free } })" />{{ tl('B 可以绕滑块转动') }}</label></div>
+        <div class="tiny muted note">{{ tl('B 端只能沿过 A 端的直线移动；方向角相对 A 物体（连到世界时相对水平向右）测量。') }}</div>
+      </div>
+      <div v-if="conn.type === 'motor'" class="group">
+        <div class="row"><label>{{ tl('驱动方式') }}</label>
+          <div class="segmented grow">
+            <button :class="{ on: conn.mode === 'speed' }" @click="setConn(c => { if (c.type === 'motor') c.mode = 'speed' })">{{ tl('恒定转速') }}</button>
+            <button :class="{ on: conn.mode === 'torque' }" @click="setConn(c => { if (c.type === 'motor') c.mode = 'torque' })">{{ tl('恒定力矩') }}</button>
+          </div>
+        </div>
+        <div v-if="conn.mode === 'speed'" class="row"><label>{{ tl('转速 ω') }}</label><NumField class="grow" :model-value="conn.speed" unit="rad/s" @update:model-value="v => setConn(c => { if (c.type === 'motor') c.speed = v })" /></div>
+        <div v-else class="row"><label>{{ tl('力矩 M') }}</label><NumField class="grow" :model-value="conn.torque" unit="N·m" @update:model-value="v => setConn(c => { if (c.type === 'motor') c.torque = v })" /></div>
+        <div class="tiny muted note">{{ conn.mode === 'speed' ? tl('B 相对 A 以恒定角速度转动（逆时针为正）；开始时转速立即达到设定值。马达做的功计入能量账本。') : tl('马达对 B 施加恒定力矩，对 A 施加等大反向的力矩（逆时针为正）；做的功计入能量账本。') }}</div>
+      </div>
+      <div v-if="conn.type === 'gear'" class="group">
+        <div class="row"><label>{{ tl('传动比 r') }}</label><NumField class="grow" :model-value="conn.ratio" @update:model-value="v => { if (v !== 0) setConn(c => { if (c.type === 'gear') c.ratio = v }) }" /></div>
+        <div class="tiny muted note">{{ tl('约束 ω_A + r·ω_B = 0。外啮合齿轮取 r = r_B / r_A（转向相反）；开口皮带取 r = −r_B / r_A（转向相同）。') }}</div>
       </div>
       <div v-if="force" class="group">
         <div class="row"><label>{{ tl('力的形式') }}</label>

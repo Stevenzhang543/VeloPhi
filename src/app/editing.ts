@@ -27,7 +27,8 @@ function distToSegment(p: Pt, a: Pt, b: Pt): number {
 export function hitTest(sys: System, poses: Pose[], p: Pt, tol: number): Selection {
   const model = sys.model
   for (const pl of model.pulleys) { const c = pulleyCenter(poses, pl); if (Math.hypot(p.x - c.x, p.y - c.y) <= pl.radius + tol) return { kind: 'pulley', id: pl.id } }
-  for (const c of [...model.hinges]) { const a = anchorState(poses, c.a); if (Math.hypot(p.x - a.px, p.y - a.py) <= tol * 1.2) return { kind: 'connector', id: c.id } }
+  for (const c of [...model.hinges, ...model.welds, ...model.motors]) { const a = anchorState(poses, c.a); if (Math.hypot(p.x - a.px, p.y - a.py) <= tol * 1.2) return { kind: 'connector', id: c.id } }
+  for (const c of model.sliders) { const b = anchorState(poses, c.b); if (Math.hypot(p.x - b.px, p.y - b.py) <= tol * 1.2) return { kind: 'connector', id: c.id } }
   for (const f of model.forces) { const a = anchorState(poses, f.a); if (Math.hypot(p.x - a.px, p.y - a.py) <= tol * 1.2) return { kind: 'connector', id: f.id } }
   const dyn = [...model.dynamic].reverse()
   for (const b of dyn) if (signedDistance(b, poses[b.global], p.x, p.y) <= tol * 0.5) return { kind: 'body', id: b.id }
@@ -38,6 +39,12 @@ export function hitTest(sys: System, poses: Pose[], p: Pt, tol: number): Selecti
   for (const c of [...model.rods, ...model.springs]) {
     const a = anchorState(poses, c.a), b = anchorState(poses, c.b)
     if (distToSegment(p, { x: a.px, y: a.py }, { x: b.px, y: b.py }) <= tol) return { kind: 'connector', id: c.id }
+  }
+  for (const g of model.gears) {
+    // A gear is drawn between the centres of its two bodies (or at body A for a brake)
+    const a = g.a ? poses[g.a.global] : null, b = g.b ? poses[g.b.global] : null
+    if (a && b && distToSegment(p, a, b) <= tol) return { kind: 'connector', id: g.id }
+    if (a && !b && Math.hypot(p.x - a.x, p.y - a.y) <= tol * 1.5) return { kind: 'connector', id: g.id }
   }
   for (const b of [...model.bodies].reverse()) if (!b.dynamic && signedDistance(b, poses[b.global], p.x, p.y) <= 0) return { kind: 'body', id: b.id }
   return null
@@ -154,7 +161,7 @@ export function wrapAt(prev: Pt, c: Pt, next: Pt): 'cw' | 'ccw' {
   return cr < 0 ? 'cw' : 'ccw'
 }
 
-/** Create a rope, rod or spring between two anchors (not both in the world, not both on one body); returns its id. */
+/** Create a rope, rod, spring, damper or gear between two anchors (not both in the world, not both on one body); returns its id. */
 export function createConnector(scene: Scene, tool: Tool, a: { body: string | null; local: Pt; world: Pt }, b: { body: string | null; local: Pt; world: Pt }, pulleys: Array<{ pulley: string; wrap: 'cw' | 'ccw' }>): string | null {
   if (a.body === null && b.body === null) return null
   if (a.body !== null && a.body === b.body) return null
@@ -164,20 +171,55 @@ export function createConnector(scene: Scene, tool: Tool, a: { body: string | nu
   if (tool === 'connect-rope') c = { id: nextId(scene, 'c'), name: name(tl('绳')), type: 'rope', a: A, b: B, pulleys, length: null }
   else if (tool === 'connect-rod') c = { id: nextId(scene, 'c'), name: name(tl('轻杆')), type: 'rod', a: A, b: B, length: null }
   else if (tool === 'connect-spring') c = { id: nextId(scene, 'c'), name: name(tl('弹簧')), type: 'spring', a: A, b: B, stiffness: 50, restLength: null, damping: 0 }
-  else return null
+  else if (tool === 'connect-damper') c = { id: nextId(scene, 'c'), name: name(tl('阻尼器')), type: 'damper', a: A, b: B, damping: 2 }
+  else if (tool === 'connect-gear') {
+    // Gears join two bodies at their centres; the ratio of two discs is r_B / r_A (meshing: opposite senses)
+    if (!a.body || !b.body) return null
+    const ra = scene.bodies.find(x => x.id === a.body), rb = scene.bodies.find(x => x.id === b.body)
+    const ratio = ra?.shape.type === 'circle' && rb?.shape.type === 'circle' ? rb.shape.radius / ra.shape.radius : 1
+    c = { id: nextId(scene, 'c'), name: name(tl('齿轮')), type: 'gear', a: { body: a.body, local: { x: 0, y: 0 } }, b: { body: b.body, local: { x: 0, y: 0 } }, ratio: Number(ratio.toPrecision(12)) }
+  } else return null
   scene.connectors.push(c)
   return c.id
 }
 
 /** Hinge at a point: the body under the point joined to a second body there, or to the world. */
 export function createHinge(scene: Scene, sys: System, poses: Pose[], p: Pt): string | null {
+  return createPin(scene, sys, poses, p, 'hinge')
+}
+
+/** Kind of a connector placed at one point (D51). */
+export type PinKind = 'hinge' | 'weld' | 'motor' | 'slider'
+
+/**
+ * A connector placed at one point: the body under the point joined to a second body there, or to the world.
+ * Hinge and weld: A is the top body. Motor: the top body is driven (B) relative to the body below or the world (A).
+ * Slider: the top body (B) slides relative to the body below or the world (A) along its own x axis.
+ */
+export function createPin(scene: Scene, sys: System, poses: Pose[], p: Pt, kind: PinKind): string | null {
   const dyn = [...sys.model.dynamic].reverse().filter(b => signedDistance(b, poses[b.global], p.x, p.y) <= 0)
   if (dyn.length === 0) return null
   const first = dyn[0]
   const local = (b: BodyModel) => { const ps = poses[b.global]; const dx = p.x - ps.x, dy = p.y - ps.y; return { x: ps.c * dx + ps.s * dy, y: -ps.s * dx + ps.c * dy } }
   const second = dyn[1] ?? null
-  const used = new Set(scene.connectors.map(c => c.name)); let k = 1; while (used.has(tl('铰链{0}', [k]))) k++
-  const c: ConnectorDef = { id: nextId(scene, 'c'), name: tl('铰链{0}', [k]), type: 'hinge', a: { body: first.id, local: local(first) }, b: second ? { body: second.id, local: local(second) } : { body: null, local: { x: p.x, y: p.y } } }
+  const base = { hinge: tl('铰链'), weld: tl('焊接'), motor: tl('马达'), slider: tl('滑轨') }[kind]
+  const nameOf = (k: number) => (kind === 'hinge' ? tl('铰链{0}', [k]) : `${base}${k}`)
+  const used = new Set(scene.connectors.map(c => c.name)); let k = 1; while (used.has(nameOf(k))) k++
+  const name = nameOf(k)
+  const top = { body: first.id, local: local(first) }
+  const below = second ? { body: second.id, local: local(second) } : { body: null, local: { x: p.x, y: p.y } }
+  const id = nextId(scene, 'c')
+  let c: ConnectorDef
+  if (kind === 'hinge') c = { id, name, type: 'hinge', a: top, b: below }
+  else if (kind === 'weld') c = { id, name, type: 'weld', a: top, b: below }
+  else if (kind === 'motor') c = { id, name, type: 'motor', a: below, b: top, mode: 'speed', speed: 2, torque: 1 }
+  else {
+    // Axis: the top body's own x direction, expressed in the frame of A (the world, or the body below)
+    const pf = poses[first.global]
+    let ax = pf.c, ay = pf.s
+    if (second) { const ps = poses[second.global]; const x = ps.c * ax + ps.s * ay, y = -ps.s * ax + ps.c * ay; ax = x; ay = y }
+    c = { id, name, type: 'slider', a: below, b: top, axis: { x: Number(ax.toPrecision(12)), y: Number(ay.toPrecision(12)) } }
+  }
   scene.connectors.push(c)
   return c.id
 }

@@ -3,7 +3,7 @@
 
 use crate::dmath::{atan2 as atan2_det, cos, sin, PI_VALUE};
 use crate::js::js_max;
-use crate::model::{AnchorModel, BodyModel, Model, PulleyModel, RopeModel, ShapeModel};
+use crate::model::{AnchorModel, BodyModel, Model, PulleyModel, RopeModel, ShapeModel, SliderModel};
 use crate::scene::Vec2;
 
 /// Pose and velocity of a body; `th` is the angle whose cosine and sine are `c` and `s`.
@@ -458,6 +458,171 @@ pub fn hinge_kin(model: &Model, poses: &[Pose], a: &AnchorModel, b: &AnchorModel
         ConstraintKin { value: pa.px - pb.px, vel: pa.vx - pb.vx, j: rx, c: pa.qx - pb.qx },
         ConstraintKin { value: pa.py - pb.py, vel: pa.vy - pb.vy, j: ry, c: pa.qy - pb.qy },
     ]
+}
+
+// ---- Connectors of 26.51 (D51) ----
+
+/// Angle θ (rad) and angular velocity ω of a body (the world: 0, 0).
+#[inline]
+fn angular(poses: &[Pose], body: Option<usize>) -> (f64, f64) {
+    match body {
+        None => (0.0, 0.0),
+        Some(g) => (poses[g].th, poses[g].w),
+    }
+}
+
+/// Put generalized angle coefficients ka (body a) and kb (body b) into a row.
+fn angle_row(model: &Model, a: Option<usize>, ka: f64, b: Option<usize>, kb: f64) -> RowJ {
+    let mut row = empty_row();
+    let ia = dyn_index(model, a);
+    if ia >= 0 {
+        row.ai = ia;
+        row.aw = ka;
+    }
+    let ib = dyn_index(model, b);
+    if ib >= 0 {
+        row.bi = ib;
+        row.bw = kb;
+    }
+    row
+}
+
+/// Relative angle: value = (θ_b − θ_a) − offset, J = (−1 on θ_a, +1 on θ_b), no velocity-product term.
+pub fn rel_angle_kin(model: &Model, poses: &[Pose], a: Option<usize>, b: Option<usize>, offset: f64) -> ConstraintKin {
+    let (tha, wa) = angular(poses, a);
+    let (thb, wb) = angular(poses, b);
+    ConstraintKin { value: thb - tha - offset, vel: wb - wa, j: angle_row(model, a, -1.0, b, 1.0), c: 0.0 }
+}
+
+/// Gear or belt: value = θ_a + r·θ_b − offset, J = (1 on θ_a, r on θ_b).
+pub fn gear_kin(model: &Model, poses: &[Pose], a: Option<usize>, b: Option<usize>, r: f64, offset: f64) -> ConstraintKin {
+    let (tha, wa) = angular(poses, a);
+    let (thb, wb) = angular(poses, b);
+    ConstraintKin { value: tha + r * thb - offset, vel: wa + r * wb, j: angle_row(model, a, 1.0, b, r), c: 0.0 }
+}
+
+/// Speed drive of a motor: ω_b − ω_a = speed (velocity level only: value 0, vel = ω_b − ω_a − speed).
+pub fn drive_kin(model: &Model, poses: &[Pose], a: Option<usize>, b: Option<usize>, speed: f64) -> ConstraintKin {
+    let (_, wa) = angular(poses, a);
+    let (_, wb) = angular(poses, b);
+    ConstraintKin { value: 0.0, vel: wb - wa - speed, j: angle_row(model, a, -1.0, b, 1.0), c: 0.0 }
+}
+
+/// Slider: anchor b stays on the line through anchor a along the axis (see kinematics.ts).
+pub fn slider_kin(model: &Model, poses: &[Pose], s: &SliderModel) -> ConstraintKin {
+    let pa = anchor_state(poses, &s.a);
+    let pb = anchor_state(poses, &s.b);
+    let ga = s.a.body.filter(|&g| model.bodies[g].index >= 0);
+    let (ax, ay) = match ga {
+        Some(g) => {
+            let p = &poses[g];
+            (p.c * s.axis.x - p.s * s.axis.y, p.s * s.axis.x + p.c * s.axis.y)
+        }
+        None => (s.axis.x, s.axis.y),
+    };
+    // Normal n = (−a_y, a_x) and k×n = (−n_y, n_x) = −axis
+    let nx = -ay;
+    let ny = ax;
+    let knx = -ny;
+    let kny = nx;
+    let dx = pb.px - pa.px;
+    let dy = pb.py - pa.py;
+    let dvx = pb.vx - pa.vx;
+    let dvy = pb.vy - pa.vy;
+    let wa = match ga {
+        Some(g) => poses[g].w,
+        None => 0.0,
+    };
+    let mut row = empty_row();
+    if let Some(g) = ga {
+        let p = &poses[g];
+        row.ai = model.bodies[g].index;
+        row.ax = -nx;
+        row.ay = -ny;
+        row.aw = knx * (pb.px - p.x) + kny * (pb.py - p.y);
+    }
+    let ib = dyn_index(model, s.b.body);
+    if ib >= 0 {
+        row.bi = ib;
+        row.bx = nx;
+        row.by = ny;
+        row.bw = nx * -pb.ry + ny * pb.rx;
+    }
+    let value = nx * dx + ny * dy;
+    let vel = wa * (knx * dx + kny * dy) + nx * dvx + ny * dvy;
+    let c = -wa * wa * value + 2.0 * wa * (knx * dvx + kny * dvy) + nx * (pb.qx - pa.qx) + ny * (pb.qy - pa.qy);
+    ConstraintKin { value, vel, j: row, c }
+}
+
+/// Kind of an equality constraint row.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum EqualityKind {
+    Hinge,
+    Weld,
+    Motor,
+    Drive,
+    Rod,
+    Slider,
+    Gear,
+}
+
+/// An equality constraint row of a connector: kind, connector index, sub-row, kinematics, position-level or not.
+#[derive(Clone, Debug)]
+pub struct EqualityKin {
+    pub kind: EqualityKind,
+    pub owner: usize,
+    pub sub: usize,
+    pub kin: ConstraintKin,
+    pub holonomic: bool,
+}
+
+/// All equality rows of the connectors in a fixed order: hinges, welds, motors, rods, sliders, gears. Rods carry
+/// value = distance − length. Scenes without the connectors of 26.51 get exactly the rows of 26.50.
+pub fn equality_kins_into(model: &Model, poses: &[Pose], out: &mut Vec<EqualityKin>) {
+    out.clear();
+    let push = |out: &mut Vec<EqualityKin>, kind: EqualityKind, owner: usize, sub: usize, kin: ConstraintKin, holonomic: bool| {
+        out.push(EqualityKin { kind, owner, sub, kin, holonomic });
+    };
+    for (k, h) in model.hinges.iter().enumerate() {
+        let [rx, ry] = hinge_kin(model, poses, &h.a, &h.b);
+        push(out, EqualityKind::Hinge, k, 0, rx, true);
+        push(out, EqualityKind::Hinge, k, 1, ry, true);
+    }
+    for (k, w) in model.welds.iter().enumerate() {
+        let [rx, ry] = hinge_kin(model, poses, &w.a, &w.b);
+        push(out, EqualityKind::Weld, k, 0, rx, true);
+        push(out, EqualityKind::Weld, k, 1, ry, true);
+        push(out, EqualityKind::Weld, k, 2, rel_angle_kin(model, poses, w.a.body, w.b.body, w.angle0), true);
+    }
+    for (k, m) in model.motors.iter().enumerate() {
+        let [rx, ry] = hinge_kin(model, poses, &m.a, &m.b);
+        push(out, EqualityKind::Motor, k, 0, rx, true);
+        push(out, EqualityKind::Motor, k, 1, ry, true);
+        if !m.torque_mode {
+            push(out, EqualityKind::Drive, k, 2, drive_kin(model, poses, m.a.body, m.b.body, m.speed), false);
+        }
+    }
+    for (k, r) in model.rods.iter().enumerate() {
+        let (d, _, _) = distance_kin(model, poses, &r.a, &r.b);
+        let kin = ConstraintKin { value: d.value - r.length, vel: d.vel, j: d.j, c: d.c };
+        push(out, EqualityKind::Rod, k, 0, kin, true);
+    }
+    for (k, sl) in model.sliders.iter().enumerate() {
+        push(out, EqualityKind::Slider, k, 0, slider_kin(model, poses, sl), true);
+        if !sl.free {
+            push(out, EqualityKind::Slider, k, 1, rel_angle_kin(model, poses, sl.a.body, sl.b.body, sl.angle0), true);
+        }
+    }
+    for (k, g) in model.gears.iter().enumerate() {
+        push(out, EqualityKind::Gear, k, 0, gear_kin(model, poses, g.a, g.b, g.ratio, g.offset0), true);
+    }
+}
+
+/// All equality rows of the connectors (see `equality_kins_into`).
+pub fn equality_kins(model: &Model, poses: &[Pose]) -> Vec<EqualityKin> {
+    let mut out = Vec::new();
+    equality_kins_into(model, poses, &mut out);
+    out
 }
 
 /// Geometry of a rope's path over its pulleys (the drawing-only parts are left out).

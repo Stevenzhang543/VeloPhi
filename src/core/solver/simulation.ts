@@ -60,7 +60,7 @@ export interface Segment {
 
 /** Kind of a state change reported at an event. */
 export type ChangeType =
-  | 'impact' | 'touch' | 'separate' | 'stick' | 'slip' | 'reverse' | 'leave' | 'slack' | 'taut' | 'switch' | 'timestep'
+  | 'impact' | 'touch' | 'separate' | 'stick' | 'slip' | 'reverse' | 'leave' | 'slack' | 'taut' | 'switch' | 'timestep' | 'pulley'
 
 /** One change at an event: an impact, a contact or rope change, or a switch of a variable force. */
 export interface ChangeDetail {
@@ -128,7 +128,7 @@ export interface SimStats {
  * Why a run ended: its duration was reached, its stop condition (settings.stopAt) fired, permanent rest was
  * detected (unbounded runs), the user stopped or cancelled it, or an error (including limits) stopped it.
  */
-export type StopReason = 'duration' | 'stopAt' | 'rest' | 'user' | 'error'
+export type StopReason = 'duration' | 'stopAt' | 'rest' | 'restApprox' | 'user' | 'error' | 'pulley'
 
 /** Rolling fingerprint of a run up to time `t` (core/record/fingerprint.ts). */
 export interface RollingFingerprint {
@@ -382,6 +382,15 @@ export class SimulationRun {
   private sliceStart = 0
   private readonly projInfo: ProjectionInfo = { position: 0, velocity: 0 }
   private impactLoss = 0
+  /**
+   * A stop decided inside a step (rest, approximate rest, a body reaching its pulley): the run ends at the next loop
+   * top, after the checkpoint of a chunk that starts at the last frame (26.51), so every chunk is closed in order.
+   */
+  private pendingStop: StopReason | null = null
+  /** Consecutive recorded frames of approximate rest (26.51). */
+  private nearRest = 0
+  /** Frames of approximate rest that end an unbounded run. */
+  private readonly restHold: number
   private X!: Float64Array
   private mode!: Mode
   private sol!: ModeSolution
@@ -452,6 +461,7 @@ export class SimulationRun {
     // Permanent rest is only detected when nothing depends on time: no variable forces (the clock entry) and no
     // running conveyor belts; and only in unbounded runs, so bounded runs keep their 26.49 length
     this.restAllowed = !this.bounded && sys.timeSlot < 0 && !scene.bodies.some(b => b.kind === 'static' && b.beltSpeed !== 0)
+    this.restHold = Math.max(1, Math.round(REST_HOLD / this.dt))
     this.stateHasher = this.bounded && !from ? new Sha256() : null
 
     if (from) {
@@ -461,6 +471,7 @@ export class SimulationRun {
     }
     this.firstChunk = 0
     this.chunkEvents[0] = 0
+    this.impactLoss = st.startLedger?.impactLoss ?? 0
 
     let X = initialState(sys)
     const overlap = resolveInitialOverlap(sys, X)
@@ -512,7 +523,7 @@ export class SimulationRun {
     const dt = this.dt
     for (;;) {
       if (this.k === this.cpFrame) this.checkpoint()
-      if (this.k >= this.K || this.k >= this.kStop) { this.end(this.k >= this.K ? 'duration' : 'stopAt'); return }
+      if (this.k >= this.K || this.k >= this.kStop || this.pendingStop) { this.end(this.pendingStop ?? (this.k >= this.K ? 'duration' : 'stopAt')); return }
       if (this.k >= this.pauseFrame) return
       if (Date.now() > deadline) return
       const tNext = (this.k + 1) * dt
@@ -685,7 +696,7 @@ export class SimulationRun {
     let since = 0
     for (;;) {
       if (this.k === this.cpFrame) this.checkpoint()
-      if (this.k >= this.K || this.k >= this.kStop) { this.end(this.k >= this.K ? 'duration' : 'stopAt'); return }
+      if (this.k >= this.K || this.k >= this.kStop || this.pendingStop) { this.end(this.pendingStop ?? (this.k >= this.K ? 'duration' : 'stopAt')); return }
       if (this.k >= this.pauseFrame) return
       if (++since >= 4) {
         since = 0
@@ -722,9 +733,16 @@ export class SimulationRun {
         this.segments[this.segments.length - 1].t1 = tE
         this.segments.push({ index: this.segBase + this.segments.length, t0: tE, t1: T, mode: this.mode, X0: Float64Array.from(this.X), label: describeMode(this.mode), impactLoss: this.impactLoss })
         const changes = diffModes(sys, prevMode, this.mode, settled.impact)
+        // 26.51: a body reached the pulley its rope runs onto; the run ends at this event
+        const reached = loc.fired.filter(f => f.type === 'pulley')
+        for (const f of reached) {
+          const r = model.ropes[f.rope], end = f.point === 0 ? r.a : r.b
+          changes.push({ type: 'pulley', subject: r.id, bodies: end.body ? [end.body.id] : [] })
+        }
         this.events.push({ index: this.eventBase + this.events.length, t: tE, triggers: [...new Set(loc.fired.map(f => f.type))], changes, before: Float64Array.from(before), after: Float64Array.from(this.X), impact: settled.impact, segment: this.segBase + this.segments.length - 1 })
         this.stats.events++
         if (tE === tNext) { this.k++; this.record(this.k, this.X) }
+        if (reached.length) this.pendingStop = 'pulley'
         this.checkStopAt(changes, tE)
         if (budget && this.elapsed() > budget) { this.fail(msg('err.budget', { seconds: Math.round(budget / 1000), t: tE })); return }
         const chatter = model.switches.length ? this.checkToggles(changes) : null
@@ -773,8 +791,12 @@ export class SimulationRun {
       // First-same-as-last: f(X) was the last stage of the step when X was kept unchanged
       if (reuse) this.k1 = r.k7!
       else this.rhs(Xn, this.k1)
-      // Permanent rest: on a recorded frame, f(X) is exactly zero in every component (STREAMING.md §6)
-      if (clipped && this.restAllowed && atRest(this.k1)) { this.end('rest'); return }
+      // Permanent rest: on a recorded frame, f(X) is exactly zero in every component (STREAMING.md §6); approximate
+      // rest (26.51): every velocity and acceleration below REST_TOL on the recorded frames of REST_HOLD seconds
+      if (clipped && this.restAllowed) {
+        if (atRest(this.k1)) { this.pendingStop = 'rest'; continue }
+        if (nearRest(this.k1, 6 * sys.n)) { if (++this.nearRest >= this.restHold) { this.pendingStop = 'restApprox'; continue } } else this.nearRest = 0
+      }
       if (this.t >= this.nextProgress) {
         this.nextProgress += 0.1
         if (opts.progress && opts.progress(this.t, T) === false) { this.fail(msg('err.cancelled'), 'user'); return }
@@ -1002,6 +1024,17 @@ export class SimulationRun {
   /** Global count of segments and events. */
   get segmentCount(): number { return this.segBase + this.segments.length }
   get eventCount(): number { return this.eventBase + this.events.length }
+}
+
+/** Approximate rest (26.51): speeds (m/s, rad/s) and accelerations (m/s², rad/s²) at most this. */
+export const REST_TOL = 1e-6
+/** Approximate rest must last this long (s of recorded frames). */
+export const REST_HOLD = 1
+
+/** Are the first `count` components of the derivative (velocities, accelerations) all within REST_TOL? */
+function nearRest(f: Float64Array, count: number): boolean {
+  for (let i = 0; i < count; i++) if (!(Math.abs(f[i]) <= REST_TOL)) return false
+  return true
 }
 
 /** Is the derivative exactly zero in every component (no motion, no work, no heat)? */

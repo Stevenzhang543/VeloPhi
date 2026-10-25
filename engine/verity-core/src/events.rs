@@ -3,7 +3,7 @@
 
 use crate::dynamics::{solve_mode_into, switch_arg, tol, Friction, Mode, ModeSolution, System};
 use crate::js::{js_max, js_min};
-use crate::kinematics::{compute_poses, probe_value, Pose};
+use crate::kinematics::{compute_poses, probe_value, rope_path, Pose};
 use crate::message::SimResult;
 
 /// Kind of event function.
@@ -17,7 +17,12 @@ pub enum EventType {
     Slack,
     Taut,
     Switch,
+    /// A body on a rope end reaches the pulley the rope runs onto (26.51).
+    Pulley,
 }
+
+/// A rope end closer than this to the pulley it runs onto has reached it (m).
+pub const PULLEY_REACH: f64 = 1e-3;
 
 impl EventType {
     /// Name as in the TypeScript engine.
@@ -31,6 +36,7 @@ impl EventType {
             EventType::Slack => "slack",
             EventType::Taut => "taut",
             EventType::Switch => "switch",
+            EventType::Pulley => "pulley",
         }
     }
 }
@@ -38,15 +44,45 @@ impl EventType {
 /// What an event function evaluates.
 #[derive(Clone, Copy, Debug)]
 pub enum EventValue {
-    Liftoff { unit: usize, point: usize },
-    LeaveM1 { unit: usize, point: usize },
-    LeaveM2 { unit: usize, point: usize },
-    Slip { unit: usize, mu_s: f64 },
-    Stop { unit: usize, sgn: f64 },
-    Contact { pair: usize, probe: usize },
-    Slack { rope: usize },
-    Taut { rope: usize },
-    Switch { k: usize, b: i8 },
+    Liftoff {
+        unit: usize,
+        point: usize,
+    },
+    LeaveM1 {
+        unit: usize,
+        point: usize,
+    },
+    LeaveM2 {
+        unit: usize,
+        point: usize,
+    },
+    Slip {
+        unit: usize,
+        mu_s: f64,
+    },
+    Stop {
+        unit: usize,
+        sgn: f64,
+    },
+    Contact {
+        pair: usize,
+        probe: usize,
+    },
+    Slack {
+        rope: usize,
+    },
+    Taut {
+        rope: usize,
+    },
+    Switch {
+        k: usize,
+        b: i8,
+    },
+    /// End segment of rope `rope` (end 0: a, 1: b).
+    Pulley {
+        rope: usize,
+        end: u8,
+    },
 }
 
 /// An event function of the current mode with its hysteresis state.
@@ -76,6 +112,10 @@ pub fn event_value(sys: &System, mode: &Mode, f: &EventFn, poses: &[Pose], s: &M
         EventValue::Contact { pair, probe } => probe_value(&sys.model, &sys.pairs[pair].probes[probe], poses),
         EventValue::Slack { rope } => s.rope_tension[rope],
         EventValue::Taut { rope } => s.rope_kin[rope].value,
+        EventValue::Pulley { rope, end } => {
+            let p = rope_path(&sys.model, poses, &sys.model.ropes[rope]);
+            (if end == 0 { p.s1 } else { p.s_last }) - PULLEY_REACH
+        }
         EventValue::Switch { k, b } => {
             let a = switch_arg(sys, k, x, mode.sw.as_deref());
             if b != 0 {
@@ -127,6 +167,18 @@ pub fn build_event_fns(sys: &System, mode: &Mode, poses: &[Pose], sol: &ModeSolu
             add(EventType::Slack, eps_f, EventValue::Slack { rope: k }, k as i32);
         } else {
             add(EventType::Taut, tol::EXT, EventValue::Taut { rope: k }, k as i32);
+        }
+    }
+    // A body on a rope end reaching the pulley the rope runs onto
+    for (k, r) in model.ropes.iter().enumerate() {
+        if r.pulleys.is_empty() {
+            continue;
+        }
+        if r.a.body.is_some_and(|g| model.bodies[g].dynamic) {
+            add(EventType::Pulley, tol::EXT, EventValue::Pulley { rope: k, end: 0 }, k as i32);
+        }
+        if r.b.body.is_some_and(|g| model.bodies[g].dynamic) {
+            add(EventType::Pulley, tol::EXT, EventValue::Pulley { rope: k, end: 1 }, k as i32);
         }
     }
     if let Some(sw) = &mode.sw {

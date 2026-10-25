@@ -171,5 +171,102 @@ export const PROJECTILE_DERIVATIONS: Derivation[] = [
           'Auflösen nach der Höhe des höchsten Punktes (des Schwerpunkts).'),
         B.solve, ['H', 'y0 + vy0^2/(2*g)'], { H: 'm' })
     ]
+  },
+  // ---- 26.51: free fall and conservation of mechanical energy (D44) ----
+  {
+    formula: 'ff.v',
+    title: tri('自由落体的速度', 'Speed in free fall', 'Geschwindigkeit beim freien Fall'),
+    uses: ['projectile.axes'],
+    steps: [
+      st('v_0 = 0',
+        tri('物体由静止释放：初速度为零，只受重力。这样的运动叫自由落体运动。',
+          'The body is released from rest: zero initial velocity, gravity the only force. This motion is called free fall.',
+          'Der Körper wird aus der Ruhe losgelassen: Anfangsgeschwindigkeit null, nur die Gewichtskraft wirkt. Diese Bewegung heißt freier Fall.'),
+        tri('自由落体的条件', 'Condition of free fall', 'Bedingung des freien Falls'), ['sqrt(vx0^2 + vy0^2)', '0']),
+      st('v = gt',
+        tri('取竖直向下为正：自由落体是初速度为零、加速度为 g 的匀加速直线运动，由 v = v₀ + at 得 v = gt。',
+          'Take downwards as positive: free fall is uniformly accelerated motion from rest with acceleration g, so v = v₀ + at gives v = gt.',
+          'Nach unten positiv: Der freie Fall ist eine gleichmäßig beschleunigte Bewegung aus der Ruhe mit der Beschleunigung g; aus v = v₀ + a·t folgt v = g·t.'),
+        B.uniformV, ['v', 'g*t'], { v: 'm/s' })
+    ]
+  },
+  {
+    formula: 'ff.h',
+    title: tri('自由落体的下落高度', 'Height fallen in free fall', 'Fallhöhe beim freien Fall'),
+    uses: ['projectile.axes'],
+    steps: [
+      st('v_0 = 0',
+        tri('由静止释放，初速度为零。',
+          'Released from rest: the initial velocity is zero.',
+          'Aus der Ruhe losgelassen: Die Anfangsgeschwindigkeit ist null.'),
+        tri('自由落体的条件', 'Condition of free fall', 'Bedingung des freien Falls'), ['sqrt(vx0^2 + vy0^2)', '0']),
+      st('h = \\tfrac{1}{2}gt^2',
+        tri('取竖直向下为正，由 x = v₀t + ½at²（v₀ = 0，a = g）得下落的高度。下落高度与时间的平方成正比：1 s、2 s、3 s 内下落高度之比为 1 : 4 : 9。',
+          'With downwards positive, x = v₀t + ½at² (v₀ = 0, a = g) gives the height fallen. It grows with the square of the time: in 1 s, 2 s and 3 s the body falls distances in the ratio 1 : 4 : 9.',
+          'Nach unten positiv folgt aus x = v₀·t + ½·a·t² (v₀ = 0, a = g) die Fallhöhe. Sie wächst mit dem Quadrat der Zeit: In 1 s, 2 s und 3 s fällt der Körper Strecken im Verhältnis 1 : 4 : 9.'),
+        B.uniformX, ['h', 'g*t^2/2'])
+    ]
+  },
+  {
+    formula: 'ff.v2',
+    title: tri('下落 h 时的速度', 'Speed after falling a height h', 'Geschwindigkeit nach der Fallhöhe h'),
+    note: tri('h 取仿真中已下落的高度', 'h is the height fallen so far in the simulation', 'h ist die bisher in der Simulation durchfallene Höhe'),
+    uses: ['projectile.axes'],
+    steps: [
+      st('v_0 = 0',
+        tri('由静止释放，初速度为零。',
+          'Released from rest: the initial velocity is zero.',
+          'Aus der Ruhe losgelassen: Die Anfangsgeschwindigkeit ist null.'),
+        tri('自由落体的条件', 'Condition of free fall', 'Bedingung des freien Falls'), ['sqrt(vx0^2 + vy0^2)', '0']),
+      st('v^2 = 2gh',
+        tri('取竖直向下为正，用速度—位移关系 v² − v₀² = 2ax（a = g，x = h）。也可以用机械能守恒：mgh = ½mv²。',
+          'With downwards positive, use the velocity–displacement relation v² − v₀² = 2ax (a = g, x = h). Conservation of energy gives the same: mgh = ½mv².',
+          'Nach unten positiv die zeitfreie Gleichung v² − v₀² = 2·a·x verwenden (a = g, x = h). Die Energieerhaltung liefert dasselbe: m·g·h = ½·m·v².'),
+        B.uniformVX, ['v^2', '2*g*h'], { v: 'm/s' }),
+      st('v = \\sqrt{2gh}',
+        tri('取正根得速率。',
+          'Take the positive root for the speed.',
+          'Für den Betrag der Geschwindigkeit die positive Wurzel nehmen.'),
+        B.solve, ['v', 'sqrt(2*g*h)'], { v: 'm/s' })
+    ]
+  },
+  {
+    formula: 'pr.E',
+    title: tri('机械能守恒', 'Conservation of mechanical energy', 'Erhaltung der mechanischen Energie'),
+    note: tri('只有重力做功', 'Only gravity does work', 'Nur die Gewichtskraft verrichtet Arbeit'),
+    steps: [
+      st('W_G = mg(y_0 - y)',
+        tri('重力做的功只与起点和终点的高度差有关，与路径无关；物体下降时重力做正功。',
+          'The work done by gravity depends only on the difference in height between start and end, not on the path; it is positive while the body descends.',
+          'Die Arbeit der Gewichtskraft hängt nur vom Höhenunterschied zwischen Anfang und Ende ab, nicht vom Weg; sie ist positiv, während der Körper sinkt.'),
+        tri('重力做功的特点', 'Work done by gravity', 'Arbeit der Gewichtskraft'), ['WG', 'm*g*(y0 - y)'], { WG: 'J' }),
+      st('\\tfrac{1}{2}mv^2 - \\tfrac{1}{2}mv_0^2 = mg(y_0 - y)',
+        tri('飞行中只有重力做功，由动能定理，动能的增加等于重力做的功。',
+          'In flight only gravity does work; by the work–energy theorem the gain in kinetic energy equals this work.',
+          'Im Flug verrichtet nur die Gewichtskraft Arbeit; nach dem Arbeitssatz ist der Zuwachs an kinetischer Energie gleich dieser Arbeit.'),
+        tri('动能定理', 'Work–energy theorem', 'Arbeitssatz (Energiesatz der Mechanik)'), ['m*v^2/2 - m*(vx0^2 + vy0^2)/2', 'm*g*(y0 - y)'], { v: 'm/s' }),
+      st('E = \\tfrac{1}{2}mv^2 + mgy = \\tfrac{1}{2}mv_0^2 + mgy_0',
+        tri('移项：动能与重力势能之和（机械能）保持不变。v₀² = v₀ₓ² + v₀y²。',
+          'Rearranged: the sum of kinetic and gravitational potential energy (the mechanical energy) stays constant. v₀² = v₀ₓ² + v₀y².',
+          'Umgestellt: Die Summe aus kinetischer und potentieller Energie (die mechanische Energie) bleibt konstant. v₀² = v₀ₓ² + v₀y².'),
+        B.rearrange, ['E', 'm*(vx0^2 + vy0^2)/2 + m*g*y0'], { E: 'J' })
+    ]
+  },
+  {
+    formula: 'pr.v',
+    title: tri('由机械能守恒求速率', 'Speed from conservation of energy', 'Geschwindigkeit aus der Energieerhaltung'),
+    note: tri('y 取仿真中此刻的高度', 'y is the height at this moment in the simulation', 'y ist die momentane Höhe in der Simulation'),
+    steps: [
+      st('\\tfrac{1}{2}mv^2 + mgy = \\tfrac{1}{2}mv_0^2 + mgy_0',
+        tri('只有重力做功，机械能守恒：任一时刻的动能与重力势能之和等于抛出时的值。',
+          'Only gravity does work, so mechanical energy is conserved: at every moment kinetic plus potential energy equals its value at launch.',
+          'Nur die Gewichtskraft verrichtet Arbeit, also bleibt die mechanische Energie erhalten: Zu jedem Zeitpunkt ist kinetische plus potentielle Energie gleich ihrem Wert beim Abwurf.'),
+        tri('机械能守恒定律', 'Conservation of mechanical energy', 'Energieerhaltungssatz der Mechanik'), ['m*v^2/2 + m*g*y', 'm*(vx0^2 + vy0^2)/2 + m*g*y0'], { v: 'm/s' }),
+      st('v = \\sqrt{v_0^2 + 2g(y_0 - y)}',
+        tri('两边约去 m，解出速率；它与质量和抛出方向无关，只取决于初速率和下降的高度。',
+          'Cancel m and solve for the speed; it depends neither on the mass nor on the direction of launch, only on the initial speed and the height descended.',
+          'm kürzen und nach dem Betrag der Geschwindigkeit auflösen; er hängt weder von der Masse noch von der Abwurfrichtung ab, nur von der Anfangsgeschwindigkeit und der Fallhöhe.'),
+        B.solve, ['v', 'sqrt(vx0^2 + vy0^2 + 2*g*(y0 - y))'], { v: 'm/s' })
+    ]
   }
 ]

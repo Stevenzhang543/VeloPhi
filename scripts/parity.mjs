@@ -4,6 +4,11 @@
  *
  *   node scripts/parity.mjs [options]
  *     --random N        random scenes (default 500)          --seed S         generator seed (default 2650)
+ *     --random2651 N    random scenes with the physics of 26.51 (drag, gravitation, new connectors; default 300)
+ *     --impacts N       random scenes of blocks landing flat, in corners and on each other (multi-point frictional
+ *                       impacts, D37; default 150)
+ *     --branches N      branches (D52) of the templates and of N random scenes, from a random frame with a random
+ *                       change (default 60)
  *     --only TEXT       only scenes whose name contains TEXT  --no-build       do not run cargo build
  *     --no-modules      skip the module-level checks         --no-unbounded   skip the unbounded template runs
  *     --until T         simulated time of unbounded runs (default 60 s)
@@ -32,6 +37,9 @@ const args = process.argv.slice(2)
 const opt = (name, def) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : def }
 const flag = name => args.includes(name)
 const RANDOM = Number(opt('--random', '500'))
+const RANDOM2651 = Number(opt('--random2651', '300'))
+const IMPACTS = Number(opt('--impacts', '150'))
+const BRANCHES = Number(opt('--branches', '60'))
 const SEED = Number(opt('--seed', '2650'))
 const ONLY = opt('--only', null)
 const UNTIL = Number(opt('--until', '60'))
@@ -51,6 +59,8 @@ await build({
       "export { TEMPLATES, buildTemplate } from './src/templates/index.ts'",
       "export { SimulationRun, recordingStates, frameSegment, frameImpactLoss, rebuildChunk } from './src/core/solver/simulation.ts'",
       "export { validateScene } from './src/core/scene/io.ts'",
+      "export { branchScene } from './src/core/scene/branch.ts'",
+      "export { simulate } from './src/core/solver/simulation.ts'",
       "export { DeltaWriter } from './src/core/solver/transport.ts'",
       "export { addBody, addConnector, addGround, addIncline, addPulley, anchor, emptyScene, onIncline } from './src/core/scene/build.ts'",
       "export { checkForceExpr, compileForceExpr } from './src/core/solver/forceExpr.ts'",
@@ -414,6 +424,122 @@ function randomScene(rng, idx) {
   return s
 }
 
+/**
+ * Random scene with the physics of 26.51 (D50, D51): drag, gravitation (with a static attracting body), cubic
+ * springs, dampers, welds, sliders, speed and torque motors and gears, mixed with the older connectors. A separate
+ * generator, so the scenes of `randomScene` (and their fingerprints) stay as they were.
+ */
+/** Blocks and polygons landing flat, tilted, in a corner or on each other on rough ground (D37). */
+function randomImpactScene(rng, idx) {
+  const { emptyScene, addGround, addBody } = V
+  const r = (a, b) => a + (b - a) * rng()
+  const chance = p => rng() < p
+  const round = (x, d = 3) => Math.round(x * 10 ** d) / 10 ** d
+  const s = emptyScene(`impacts-${idx}`)
+  s.settings.duration = round(r(0.6, 1.5), 2)
+  s.settings.gravity = { x: 0, y: -9.8 }
+  const mat = () => { const muS = round(r(0.1, 1.2), 2); return { muS, muK: round(muS * r(0.6, 1), 2), restitution: chance(0.3) ? 0 : round(r(0.1, 0.9), 2) } }
+  addGround(s, { id: 'ground', top: 0, left: -4, right: 6, material: mat(), role: 'ground' })
+  const corner = chance(0.4)
+  if (corner) addBody(s, { id: 'wall', name: '墙', kind: 'static', role: 'wall', shape: { type: 'box', width: 0.4, height: 3 }, position: { x: -1.2, y: 0.5 }, material: mat() })
+  const n = 1 + Math.floor(rng() * 3)
+  let stackTop = 0
+  for (let i = 0; i < n; i++) {
+    const w = round(r(0.15, 0.5)), h = round(r(0.1, 0.35))
+    const stack = i > 0 && chance(0.4)
+    const x = stack ? s.bodies[s.bodies.length - 1].position.x + round(r(-0.05, 0.05)) : corner && i === 0 ? round(-1 + w / 2 + r(0, 0.05)) : round(-0.5 + i * r(0.7, 1.1))
+    const y = (stack ? stackTop : 0) + h / 2 + round(r(0.002, 0.4))
+    const tilt = chance(0.5) ? 0 : round(r(-0.4, 0.4))
+    const shape = chance(0.75) ? { type: 'box', width: w, height: h } : { type: 'polygon', points: [{ x: -w / 2, y: -h / 2 }, { x: w / 2, y: -h / 2 }, { x: w / 3, y: h / 2 }, { x: -w / 3, y: h / 2 }] }
+    addBody(s, { id: `b${i}`, name: `块${i}`, shape, position: { x, y }, angle: tilt, velocity: { x: chance(0.7) ? round(r(-3, 3)) : 0, y: chance(0.4) ? round(r(-2, 0)) : 0 }, angularVelocity: chance(0.3) ? round(r(-4, 4)) : 0, mass: round(r(0.2, 3)), material: mat() })
+    stackTop = y + h / 2
+  }
+  return s
+}
+
+function randomScene2651(rng, idx) {
+  const { emptyScene, addGround, addBody, addConnector, anchor } = V
+  const r = (a, b) => a + (b - a) * rng()
+  const pick = a => a[Math.floor(rng() * a.length)]
+  const chance = p => rng() < p
+  const round = (x, d = 3) => Math.round(x * 10 ** d) / 10 ** d
+  const s = emptyScene(`random2651-${idx}`)
+  s.settings.duration = round(r(1, 2.5), 2)
+  s.settings.integrator = chance(0.85) ? 'dopri5' : pick(['rk4', 'euler', 'moreau'])
+  const mat = () => {
+    const muS = chance(0.3) ? 0 : round(r(0, 0.9), 2)
+    return { muS, muK: round(muS * r(0.5, 1), 2), restitution: chance(0.5) ? 0 : round(r(0, 0.9), 2) }
+  }
+  const orbit = chance(0.2)
+  let groundTop = 0
+  if (orbit) {
+    s.settings.gravity = { x: 0, y: chance(0.6) ? 0 : -1 }
+    s.settings.gravitation = { G: pick([1, 0.5, 2]) }
+    addBody(s, { id: 'sun', name: '恒星', kind: 'static', shape: { type: chance(0.7) ? 'circle' : 'box', radius: 0.3, width: 0.5, height: 0.4 }, position: { x: 0, y: 0 }, mass: round(r(20, 200), 1) })
+  } else {
+    s.settings.gravity = { x: 0, y: -pick([9.8, 10, 9.81]) }
+    if (chance(0.15)) s.settings.gravitation = { G: pick([0.5, 5]) }
+    groundTop = round(r(-0.2, 0.2), 2)
+    addGround(s, { id: 'ground', top: groundTop, left: -6, right: 12, material: mat(), role: 'ground' })
+  }
+  const n = 1 + Math.floor(rng() * 3)
+  const bodies = []
+  for (let i = 0; i < n; i++) {
+    const drag = chance(0.4) ? { linear: chance(0.5) ? round(r(0, 1.5), 2) : 0, quadratic: chance(0.6) ? round(r(0, 0.4), 2) : 0 } : undefined
+    let body
+    if (orbit) {
+      const rad = round(r(1.2, 3), 2), ang = r(0, 2 * Math.PI)
+      const v = Math.sqrt(s.settings.gravitation.G * s.bodies[0].mass / rad) * r(0.7, 1.15)
+      const pos = { x: round(rad * Math.cos(ang)), y: round(rad * Math.sin(ang)) }
+      body = addBody(s, { id: `b${i}`, name: `行星${i}`, kind: chance(0.5) ? 'particle' : 'rigid', role: 'ball', shape: { type: 'circle', radius: round(r(0.03, 0.08)) }, position: pos, velocity: { x: round(-v * Math.sin(ang)), y: round(v * Math.cos(ang)) }, mass: round(r(0.05, 2)), material: mat(), drag })
+    } else if (chance(0.5)) {
+      const w = round(r(0.1, 0.4)), h = round(r(0.1, 0.3))
+      body = addBody(s, { id: `b${i}`, name: `块${i}`, shape: { type: 'box', width: w, height: h }, position: { x: round(-1.5 + i * r(0.6, 1)), y: chance(0.4) ? groundTop + h / 2 : round(groundTop + h / 2 + r(0.05, 1.2)) }, angle: chance(0.3) ? round(r(-0.6, 0.6)) : 0, velocity: { x: chance(0.5) ? round(r(-3, 3)) : 0, y: 0 }, angularVelocity: chance(0.2) ? round(r(-5, 5)) : 0, mass: round(r(0.1, 3)), fixedRotation: chance(0.1), material: mat(), drag })
+    } else {
+      const rad = round(r(0.05, 0.25))
+      body = addBody(s, { id: `b${i}`, name: `轮${i}`, kind: chance(0.25) ? 'particle' : 'rigid', role: 'wheel', shape: { type: 'circle', radius: rad }, position: { x: round(-1.5 + i * r(0.6, 1)), y: chance(0.4) ? groundTop + rad : round(groundTop + rad + r(0.05, 1.5)) }, velocity: { x: chance(0.5) ? round(r(-3, 3)) : 0, y: chance(0.3) ? round(r(-2, 3)) : 0 }, angularVelocity: chance(0.3) ? round(r(-8, 8)) : 0, mass: round(r(0.05, 2)), material: mat(), drag })
+    }
+    bodies.push(body)
+  }
+  /** Body coordinates of a world point. */
+  const localOf = (b, w) => { const c = Math.cos(b.angle), sn = Math.sin(b.angle), dx = w.x - b.position.x, dy = w.y - b.position.y; return { x: c * dx + sn * dy, y: -sn * dx + c * dy } }
+  const nc = 1 + Math.floor(rng() * 3)
+  for (let c = 0; c < nc; c++) {
+    const b = pick(bodies), o = pick(bodies)
+    const other = o !== b
+    const kind = rng()
+    const above = () => ({ x: round(b.position.x + r(-0.4, 0.4)), y: round(b.position.y + r(0.3, 1)) })
+    if (kind < 0.14) {
+      addConnector(s, { id: `k${c}`, name: `弹簧${c}`, type: 'spring', a: anchor(b), b: other && chance(0.5) ? anchor(o) : anchor(null, above()), stiffness: round(r(5, 120)), cubic: chance(0.7) ? round(r(-20, 300)) : 0, restLength: chance(0.5) ? null : round(r(0.2, 1)), damping: chance(0.5) ? 0 : round(r(0, 1.5)) })
+    } else if (kind < 0.26) {
+      addConnector(s, { id: `c${c}`, name: `阻尼器${c}`, type: 'damper', a: anchor(b), b: other && chance(0.5) ? anchor(o) : anchor(null, above()), damping: round(r(0, 3)) })
+    } else if (kind < 0.38 && other) {
+      const mid = { x: (b.position.x + o.position.x) / 2, y: (b.position.y + o.position.y) / 2 }
+      addConnector(s, { id: `w${c}`, name: `焊接${c}`, type: 'weld', a: anchor(b, localOf(b, mid)), b: anchor(o, localOf(o, mid)) })
+    } else if (kind < 0.52) {
+      const th = r(-Math.PI, Math.PI)
+      const free = chance(0.4)
+      if (other && chance(0.4)) addConnector(s, { id: `s${c}`, name: `滑轨${c}`, type: 'slider', a: anchor(o, localOf(o, b.position)), b: anchor(b), axis: { x: round(Math.cos(th)), y: round(Math.sin(th)) }, free })
+      else addConnector(s, { id: `s${c}`, name: `滑轨${c}`, type: 'slider', a: anchor(null, { ...b.position }), b: anchor(b), axis: { x: round(Math.cos(th)), y: round(Math.sin(th)) }, free })
+    } else if (kind < 0.68) {
+      const torque = chance(0.5)
+      const a = other && chance(0.5) ? anchor(o, localOf(o, b.position)) : anchor(null, { ...b.position })
+      addConnector(s, { id: `m${c}`, name: `马达${c}`, type: 'motor', a, b: anchor(b), mode: torque ? 'torque' : 'speed', speed: round(r(-6, 6)), torque: round(r(-2, 2)) })
+    } else if (kind < 0.8) {
+      addConnector(s, { id: `g${c}`, name: `齿轮${c}`, type: 'gear', a: anchor(b), b: other && chance(0.7) ? anchor(o) : anchor(null, { x: 0, y: 0 }), ratio: pick([1, 2, 0.5, -1.5, 3]) })
+    } else if (kind < 0.88) {
+      const local = { x: round(r(-0.05, 0.05)), y: round(r(-0.05, 0.05)) }
+      const c0 = Math.cos(b.angle), s0 = Math.sin(b.angle)
+      addConnector(s, { id: `h${c}`, name: `铰${c}`, type: 'hinge', a: anchor(b, local), b: anchor(null, { x: b.position.x + c0 * local.x - s0 * local.y, y: b.position.y + s0 * local.x + c0 * local.y }) })
+    } else if (kind < 0.94) {
+      addConnector(s, { id: `d${c}`, name: `杆${c}`, type: 'rod', a: anchor(null, above()), b: anchor(b), length: null })
+    } else {
+      addConnector(s, { id: `f${c}`, name: `力${c}`, type: 'force', a: anchor(b), force: { x: round(r(-5, 5)), y: round(r(-3, 8)) } })
+    }
+  }
+  return s
+}
+
 // ---- Runs ----
 /** Run a scene with the TypeScript engine as the harness runs it with Rust (see verity-cli run_once). */
 function runTs(scene, duration, until, withDeltas = false) {
@@ -487,7 +613,7 @@ function compareScene(name, scene, duration, until, goldenHash) {
   const file = join(work, 'scenes', `${name.replace(/[^a-zA-Z0-9_-]+/g, '_')}.json`)
   writeFileSync(file, text)
   const ts = runTs(sceneParse(text), duration, until)
-  const verify = !name.startsWith('random/') || scenesCompared % 10 === 0
+  const verify = !name.startsWith('random') || scenesCompared % 10 === 0
   const deltaFile = verify ? file.replace(/\.json$/, '.deltas') : null
   const rs = runRust(file, file.replace(/\.json$/, '.bin'), duration, until, verify, deltaFile)
   scenesCompared++
@@ -600,15 +726,25 @@ function compareScene(name, scene, duration, until, goldenHash) {
     }
   }
   timings.push({ name, ts: ts.ms, rust: rs.ms, frames: rec.frameCount })
-  if (name.startsWith('random/')) {
+  if (name.startsWith('random/') || name.startsWith('impacts/')) {
     count(`integrator ${scene.settings.integrator}`)
     count(`end ${rec.stopReason}${rec.error ? ' ' + rustKey(rec.error) : ''}`)
     if (rec.reducedFrom !== undefined && rec.reducedFrom !== null) count('Moreau–Jean fallback or mode')
     for (const w of new Set(rec.warnings.map(rustKey))) count(w)
     const types = new Set(rec.events.flatMap(e => e.changes.map(c => c.type)))
     for (const t of types) count(`change ${t}`)
-    if (rec.events.some(e => e.impact?.points.some(p => p.tangentImpulse !== undefined))) count('frictional impact (Stronge)')
+    if (rec.events.some(e => e.impact?.points.some(p => p.tangentImpulse !== undefined) && e.impact.points.filter(p => p.impulse > 0).length === 1)) count('frictional impact (Stronge)')
+    if (rec.events.some(e => e.impact && e.impact.points.filter(p => p.tangentImpulse !== undefined).length >= 2)) count('26.51 multi-point frictional impact')
     if (rec.events.some(e => e.triggers.includes('switch'))) count('variable-force switch event')
+  }
+  if (name.startsWith('random2651/')) {
+    // 26.51 physics exercised
+    if (scene.settings.gravitation) count('26.51 gravitation')
+    if (scene.bodies.some(b => b.drag)) count('26.51 drag')
+    for (const t of new Set(scene.connectors.map(c => (c.type === 'spring' && c.cubic ? 'cubic spring' : c.type === 'motor' ? `motor ${c.mode}` : c.type)))) {
+      if (['cubic spring', 'damper', 'weld', 'slider', 'motor speed', 'motor torque', 'gear'].includes(t)) count(`26.51 ${t}`)
+    }
+    count(`26.51 end ${rec.stopReason}${rec.error ? ' ' + rustKey(rec.error) : ''}`)
   }
   report(name, problems, ts.ms, rs.ms, rec)
 }
@@ -705,6 +841,63 @@ console.log(`Random scenes (${RANDOM}, seed ${SEED})`)
     const before = failures
     compareScene(`random/${i}`, scene, undefined, undefined, null)
     if (failures === before && ++shown % 100 === 0) console.log(`  … ${shown} random scenes identical`)
+  }
+}
+console.log(`Random scenes of 26.51 (${RANDOM2651}, seed ${SEED})`)
+{
+  const rng = mulberry32(SEED ^ 0x2651)
+  let shown = 0
+  for (let i = 0; i < RANDOM2651; i++) {
+    const scene = randomScene2651(rng, i)
+    try { V.validateScene(scene) } catch (e) { console.log(`  (random2651/${i} invalid: ${e.message})`); continue }
+    if (!want(`random2651/${i}`)) continue
+    const before = failures
+    compareScene(`random2651/${i}`, scene, undefined, undefined, null)
+    if (failures === before && ++shown % 100 === 0) console.log(`  … ${shown} random scenes of 26.51 identical`)
+  }
+}
+
+console.log(`Random multi-point impacts (${IMPACTS}, seed ${SEED})`)
+{
+  const rng = mulberry32(SEED ^ 0x37)
+  let shown = 0
+  for (let i = 0; i < IMPACTS; i++) {
+    const scene = randomImpactScene(rng, i)
+    try { V.validateScene(scene) } catch (e) { console.log(`  (impacts/${i} invalid: ${e.message})`); continue }
+    if (!want(`impacts/${i}`)) continue
+    const before = failures
+    compareScene(`impacts/${i}`, scene, undefined, undefined, null)
+    if (failures === before && ++shown % 50 === 0) console.log(`  … ${shown} impact scenes identical`)
+  }
+}
+
+console.log(`Branches (templates and ${BRANCHES} random scenes, seed ${SEED})`)
+{
+  const rng = mulberry32(SEED ^ 0x52)
+  const sources = [...V.TEMPLATES.map(t => [`branch/${t.id}`, V.buildTemplate(t.id, {})])]
+  const rr = mulberry32(SEED ^ 0x5200)
+  for (let i = 0; i < BRANCHES; i++) sources.push([`branch/random${i}`, i % 2 ? randomScene2651(rr, 1000 + i) : randomScene(rr, 1000 + i)])
+  let shown = 0
+  for (const [name, parent] of sources) {
+    if (!want(name)) continue
+    try { V.validateScene(parent) } catch { continue }
+    const rec = V.simulate(parent, { duration: Math.min(parent.settings.duration ?? parent.settings.legacyDuration, 3) })
+    if (rec.error || rec.frameCount < 4) continue
+    const k = 1 + Math.floor(rng() * (rec.frameCount - 2))
+    const b = V.branchScene(rec, k)
+    if (!b) continue
+    // A change at the branch point: friction, a velocity, a mass or nothing
+    const change = Math.floor(rng() * 4)
+    const moving = b.bodies.filter(x => x.kind !== 'static')
+    if (change === 0) for (const x of b.bodies) x.material = { ...x.material, muS: x.material.muS * 0.5, muK: x.material.muK * 0.5 }
+    if (change === 1 && moving.length) moving[0].velocity = { x: moving[0].velocity.x + 0.5, y: moving[0].velocity.y }
+    if (change === 2 && moving.length) moving[0].mass *= 1.5
+    b.settings.duration = Math.min(b.settings.duration ?? b.settings.legacyDuration, 2)
+    try { V.validateScene(b) } catch (e) { console.log(`  (${name} invalid: ${e.message})`); continue }
+    const before = failures
+    compareScene(name, b, undefined, undefined, null)
+    count(`26.51 branch ${['μ', 'velocity', 'mass', 'unchanged'][change]}`)
+    if (failures === before && ++shown % 25 === 0) console.log(`  … ${shown} branches identical`)
   }
 }
 

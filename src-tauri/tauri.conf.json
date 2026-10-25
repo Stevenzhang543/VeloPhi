@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Verity",
-  "version": "26.50.0",
+  "version": "26.51.0",
   "identifier": "app.verity.physics",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Verity 26.50",
+        "title": "Verity 26.51",
         "width": 1440,
         "height": 900,
         "minWidth": 1100,

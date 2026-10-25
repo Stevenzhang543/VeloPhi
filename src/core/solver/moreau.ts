@@ -20,9 +20,9 @@
  * and impact losses are not resolved individually: the energy the impulses remove is booked as one loss.
  */
 import type { Pose, RowJ } from './kinematics'
-import { computePoses, contactKin, distanceKin, hingeKin, ropeKin } from './kinematics'
+import { computePoses, contactKin, equalityKins, ropeKin } from './kinematics'
 import type { System } from './dynamics'
-import { AUX_DAMP, AUX_WORK, TOL, appliedForces, energy, newRates, rowDot, rowMinvRow } from './dynamics'
+import { AUX_BELT, AUX_DAMP, AUX_WORK, TOL, appliedForces, energy, newRates, rowDot, rowMinvRow } from './dynamics'
 import { inRegion, pairMayTouch } from './modes'
 import { correction } from './project'
 
@@ -105,9 +105,13 @@ export function moreauStep(sys: System, X: Float64Array, h: number): MoreauStepR
     v[3 * i] += h * Q[3 * i] * b.invMass; v[3 * i + 1] += h * Q[3 * i + 1] * b.invMass; v[3 * i + 2] += h * Q[3 * i + 2] * b.invInertia
   }
   const rows: PRow[] = []
-  const eq = (j: RowJ) => rows.push({ j, d: rowMinvRow(model, j, j), target: 0, kind: 'eq', normal: -1, mu: 0, lambda: 0 })
-  for (const hg of model.hinges) for (const k of hingeKin(poses, hg.a, hg.b)) eq(k.j)
-  for (const r of model.rods) eq(distanceKin(poses, r.a, r.b).j)
+  const eq = (j: RowJ, target: number) => rows.push({ j, d: rowMinvRow(model, j, j), target, kind: 'eq', normal: -1, mu: 0, lambda: 0 })
+  // Equality rows keep their velocity target: 0, or a motor's speed (vel = J·v − speed)
+  const drives: number[] = []
+  for (const e of equalityKins(model, poses)) {
+    if (e.kind === 'drive') drives.push(rows.length)
+    eq(e.kin.j, e.kind === 'drive' ? model.motors[e.owner].speed : 0)
+  }
   model.ropes.forEach(r => {
     const k = ropeKin(poses, r)
     // g = L − ℓ ≥ 0, tension ≥ 0
@@ -142,14 +146,19 @@ export function moreauStep(sys: System, X: Float64Array, h: number): MoreauStepR
       if (dl !== 0) { addVel(model, v, r.j, dl); r.lambda = next }
     }
   }
+  // Motor work (26.51): torque motors (their power over the step) and the impulses of speed drives at their speed
+  let motor = h * rates.beltWork
+  for (const k of drives) motor += rows[k].lambda * rows[k].target
   const Y = Float64Array.from(X)
   for (let k = 0; k < 3 * n; k++) { Y[3 * n + k] = v[k]; Y[k] = X[k] + h * v[k] }
   Y[sys.auxBase + AUX_WORK] = X[sys.auxBase + AUX_WORK] + h * rates.appliedWork
   Y[sys.auxBase + AUX_DAMP] = X[sys.auxBase + AUX_DAMP] + h * rates.damping
+  if (motor !== 0) Y[sys.auxBase + AUX_BELT] = X[sys.auxBase + AUX_BELT] + motor
   if (sys.timeSlot >= 0) Y[sys.timeSlot] = X[sys.timeSlot] + h
   const Z = projectPositions(sys, Y)
   const E1 = energy(sys, Z).total
-  return { X: Z, loss: E0 + h * rates.appliedWork - h * rates.damping - E1 }
+  // Scenes without motors keep the expression of 26.50 (bit for bit)
+  return { X: Z, loss: motor !== 0 ? E0 + h * rates.appliedWork + motor - h * rates.damping - E1 : E0 + h * rates.appliedWork - h * rates.damping - E1 }
 }
 
 /** Remove penetration, joint drift and rope overstretch (positions only), a few Gauss–Newton passes. */
@@ -159,8 +168,7 @@ function projectPositions(sys: System, Xin: Float64Array): Float64Array {
   for (let pass = 0; pass < 6; pass++) {
     const poses = computePoses(model, X)
     const rows: Array<{ j: RowJ; err: number }> = []
-    for (const hg of model.hinges) for (const k of hingeKin(poses, hg.a, hg.b)) if (Math.abs(k.value) > MOREAU.slop) rows.push({ j: k.j, err: k.value })
-    model.rods.forEach(r => { const k = distanceKin(poses, r.a, r.b); if (Math.abs(k.value - r.length) > MOREAU.slop) rows.push({ j: k.j, err: k.value - r.length }) })
+    for (const e of equalityKins(model, poses)) if (e.holonomic && Math.abs(e.kin.value) > MOREAU.slop) rows.push({ j: e.kin.j, err: e.kin.value })
     model.ropes.forEach(r => { const k = ropeKin(poses, r); if (k.value < -MOREAU.slop) rows.push({ j: k.j, err: k.value }) })
     for (const pair of sys.pairs) {
       if (!pairMayTouch(pair, poses, 1e-6)) continue

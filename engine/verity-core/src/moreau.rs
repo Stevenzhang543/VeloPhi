@@ -1,8 +1,8 @@
 //! Moreau–Jean time stepping, the reduced-accuracy fallback (port of `src/core/solver/moreau.ts`).
 
-use crate::dynamics::{applied_forces_into, energy, row_dot, row_minv_row, tol, Rates, System, AUX_DAMP, AUX_WORK};
+use crate::dynamics::{applied_forces_into, energy, row_dot, row_minv_row, tol, Rates, System, AUX_BELT, AUX_DAMP, AUX_WORK};
 use crate::js::{js_max, js_min};
-use crate::kinematics::{compute_poses, contact_kin, distance_kin, hinge_kin, rope_kin, ContactKin, Pose, RowJ};
+use crate::kinematics::{compute_poses, contact_kin, equality_kins, rope_kin, ContactKin, EqualityKind, Pose, RowJ};
 use crate::message::SimResult;
 use crate::modes::{in_region, pair_may_touch};
 use crate::project::correction;
@@ -119,17 +119,15 @@ pub fn moreau_step(sys: &System, x: &[f64], h: f64) -> SimResult<MoreauStepResul
         v[3 * i + 2] += h * q[3 * i + 2] * ii;
     }
     let mut rows: Vec<PRow> = Vec::new();
-    let eq = |rows: &mut Vec<PRow>, j: RowJ| {
-        let d = row_minv_row(model, &j, &j);
-        rows.push(PRow { j, d, target: 0.0, kind: PKind::Eq, normal: usize::MAX, mu: 0.0, lambda: 0.0 });
-    };
-    for hg in &model.hinges {
-        for k in hinge_kin(model, &poses, &hg.a, &hg.b) {
-            eq(&mut rows, k.j);
+    // Equality rows keep their velocity target: 0, or a motor's speed (vel = J·v − speed)
+    let mut drives: Vec<usize> = Vec::new();
+    for e in equality_kins(model, &poses) {
+        if e.kind == EqualityKind::Drive {
+            drives.push(rows.len());
         }
-    }
-    for r in &model.rods {
-        eq(&mut rows, distance_kin(model, &poses, &r.a, &r.b).0.j);
+        let target = if e.kind == EqualityKind::Drive { model.motors[e.owner].speed } else { 0.0 };
+        let d = row_minv_row(model, &e.kin.j, &e.kin.j);
+        rows.push(PRow { j: e.kin.j, d, target, kind: PKind::Eq, normal: usize::MAX, mu: 0.0, lambda: 0.0 });
     }
     for r in &model.ropes {
         let (k, _) = rope_kin(model, &poses, r);
@@ -178,6 +176,11 @@ pub fn moreau_step(sys: &System, x: &[f64], h: f64) -> SimResult<MoreauStepResul
             }
         }
     }
+    // Motor work (26.51): torque motors (their power over the step) and the impulses of speed drives at their speed
+    let mut motor = h * rates.belt_work;
+    for &k in &drives {
+        motor += rows[k].lambda * rows[k].target;
+    }
     let mut y = x.to_vec();
     for k in 0..3 * n {
         y[3 * n + k] = v[k];
@@ -185,13 +188,18 @@ pub fn moreau_step(sys: &System, x: &[f64], h: f64) -> SimResult<MoreauStepResul
     }
     y[sys.aux_base + AUX_WORK] = x[sys.aux_base + AUX_WORK] + h * rates.applied_work;
     y[sys.aux_base + AUX_DAMP] = x[sys.aux_base + AUX_DAMP] + h * rates.damping;
+    if motor != 0.0 {
+        y[sys.aux_base + AUX_BELT] = x[sys.aux_base + AUX_BELT] + motor;
+    }
     if let Some(ts) = sys.time_slot {
         y[ts] = x[ts] + h;
     }
     let z = project_positions(sys, y);
     let poses1 = compute_poses(model, &z);
     let e1 = energy(sys, &z, &poses1).total;
-    Ok(MoreauStepResult { x: z, loss: e0 + h * rates.applied_work - h * rates.damping - e1 })
+    // Scenes without motors keep the expression of 26.50 (bit for bit)
+    let loss = if motor != 0.0 { e0 + h * rates.applied_work + motor - h * rates.damping - e1 } else { e0 + h * rates.applied_work - h * rates.damping - e1 };
+    Ok(MoreauStepResult { x: z, loss })
 }
 
 /// Remove penetration, joint drift and rope overstretch (positions only).
@@ -202,17 +210,9 @@ fn project_positions(sys: &System, x_in: Vec<f64>) -> Vec<f64> {
     for _ in 0..6 {
         let poses = compute_poses(model, &x);
         let mut rows: Vec<(RowJ, f64)> = Vec::new();
-        for hg in &model.hinges {
-            for k in hinge_kin(model, &poses, &hg.a, &hg.b) {
-                if k.value.abs() > SLOP {
-                    rows.push((k.j, k.value));
-                }
-            }
-        }
-        for r in &model.rods {
-            let (k, _, _) = distance_kin(model, &poses, &r.a, &r.b);
-            if (k.value - r.length).abs() > SLOP {
-                rows.push((k.j, k.value - r.length));
+        for e in equality_kins(model, &poses) {
+            if e.holonomic && e.kin.value.abs() > SLOP {
+                rows.push((e.kin.j, e.kin.value));
             }
         }
         for r in &model.ropes {

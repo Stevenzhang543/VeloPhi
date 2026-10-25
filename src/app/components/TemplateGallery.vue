@@ -4,12 +4,13 @@
  * angles in degrees); g starts at the default gravity of the settings.
  */
 import { tl } from '../../i18n'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { state, loadScene } from '../store'
 import { TEMPLATES } from '../../templates'
 import type { TemplateInfo, TemplateParam } from '../../templates'
 import { settings } from '../settings'
 import { logEvent } from '../trialLog'
+import { ask } from '../../platform/ask'
 import NumField from './NumField.vue'
 import Icon from './Icon.vue'
 
@@ -22,11 +23,15 @@ function choose(t: TemplateInfo) {
   values.value = Object.fromEntries(t.params.map(p => [p.key, p.key === 'g' && p.unit === 'm/s²' ? settings.defaultGravity : p.value]))
 }
 choose(TEMPLATES[0])
-/** Groups in teaching order (groups not listed here follow in the order the templates define them). */
-const GROUP_ORDER = [tl('斜面与摩擦'), tl('传送带'), tl('抛体'), tl('圆周运动'), tl('碰撞'), tl('动量守恒'), tl('振动'), tl('连接体'), tl('刚体转动'), tl('变力')]
-const GROUP_ICON: Record<string, string> = {
-  斜面与摩擦: 'incline', 传送带: 'conveyor', 抛体: 'ball', 圆周运动: 'disc', 碰撞: 'ball', 动量守恒: 'layers', 振动: 'spring', 连接体: 'pulley', 刚体转动: 'rod', 变力: 'force'
-}
+/** Groups in teaching order with their icons (groups not listed here follow in the order the templates define them). */
+const GROUPS: Array<[string, string]> = [
+  ['直线运动', 'block'], ['力与平衡', 'force'], ['斜面与摩擦', 'incline'], ['传送带', 'conveyor'], ['抛体', 'ball'], ['圆周运动', 'disc'],
+  ['万有引力', 'orbit'], ['碰撞', 'ball'], ['动量守恒', 'layers'], ['振动', 'spring'], ['连接体', 'pulley'], ['刚体转动', 'gear'],
+  ['空气阻力', 'wind'], ['变力', 'force']
+]
+// Keyed by the translated name (the template groups are read in the interface language)
+const GROUP_ORDER = GROUPS.map(([g]) => tl(g))
+const GROUP_ICON: Record<string, string> = Object.fromEntries(GROUPS.map(([g, icon]) => [tl(g), icon]))
 const query = ref('')
 const groups = computed(() => {
   const q = query.value.trim()
@@ -39,6 +44,11 @@ const groups = computed(() => {
   }
   return [...m.entries()].filter(([, l]) => l.length > 0)
 })
+// A search that hides the chosen template chooses the first match, so the details always belong to a listed one
+watch(groups, gs => {
+  const shown = gs.flatMap(([, l]) => l)
+  if (shown.length && !shown.some(t => t.id === chosen.value.id)) choose(shown[0])
+})
 const preview = computed(() => { try { return chosen.value.build(values.value).description } catch (e) { return (e as Error).message } })
 
 /** Template angles are in degrees; the field works in rad (so it follows the angle unit setting). */
@@ -48,8 +58,8 @@ const fieldUnit = (p: TemplateParam) => (isAngle(p) ? 'rad' : p.unit)
 const fieldBound = (p: TemplateParam, v: number | undefined) => (v === undefined ? undefined : isAngle(p) ? v * DEG : v)
 function setField(p: TemplateParam, v: number) { values.value[p.key] = isAngle(p) ? Number((v / DEG).toPrecision(14)) : v }
 
-function create() {
-  if (state.dirty && !confirm(tl('当前场景有未保存的修改，确定要用模板替换吗？'))) return
+async function create() {
+  if (state.dirty && !(await ask(tl('当前场景有未保存的修改，确定要用模板替换吗？')))) return
   const scene = chosen.value.build(values.value)
   scene.extra = { ...(scene.extra ?? {}), template: { id: chosen.value.id, values: { ...values.value } } }
   loadScene(scene, null)

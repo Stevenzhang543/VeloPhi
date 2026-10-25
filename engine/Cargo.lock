@@ -94,7 +94,7 @@ checksum = "a2c754d6c33795a1c324727428e5a7dedb5b06195f9890bdbcba760d3e246563"
 
 [[package]]
 name = "verity-cli"
-version = "26.50.0"
+version = "26.51.0"
 dependencies = [
  "serde_json",
  "verity-core",
@@ -102,7 +102,7 @@ dependencies = [
 
 [[package]]
 name = "verity-core"
-version = "26.50.0"
+version = "26.51.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -110,7 +110,7 @@ dependencies = [
 
 [[package]]
 name = "verity-wasm"
-version = "26.50.0"
+version = "26.51.0"
 dependencies = [
  "serde_json",
  "verity-core",

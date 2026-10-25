@@ -17,7 +17,8 @@ bits). The interface renders them in the current language: run messages with `sr
 | `reason.eventsAtInstant` | t, count | t = … s 处同一时刻发生 … 次状态切换 |
 | `reason.eventStorm` | count, window | 碰撞与接触切换过于密集（… 次 / … s） |
 | `warn.ambiguousMode` | violation | t 时刻接触状态无完全一致解（违背量 …），已取最接近的一种 |
-| `warn.multiImpactFriction` | — | 多个接触点同时碰撞时，碰撞冲量未计摩擦… |
+| `warn.multiImpactFriction` | — | 多个接触点同时碰撞时没有找到满足库仑摩擦且不增能的冲量组合（26.51，D37）… |
+| `warn.multiImpactPlastic` | — | 多个接触点同时碰撞时，按牛顿恢复定律逐点反弹会使动能增加，这类碰撞已按完全非弹性（e = 0）处理（26.51） |
 | `warn.polygonCentred` | body | (26.49: English text) polygon points are taken relative to its centre of mass |
 | `warn.muSBelowMuK` | body | (26.49: English text) μs < μk |
 | `err.forceNotFinite` | force, t, fx, fy | …：变力表达式在 t = … s 时没有有限值…，仿真停止 |
@@ -63,6 +64,12 @@ reach the user only if the two loaders ever disagree; they are rendered as key a
 | `scene.stopAtDelayRange` | max |
 | `scene.outputStepRange` | — |
 | `scene.tolerancesNotPositive` | — |
+| `scene.cubicNotFinite` | connector (26.51) |
+| `scene.damperNegative` | connector (26.51) |
+| `scene.sliderAxisZero` | connector (26.51) |
+| `scene.gearInvalid` | connector (26.51) |
+| `scene.gravitationNotPositive` | — (26.51) |
+| `scene.dragNegative` | body (26.51) |
 
 ## Force expressions (Rust `expr.rs`)
 

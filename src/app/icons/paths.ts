@@ -34,6 +34,14 @@ export const UI_ICONS: Record<string, string> = {
   spring: 'M3 12h3l2-4 3 8 3-8 3 8 2-4h3',
   hinge: 'M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0-6 0M12 12l7 6M6 5h12',
   force: 'M4 12h14M14 7l5 5-5 5',
+  // Connectors of 26.51
+  damper: 'M3 12h6M9 8h10M9 16h10M9 8v8M14 9.5v5M14 12h7',
+  weld: 'M3 7h8v10H3zM13 7h8v10h-8zM10.5 9.5l3 2-3 2',
+  slider: 'M3 17h18M3 20h18M7 9h10v8H7zM12 13h.01',
+  motor: 'M12 12m-4 0a4 4 0 1 0 8 0a4 4 0 1 0-8 0M12 12h.01M19.5 9A8 8 0 0 0 5 7.5M19.5 9V5M19.5 9h-4',
+  gear: 'M8 12m-4 0a4 4 0 1 0 8 0a4 4 0 1 0-8 0M17.5 12m-2.5 0a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0-5 0M8 6.5V8M8 16v1.5M2.5 12H4M17.5 8v1.5M17.5 14.5V16M21.5 12H20',
+  orbit: 'M12 12m-2.5 0a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0-5 0M2.5 12a9.5 4.5 0 1 0 19 0a9.5 4.5 0 1 0-19 0M19 8.5h.01',
+  wind: 'M3 8h11a2.5 2.5 0 1 0-2.5-2.5M3 12h16a2.5 2.5 0 1 1-2.5 2.5M3 16h8a2 2 0 1 1-2 2',
   trash: 'M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13',
   copy: 'M8 8h11v11H8zM5 16V5h11',
   settings: 'M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2',
@@ -64,5 +72,8 @@ export const UI_ICONS: Record<string, string> = {
   layers: 'M12 3l9 5-9 5-9-5zM3 13l9 5 9-5',
   download: 'M12 4v11M7 10l5 5 5-5M5 20h14',
   saveas: 'M5 4h11l3 3v6M5 4v16h7M8 4v5h7V4M15 15v6M12 18h6',
-  more: 'M6 12h.01M12 12h.01M18 12h.01'
+  more: 'M6 12h.01M12 12h.01M18 12h.01',
+  book: 'M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5zM4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5M8 7h8M8 11h6',
+  branch: 'M6 3v12M18 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM18 9a9 9 0 0 1-9 9',
+  graduation: 'M2 9l10-5 10 5-10 5zM6 11v5c3 2.5 9 2.5 12 0v-5M22 9v6'
 }

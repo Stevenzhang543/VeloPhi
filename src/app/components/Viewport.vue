@@ -15,6 +15,7 @@
  */
 import { tl } from '../../i18n'
 import { msgText } from '../../i18n/locale'
+import { shownTime } from '../../units/clock'
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { state, edit, markStale, viewCamera } from '../store'
 import { usePageActive } from '../live'
@@ -26,7 +27,7 @@ import type { System } from '../../core/solver/dynamics'
 import type { Pose } from '../../core/solver/kinematics'
 import { computePoses, pulleyCenter } from '../../core/solver/kinematics'
 import { frameIsCheap, frameState } from '../../core/solver/simulation'
-import type { AnnotationDef } from '../../core/scene/types'
+import type { AnnotationDef, BodyDef } from '../../core/scene/types'
 import { cloneScene, parseScene, serializeScene } from '../../core/scene/io'
 import type { Camera } from '../../render/renderer'
 import { DARK, LIGHT, computeTrajectories, drawScene, eventLabelAt, toScreen, toWorld, vectorScales } from '../../render/renderer'
@@ -36,12 +37,15 @@ import { DEFAULT_STYLE, PROJECTOR_STYLE, renderFrame } from '../../render/frame'
 import type { EditorOverlay, HandleKind } from '../../render/overlay'
 import { drawEditorOverlay, emptyOverlay } from '../../render/overlay'
 import { TEXT_SIZE, annotationPoints, rulerLabel } from '../../render/annotations'
-import { anchorFor, createConnector, createForce, createHinge, hitTest, moveObject, placeObject, wrapAt } from '../editing'
+import { anchorFor, createConnector, createForce, createHinge, createPin, hitTest, moveObject, placeObject, wrapAt } from '../editing'
 import { editor, clearDrafts, notify } from '../editor/editorState'
 import type { MenuTarget } from '../editor/editorState'
 import type { Pt } from '../editor/geometry'
-import { bodyCenter, pulleyWorld } from '../editor/geometry'
+import { bodyBounds, bodyCenter, pulleyWorld } from '../editor/geometry'
 import { featurePoints, featureSnap, snapOn, snapPoint, snapStep } from '../editor/snap'
+import type { ContactSnap, SnapMemory } from '../editor/objectSnap'
+import { outlineOf, sceneFeatures, shifted, snapAngles, snapBodyMove, snapPointToObjects, snapRotation } from '../editor/objectSnap'
+import type { OverlayShape } from '../../render/overlay'
 import type { DragFeedback, Handle, HandleDrag, HandleId } from '../editor/handles'
 import { applyHandleDrag, bodyHandles, deleteVertex, edgeAt, handleKey, hitHandle, insertVertex, pulleyHandles, rotateStemFrom, startHandleDrag } from '../editor/handles'
 import type { DragTool } from '../editor/create'
@@ -66,6 +70,8 @@ const hover = ref<string | null>(null)
 const hotHandle = ref<string | null>(null)
 const cursorWorld = shallowRef<Pt | null>(null)
 const snapMark = shallowRef<Pt | null>(null)
+/** Guides of the object snap in effect (target surfaces and contact points). */
+const snapGuides = shallowRef<OverlayShape[]>([])
 const cursor = ref('default')
 
 const editing = computed(() => state.stale || !state.recording)
@@ -266,7 +272,7 @@ watch(() => state.scene, requestDraw, { deep: true })
 watch(settings, requestDraw, { deep: true })
 watch(editor, requestDraw, { deep: true })
 watch(() => state.selection, s => { if (s) editor.annotationId = null })
-watch(() => state.tool, () => { clearDrafts(); snapMark.value = null })
+watch(() => state.tool, () => { clearDrafts(); snapMark.value = null; snapGuides.value = [] })
 
 defineExpose({ canvas, cam, fitView })
 
@@ -342,6 +348,7 @@ function buildOverlay(): EditorOverlay {
     for (const p of editor.angleDraft) ov.handles.push({ at: p, kind: 'point' })
   }
   ov.snap = snapMark.value
+  ov.shapes.push(...snapGuides.value)
   return ov
 }
 
@@ -372,6 +379,40 @@ function pulleyNow(id: string): Pt | null {
   const def = state.scene.pulleys.find(p => p.id === id)
   return def ? pulleyWorld(state.scene, def) : null
 }
+
+/** Guide shapes of contact snaps: the target surface and the contact point. */
+function contactGuides(contacts: ContactSnap[]): OverlayShape[] {
+  const out: OverlayShape[] = []
+  for (const c of contacts) {
+    if ('a' in c.surface) out.push({ kind: 'line', a: c.surface.a, b: c.surface.b, dashed: true })
+    else if (c.surface.r > 0) out.push({ kind: 'circle', c: c.surface.c, r: c.surface.r, dashed: true })
+    out.push({ kind: 'circle', c: c.at, r: 3 / cam.value.ppm, fill: true })
+  }
+  return out
+}
+
+/**
+ * Point used for editing (handles, creation corners, text): the grid when grid snapping is on, else object
+ * features and surfaces nearby (D47), else the pointer itself. Alt bypasses both. Sets the snap marker.
+ */
+function editPoint(p: Pt, alt: boolean, exclude: ReadonlySet<string> = new Set()): Pt {
+  const ppm = cam.value.ppm
+  if (snapOn(alt)) { const q = snapPoint(p, ppm, alt); snapGuides.value = []; return q }
+  if (alt || !settings.editor.objectSnap) { snapGuides.value = []; return { x: p.x, y: p.y } }
+  const s = snapPointToObjects(state.scene, sceneFeatures(state.scene, exclude), p, ppm, exclude)
+  if (!s) { snapGuides.value = []; return { x: p.x, y: p.y } }
+  const g: OverlayShape[] = []
+  if (s.surface && 'a' in s.surface) g.push({ kind: 'line', a: s.surface.a, b: s.surface.b, dashed: true })
+  snapGuides.value = g
+  return s.p
+}
+
+/** Width and height of a body's bounds (m). */
+function bodySize(def: BodyDef): [number, number] {
+  const b = bodyBounds(def)
+  return [b.maxX - b.minX, b.maxY - b.minY]
+}
+
 
 /** Measuring tools snap to object features first, then to the grid. */
 function measureSnap(p: Pt, alt: boolean): Pt {
@@ -406,8 +447,8 @@ function commitSnapshot(snapshot: string) {
 type Drag =
   | { kind: 'pan'; lastX: number; lastY: number }
   | { kind: 'right'; sx: number; sy: number; lastX: number; lastY: number }
-  | { kind: 'move'; sel: Selection; start: Pt; applied: Pt; snapshot: string; moved: boolean; sx: number; sy: number }
-  | { kind: 'handle'; hd: HandleDrag; key: string; snapshot: string; moved: boolean; sx: number; sy: number; feedback: DragFeedback | null }
+  | { kind: 'move'; sel: Selection; start: Pt; applied: Pt; snapshot: string; moved: boolean; sx: number; sy: number; mem: SnapMemory }
+  | { kind: 'handle'; hd: HandleDrag; key: string; snapshot: string; moved: boolean; sx: number; sy: number; feedback: DragFeedback | null; heldAngle: number }
   | { kind: 'create'; tool: DragTool; a: Pt; b: Pt; step: number; moved: boolean; sx: number; sy: number }
   | { kind: 'annot-create'; tool: 'measure-ruler' | 'annotate-arrow'; a: Pt; b: Pt; moved: boolean; sx: number; sy: number }
   | { kind: 'annot-move'; id: string; orig: AnnotationDef; point: number; start: Pt; snapshot: string; moved: boolean; sx: number; sy: number }
@@ -453,7 +494,7 @@ function onDown(e: MouseEvent) {
     return
   }
   const tool = state.tool
-  const sp = snapPoint(p, ppm, e.altKey)
+  const sp = tool.startsWith('add-') || tool.startsWith('annotate-') ? editPoint(p, e.altKey) : snapPoint(p, ppm, e.altKey)
   if (tool === 'add-polygon') { polygonClick(sp); return }
   if (tool === 'measure-angle') { angleClick(measureSnap(p, e.altKey), e.shiftKey); return }
   if (tool === 'measure-ruler' || tool === 'annotate-arrow') {
@@ -477,14 +518,15 @@ function onDown(e: MouseEvent) {
     if (!e.shiftKey) state.tool = 'select'
     return
   }
-  if (tool === 'connect-hinge') {
+  if (tool === 'connect-hinge' || tool === 'connect-weld' || tool === 'connect-motor' || tool === 'connect-slider') {
     let id: string | null = null
-    edit(scene => { id = createHinge(scene, cp.sys, cp.poses, p) })
+    const kind = ({ 'connect-hinge': 'hinge', 'connect-weld': 'weld', 'connect-motor': 'motor', 'connect-slider': 'slider' } as const)[tool]
+    edit(scene => { id = createPin(scene, cp.sys, cp.poses, p, kind) })
     if (id) { state.selection = { kind: 'connector', id }; state.rightTab = 'inspect' } else notify(tl('请点击在可运动的物体上'))
     if (!e.shiftKey) state.tool = 'select'
     return
   }
-  if (tool === 'connect-rope' || tool === 'connect-rod' || tool === 'connect-spring') {
+  if (tool === 'connect-rope' || tool === 'connect-rod' || tool === 'connect-spring' || tool === 'connect-damper' || tool === 'connect-gear') {
     const pending = state.pendingConnector
     if (tool === 'connect-rope' && pending) {
       const hit = hitTest(cp.sys, cp.poses, p, tol)
@@ -498,7 +540,7 @@ function onDown(e: MouseEvent) {
     let id: string | null = null
     edit(scene => { id = createConnector(scene, tool, pending.first, anc, pulleys) })
     state.pendingConnector = null
-    if (id) { state.selection = { kind: 'connector', id }; state.rightTab = 'inspect' }
+    if (id) { state.selection = { kind: 'connector', id }; state.rightTab = 'inspect' } else if (tool === 'connect-gear') notify(tl('齿轮需要连接两个可运动的物体'))
     if (!e.shiftKey) state.tool = 'select'
     return
   }
@@ -516,7 +558,7 @@ function onDown(e: MouseEvent) {
       }
       const snapshot = serializeScene(state.scene)
       const hd = startHandleDrag(state.scene, sh.target, h.id, p)
-      if (hd) drag = { kind: 'handle', hd, key: handleKey(hd.handle), snapshot, moved: false, sx: e.clientX, sy: e.clientY, feedback: null }
+      if (hd) drag = { kind: 'handle', hd, key: handleKey(hd.handle), snapshot, moved: false, sx: e.clientX, sy: e.clientY, feedback: null, heldAngle: Number.NaN }
       return
     }
   }
@@ -549,7 +591,7 @@ function onDown(e: MouseEvent) {
   // During playback a click on a moving body is a request for its readings
   if (!editing.value && hit?.kind === 'body' && state.rightTab === 'inspect' && cp.sys.model.byId.get(hit.id)?.dynamic) state.rightTab = 'watch'
   if (hit && (hit.kind === 'body' || hit.kind === 'pulley') && canEditGeometry.value) {
-    drag = { kind: 'move', sel: hit, start: p, applied: { x: 0, y: 0 }, snapshot: serializeScene(state.scene), moved: false, sx: e.clientX, sy: e.clientY }
+    drag = { kind: 'move', sel: hit, start: p, applied: { x: 0, y: 0 }, snapshot: serializeScene(state.scene), moved: false, sx: e.clientX, sy: e.clientY, mem: { keys: [] } }
   }
 }
 
@@ -618,10 +660,30 @@ function onMove(e: MouseEvent) {
     if (d.kind === 'move') {
       if (!d.moved && dist < 4) return
       d.moved = true
-      // Snap the displacement, so a body that sits on the grid stays on it
       const tot = { x: p.x - d.start.x, y: p.y - d.start.y }
       const s = snapOn(e.altKey) ? snapStep(ppm) : 0
-      const want = s ? { x: Math.round(tot.x / s) * s, y: Math.round(tot.y / s) * s } : tot
+      let want = s ? { x: Math.round(tot.x / s) * s, y: Math.round(tot.y / s) * s } : tot
+      snapGuides.value = []
+      if (!s && !e.altKey && settings.editor.objectSnap && d.sel?.kind === 'body') {
+        // Object snapping (D47): the outline at the raw position, pulled into contact with its neighbours
+        const sel = d.sel
+        const def = state.scene.bodies.find(b => b.id === sel.id)
+        if (def) {
+          const raw = shifted(outlineOf(def), { x: tot.x - d.applied.x, y: tot.y - d.applied.y })
+          const r = snapBodyMove(state.scene, def.id, raw, ppm, d.mem)
+          want = { x: tot.x + r.delta.x, y: tot.y + r.delta.y }
+          snapGuides.value = contactGuides(r.contacts)
+        }
+      } else if (!s && !e.altKey && settings.editor.objectSnap && d.sel?.kind === 'pulley') {
+        const sel = d.sel
+        const def = state.scene.pulleys.find(x => x.id === sel.id)
+        if (def) {
+          const c0 = pulleyWorld(state.scene, def)
+          const at = { x: c0.x + tot.x - d.applied.x, y: c0.y + tot.y - d.applied.y }
+          const q = editPoint(at, false, new Set(def.body ? [def.body] : []))
+          want = { x: tot.x + q.x - at.x, y: tot.y + q.y - at.y }
+        }
+      }
       moveObject(state.scene, d.sel, want.x - d.applied.x, want.y - d.applied.y)
       d.applied = want
       snapMark.value = s ? { x: d.start.x + want.x, y: d.start.y + want.y } : null
@@ -635,12 +697,18 @@ function onMove(e: MouseEvent) {
       d.moved = true
       const snap = snapOn(e.altKey)
       const rot = d.hd.handle.kind === 'rotate'
-      const q = rot ? p : snapPoint(p, ppm, e.altKey)
+      const def = d.hd.bodyId ? state.scene.bodies.find(b => b.id === d.hd.bodyId) : null
+      const q = rot ? p : editPoint(p, e.altKey, new Set(d.hd.bodyId ? [d.hd.bodyId] : []))
+      // Rotation: fixed steps when set in the settings, else free with magnetic angles (D47)
+      const magnetic = rot && def && settings.editor.angleSnap === 0 && !e.altKey && !e.shiftKey && settings.editor.objectSnap
+      const cands = magnetic && def ? snapAngles(state.scene, def, Math.max(1, 3 * Math.hypot(...bodySize(def)))) : []
       d.feedback = applyHandleDrag(state.scene, d.hd, q, {
         snap, step: snapStep(ppm), shift: e.shiftKey, angleSnap: (settings.editor.angleSnap * Math.PI) / 180,
+        magnet: magnetic ? (a: number) => { const r = snapRotation(a, cands, d.heldAngle); d.heldAngle = r.snapped; return r.angle } : null,
         fmtLen: v => fmtQ(v, 'm', 4), fmtAng: v => fmtQ(v, 'rad', 4)
       })
       snapMark.value = snap && !rot ? q : null
+      if (rot) snapGuides.value = []
       state.stale = true
       state.playing = false
       requestDraw()
@@ -649,9 +717,9 @@ function onMove(e: MouseEvent) {
     if (d.kind === 'create') {
       if (!d.moved && dist < 4) return
       d.moved = true
-      d.b = snapPoint(p, ppm, e.altKey)
+      d.b = editPoint(p, e.altKey)
       d.step = snapOn(e.altKey) ? snapStep(ppm) : 0
-      snapMark.value = d.step ? d.b : null
+      snapMark.value = d.step || snapGuides.value.length ? d.b : null
       requestDraw()
       return
     }
@@ -719,7 +787,13 @@ function onMove(e: MouseEvent) {
   // Snap marker while placing or measuring
   let mark: Pt | null = null
   if (tool === 'measure-ruler' || tool === 'measure-angle') mark = measureSnap(p, e.altKey)
-  else if ((tool.startsWith('add-') && tool !== 'add-force') || tool === 'annotate-arrow' || tool === 'annotate-text') mark = snapOn(e.altKey) ? snapPoint(p, ppm, e.altKey) : null
+  else if ((tool.startsWith('add-') && tool !== 'add-force') || tool === 'annotate-arrow' || tool === 'annotate-text') {
+    if (snapOn(e.altKey)) mark = snapPoint(p, ppm, e.altKey)
+    else {
+      const q = editPoint(p, e.altKey)
+      mark = q.x !== p.x || q.y !== p.y ? q : null
+    }
+  } else if (snapGuides.value.length) snapGuides.value = []
   const changed = (mark?.x ?? NaN) !== (snapMark.value?.x ?? NaN) || (mark?.y ?? NaN) !== (snapMark.value?.y ?? NaN)
   if (changed || (mark === null) !== (snapMark.value === null)) snapMark.value = mark
   if (changed || state.pendingConnector || editor.polyDraft.length || editor.angleDraft.length) requestDraw()
@@ -740,6 +814,7 @@ function cursorForHandle(h: Handle): string {
 function onUp(e: MouseEvent) {
   const d = drag
   drag = null
+  if (snapGuides.value.length) snapGuides.value = []
   if (!d) return
   if (d.kind === 'pan') { cursor.value = state.tool === 'pan' ? 'grab' : 'default'; return }
   if (d.kind === 'right') { if (studio.value) openMenu(e); return }
@@ -786,6 +861,7 @@ function onUp(e: MouseEvent) {
 }
 
 function onLeave() {
+  snapGuides.value = []
   hover.value = null
   hotHandle.value = null
   cursorWorld.value = null
@@ -1036,17 +1112,22 @@ function restoreSnapshot(snapshot: string) {
 const timeText = computed(() => {
   if (editing.value) return null
   const decimals = Math.max(2, Math.min(5, state.digits - 2))
-  return `t = ${toDisp(state.time, 's').toFixed(decimals)} ${unitLabel('s')}`
+  return `t = ${toDisp(shownTime(state.time), 's').toFixed(decimals)} ${unitLabel('s')}`
 })
 
 const toolHint = computed(() => {
   if (!studio.value) return ''
-  const snap = settings.editor.snap ? tl('；按住 Alt 暂停吸附') : ''
+  const snap = settings.editor.snap || settings.editor.objectSnap ? tl('；按住 Alt 暂停吸附') : ''
   switch (state.tool) {
     case 'connect-rope': return state.pendingConnector ? tl('点击滑轮让绳绕过，再点击另一物体或空白处（固定点）完成') : tl('点击物体（靠近中心吸附到质心）或空白处作为绳的一端')
     case 'connect-rod': return state.pendingConnector ? tl('点击另一端') : tl('点击轻杆的一端')
     case 'connect-spring': return state.pendingConnector ? tl('点击弹簧另一端（物体或固定点）') : tl('点击弹簧的一端')
     case 'connect-hinge': return tl('点击物体上的转轴位置（与重叠的物体铰接，否则固定在世界中）')
+    case 'connect-damper': return state.pendingConnector ? tl('点击阻尼器另一端（物体或固定点）') : tl('点击阻尼器的一端')
+    case 'connect-weld': return tl('点击两物体重叠处把它们焊成一体；只有一个物体时把它固定在世界中')
+    case 'connect-motor': return tl('点击转轴位置：上面的物体被驱动，相对下面的物体或世界转动')
+    case 'connect-slider': return tl('点击物体：它只能沿自身 x 方向相对下面的物体或世界滑动')
+    case 'connect-gear': return state.pendingConnector ? tl('点击另一个物体（两轮的角速度之比由半径决定）') : tl('点击第一个齿轮（物体）')
     case 'add-force': return tl('点击物体上的作用点添加恒力')
     case 'pan': return tl('拖动平移视图')
     case 'select': return ''
@@ -1068,7 +1149,7 @@ const selectionHint = computed(() => {
   if (sel?.kind !== 'body') return ''
   const b = state.scene.bodies.find(x => x.id === sel.id)
   if (!b) return ''
-  const rot = settings.editor.angleSnap > 0 ? tl('（按 {0}° 吸附，Shift 自由旋转）', [settings.editor.angleSnap]) : ''
+  const rot = settings.editor.angleSnap > 0 ? tl('（按 {0}° 吸附，Shift 自由旋转）', [settings.editor.angleSnap]) : settings.editor.objectSnap ? tl('（任意角度；靠近 0°、90° 或附近表面的倾角时吸附，Alt 关闭）') : ''
   if (b.shape.type === 'polygon') return tl('拖动顶点改形状，双击边添加顶点，Alt+单击顶点删除；圆形手柄旋转{0}', [rot])
   if (b.shape.type === 'box') return tl('拖动方形手柄改大小（Shift 等比），圆形手柄旋转{0}；右键可转为多边形', [rot])
   return tl('拖动手柄改半径')

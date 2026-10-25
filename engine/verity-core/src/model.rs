@@ -50,6 +50,13 @@ pub struct BodyModel {
     pub def_angle: f64,
     pub def_velocity: Vec2,
     pub def_angular_velocity: f64,
+    /// Drag coefficients (26.51): linear b (N·s/m) and quadratic c (N·s²/m²); 0 without drag.
+    pub drag_lin: f64,
+    pub drag_quad: f64,
+    /// Gravitating mass (kg; 26.51): the body's mass when gravitation is on (static bodies too), else 0.
+    pub attract: f64,
+    /// Centre of attraction of a static body (world, m): its area centroid; dynamic bodies use their centre of mass.
+    pub grav_pos: Vec2,
 }
 
 /// Anchor resolved to its body (global index; None: the world).
@@ -103,6 +110,55 @@ pub struct SpringModel {
     pub stiffness: f64,
     pub rest_length: f64,
     pub damping: f64,
+    /// k₃ of a nonlinear spring (0: linear).
+    pub cubic: f64,
+    /// A damper (26.51): stiffness 0, no potential energy.
+    pub damper: bool,
+}
+
+/// Compiled weld; `angle0` (rad) is NaN until build_system resolves it.
+#[derive(Clone, Debug)]
+pub struct WeldModel {
+    pub id: String,
+    pub name: String,
+    pub a: AnchorModel,
+    pub b: AnchorModel,
+    pub angle0: f64,
+}
+
+/// Compiled slider; `axis` is the unit direction in a's body frame (world when a has no dynamic body).
+#[derive(Clone, Debug)]
+pub struct SliderModel {
+    pub id: String,
+    pub name: String,
+    pub a: AnchorModel,
+    pub b: AnchorModel,
+    pub axis: Vec2,
+    pub free: bool,
+    pub angle0: f64,
+}
+
+/// Compiled motor (a pin joint with a drive).
+#[derive(Clone, Debug)]
+pub struct MotorModel {
+    pub id: String,
+    pub name: String,
+    pub a: AnchorModel,
+    pub b: AnchorModel,
+    pub torque_mode: bool,
+    pub speed: f64,
+    pub torque: f64,
+}
+
+/// Compiled gear: ω_a + ratio·ω_b = 0 between dynamic bodies (None: the world); `offset0` resolved at build.
+#[derive(Clone, Debug)]
+pub struct GearModel {
+    pub id: String,
+    pub name: String,
+    pub a: Option<usize>,
+    pub b: Option<usize>,
+    pub ratio: f64,
+    pub offset0: f64,
 }
 
 /// Compiled pin joint.
@@ -137,6 +193,15 @@ pub struct Model {
     pub springs: Vec<SpringModel>,
     pub hinges: Vec<HingeModel>,
     pub forces: Vec<ForceModel>,
+    /// Connectors of 26.51 (D51).
+    pub welds: Vec<WeldModel>,
+    pub sliders: Vec<SliderModel>,
+    pub motors: Vec<MotorModel>,
+    pub gears: Vec<GearModel>,
+    /// Gravitational constant when gravitation is on (26.51, D50), else 0.
+    pub g_const: f64,
+    /// Global indices of the bodies with a gravitating mass, in scene order.
+    pub attractors: Vec<usize>,
     pub n: usize,
     /// Pair keys of bodies that never collide (joined by a hinge), in insertion order.
     pub no_collide: Vec<String>,
@@ -301,7 +366,16 @@ pub fn compile_model(scene: &Scene) -> SimResult<Model> {
         let fixed = def.kind == BodyKind::Particle || def.fixed_rotation;
         let inertia = if is_dynamic { def.inertia.unwrap_or_else(|| shape_inertia(&def.shape, mass)) } else { 0.0 };
         let bound = bound_radius(&shape);
-        let model = body_model(def, bodies.len(), if is_dynamic { dynamic.len() as i32 } else { -1 }, shape, mass, inertia, fixed, bound);
+        let mut model = body_model(def, bodies.len(), if is_dynamic { dynamic.len() as i32 } else { -1 }, shape, mass, inertia, fixed, bound);
+        model.attract = if scene.settings.gravitation.is_some() && def.mass > 0.0 { def.mass } else { 0.0 };
+        if !is_dynamic {
+            if let ShapeModel::Polygon { verts, .. } = &model.shape {
+                // Centre of attraction of a static polygon: its centroid in the world
+                let c = polygon_centroid(verts);
+                model.grav_pos =
+                    Vec2 { x: def.position.x + model.static_c * c.x - model.static_s * c.y, y: def.position.y + model.static_s * c.x + model.static_c * c.y };
+            }
+        }
         if def.material.mu_s < def.material.mu_k {
             warnings.push(Message::new("warn.muSBelowMuK").text("body", def.name.clone()));
         }
@@ -332,7 +406,19 @@ pub fn compile_model(scene: &Scene) -> SimResult<Model> {
     let mut springs = Vec::new();
     let mut hinges = Vec::new();
     let mut forces: Vec<ForceModel> = Vec::new();
+    let mut welds = Vec::new();
+    let mut sliders = Vec::new();
+    let mut motors = Vec::new();
+    let mut gears = Vec::new();
     let mut no_collide: Vec<String> = Vec::new();
+    let no_collide_add = |a: &crate::scene::Anchor, b: &crate::scene::Anchor, list: &mut Vec<String>| {
+        if let (Some(x), Some(y)) = (&a.body, &b.body) {
+            let key = pair_key(x, y);
+            if !list.contains(&key) {
+                list.push(key);
+            }
+        }
+    };
     for c in &scene.connectors {
         match &c.kind {
             ConnectorKind::Rope { a, b, pulleys: list, length } => {
@@ -352,7 +438,7 @@ pub fn compile_model(scene: &Scene) -> SimResult<Model> {
             ConnectorKind::Rod { a, b, length } => {
                 rods.push(RodModel { id: c.id.clone(), name: c.name.clone(), a: anchor(a), b: anchor(b), length: length.unwrap_or(f64::NAN) });
             }
-            ConnectorKind::Spring { a, b, stiffness, rest_length, damping } => springs.push(SpringModel {
+            ConnectorKind::Spring { a, b, stiffness, rest_length, damping, cubic } => springs.push(SpringModel {
                 id: c.id.clone(),
                 name: c.name.clone(),
                 a: anchor(a),
@@ -360,15 +446,58 @@ pub fn compile_model(scene: &Scene) -> SimResult<Model> {
                 stiffness: *stiffness,
                 rest_length: rest_length.unwrap_or(f64::NAN),
                 damping: *damping,
+                cubic: *cubic,
+                damper: false,
             }),
+            ConnectorKind::Damper { a, b, damping } => springs.push(SpringModel {
+                id: c.id.clone(),
+                name: c.name.clone(),
+                a: anchor(a),
+                b: anchor(b),
+                stiffness: 0.0,
+                rest_length: f64::NAN,
+                damping: *damping,
+                cubic: 0.0,
+                damper: true,
+            }),
+            ConnectorKind::Weld { a, b } => {
+                welds.push(WeldModel { id: c.id.clone(), name: c.name.clone(), a: anchor(a), b: anchor(b), angle0: f64::NAN });
+                no_collide_add(a, b, &mut no_collide);
+            }
+            ConnectorKind::Motor { a, b, torque_mode, speed, torque } => {
+                motors.push(MotorModel {
+                    id: c.id.clone(),
+                    name: c.name.clone(),
+                    a: anchor(a),
+                    b: anchor(b),
+                    torque_mode: *torque_mode,
+                    speed: *speed,
+                    torque: *torque,
+                });
+                no_collide_add(a, b, &mut no_collide);
+            }
+            ConnectorKind::Slider { a, b, axis, free } => {
+                let am = anchor(a);
+                let l = (axis.x * axis.x + axis.y * axis.y).sqrt();
+                let mut ax = Vec2 { x: axis.x / l, y: axis.y / l };
+                // On a static body (or the world) the axis is fixed in the world
+                if let Some(g) = am.body.filter(|&g| !bodies[g].dynamic) {
+                    let cb = &bodies[g];
+                    ax = Vec2 { x: cb.static_c * ax.x - cb.static_s * ax.y, y: cb.static_s * ax.x + cb.static_c * ax.y };
+                }
+                sliders.push(SliderModel { id: c.id.clone(), name: c.name.clone(), a: am, b: anchor(b), axis: ax, free: *free, angle0: f64::NAN });
+                no_collide_add(a, b, &mut no_collide);
+            }
+            ConnectorKind::Gear { a, b, ratio } => {
+                let ga = a.body.as_deref().and_then(|id| find_body(&bodies, id)).filter(|&g| bodies[g].dynamic);
+                let gb = b.body.as_deref().and_then(|id| find_body(&bodies, id)).filter(|&g| bodies[g].dynamic);
+                gears.push(GearModel { id: c.id.clone(), name: c.name.clone(), a: ga, b: gb, ratio: *ratio, offset0: f64::NAN });
+                // Meshing gears overlap at their teeth: the two bodies do not collide
+                no_collide_add(a, b, &mut no_collide);
+            }
             ConnectorKind::Hinge { a, b } => {
                 hinges.push(HingeModel { id: c.id.clone(), name: c.name.clone(), a: anchor(a), b: anchor(b) });
-                if let (Some(x), Some(y)) = (&a.body, &b.body) {
-                    let key = pair_key(x, y);
-                    if !no_collide.contains(&key) {
-                        no_collide.push(key);
-                    }
-                }
+                no_collide_add(a, b, &mut no_collide);
             }
             ConnectorKind::Force { a, force, expr } => {
                 let mut compiled = None;
@@ -425,8 +554,38 @@ pub fn compile_model(scene: &Scene) -> SimResult<Model> {
     for s in &springs {
         force_scale += s.stiffness * 0.1;
     }
+    // 26.51: motors and gravitation add to the force scale (absent in older scenes, so their tolerances are unchanged)
+    for m in &motors {
+        if m.torque_mode {
+            force_scale += m.torque.abs();
+        }
+    }
+    let g_const = scene.settings.gravitation.unwrap_or(0.0);
+    let attractors: Vec<usize> = (0..bodies.len()).filter(|&k| bodies[k].attract > 0.0).collect();
+    for i in 0..attractors.len() {
+        for j in i + 1..attractors.len() {
+            let a = &bodies[attractors[i]];
+            let b = &bodies[attractors[j]];
+            if !a.dynamic && !b.dynamic {
+                continue;
+            }
+            let dx = b.grav_pos.x - a.grav_pos.x;
+            let dy = b.grav_pos.y - a.grav_pos.y;
+            let d2 = dx * dx + dy * dy;
+            let rr = a.bound + b.bound;
+            let d = d2.sqrt();
+            if d2 > 0.0 {
+                force_scale += if d >= rr { g_const * a.attract * b.attract / d2 } else { g_const * a.attract * b.attract * d / (rr * rr * rr) };
+            }
+        }
+    }
     force_scale = js_max(force_scale, 1e-6);
-    let accel_scale = js_max(g, 1.0);
+    let mut accel_scale = js_max(g, 1.0);
+    if g_const > 0.0 {
+        for &bg in &dynamic {
+            accel_scale = js_max(accel_scale, force_scale * bodies[bg].inv_mass);
+        }
+    }
     let has_expr = forces.iter().any(|f| f.expr.is_some());
     let dyn_inv_mass = dynamic.iter().map(|&g| bodies[g].inv_mass).collect();
     let dyn_inv_inertia = dynamic.iter().map(|&g| bodies[g].inv_inertia).collect();
@@ -442,6 +601,12 @@ pub fn compile_model(scene: &Scene) -> SimResult<Model> {
         springs,
         hinges,
         forces,
+        welds,
+        sliders,
+        motors,
+        gears,
+        g_const,
+        attractors,
         no_collide,
         arena,
         switch_force,
@@ -481,6 +646,16 @@ fn body_model(def: &BodyDef, global: usize, index: i32, shape: ShapeModel, mass:
         def_angle: def.angle,
         def_velocity: def.velocity,
         def_angular_velocity: def.angular_velocity,
+        drag_lin: match def.drag {
+            Some(d) if is_dynamic => js_max(0.0, d.linear),
+            _ => 0.0,
+        },
+        drag_quad: match def.drag {
+            Some(d) if is_dynamic => js_max(0.0, d.quadratic),
+            _ => 0.0,
+        },
+        attract: 0.0,
+        grav_pos: def.position,
     }
 }
 

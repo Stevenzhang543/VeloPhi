@@ -20,6 +20,7 @@ worker job that drives it is `src/worker/wasmJob.ts`. Decisions: manual 26.50, D
 | Function | Description |
 | --- | --- |
 | `abi_version() -> u32` | 1. The loader refuses other versions. |
+| `scene_version() -> u32` | Newest scene file format the engine reads (4 since 26.51). The loader refuses an engine that reads an older format (and one without this export), and runs the TypeScript engine instead. |
 | `alloc(len) -> ptr`, `dealloc(ptr, len)` | Linear-memory buffers for the caller. |
 | `last_error(out_ptr, out_len) -> i32` | Message JSON of the last failed call. |
 | `run_create(ptr, len) -> handle` | Create a run from JSON: a scene document, or `{ scene, duration?, chunkSeconds?, maxEventsPerInstant?, fallback? }`. `duration`: number (bounded) or `null` (unbounded); absent: the scene's. Negative zero is written as the string `"-0"`. 0 on error. |
@@ -29,7 +30,7 @@ worker job that drives it is `src/worker/wasmJob.ts`. Decisions: manual 26.50, D
 | `run_time(h) -> f64`, `run_frame_count(h) -> f64` | Simulated time reached; frames recorded. |
 | `run_request_tail(h)` | The next `run_take_delta` also returns the open chunk's frames (a tail delta). |
 | `run_take_delta(h, out…) -> i32` | Next delta container: one per closed chunk, then a tail delta when requested or when the run has ended. 0 when there is nothing new. |
-| `run_end(h, out…) -> i32` | `{ completed, error, hash, stopReason }` of a finished run; 0 while it runs. |
+| `run_end(h, out…) -> i32` | `{ completed, error, hash, stopReason }` of a finished run; 0 while it runs. `stopReason`: `duration`, `stopAt`, `rest`, `restApprox` (26.51), `pulley` (26.51), `user`, `error`. |
 | `run_stop(h)` | End the run here without an error (user stop of an unbounded run). Deltas with the rest follow. |
 | `run_cancel(h)` | End with `err.cancelled`. |
 | `run_fail_budget(h, budget_ms: f64)` | End a bounded run with `err.budget { seconds, t }` (the engine has no clock; the worker measures wall time). |

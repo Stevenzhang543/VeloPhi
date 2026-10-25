@@ -6,6 +6,7 @@
  * so the rest of the application cannot tell the engines apart — their recordings are bit-identical (D30).
  */
 import type { Scene } from '../core/scene/types'
+import { SCENE_VERSION } from '../core/scene/types'
 import type { RecordingDelta, RecordingEnd } from '../core/solver/transport'
 import type { Message } from '../i18n/message'
 import { isMessage, reviveMessage } from '../i18n/message'
@@ -16,6 +17,8 @@ export const ABI_VERSION = 1
 interface Exports {
   memory: WebAssembly.Memory
   abi_version(): number
+  /** Newest scene format the engine reads (absent before 26.51). */
+  scene_version?: () => number
   alloc(len: number): number
   dealloc(ptr: number, len: number): void
   last_error(ptr: number, len: number): number
@@ -103,6 +106,9 @@ export class WasmEngine {
     this.x = instance.exports as unknown as Exports
     const v = this.x.abi_version()
     if (v !== ABI_VERSION) throw new Error(`engine: ABI version ${v}, expected ${ABI_VERSION}`)
+    // 26.51: an engine built before scene format 4 would ignore drag, gravitation and the new connectors
+    const sv = typeof this.x.scene_version === 'function' ? this.x.scene_version() : 3
+    if (sv < SCENE_VERSION) throw new Error(`engine: scene format ${sv}, expected ${SCENE_VERSION}`)
   }
 
   /** Bytes of linear memory (diagnostics). */

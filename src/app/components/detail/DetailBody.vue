@@ -37,6 +37,12 @@ const STATUS_MARK: Record<'ok' | 'approx' | 'fail', string> = { ok: '✓', appro
           </li>
         </ol>
         <div v-else-if="b.kind === 'chain'" class="dchain eq-scroll"><Tex :tex="chainLatex(b.lhs, b.rhs)" display /></div>
+        <div v-else-if="b.kind === 'calc'" class="dcalc">
+          <template v-for="(ln, li) in b.lines" :key="li">
+            <div class="calc-eq eq-scroll"><Tex :tex="li === 0 ? `${b.lhs} = ${ln.tex}` : `= ${ln.tex}`" /></div>
+            <div class="calc-note small"><RichText v-if="ln.note" :text="ln.note" /></div>
+          </template>
+        </div>
         <div v-else-if="b.kind === 'table'" class="dtable-wrap">
           <table class="dtable">
             <thead v-if="b.head"><tr><th v-for="(h, hi) in b.head" :key="hi" :style="{ textAlign: b.align?.[hi] ?? 'left' }"><RichText :text="h" /></th></tr></thead>
@@ -64,7 +70,7 @@ const STATUS_MARK: Record<'ok' | 'approx' | 'fail', string> = { ok: '✓', appro
 </template>
 
 <style scoped>
-.dbody { display: flex; flex-direction: column; gap: 6px; }
+.dbody { display: flex; flex-direction: column; gap: 6px; container-type: inline-size; }
 .dsec { padding: 2px 0 10px; scroll-margin-top: 8px; }
 .dsec + .dsec { border-top: 1px solid var(--separator); padding-top: 10px; }
 .dsec-title { font-size: var(--type-title); font-weight: 650; margin: 2px 0 8px; }
@@ -77,6 +83,13 @@ const STATUS_MARK: Record<'ok' | 'approx' | 'fail', string> = { ok: '✓', appro
 .dtext.tone-info { color: var(--accent); }
 .dtext.tone-neutral { color: var(--text-3); font-style: italic; }
 .eq-scroll { overflow-x: auto; overflow-y: hidden; max-width: 100%; }
+/* Worked calculation (D45): the equation on the left, what was done on the right (below it when narrow) */
+.dcalc { display: grid; grid-template-columns: minmax(0, auto) minmax(8em, 1fr); gap: 6px 14px; align-items: center; margin: 6px 0 4px; padding: 8px 10px; background: var(--group); border-radius: var(--radius-group); }
+.calc-eq { font-size: 1.05em; padding: 2px 0; }
+.calc-eq:nth-of-type(n+2) { padding-left: 1.2em; }
+.calc-note { color: var(--text-2); line-height: 1.45; overflow-wrap: anywhere; }
+.large .dcalc { font-size: 1.08em; }
+@container (max-width: 420px) { .dcalc { grid-template-columns: minmax(0, 1fr); } .calc-note { margin: -4px 0 4px 1.2em; } }
 .eq-scroll :deep(.katex-display) { margin: 6px 0; }
 .deq { margin: 4px 0 8px; }
 .dchain { background: var(--group); border-radius: var(--radius-group); padding: 2px 12px; margin: 6px 0 10px; }

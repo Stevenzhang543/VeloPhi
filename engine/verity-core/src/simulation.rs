@@ -11,7 +11,7 @@ use std::rc::Rc;
 use crate::checkpoint::{decode_checkpoint, encode_checkpoint, Checkpoint, CheckpointSegment, CheckpointStats};
 use crate::dmath::pow;
 use crate::dynamics::{build_system, derivative, initial_state, solve_mode, Mode, ModeSolution, System};
-use crate::events::{build_event_fns, event_margin_into, locate_event, rearm, EventFn, EventType, Margin};
+use crate::events::{build_event_fns, event_margin_into, locate_event, rearm, EventFn, EventType, EventValue, Margin};
 use crate::impact::{approaching, resolve_impact, ImpactKind, ImpactResult};
 use crate::integrators::{dopri5_step, euler_step, rk4_step, ErrorControl, Stages, StepResult};
 use crate::js::{js_max, js_min, js_round, to_int32};
@@ -52,6 +52,8 @@ pub enum ChangeType {
     Taut,
     Switch,
     Timestep,
+    /// A body reached the pulley its rope runs onto (26.51); the run ends.
+    Pulley,
 }
 
 impl ChangeType {
@@ -69,6 +71,7 @@ impl ChangeType {
             ChangeType::Taut => "taut",
             ChangeType::Switch => "switch",
             ChangeType::Timestep => "timestep",
+            ChangeType::Pulley => "pulley",
         }
     }
 }
@@ -136,6 +139,10 @@ pub enum StopReason {
     Rest,
     User,
     Error,
+    /// A body reached the pulley its rope runs onto (26.51).
+    Pulley,
+    /// Approximate rest (26.51): every velocity and acceleration below REST_TOL for REST_HOLD seconds.
+    RestApprox,
 }
 
 impl StopReason {
@@ -147,6 +154,8 @@ impl StopReason {
             StopReason::Rest => "rest",
             StopReason::User => "user",
             StopReason::Error => "error",
+            StopReason::Pulley => "pulley",
+            StopReason::RestApprox => "restApprox",
         }
     }
 }
@@ -268,6 +277,11 @@ pub struct SimulationRun {
     chunk_steps: u64,
     chunk_events: BTreeMap<usize, usize>,
     rest_allowed: bool,
+    /// A stop decided inside a step (rest, approximate rest, a pulley reached), taken at the next loop top (26.51).
+    pending_stop: Option<StopReason>,
+    /// Consecutive recorded frames of approximate rest (26.51) and the number that ends the run.
+    near_rest: u64,
+    rest_hold: u64,
     state_hasher: Option<Sha256>,
     finished_once: bool,
     budget: u64,
@@ -276,6 +290,17 @@ pub struct SimulationRun {
     stages: Stages,
     proj_scratch: ProjectScratch,
     margin: Margin,
+}
+
+/// Approximate rest (26.51): speeds and accelerations at most this.
+pub const REST_TOL: f64 = 1e-6;
+/// Approximate rest must last this long (s of recorded frames).
+pub const REST_HOLD: f64 = 1.0;
+
+/// Are the first `count` components of the derivative all within REST_TOL?
+#[allow(clippy::neg_cmp_op_on_partial_ord)]
+fn near_rest(f: &[f64], count: usize) -> bool {
+    f[..count].iter().all(|&v| v.abs() <= REST_TOL)
 }
 
 /// Is the derivative exactly zero in every component?
@@ -470,6 +495,7 @@ impl SimulationRun {
         run.first_chunk = 0;
         run.chunk_events.insert(0, 0);
         let sys = run.system.clone();
+        run.impact_loss = sys.model.settings.start_ledger.as_ref().map(|l| l.impact_loss).unwrap_or(0.0);
         let mut x = initial_state(&sys);
         let overlap = resolve_initial_overlap(&sys, &x, 0.05);
         if overlap.removed > 0.0 {
@@ -596,6 +622,9 @@ impl SimulationRun {
             chunk_steps: 0,
             chunk_events: BTreeMap::new(),
             rest_allowed,
+            pending_stop: None,
+            near_rest: 0,
+            rest_hold: js_max(1.0, js_round(REST_HOLD / dt)) as u64,
             state_hasher: if bounded && !resumed { Some(Sha256::new()) } else { None },
             finished_once: false,
             budget: u64::MAX,
@@ -737,8 +766,9 @@ impl SimulationRun {
     /// The end checks of the loop top (duration, stop condition).
     fn end_check(&mut self) -> Option<Advance> {
         let at_k = self.k_max.is_some_and(|kk| self.k >= kk);
-        if at_k || self.k as f64 >= self.k_stop {
-            self.end(if at_k { StopReason::Duration } else { StopReason::StopAt });
+        if at_k || self.k as f64 >= self.k_stop || self.pending_stop.is_some() {
+            let reason = self.pending_stop.unwrap_or(if at_k { StopReason::Duration } else { StopReason::StopAt });
+            self.end(reason);
             return Some(Advance::Finished);
         }
         None
@@ -991,7 +1021,17 @@ impl SimulationRun {
                     impact_loss: self.impact_loss,
                     reduced: false,
                 });
-                let changes = diff_modes(&sys, Some(&prev_mode), &self.mode, settled.impact.as_ref());
+                let mut changes = diff_modes(&sys, Some(&prev_mode), &self.mode, settled.impact.as_ref());
+                // 26.51: a body reached the pulley its rope runs onto; the run ends at this event
+                let mut reached = false;
+                for &i in &loc.fired {
+                    if let EventValue::Pulley { rope, end } = self.fns[i].value {
+                        reached = true;
+                        let r = &sys.model.ropes[rope];
+                        let a = if end == 0 { &r.a } else { &r.b };
+                        changes.push(ChangeDetail::simple(ChangeType::Pulley, &r.id, a.body.map(|g| vec![sys.model.bodies[g].id.clone()]).unwrap_or_default()));
+                    }
+                }
                 self.events.push(SimEvent {
                     index: self.event_base + self.events.len(),
                     t: t_e,
@@ -1008,6 +1048,9 @@ impl SimulationRun {
                     let xr = std::mem::take(&mut self.x);
                     self.record(self.k, &xr);
                     self.x = xr;
+                }
+                if reached {
+                    self.pending_stop = Some(StopReason::Pulley);
                 }
                 self.check_stop_at(&changes, t_e);
                 let chatter = if !sys.model.arena.switches.is_empty() { self.check_toggles(&changes) } else { None };
@@ -1086,9 +1129,20 @@ impl SimulationRun {
             } else {
                 derivative(&sys, &self.x, &self.mode, &mut self.k1, &mut self.rhs_sol)?;
             }
-            if clipped && self.rest_allowed && at_rest(&self.k1) {
-                self.end(StopReason::Rest);
-                return Ok(Advance::Finished);
+            if clipped && self.rest_allowed {
+                if at_rest(&self.k1) {
+                    self.pending_stop = Some(StopReason::Rest);
+                    continue;
+                }
+                if near_rest(&self.k1, 6 * sys.n) {
+                    self.near_rest += 1;
+                    if self.near_rest >= self.rest_hold {
+                        self.pending_stop = Some(StopReason::RestApprox);
+                        continue;
+                    }
+                } else {
+                    self.near_rest = 0;
+                }
             }
             let over = if self.bounded { self.stats.steps > MAX_STEPS } else { self.stats.steps - self.chunk_steps > MAX_STEPS_PER_CHUNK };
             if over {

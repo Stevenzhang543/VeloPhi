@@ -55,6 +55,13 @@ pub struct Material {
     pub restitution: f64,
 }
 
+/// Air drag on a body (26.51, D50): F = −(linear + quadratic·|v|)·v at the centre of mass.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct DragDef {
+    pub linear: f64,
+    pub quadratic: f64,
+}
+
 /// A body as authored.
 #[derive(Clone, Debug, PartialEq)]
 pub struct BodyDef {
@@ -71,6 +78,8 @@ pub struct BodyDef {
     pub fixed_rotation: bool,
     pub material: Material,
     pub belt_speed: f64,
+    /// Air drag (26.51); None: none.
+    pub drag: Option<DragDef>,
 }
 
 /// Pulley wheel: fixed in the world, or carried by a body (`body`).
@@ -100,11 +109,64 @@ pub enum Wrap {
 /// A connector between anchors.
 #[derive(Clone, Debug, PartialEq)]
 pub enum ConnectorKind {
-    Rope { a: Anchor, b: Anchor, pulleys: Vec<(String, Wrap)>, length: Option<f64> },
-    Rod { a: Anchor, b: Anchor, length: Option<f64> },
-    Spring { a: Anchor, b: Anchor, stiffness: f64, rest_length: Option<f64>, damping: f64 },
-    Hinge { a: Anchor, b: Anchor },
-    Force { a: Anchor, force: Vec2, expr: Option<(String, String)> },
+    Rope {
+        a: Anchor,
+        b: Anchor,
+        pulleys: Vec<(String, Wrap)>,
+        length: Option<f64>,
+    },
+    Rod {
+        a: Anchor,
+        b: Anchor,
+        length: Option<f64>,
+    },
+    /// `cubic`: k₃ of a nonlinear spring (26.51; 0: linear).
+    Spring {
+        a: Anchor,
+        b: Anchor,
+        stiffness: f64,
+        rest_length: Option<f64>,
+        damping: f64,
+        cubic: f64,
+    },
+    Hinge {
+        a: Anchor,
+        b: Anchor,
+    },
+    Force {
+        a: Anchor,
+        force: Vec2,
+        expr: Option<(String, String)>,
+    },
+    /// Connectors of 26.51 (D51): damper, weld, slider (prismatic joint), motor and gear.
+    Damper {
+        a: Anchor,
+        b: Anchor,
+        damping: f64,
+    },
+    Weld {
+        a: Anchor,
+        b: Anchor,
+    },
+    Slider {
+        a: Anchor,
+        b: Anchor,
+        axis: Vec2,
+        free: bool,
+    },
+    /// `torque_mode`: constant torque `torque`; otherwise constant relative angular velocity `speed`.
+    Motor {
+        a: Anchor,
+        b: Anchor,
+        torque_mode: bool,
+        speed: f64,
+        torque: f64,
+    },
+    Gear {
+        a: Anchor,
+        b: Anchor,
+        ratio: f64,
+    },
 }
 
 /// A connector with its id and name.
@@ -197,6 +259,24 @@ pub struct SceneSettings {
     pub stop_at: Option<StopAtDef>,
     pub legacy_duration: f64,
     pub energy_zero_y: f64,
+    /// Gravitational constant G of gravitation between bodies (26.51, D50); None: off.
+    pub gravitation: Option<f64>,
+    /// Start time of a branch (26.51, D52): variable forces see start_time + t; 0 for ordinary scenes.
+    pub start_time: f64,
+    /// Energy ledger at the start of a branch (D52); None: all zero.
+    pub start_ledger: Option<StartLedger>,
+}
+
+/// Initial values of the energy ledger (26.51, D52).
+#[derive(Clone, Debug, PartialEq)]
+pub struct StartLedger {
+    pub friction_heat: f64,
+    pub applied_work: f64,
+    pub damping: f64,
+    pub belt_work: f64,
+    pub impact_loss: f64,
+    /// (pair key, sliding distance, friction heat) in file order.
+    pub pairs: Vec<(String, f64, f64)>,
 }
 
 impl SceneSettings {
@@ -218,7 +298,7 @@ pub struct Scene {
 }
 
 /// Current scene file format version.
-pub const SCENE_VERSION: f64 = 3.0;
+pub const SCENE_VERSION: f64 = 4.0;
 /// Default gravity magnitude of new scenes (m/s²).
 pub const DEFAULT_G: f64 = 9.8;
 
@@ -319,6 +399,8 @@ pub fn parse_scene_value(raw: &Value) -> PResult<(Scene, Vec<Message>)> {
             st.insert("legacyDuration".into(), d);
             st.insert("stopAt".into(), Value::Null);
             doc.insert("settings".into(), Value::Object(st));
+        } else if version == 3.0 {
+            // 26.50 -> 26.51: drag, gravitation and the new connectors are optional fields; nothing to change
         } else {
             return Err(Message::new("scene.cannotMigrate").num("version", version));
         }
@@ -361,6 +443,35 @@ pub fn parse_scene_value(raw: &Value) -> PResult<(Scene, Vec<Message>)> {
         stop_at,
         legacy_duration: num(st.get("legacyDuration"), "settings.legacyDuration", Some(legacy_default))?,
         energy_zero_y: num(st.get("energyZeroY"), "settings.energyZeroY", Some(0.0))?,
+        gravitation: match st.get("gravitation") {
+            Some(Value::Object(o)) => Some(num(o.get("G"), "settings.gravitation.G", None)?),
+            _ => None,
+        },
+        start_time: match st.get("startTime") {
+            None | Some(Value::Null) => 0.0,
+            v => num(v, "settings.startTime", None)?,
+        },
+        start_ledger: match st.get("startLedger") {
+            Some(Value::Object(o)) => {
+                let mut pairs = Vec::new();
+                if let Some(Value::Object(ps)) = o.get("pairs") {
+                    for (k, v) in ps {
+                        let path = format!("settings.startLedger.pairs.{k}");
+                        let arr = v.as_array().filter(|a| a.len() == 2).ok_or_else(|| err_path("scene.notNumber", &path))?;
+                        pairs.push((k.clone(), num(arr.first(), &path, None)?, num(arr.get(1), &path, None)?));
+                    }
+                }
+                Some(StartLedger {
+                    friction_heat: num(o.get("frictionHeat"), "settings.startLedger.frictionHeat", Some(0.0))?,
+                    applied_work: num(o.get("appliedWork"), "settings.startLedger.appliedWork", Some(0.0))?,
+                    damping: num(o.get("damping"), "settings.startLedger.damping", Some(0.0))?,
+                    belt_work: num(o.get("beltWork"), "settings.startLedger.beltWork", Some(0.0))?,
+                    impact_loss: num(o.get("impactLoss"), "settings.startLedger.impactLoss", Some(0.0))?,
+                    pairs,
+                })
+            }
+            _ => None,
+        },
     };
     let mut bodies = Vec::new();
     if let Some(list) = present(doc.get("bodies")) {
@@ -465,6 +576,13 @@ fn parse_body(v: &Value, path: &str) -> PResult<BodyDef> {
             restitution: num(mat.get("restitution"), &format!("{path}.material.restitution"), Some(0.0))?,
         },
         belt_speed: num(b.get("beltSpeed"), &format!("{path}.beltSpeed"), Some(0.0))?,
+        drag: match b.get("drag") {
+            Some(Value::Object(d)) => Some(DragDef {
+                linear: num(d.get("linear"), &format!("{path}.drag.linear"), Some(0.0))?,
+                quadratic: num(d.get("quadratic"), &format!("{path}.drag.quadratic"), Some(0.0))?,
+            }),
+            _ => None,
+        },
     })
 }
 
@@ -520,6 +638,34 @@ fn parse_connector(v: &Value, path: &str) -> PResult<ConnectorDef> {
             stiffness: num(c.get("stiffness"), &format!("{path}.stiffness"), None)?,
             rest_length: opt_num(c.get("restLength"), &format!("{path}.restLength"))?,
             damping: num(c.get("damping"), &format!("{path}.damping"), Some(0.0))?,
+            cubic: match c.get("cubic") {
+                None => 0.0,
+                Some(v) => as_number(v).filter(|x| x.is_finite()).ok_or_else(|| Message::new("scene.cubicNotFinite").text("connector", name.clone()))?,
+            },
+        },
+        Some("damper") => ConnectorKind::Damper {
+            a: parse_anchor(c.get("a"), &format!("{path}.a"))?,
+            b: parse_anchor(c.get("b"), &format!("{path}.b"))?,
+            damping: num(c.get("damping"), &format!("{path}.damping"), None)?,
+        },
+        Some("weld") => ConnectorKind::Weld { a: parse_anchor(c.get("a"), &format!("{path}.a"))?, b: parse_anchor(c.get("b"), &format!("{path}.b"))? },
+        Some("slider") => ConnectorKind::Slider {
+            a: parse_anchor(c.get("a"), &format!("{path}.a"))?,
+            b: parse_anchor(c.get("b"), &format!("{path}.b"))?,
+            axis: vec2(c.get("axis"), &format!("{path}.axis"), None)?,
+            free: truthy(c.get("free")),
+        },
+        Some("motor") => ConnectorKind::Motor {
+            a: parse_anchor(c.get("a"), &format!("{path}.a"))?,
+            b: parse_anchor(c.get("b"), &format!("{path}.b"))?,
+            torque_mode: c.get("mode").and_then(|m| m.as_str()) == Some("torque"),
+            speed: num(c.get("speed"), &format!("{path}.speed"), None)?,
+            torque: num(c.get("torque"), &format!("{path}.torque"), None)?,
+        },
+        Some("gear") => ConnectorKind::Gear {
+            a: parse_anchor(c.get("a"), &format!("{path}.a"))?,
+            b: parse_anchor(c.get("b"), &format!("{path}.b"))?,
+            ratio: num(c.get("ratio"), &format!("{path}.ratio"), None)?,
         },
         Some("hinge") => ConnectorKind::Hinge { a: parse_anchor(c.get("a"), &format!("{path}.a"))?, b: parse_anchor(c.get("b"), &format!("{path}.b"))? },
         Some("force") => {
@@ -576,9 +722,15 @@ pub fn validate_scene(scene: &Scene) -> PResult<()> {
     for c in &scene.connectors {
         let anchors: Vec<&Anchor> = match &c.kind {
             ConnectorKind::Force { a, .. } => vec![a],
-            ConnectorKind::Rope { a, b, .. } | ConnectorKind::Rod { a, b, .. } | ConnectorKind::Spring { a, b, .. } | ConnectorKind::Hinge { a, b } => {
-                vec![a, b]
-            }
+            ConnectorKind::Rope { a, b, .. }
+            | ConnectorKind::Rod { a, b, .. }
+            | ConnectorKind::Spring { a, b, .. }
+            | ConnectorKind::Hinge { a, b }
+            | ConnectorKind::Damper { a, b, .. }
+            | ConnectorKind::Weld { a, b }
+            | ConnectorKind::Slider { a, b, .. }
+            | ConnectorKind::Motor { a, b, .. }
+            | ConnectorKind::Gear { a, b, .. } => vec![a, b],
         };
         for a in anchors {
             if let Some(body) = &a.body {
@@ -627,6 +779,18 @@ pub fn validate_scene(scene: &Scene) -> PResult<()> {
                 return Err(Message::new("scene.stiffnessNotPositive").text("connector", c.name.clone()));
             }
         }
+        match &c.kind {
+            ConnectorKind::Damper { damping, .. } if !(*damping >= 0.0) => {
+                return Err(Message::new("scene.damperNegative").text("connector", c.name.clone()));
+            }
+            ConnectorKind::Slider { axis, .. } if axis.x == 0.0 && axis.y == 0.0 => {
+                return Err(Message::new("scene.sliderAxisZero").text("connector", c.name.clone()));
+            }
+            ConnectorKind::Gear { a, ratio, .. } if a.body.is_none() || *ratio == 0.0 => {
+                return Err(Message::new("scene.gearInvalid").text("connector", c.name.clone()));
+            }
+            _ => {}
+        }
         if let ConnectorKind::Force { a, expr: Some((ex, ey)), .. } = &c.kind {
             if a.body.is_none() {
                 return Err(Message::new("scene.variableForceNeedsBody").text("connector", c.name.clone()));
@@ -657,6 +821,18 @@ pub fn validate_scene(scene: &Scene) -> PResult<()> {
     }
     if !(s.rel_tol > 0.0 && s.abs_tol > 0.0) {
         return Err(Message::new("scene.tolerancesNotPositive"));
+    }
+    if let Some(g) = s.gravitation {
+        if !(g > 0.0) {
+            return Err(Message::new("scene.gravitationNotPositive"));
+        }
+    }
+    for b in &scene.bodies {
+        if let Some(d) = b.drag {
+            if !(d.linear >= 0.0 && d.quadratic >= 0.0) {
+                return Err(Message::new("scene.dragNegative").text("body", b.name.clone()));
+            }
+        }
     }
     Ok(())
 }

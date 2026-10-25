@@ -60,13 +60,14 @@ pub fn project(sys: &System, x_in: &[f64], mode: &Mode, info: &mut ProjectionInf
         build_rows_into(sys, &scratch.poses, mode, &mut scratch.rows);
         let rows = &scratch.rows.rows;
         let mut worst = 0.0;
-        for r in rows.iter().filter(|r| r.kind != RowKind::Tangent) {
+        // Tangent rows and motor drives (26.51) have no position-level constraint
+        for r in rows.iter().filter(|r| r.kind != RowKind::Tangent && r.kind != RowKind::Drive) {
             worst = js_max(worst, r.value.abs());
         }
         if worst <= tol::DRIFT {
             break;
         }
-        let pr: Vec<(&RowJ, f64)> = rows.iter().filter(|r| r.kind != RowKind::Tangent).map(|r| (&r.j, r.value)).collect();
+        let pr: Vec<(&RowJ, f64)> = rows.iter().filter(|r| r.kind != RowKind::Tangent && r.kind != RowKind::Drive).map(|r| (&r.j, r.value)).collect();
         let Some(d) = correction(sys, &pr) else { break };
         let xs = x.get_or_insert_with(|| x_in.to_vec());
         for k in 0..3 * n {

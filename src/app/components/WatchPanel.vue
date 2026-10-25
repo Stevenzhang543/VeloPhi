@@ -6,8 +6,9 @@
 import { tl, paren } from '../../i18n'
 import { computed, ref } from 'vue'
 import { state, edit } from '../store'
-import { canonicalQuantityId, evaluateQuantity, listQuantities, makeContext } from '../../core/observe/quantities'
+import { canonicalQuantityId, customQuantities, customScope, evaluateQuantity, groupLabel, listQuantities, makeContext } from '../../core/observe/quantities'
 import type { QuantityDef } from '../../core/observe/quantities'
+import { compileCustom, nextCustomId } from '../../core/observe/custom'
 import { useGated } from '../live'
 import { fmtNum, unitLabel } from '../settings'
 import Tex from './Tex.vue'
@@ -41,7 +42,7 @@ const values = computed(() => {
 const groups = computed(() => {
   const m = new Map<string, QuantityDef[]>()
   for (const q of quantities.value) {
-    const key = `${q.group} · ${q.owner}`
+    const key = q.group === '自定义' ? groupLabel(q.group) : `${groupLabel(q.group)} · ${q.owner}`
     const list = m.get(key) ?? []
     list.push(q); m.set(key, list)
   }
@@ -83,6 +84,59 @@ function toggleChart(id: string) {
   state.bottomTab = 'chart'
 }
 const unitText = (u: string) => unitLabel(u) || tl('无量纲')
+
+// ---- Custom (expression) quantities, 26.51 ----
+const customs = computed(() => state.scene.customQuantities ?? [])
+/** Compile errors of the scene's custom quantities in the current recording. */
+const customErrors = computed(() => new Map((system.value ? customQuantities(system.value) : []).filter(e => e.error).map(e => [e.def.id, e.error!])))
+const scope = computed(() => (system.value ? customScope(system.value) : null))
+/** The form: a new quantity (editing null) or an existing one. */
+const form = ref<{ editing: string | null; name: string; expr: string } | null>(null)
+/** Unit or error of the expression in the form, checked as it is typed. */
+const formCheck = computed<{ unit: string } | { error: string } | null>(() => {
+  const f = form.value
+  if (!f || !scope.value || !f.expr.trim()) return null
+  try { return { unit: compileCustom(f.expr, scope.value).unit } } catch (e) { return { error: (e as Error).message } }
+})
+/** An example expression with the first moving body of the scene. */
+const example = computed(() => {
+  const b = state.scene.bodies.find(x => x.kind !== 'static')
+  return b ? `ek(${b.name}) + ep(${b.name})` : 'E'
+})
+function newCustom() {
+  form.value = { editing: null, name: tl('自定义量 {0}', [customs.value.length + 1]), expr: '' }
+}
+function editCustom(id: string) {
+  const q = customs.value.find(c => c.id === id)
+  if (q) form.value = { editing: id, name: q.name, expr: q.expr }
+}
+function saveCustom() {
+  const f = form.value
+  if (!f || !formCheck.value || 'error' in formCheck.value) return
+  const name = f.name.trim() || f.expr.trim()
+  if (f.editing) {
+    const id = f.editing
+    edit(s => { s.customQuantities = (s.customQuantities ?? []).map(c => (c.id === id ? { id, name, expr: f.expr.trim() } : c)) })
+  } else {
+    edit(s => {
+      const list = s.customQuantities ?? []
+      const id = nextCustomId(list)
+      s.customQuantities = [...list, { id, name, expr: f.expr.trim() }]
+      s.watch.push(`custom.${id}`)
+    })
+  }
+  form.value = null
+}
+function removeCustom(id: string) {
+  const qid = `custom.${id}`
+  edit(s => {
+    const list = (s.customQuantities ?? []).filter(c => c.id !== id)
+    if (list.length) s.customQuantities = list; else delete s.customQuantities
+    s.watch = s.watch.filter(w => w !== qid)
+  })
+  state.chart = state.chart.filter(c => c !== qid)
+  if (form.value?.editing === id) form.value = null
+}
 </script>
 
 <template>
@@ -129,6 +183,39 @@ const unitText = (u: string) => unitLabel(u) || tl('无量纲')
           </div>
         </div>
       </div>
+      <div class="group-title custom-title">
+        <span>{{ tl('自定义量') }}</span>
+        <button class="btn ghost small" :disabled="!!form" @click="newCustom"><Icon name="plus" :size="13" /> {{ tl('新建') }}</button>
+      </div>
+      <div v-if="customs.length === 0 && !form" class="tiny muted">{{ tl('用表达式定义新的量，如 {0}，可像其他量一样监视、作图和导出。', [example]) }}</div>
+      <div class="list">
+        <div v-for="c in customs" :key="c.id" class="item custom">
+          <div class="name">
+            <span class="small">{{ c.name }}</span>
+            <span class="tiny mono muted expr" :title="c.expr">{{ c.expr }}</span>
+            <span v-if="customErrors.get(c.id)" class="tiny err">{{ customErrors.get(c.id) }}</span>
+          </div>
+          <div class="ops">
+            <button class="btn icon ghost" :title="tl('编辑')" @click="editCustom(c.id)"><Icon name="pen" /></button>
+            <button class="btn icon ghost" :title="tl('删除')" @click="removeCustom(c.id)"><Icon name="trash" /></button>
+          </div>
+        </div>
+      </div>
+      <div v-if="form" class="custom-form">
+        <label class="tiny muted">{{ tl('名称') }}</label>
+        <input v-model="form.name" class="field" maxlength="40" />
+        <label class="tiny muted">{{ tl('表达式') }}</label>
+        <input v-model="form.expr" class="field mono" :placeholder="example" spellcheck="false" @keydown.enter="saveCustom" />
+        <div class="tiny check" :class="{ err: formCheck && 'error' in formCheck }">
+          <template v-if="!formCheck">{{ tl('写法：x(物体)、v(物体)、ek(物体)、T(绳)、N(物体, 接触物体)；系统量 t、E、Ek、Ep、Es、Px、Py、g；函数 sqrt、abs、sin、min、if 等。物体可写名称或 id。') }}</template>
+          <template v-else-if="'error' in formCheck">{{ formCheck.error }}</template>
+          <template v-else>{{ tl('单位：{0}', [unitText(formCheck.unit)]) }}</template>
+        </div>
+        <div class="row form-ops">
+          <button class="btn" @click="form = null">{{ tl('取消') }}</button>
+          <button class="btn primary" :disabled="!formCheck || 'error' in formCheck" @click="saveCustom">{{ form.editing ? tl('保存') : tl('添加并监视') }}</button>
+        </div>
+      </div>
       <div class="tiny muted hint">{{ tl('数值为当前帧的仿真结果，单位与有效数字可在“设置 › 单位与数值”中调整。暂停后可逐帧查看。') }}</div>
     </template>
   </div>
@@ -147,4 +234,11 @@ const unitText = (u: string) => unitLabel(u) || tl('无量纲')
 .unit { font-size: var(--type-tiny); color: var(--text-3); margin-left: 4px; font-weight: 400; }
 .ops { display: flex; gap: 2px; }
 .hint { margin-top: 10px; }
+.custom-title { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; }
+.custom .expr { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.err { color: var(--danger); }
+.custom-form { display: flex; flex-direction: column; gap: 4px; background: var(--group); border-radius: var(--radius-group); padding: 8px 10px; margin-top: 6px; }
+.custom-form .check { min-height: 1.4em; color: var(--text-2); }
+.custom-form .check.err { color: var(--danger); }
+.form-ops { justify-content: flex-end; gap: 6px; margin-top: 4px; }
 </style>

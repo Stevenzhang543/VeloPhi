@@ -26,7 +26,7 @@ const formulaById = new Map(FORMULAS.map(f => [f.id, f] as [string, FormulaDef])
 const sharedById = new Map(SHARED_A.map(s => [s.id, s] as [string, SharedSteps]))
 
 /** Templates whose recordings contain every group-A situation. */
-const TEMPLATE_IDS = ['incline', 'conveyor', 'conveyor-incline', 'board-block', 'collision-1d', 'collision-2d', 'projectile', 'atwood', 'table-pulley', 'movable-pulley', 'movable-wedge']
+const TEMPLATE_IDS = ['incline', 'conveyor', 'conveyor-incline', 'board-block', 'collision-1d', 'collision-2d', 'projectile', 'atwood', 'table-pulley', 'movable-pulley', 'movable-wedge', 'free-fall']
 
 let unitsCache: Map<string, Record<string, string>> | null = null
 /** Units of the situation variables, per situation type, collected from the recognised template situations. */
@@ -101,8 +101,8 @@ function rng(seed: number): () => number {
 }
 
 describe('group-A derivations: coverage and card texts', () => {
-  it('there are 59 group-A formulas and each has exactly one derivation', () => {
-    expect(formulasA.length).toBe(59)
+  it('there are 69 group-A formulas and each has exactly one derivation', () => {
+    expect(formulasA.length).toBe(69)
     const seen = new Map<string, number>()
     for (const d of DERIVATIONS_A) seen.set(d.formula, (seen.get(d.formula) ?? 0) + 1)
     for (const f of formulasA) expect(seen.get(f.id), f.id).toBe(1)
@@ -213,7 +213,7 @@ describe('group-A derivations: steps', () => {
    * ≤ must hold as inequalities). Vector steps (\vec) are skipped.
    */
   it('the steps hold numerically in the recognised template situations', () => {
-    const variants: Array<[string, Record<string, number>]> = [...TEMPLATE_IDS.map(id => [id, {}] as [string, Record<string, number>]), ['incline', { mu: 0.8 }], ['board-block', { mu1: 0.3, mu2: 0.2 }]]
+    const variants: Array<[string, Record<string, number>]> = [...TEMPLATE_IDS.map(id => [id, {}] as [string, Record<string, number>]), ['incline', { mu: 0.8 }], ['board-block', { mu1: 0.3, mu2: 0.2 }], ['collision-1d', { e: 0 }], ['collision-1d', { m2: 1 }]]
     const bare = /^[A-Za-z_]\w*$/
     const checkedFormulas = new Set<string>()
     let checkedSteps = 0

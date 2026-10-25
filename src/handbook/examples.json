@@ -1,0 +1,668 @@
+{
+ "incline.a.down": {
+  "template": "incline",
+  "t": 0.3
+ },
+ "incline.a.up": {
+  "template": "conveyor-incline",
+  "t": 0.05096267875313283
+ },
+ "incline.a.stick": {
+  "template": "incline",
+  "params": {
+   "mu": 0.8
+  },
+  "t": 0.3
+ },
+ "incline.N": {
+  "template": "incline",
+  "t": 0.3
+ },
+ "incline.f.kinetic": {
+  "template": "incline",
+  "t": 0.3
+ },
+ "incline.f.static": {
+  "template": "incline",
+  "params": {
+   "mu": 0.8
+  },
+  "t": 0.3
+ },
+ "incline.v": {
+  "template": "incline",
+  "t": 0.3
+ },
+ "incline.s": {
+  "template": "incline",
+  "t": 0.3
+ },
+ "incline.t.common": {
+  "template": "conveyor-incline",
+  "t": 0.05096267875313283
+ },
+ "flat.a": {
+  "template": "conveyor",
+  "t": 0.10204081632668886
+ },
+ "flat.N": {
+  "template": "conveyor",
+  "t": 0.10204081632668886
+ },
+ "flat.f": {
+  "template": "conveyor",
+  "t": 0.10204081632668886
+ },
+ "flat.t": {
+  "template": "conveyor",
+  "t": 0.10204081632668886
+ },
+ "flat.x": {
+  "template": "conveyor",
+  "t": 0.10204081632668886
+ },
+ "flat.ds": {
+  "template": "conveyor",
+  "t": 0.10204081632668886
+ },
+ "flat.Q": {
+  "template": "conveyor",
+  "t": 0.10204081632668886
+ },
+ "flat.W": {
+  "template": "conveyor",
+  "t": 0.10204081632668886
+ },
+ "bb.a1": {
+  "template": "board-block",
+  "t": 0.22675736961466647
+ },
+ "bb.a2": {
+  "template": "board-block",
+  "t": 0.22675736961466647
+ },
+ "bb.a2.rest": {
+  "template": "board-block",
+  "params": {
+   "mu1": 0.3,
+   "mu2": 0.2
+  },
+  "t": 0.34013605442177025
+ },
+ "bb.t": {
+  "template": "board-block",
+  "t": 0.22675736961466647
+ },
+ "bb.vc": {
+  "template": "board-block",
+  "t": 0.22675736961466647
+ },
+ "bb.ds": {
+  "template": "board-block",
+  "t": 0.22675736961466647
+ },
+ "bb.Q": {
+  "template": "board-block",
+  "t": 0.22675736961466647
+ },
+ "bt.a": {
+  "template": "board-block",
+  "t": 1.0204081632657738
+ },
+ "bt.f": {
+  "template": "board-block",
+  "t": 1.0204081632657738
+ },
+ "col.v1": {
+  "template": "collision-1d",
+  "t": 0.4
+ },
+ "col.v2": {
+  "template": "collision-1d",
+  "t": 0.4
+ },
+ "col.px": {
+  "template": "collision-1d",
+  "t": 0.4
+ },
+ "col.py": {
+  "template": "collision-2d",
+  "t": 0.41339745962155616
+ },
+ "col.dE": {
+  "template": "collision-1d",
+  "t": 0.4
+ },
+ "col.tangent": {
+  "template": "collision-2d",
+  "t": 0.41339745962155616
+ },
+ "col.angle": {
+  "template": "collision-2d",
+  "t": 0.41339745962155616
+ },
+ "col.el.v1": {
+  "template": "collision-1d",
+  "t": 0.4
+ },
+ "col.el.v2": {
+  "template": "collision-1d",
+  "t": 0.4
+ },
+ "col.swap": {
+  "template": "collision-1d",
+  "params": {
+   "m2": 1
+  },
+  "t": 0.4
+ },
+ "col.in.v": {
+  "template": "collision-1d",
+  "params": {
+   "e": 0
+  },
+  "t": 0.4
+ },
+ "col.in.dE": {
+  "template": "collision-1d",
+  "params": {
+   "e": 0
+  },
+  "t": 0.4
+ },
+ "bounce.v": {
+  "template": "free-fall",
+  "t": 1.010152544552216
+ },
+ "pr.x": {
+  "template": "projectile",
+  "t": 0.3607687659116831
+ },
+ "pr.y": {
+  "template": "projectile",
+  "t": 0.3607687659116831
+ },
+ "pr.vx": {
+  "template": "projectile",
+  "t": 0.3607687659116831
+ },
+ "pr.vy": {
+  "template": "projectile",
+  "t": 0.3607687659116831
+ },
+ "pr.T": {
+  "template": "projectile",
+  "t": 0.3607687659116831
+ },
+ "pr.R": {
+  "template": "projectile",
+  "t": 0.3607687659116831
+ },
+ "ff.v": {
+  "template": "free-fall",
+  "t": 0.252538136138054
+ },
+ "ff.h": {
+  "template": "free-fall",
+  "t": 0.252538136138054
+ },
+ "ff.v2": {
+  "template": "free-fall",
+  "t": 0.252538136138054
+ },
+ "pr.E": {
+  "template": "free-fall",
+  "t": 0.252538136138054
+ },
+ "pr.v": {
+  "template": "projectile",
+  "t": 0.3607687659116831
+ },
+ "pr.H": {
+  "template": "projectile",
+  "t": 0.3607687659116831
+ },
+ "pe.T.small": {
+  "template": "pendulum",
+  "t": 1.5
+ },
+ "pe.T.exact": {
+  "template": "pendulum",
+  "t": 1.5
+ },
+ "pe.v": {
+  "template": "pendulum",
+  "t": 1.5
+ },
+ "pe.F": {
+  "template": "pendulum",
+  "t": 1.5
+ },
+ "sp.T": {
+  "template": "spring",
+  "t": 0.75
+ },
+ "sp.vmax": {
+  "template": "spring",
+  "t": 0.75
+ },
+ "sp.amax": {
+  "template": "spring",
+  "t": 0.75
+ },
+ "ro.alpha": {
+  "template": "hinged-rod",
+  "t": 0.5
+ },
+ "ro.omega": {
+  "template": "hinged-rod",
+  "t": 0.5
+ },
+ "ro.rod": {
+  "template": "hinged-rod",
+  "t": 0.5
+ },
+ "ro.F": {
+  "template": "hinged-rod",
+  "t": 0.5
+ },
+ "rl.a": {
+  "template": "rolling",
+  "t": 0.3
+ },
+ "rl.f": {
+  "template": "rolling",
+  "t": 0.3
+ },
+ "rl.vw": {
+  "template": "rolling",
+  "t": 0.3
+ },
+ "rl.a.slip": {
+  "template": "rolling",
+  "params": {
+   "mu": 0.05
+  },
+  "t": 0.3
+ },
+ "rl.beta.slip": {
+  "template": "rolling",
+  "params": {
+   "mu": 0.05
+  },
+  "t": 0.3
+ },
+ "hi.v": {
+  "template": "ball-rod",
+  "t": 0.14666666666666667
+ },
+ "hi.w": {
+  "template": "ball-rod",
+  "t": 0.14666666666666667
+ },
+ "hi.L": {
+  "template": "ball-rod",
+  "t": 0.14666666666666667
+ },
+ "pu.a": {
+  "template": "table-pulley",
+  "t": 0.25
+ },
+ "pu.T2": {
+  "template": "table-pulley",
+  "t": 0.25
+ },
+ "pu.T1": {
+  "template": "table-pulley",
+  "t": 0.25
+ },
+ "at.a": {
+  "template": "atwood",
+  "t": 0.23944557559802626
+ },
+ "at.T": {
+  "template": "atwood",
+  "t": 0.23944557559802626
+ },
+ "vc.r.T0": {
+  "template": "vertical-circle-rope",
+  "t": 0.08812586029267626
+ },
+ "vc.r.vtop": {
+  "template": "vertical-circle-rope",
+  "params": {
+   "v0": 5.5
+  },
+  "t": 0.5
+ },
+ "vc.r.Ttop": {
+  "template": "vertical-circle-rope",
+  "params": {
+   "v0": 5.5
+  },
+  "t": 0.5
+ },
+ "vc.r.crit": {
+  "template": "vertical-circle-rope",
+  "t": 0.08812586029267626
+ },
+ "vc.r.slackv": {
+  "template": "vertical-circle-rope",
+  "t": 0.08812586029267626
+ },
+ "vc.r.phiS": {
+  "template": "vertical-circle-rope",
+  "t": 0.08812586029267626
+ },
+ "vc.r.hS": {
+  "template": "vertical-circle-rope",
+  "t": 0.08812586029267626
+ },
+ "vc.r.vS": {
+  "template": "vertical-circle-rope",
+  "t": 0.08812586029267626
+ },
+ "vc.r.tS": {
+  "template": "vertical-circle-rope",
+  "t": 0.08812586029267626
+ },
+ "vc.d.F0": {
+  "template": "vertical-circle-rod",
+  "t": 0.5
+ },
+ "vc.d.vtop": {
+  "template": "vertical-circle-rod",
+  "t": 0.5
+ },
+ "vc.d.Ftop": {
+  "template": "vertical-circle-rod",
+  "t": 0.5
+ },
+ "vc.d.zero": {
+  "template": "vertical-circle-rod",
+  "t": 0.5
+ },
+ "mp.rel": {
+  "template": "movable-pulley",
+  "t": 0.2
+ },
+ "mp.a2": {
+  "template": "movable-pulley",
+  "t": 0.2
+ },
+ "mp.a1": {
+  "template": "movable-pulley",
+  "t": 0.2
+ },
+ "mp.T": {
+  "template": "movable-pulley",
+  "t": 0.2
+ },
+ "mp.T1": {
+  "template": "movable-pulley",
+  "t": 0.2
+ },
+ "mp.T2": {
+  "template": "movable-pulley",
+  "t": 0.2
+ },
+ "wd.A": {
+  "template": "movable-wedge",
+  "t": 0.15
+ },
+ "wd.arel": {
+  "template": "movable-wedge",
+  "t": 0.15
+ },
+ "wd.N": {
+  "template": "movable-wedge",
+  "t": 0.15
+ },
+ "wd.px": {
+  "template": "movable-wedge",
+  "t": 0.15
+ },
+ "sb.p": {
+  "template": "spring-blocks",
+  "t": 0.5
+ },
+ "sb.vc": {
+  "template": "spring-blocks",
+  "t": 0.5
+ },
+ "sb.Ep": {
+  "template": "spring-blocks",
+  "t": 0.5
+ },
+ "sb.x": {
+  "template": "spring-blocks",
+  "t": 0.5
+ },
+ "sb.T": {
+  "template": "spring-blocks",
+  "t": 0.5
+ },
+ "rs.a": {
+  "template": "rolling-slip",
+  "t": 0.12755102040833266
+ },
+ "rs.beta": {
+  "template": "rolling-slip",
+  "t": 0.12755102040833266
+ },
+ "rs.t": {
+  "template": "rolling-slip",
+  "t": 0.12755102040833266
+ },
+ "rs.v": {
+  "template": "rolling-slip",
+  "t": 0.12755102040833266
+ },
+ "rs.cyl.t": {
+  "template": "rolling-slip",
+  "t": 0.12755102040833266
+ },
+ "rs.cyl.v": {
+  "template": "rolling-slip",
+  "t": 0.12755102040833266
+ },
+ "rs.Q": {
+  "template": "rolling-slip",
+  "t": 0.12755102040833266
+ },
+ "vf.J": {
+  "template": "variable-force",
+  "t": 1
+ },
+ "vf.v": {
+  "template": "variable-force",
+  "t": 1
+ },
+ "vf.x": {
+  "template": "variable-force",
+  "t": 1
+ },
+ "vf.W": {
+  "template": "variable-force",
+  "t": 1
+ },
+ "vf.sin.v": {
+  "template": "variable-force",
+  "t": 1
+ },
+ "vf.sin.x": {
+  "template": "variable-force",
+  "t": 1
+ },
+ "uni.s": {
+  "template": "uniform-motion",
+  "t": 0.5
+ },
+ "uni.v": {
+  "template": "uniform-motion",
+  "t": 0.5
+ },
+ "uni.F": {
+  "template": "uniform-motion",
+  "t": 0.5
+ },
+ "cf.a": {
+  "template": "pull-force",
+  "t": 0.5
+ },
+ "cf.N": {
+  "template": "pull-force",
+  "t": 0.5
+ },
+ "cf.W0": {
+  "template": "pull-force",
+  "t": 0.5
+ },
+ "cf.W": {
+  "template": "pull-force",
+  "t": 0.5
+ },
+ "cf.P": {
+  "template": "pull-force",
+  "t": 0.5
+ },
+ "cf.dEk": {
+  "template": "pull-force",
+  "t": 0.5
+ },
+ "cf.J": {
+  "template": "pull-force",
+  "t": 0.5
+ },
+ "lever.F": {
+  "template": "lever",
+  "t": 0.25
+ },
+ "lever.N": {
+  "template": "lever",
+  "t": 0.25
+ },
+ "uc.w": {
+  "template": "uniform-circle",
+  "t": 0.47123889803846897
+ },
+ "uc.T": {
+  "template": "uniform-circle",
+  "t": 0.47123889803846897
+ },
+ "uc.a": {
+  "template": "uniform-circle",
+  "t": 0.47123889803846897
+ },
+ "uc.F": {
+  "template": "uniform-circle",
+  "t": 0.47123889803846897
+ },
+ "or.F": {
+  "template": "orbit",
+  "t": 0.6386644223602653
+ },
+ "or.v": {
+  "template": "orbit",
+  "t": 0.6386644223602653
+ },
+ "or.T": {
+  "template": "orbit",
+  "t": 0.6386644223602653
+ },
+ "or.A": {
+  "template": "orbit",
+  "t": 0.6386644223602653
+ },
+ "or.vis": {
+  "template": "orbit",
+  "t": 0.6386644223602653
+ },
+ "or.E": {
+  "template": "orbit",
+  "t": 0.6386644223602653
+ },
+ "or.ecc": {
+  "template": "orbit",
+  "params": {
+   "k": 0.8
+  },
+  "t": 0.4025
+ },
+ "dr.F": {
+  "template": "drag-fall",
+  "t": 2
+ },
+ "dr.vt": {
+  "template": "drag-fall",
+  "t": 4
+ },
+ "dr.vt2": {
+  "template": "drag-fall",
+  "params": {
+   "b": 0,
+   "c": 0.05
+  },
+  "t": 4
+ },
+ "dr.v": {
+  "template": "drag-fall",
+  "t": 2
+ },
+ "dr.v2": {
+  "template": "drag-fall",
+  "params": {
+   "b": 0,
+   "c": 0.05
+  },
+  "t": 2
+ },
+ "dm.T": {
+  "template": "damped-spring",
+  "t": 1
+ },
+ "dm.ratio": {
+  "template": "damped-spring",
+  "t": 1
+ },
+ "spin.beta": {
+  "template": "motor-disc",
+  "t": 0.5
+ },
+ "spin.omega": {
+  "template": "motor-disc",
+  "t": 0.5
+ },
+ "spin.theta": {
+  "template": "motor-disc",
+  "t": 0.5
+ },
+ "spin.W": {
+  "template": "motor-disc",
+  "t": 0.5
+ },
+ "gear.w": {
+  "template": "gears",
+  "t": 0.5
+ },
+ "gear.v": {
+  "template": "gears",
+  "t": 0.5
+ },
+ "gear.beta": {
+  "template": "gears",
+  "t": 0.5
+ },
+ "en.ledger": {
+  "template": "incline",
+  "t": 0.30000000000000004
+ },
+ "mo.px": {
+  "template": "collision-1d",
+  "t": 0.375
+ },
+ "mo.py": {
+  "template": "collision-1d",
+  "t": 0.375
+ }
+}

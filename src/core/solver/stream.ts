@@ -6,6 +6,12 @@
  * thread with the TypeScript engine (`rebuildChunk`), synchronously. The recomputed chunk is checked against the
  * chunk's digest, its events and the next checkpoint, so a mismatch can never go unnoticed.
  *
+ * 26.51 (carry-over of 26.50): with a remote rebuilder (`setRemote`, the rebuild worker of the application), the
+ * chunks the interface is about to need — the next chunk during playback, the chunks of a chart view — are
+ * recomputed off the interface thread in advance (`prefetch`); the result is checked against the chunk's digest
+ * and the next checkpoint like a local rebuild before it is used. Reading a frame of an evicted chunk that has not
+ * arrived yet still recomputes it here, synchronously.
+ *
  * Frame access is synchronous: frameState(rec, k) on a snapshot whose `frames` is this store.
  */
 import type { Message } from '../../i18n/message'
@@ -54,6 +60,15 @@ interface Slot {
   lastUse: number
 }
 
+/** A chunk recomputed elsewhere (the rebuild worker): its frames and the checkpoint of the next chunk. */
+export interface RemoteChunk { first: number; count: number; states: Float64Array; segment: Int32Array; impactLoss: Float64Array; next: Float64Array | null }
+
+/** Request to recompute a chunk elsewhere. */
+export interface RemoteRequest { scene: Scene; duration: number | null; chunkSeconds: number; checkpoint: Float64Array; endFrame: number }
+
+/** Recomputes chunks off this thread; rejects when it cannot. */
+export type RemoteRebuild = (req: RemoteRequest) => Promise<RemoteChunk>
+
 /** Memory and work counters of a stream (for the solver-information panel). */
 export interface StreamStats {
   /** Bytes held: resident frames, checkpoints, summaries, segments and events (estimate). */
@@ -67,6 +82,8 @@ export interface StreamStats {
   rebuilds: number
   /** Wall-clock time spent recomputing chunks (ms). */
   rebuildMs: number
+  /** Chunks recomputed by the remote rebuilder (not on this thread). */
+  remoteRebuilds: number
 }
 
 /** A growing recording assembled from deltas, with evictable frame chunks (see the module header). */
@@ -93,6 +110,12 @@ export class StreamRecording implements FrameStore {
   evictions = 0
   rebuilds = 0
   rebuildMs = 0
+  remoteRebuilds = 0
+  private remote: RemoteRebuild | null = null
+  /** Chunks being recomputed remotely. */
+  private readonly inFlight = new Set<number>()
+  /** Called when a remotely recomputed chunk has been installed. */
+  private chunkListeners: Array<(c: number) => void> = []
   private readonly sim: Pick<SimOptions, 'fallback' | 'maxEventsPerInstant'>
   private readonly slots: Slot[] = []
   private tick = 0
@@ -322,6 +345,48 @@ export class StreamRecording implements FrameStore {
   /** Number of closed chunks. */
   get closedChunks(): number { return this.lastInfo ? this.lastInfo.chunk + 1 : 0 }
 
+  /** Use a remote rebuilder for prefetching evicted chunks (null: none). */
+  setRemote(remote: RemoteRebuild | null) { this.remote = remote }
+
+  /** Be told when a prefetched chunk arrives (returns an unsubscribe function). */
+  onChunk(fn: (c: number) => void): () => void {
+    this.chunkListeners.push(fn)
+    return () => { this.chunkListeners = this.chunkListeners.filter(f => f !== fn) }
+  }
+
+  /**
+   * Recompute evicted chunk c off this thread when a remote rebuilder is set. Returns true when the chunk is in
+   * memory or on its way (the caller can wait), false when it must be recomputed here.
+   */
+  prefetch(c: number): boolean {
+    const slot = this.slots[c]
+    if (!slot) return false
+    if (slot.data) return true
+    if (this.inFlight.has(c)) return true
+    const info = slot.info, cp = slot.checkpoint
+    if (!this.remote || !info || !cp) return false
+    const next = this.slots[c + 1]?.checkpoint ?? null
+    const endFrame = next ? slot.first + this.chunkFrames : slot.first + info.frames - 1
+    this.inFlight.add(c)
+    this.remote({ scene: this.scene, duration: this.duration, chunkSeconds: this.chunkFrames * this.dt, checkpoint: Float64Array.from(cp), endFrame })
+      .then(r => {
+        this.inFlight.delete(c)
+        if (slot.data) return
+        if (r.first !== slot.first || r.count < info.frames) return
+        const states = r.states.subarray(0, info.frames * this.size)
+        if (!sameDigest(chunkDigest(states, this.events, info.eventsFrom, info.eventsTo), info.digest)) return
+        if (next && r.next && !sameArray(r.next, next)) return
+        const chunk: FrameChunk = { index: c, first: slot.first, count: info.frames, states: r.states, segment: r.segment, impactLoss: r.impactLoss }
+        slot.data = chunk
+        slot.lastUse = ++this.tick
+        this.residentBytes += chunkBytes(chunk)
+        this.remoteRebuilds++
+        this.evict(slot)
+        for (const f of this.chunkListeners) f(c)
+      }, () => { this.inFlight.delete(c) })
+    return true
+  }
+
   /** Recompute an evicted chunk from its checkpoint and verify it (see the module header). */
   private rebuild(slot: Slot): FrameChunk {
     const info = slot.info, cp = slot.checkpoint
@@ -389,7 +454,7 @@ export class StreamRecording implements FrameStore {
     for (const s of this.slots) { if (s?.data) resident++; if (s?.checkpoint) checkpoints++ }
     return {
       memoryBytes: this.residentBytes + this.fixedBytes + this.recordBytes, residentBytes: this.residentBytes,
-      chunks: this.slots.length, residentChunks: resident, checkpoints, evictions: this.evictions, rebuilds: this.rebuilds, rebuildMs: this.rebuildMs
+      chunks: this.slots.length, residentChunks: resident, checkpoints, evictions: this.evictions, rebuilds: this.rebuilds, rebuildMs: this.rebuildMs, remoteRebuilds: this.remoteRebuilds
     }
   }
 

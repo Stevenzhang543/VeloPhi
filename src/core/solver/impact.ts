@@ -17,14 +17,18 @@
  * releases e² of the compression work. Hinges and rods stay satisfied (their impulses are eliminated with
  * a Schur complement). Kinetic energy never increases: friction does non-positive work while slipping and
  * none while sticking, and the normal impulse does (1 − e²)·(compression work) ≤ 0 in total.
- * Simultaneous frictional impacts at several points have no comparably safe model; they keep the
- * frictionless impulses (still dissipative) and a warning is recorded when friction would have acted.
+ * Simultaneous frictional impacts at several points (26.51, D37, multiFriction): Newton's law on the normal
+ * rows with Coulomb friction on the post-impact tangential velocities, solved as a linear complementarity
+ * problem by enumerating normal active sets and tangential states (stick, slip either way) in a fixed order;
+ * the first combination that satisfies every condition and does not increase the kinetic energy is taken.
+ * When none does (or there are more than MULTI_FRICTION_POINTS frictional points), the frictionless
+ * impulses are kept (still dissipative) and a warning is recorded.
  */
 import type { Message } from '../../i18n/message'
 import { msg } from '../../i18n/message'
 import { solveDense } from '../math/linalg'
 import type { ContactFeature, Pose, RowJ } from './kinematics'
-import { computePoses, distanceKin, hingeKin, ropeKin } from './kinematics'
+import { computePoses, equalityKins, ropeKin } from './kinematics'
 import type { PairInfo, System } from './dynamics'
 import { TOL, addRow, kineticEnergy, rowDot, rowMinvRow } from './dynamics'
 import type { ContactKin } from './kinematics'
@@ -81,25 +85,40 @@ export function approaching(sys: System, X: Float64Array, posesIn?: Pose[]): boo
   return false
 }
 
-/** Resolve the impact at state X; null when nothing approaches. */
+/** Warning recorded when Newton's law at several points at once would add energy and the impact is made plastic. */
+export const MULTI_IMPACT_PLASTIC_WARNING: Message = msg('warn.multiImpactPlastic')
+
+/**
+ * Resolve the impact at state X; null when nothing approaches. Newton's law applied at several points at once
+ * can add kinetic energy (simultaneous restitution is not energetically consistent in general); when the
+ * frictionless result of a multi-point impact would, the impact is solved again as plastic (e = 0 at every
+ * point), which never adds energy, and a warning is recorded (26.51, D37).
+ */
 export function resolveImpact(sys: System, X: Float64Array): ImpactResult | null {
+  const poses = computePoses(sys.model, X)
+  const rows = impactRows(sys, poses, false)
+  if (!rows) return null
+  const res = solveImpact(sys, X, rows)
+  if (res.frictionless && res.active >= 2 && res.result.energyAfter > res.result.energyBefore + 1e-12 * Math.max(1, res.result.energyBefore)) {
+    const plastic = solveImpact(sys, X, impactRows(sys, poses, true)!)
+    plastic.result.warning = MULTI_IMPACT_PLASTIC_WARNING
+    return plastic.result
+  }
+  return res.result
+}
+
+/** The rows of an impact (equality rows, touching contacts, ropes at full length); null when nothing approaches. */
+function impactRows(sys: System, poses: Pose[], plastic: boolean): IRow[] | null {
   const model = sys.model
-  const n = sys.n
-  const poses = computePoses(model, X)
   const rows: IRow[] = []
-  model.hinges.forEach(h => {
-    for (const k of hingeKin(poses, h.a, h.b)) rows.push({ j: k.j, u: k.vel, target: 0, unilateral: false, approach: false, info: null, kin: null })
-  })
-  model.rods.forEach(r => {
-    const k = distanceKin(poses, r.a, r.b)
-    rows.push({ j: k.j, u: k.vel, target: 0, unilateral: false, approach: false, info: null, kin: null })
-  })
+  // Equality constraints (hinges, rods and the connectors of 26.51) stay satisfied at velocity level
+  for (const e of equalityKins(model, poses)) rows.push({ j: e.kin.j, u: e.kin.vel, target: 0, unilateral: false, approach: false, info: null, kin: null })
   let any = false
   for (const t of touchingFeatures(sys, poses)) {
     const u = t.kin.vn
     const approach = u < -TOL.vel
     if (approach) any = true
-    const e = approach && -u >= TOL.zeno ? t.pair.material.restitution : 0
+    const e = approach && -u >= TOL.zeno && !plastic ? t.pair.material.restitution : 0
     rows.push({
       j: t.kin.jn, u, target: approach ? -e * u : 0, unilateral: true, approach,
       info: { kind: 'contact', pair: t.pair, feature: t.feature, rope: -1, vnBefore: u, vnAfter: u, impulse: 0, restitution: e, cx: t.kin.cx, cy: t.kin.cy, nx: t.kin.nx, ny: t.kin.ny },
@@ -118,7 +137,16 @@ export function resolveImpact(sys: System, X: Float64Array): ImpactResult | null
       kin: null
     })
   })
-  if (!any) return null
+  return any ? rows : null
+}
+
+/**
+ * Solve an impact: the frictionless impulses, then friction (one point: Stronge; several: multiFriction).
+ * `frictionless`: the result keeps the frictionless impulses; `active`: active unilateral rows of that pass.
+ */
+function solveImpact(sys: System, X: Float64Array, rows: IRow[]): { result: ImpactResult; frictionless: boolean; active: number } {
+  const model = sys.model
+  const n = sys.n
   const m = rows.length
   const W = new Float64Array(m * m)
   for (let r = 0; r < m; r++) for (let k = 0; k < m; k++) W[r * m + k] = rowMinvRow(model, rows[r].j, rows[k].j)
@@ -158,7 +186,13 @@ export function resolveImpact(sys: System, X: Float64Array): ImpactResult | null
   }
   const P = bestP ?? new Float64Array(m)
   const friction = frictionPass(sys, X, rows, P, W)
-  if (friction && friction !== 'fallback') return friction
+  let active = 0
+  for (const ri of uni) if (P[ri] > 0) active++
+  if (friction && friction !== 'fallback') return { result: friction, frictionless: false, active }
+  if (friction === null && frictionActs(sys, X, rows, P)) {
+    const multi = multiFriction(sys, X, rows)
+    if (multi) return { result: multi, frictionless: false, active }
+  }
   const before = kineticEnergy(sys, X)
   const dv = new Float64Array(3 * n)
   rows.forEach((r, i) => { if (P[i] !== 0) addRow(dv, r.j, P[i]) })
@@ -184,7 +218,7 @@ export function resolveImpact(sys: System, X: Float64Array): ImpactResult | null
   })
   const out: ImpactResult = { X: Y, points, energyBefore: before, energyAfter: after, loss: before - after }
   if (frictionWouldAct) out.warning = MULTI_IMPACT_WARNING
-  return out
+  return { result: out, frictionless: true, active }
 }
 
 // ---- Friction ----
@@ -338,6 +372,304 @@ function frictionPass(sys: System, X: Float64Array, rows: IRow[], P: Float64Arra
   info.vtAfter = rowDot(kin.jt, Y, 3 * n) + belt
   info.friction = res.end
   return { X: Y, points: [info], energyBefore: before, energyAfter: after, loss: before - after }
+}
+
+/**
+ * Whether the frictionless impulses P leave several unilateral rows active and friction would act on one of
+ * them (a frictional contact with an impulse whose tangential velocity before or after is not zero).
+ */
+function frictionActs(sys: System, X: Float64Array, rows: IRow[], P: Float64Array): boolean {
+  const model = sys.model, n = sys.n
+  let active = 0
+  for (let i = 0; i < rows.length; i++) if (rows[i].unilateral && P[i] > 0) active++
+  if (active < 2) return false
+  const dv = new Float64Array(3 * n)
+  rows.forEach((r, i) => { if (P[i] !== 0) addRow(dv, r.j, P[i]) })
+  const Y = Float64Array.from(X)
+  for (const b of model.dynamic) {
+    const i = b.index
+    Y[3 * n + 3 * i] += dv[3 * i] * b.invMass
+    Y[3 * n + 3 * i + 1] += dv[3 * i + 1] * b.invMass
+    Y[3 * n + 3 * i + 2] += dv[3 * i + 2] * b.invInertia
+  }
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i]
+    if (!(P[i] > 0) || !r.kin || !r.info?.pair) continue
+    const mat = r.info.pair.material
+    if (!(mat.muK > 0 || mat.muS > 0)) continue
+    const belt = r.kin.vt - rowDot(r.kin.jt, X, 3 * n)
+    if (Math.max(Math.abs(r.kin.vt), Math.abs(rowDot(r.kin.jt, Y, 3 * n) + belt)) > TOL.vel) return true
+  }
+  return false
+}
+
+/** Most frictional contact points of a simultaneous frictional impact (D37). */
+export const MULTI_FRICTION_POINTS = 8
+/** Most combinations tried by one enumeration of multiFriction (3⁸). */
+export const MULTI_FRICTION_TRIES = 6561
+
+/** The rows of a multi-point frictional impact: the impact rows, then the tangent rows of the frictional contacts. */
+interface FrictionRows {
+  ext: RowJ[]
+  /** Velocity of each extended row before the impact (tangent rows without the belt speed). */
+  extU: Float64Array
+  /** W = J·M⁻¹·Jᵀ of the extended rows (me × me). */
+  W: Float64Array
+  /** Index of the tangent row of each impact row (−1: frictionless or not a contact). */
+  tan: Int32Array
+  belt: Float64Array; muK: Float64Array; muS: Float64Array
+  /** Direction of slip before the impact (sign of vt⁻, +1 when zero). */
+  dir: Float64Array
+  scaleP: number
+}
+
+/** A combination that passed the checks: impulses on the extended rows, the state after, and the tangential states. */
+interface FrictionSolution { P: Float64Array; Y: Float64Array; after: number; fr: number[]; states: number[] }
+
+function frictionRows(sys: System, X: Float64Array, rows: IRow[]): FrictionRows | null {
+  const model = sys.model, n = sys.n
+  const m = rows.length
+  const ext: RowJ[] = rows.map(r => r.j)
+  const u: number[] = rows.map(r => r.u)
+  const tan = new Int32Array(m).fill(-1)
+  const belt = new Float64Array(m), muK = new Float64Array(m), muS = new Float64Array(m), dir = new Float64Array(m)
+  let frictional = 0
+  for (let i = 0; i < m; i++) {
+    const r = rows[i]
+    if (!r.unilateral || !r.kin || !r.info?.pair) continue
+    const mat = r.info.pair.material
+    if (!(mat.muK > 0 || mat.muS > 0)) continue
+    frictional++
+    tan[i] = ext.length
+    const ut = rowDot(r.kin.jt, X, 3 * n)
+    ext.push(r.kin.jt)
+    u.push(ut)
+    belt[i] = r.kin.vt - ut
+    muK[i] = mat.muK
+    muS[i] = Math.max(mat.muS, mat.muK)
+    dir[i] = r.kin.vt < 0 ? -1 : 1
+  }
+  if (frictional === 0 || frictional > MULTI_FRICTION_POINTS) return null
+  const me = ext.length
+  const W = new Float64Array(me * me)
+  for (let r = 0; r < me; r++) for (let k = 0; k < me; k++) W[r * me + k] = rowMinvRow(model, ext[r], ext[k])
+  let sc = 0
+  for (const v of u) for (const bd of model.dynamic) sc = Math.max(sc, bd.mass * Math.abs(v))
+  return { ext, extU: Float64Array.from(u), W, tan, belt, muK, muS, dir, scaleP: Math.max(sc, 1e-12) }
+}
+
+/** State after impulses P on the extended rows. */
+function applyExt(sys: System, X: Float64Array, ext: RowJ[], P: Float64Array): Float64Array {
+  const model = sys.model, n = sys.n
+  const dv = new Float64Array(3 * n)
+  for (let k = 0; k < ext.length; k++) if (P[k] !== 0) addRow(dv, ext[k], P[k])
+  const Y = Float64Array.from(X)
+  for (const bd of model.dynamic) {
+    const i = bd.index
+    Y[3 * n + 3 * i] += dv[3 * i] * bd.invMass
+    Y[3 * n + 3 * i + 1] += dv[3 * i + 1] * bd.invMass
+    Y[3 * n + 3 * i + 2] += dv[3 * i + 2] * bd.invInertia
+  }
+  return Y
+}
+
+/** Work of the conveyor belts through the tangential impulses (J): −Σ u_belt·Pt. */
+function beltWorkOf(fx: FrictionRows, fr: number[], P: Float64Array): number {
+  let w = 0
+  for (const i of fr) w -= fx.belt[i] * P[fx.tan[i]]
+  return w
+}
+
+/**
+ * Simultaneous frictional impact at several points (D37). Three models are tried in turn:
+ *   1. Newton: unknowns are impulses on the equality rows, normal impulses Pn ≥ 0 on the active unilateral rows
+ *      and, on every active frictional contact, the tangential impulse Pt — free while sticking (tangential
+ *      velocity after the impact vt⁺ = 0, |Pt| ≤ μs·Pn), −μk·s·Pn while slipping in direction s (s·vt⁺ ≥ 0).
+ *      Equality rows keep zero velocity, active normal rows reach their Newton target −e·vn⁻ (0 for rows that
+ *      were not approaching), sticking contacts reach vt⁺ = 0, inactive rows end at or above their target.
+ *      Normal active sets are enumerated in the order of the frictionless pass (approaching rows active
+ *      first); for each, the tangential states in the order stick, slip along vt⁻, slip against it (base-3
+ *      digits, last contact fastest). The first combination that passes every check and does not increase
+ *      the kinetic energy beyond the work of conveyor belts is the result.
+ *   2. Poisson: the same problem with every target 0 (compression), then each contact's impulse (normal and
+ *      tangential) multiplied by 1 + e, the equality rows re-solved; accepted when no contact approaches
+ *      and the energy does not increase. Newton's law at several points at once has no solution in many
+ *      over-constrained arrangements (a block landing in a corner), Poisson's usually does.
+ *   3. Plastic: the compression of 2 alone (e = 0 at every point), with a warning.
+ * Null when none applies (also with too many points or combinations).
+ */
+function multiFriction(sys: System, X: Float64Array, rows: IRow[]): ImpactResult | null {
+  const fx = frictionRows(sys, X, rows)
+  if (!fx) return null
+  const before = kineticEnergy(sys, X)
+  const m = rows.length
+  const newton = new Float64Array(m)
+  for (let i = 0; i < m; i++) newton[i] = rows[i].target
+  const sol = enumerateFriction(sys, X, rows, fx, newton, before)
+  if (sol) return frictionResult(sys, rows, fx, sol, before)
+  const plastic = enumerateFriction(sys, X, rows, fx, new Float64Array(m), before)
+  if (!plastic) return null
+  const poisson = poissonStep(sys, X, rows, fx, plastic, before)
+  if (poisson) return frictionResult(sys, rows, fx, poisson, before)
+  for (const r of rows) if (r.info) r.info.restitution = 0
+  const out = frictionResult(sys, rows, fx, plastic, before)
+  out.warning = MULTI_IMPACT_PLASTIC_WARNING
+  return out
+}
+
+/** Enumerate normal active sets and tangential states for the given targets (step 1 of multiFriction). */
+function enumerateFriction(sys: System, X: Float64Array, rows: IRow[], fx: FrictionRows, targets: Float64Array, before: number): FrictionSolution | null {
+  const m = rows.length
+  const uni = rows.map((r, i) => (r.unilateral ? i : -1)).filter(i => i >= 0)
+  const digits = uni.map(() => 0)
+  let tries = 0
+  for (let outer = 0; outer < 1 << Math.min(uni.length, 14); outer++) {
+    const active = rows.map(r => !r.unilateral)
+    uni.forEach((ri, k) => { const preferActive = rows[ri].approach; active[ri] = digits[k] === 0 ? preferActive : !preferActive })
+    const fr: number[] = []
+    for (let i = 0; i < m; i++) if (active[i] && fx.tan[i] >= 0) fr.push(i)
+    const states = fr.map(() => 0)
+    // Only combinations with friction acting somewhere are new; the all-frictionless ones were the first pass
+    if (fr.length > 0) {
+      for (;;) {
+        if (++tries > MULTI_FRICTION_TRIES) return null
+        const sol = tryCombination(sys, X, rows, fx, targets, active, fr, states, before)
+        if (sol) return sol
+        if (!advanceBase(states, 3)) break
+      }
+    }
+    if (!advance(digits)) break
+  }
+  return null
+}
+
+/** One combination: solve and check (null when not admissible). */
+function tryCombination(sys: System, X: Float64Array, rows: IRow[], fx: FrictionRows, targets: Float64Array, active: boolean[], fr: number[], states: number[], before: number): FrictionSolution | null {
+  const { ext, extU, W, tan, belt, muK, muS, dir, scaleP } = fx
+  const m = rows.length, me = ext.length
+  /** Slip coefficient of each row's column (Pt = coef·Pn), 0 when not slipping. */
+  const coef = new Float64Array(m)
+  const stick: number[] = []
+  fr.forEach((i, k) => {
+    if (states[k] === 0) stick.push(i)
+    else coef[i] = -muK[i] * (states[k] === 1 ? dir[i] : -dir[i])
+  })
+  // Unknowns: the active rows (normal impulse with its slip column), then the tangent rows of sticking contacts
+  const cols: number[] = []
+  for (let i = 0; i < m; i++) if (active[i]) cols.push(i)
+  const q = cols.length + stick.length
+  const A = new Float64Array(q * q), b = new Float64Array(q)
+  for (let a = 0; a < q; a++) {
+    const ra = a < cols.length ? cols[a] : tan[stick[a - cols.length]]
+    for (let c = 0; c < q; c++) {
+      if (c < cols.length) {
+        const rc = cols[c]
+        A[a * q + c] = coef[rc] !== 0 ? W[ra * me + rc] + coef[rc] * W[ra * me + tan[rc]] : W[ra * me + rc]
+      } else A[a * q + c] = W[ra * me + tan[stick[c - cols.length]]]
+    }
+    b[a] = a < cols.length ? targets[ra] - extU[ra] : -belt[stick[a - cols.length]] - extU[ra]
+  }
+  const sol = solveDense(q, A, b)
+  if (!sol.consistent) return null
+  const P = new Float64Array(me)
+  cols.forEach((ri, c) => {
+    P[ri] = sol.x[c]
+    if (coef[ri] !== 0) P[tan[ri]] = coef[ri] * sol.x[c]
+  })
+  stick.forEach((ri, k) => { P[tan[ri]] = sol.x[cols.length + k] })
+  const vel = (r: number) => { let v = extU[r]; for (let k = 0; k < me; k++) v += W[r * me + k] * P[k]; return v }
+  for (let i = 0; i < m; i++) {
+    if (!rows[i].unilateral) continue
+    if (active[i]) { if (P[i] < -1e-12 * scaleP) return null }
+    else if (vel(i) < targets[i] - TOL.vel) return null
+  }
+  for (let k = 0; k < fr.length; k++) {
+    const i = fr[k]
+    const pn = Math.max(P[i], 0)
+    if (states[k] === 0) { if (Math.abs(P[tan[i]]) > muS[i] * pn + 1e-12 * scaleP) return null }
+    else {
+      const s = states[k] === 1 ? dir[i] : -dir[i]
+      if (s * (vel(tan[i]) + belt[i]) < -TOL.vel) return null
+    }
+  }
+  const Y = applyExt(sys, X, ext, P)
+  const after = kineticEnergy(sys, Y)
+  if (!(after <= before + beltWorkOf(fx, fr, P) + 1e-12 * Math.max(1, before))) return null
+  return { P, Y, after, fr: fr.slice(), states: states.slice() }
+}
+
+/** Step 2 of multiFriction: Poisson's restitution after the plastic compression (null when not admissible). */
+function poissonStep(sys: System, X: Float64Array, rows: IRow[], fx: FrictionRows, plastic: FrictionSolution, before: number): FrictionSolution | null {
+  const { ext, extU, W, tan } = fx
+  const m = rows.length, me = ext.length
+  const P = Float64Array.from(plastic.P)
+  let any = false
+  for (let i = 0; i < m; i++) {
+    const e = rows[i].info?.restitution ?? 0
+    if (!rows[i].unilateral || !(e > 0) || !(P[i] > 0)) continue
+    any = true
+    P[i] *= 1 + e
+    if (tan[i] >= 0) P[tan[i]] *= 1 + e
+  }
+  if (!any) return null
+  // Equality rows keep zero velocity: re-solve their impulses with the contact impulses fixed
+  const bil: number[] = []
+  for (let i = 0; i < m; i++) if (!rows[i].unilateral) bil.push(i)
+  if (bil.length > 0) {
+    const nb = bil.length
+    const A = new Float64Array(nb * nb), b = new Float64Array(nb)
+    bil.forEach((ra, a) => {
+      bil.forEach((rc, c) => { A[a * nb + c] = W[ra * me + rc] })
+      let v = extU[ra]
+      for (let k = 0; k < me; k++) if (k >= m || rows[k].unilateral) v += W[ra * me + k] * P[k]
+      b[a] = -v
+    })
+    const sol = solveDense(nb, A, b)
+    if (!sol.consistent) return null
+    bil.forEach((ri, a) => { P[ri] = sol.x[a] })
+  }
+  for (let i = 0; i < m; i++) {
+    if (!rows[i].unilateral) continue
+    let v = extU[i]
+    for (let k = 0; k < me; k++) v += W[i * me + k] * P[k]
+    if (v < -TOL.vel) return null
+  }
+  const Y = applyExt(sys, X, ext, P)
+  const after = kineticEnergy(sys, Y)
+  if (!(after <= before + beltWorkOf(fx, plastic.fr, P) + 1e-12 * Math.max(1, before))) return null
+  return { P, Y, after, fr: plastic.fr, states: plastic.states }
+}
+
+/** The impact result of a multi-point frictional solution. */
+function frictionResult(sys: System, rows: IRow[], fx: FrictionRows, sol: FrictionSolution, before: number): ImpactResult {
+  const n = sys.n
+  const { P, Y, fr, states } = sol
+  const points: ImpactPoint[] = []
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i]
+    if (!r.info) continue
+    if (!(r.approach || P[i] > 0)) continue
+    const info = r.info
+    // + 0: a zero impulse is reported as +0 (−0 arises from slip coefficients times a zero normal impulse)
+    info.impulse = P[i] + 0
+    info.vnAfter = rowDot(r.j, Y, 3 * n)
+    const k = fr.indexOf(i)
+    if (k >= 0 && r.kin) {
+      info.tangentImpulse = P[fx.tan[i]] + 0
+      info.vtBefore = r.kin.vt
+      info.vtAfter = rowDot(r.kin.jt, Y, 3 * n) + fx.belt[i]
+      info.friction = states[k] === 0 ? 'stick' : states[k] === 1 || Math.abs(r.kin.vt) <= TOL.vel ? 'slip' : 'reverse'
+    }
+    points.push(info)
+  }
+  return { X: Y, points, energyBefore: before, energyAfter: sol.after, loss: before - sol.after }
+}
+
+/** Next combination of base-`base` digits (last digit fastest); false after the last. */
+function advanceBase(digits: number[], base: number): boolean {
+  let k = digits.length - 1
+  while (k >= 0) { digits[k]++; if (digits[k] < base) return true; digits[k] = 0; k-- }
+  return false
 }
 
 function advance(digits: number[]): boolean {

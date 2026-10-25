@@ -1,6 +1,6 @@
 /** Helpers to build scenes in code (templates, tests). All values SI; the default gravity is set here. */
 import { tl } from '../../i18n'
-import type { Anchor, BodyDef, BodyKind, BodyRole, ConnectorDef, Material, PulleyDef, Scene, ShapeDef } from './types'
+import type { Anchor, BodyDef, BodyKind, BodyRole, ConnectorDef, DragDef, Material, PulleyDef, Scene, ShapeDef } from './types'
 import { ENGINE_VERSION, SCENE_FORMAT, SCENE_VERSION } from './types'
 import type { Vec2 } from '../math/vec'
 import { cos, sin } from '../math/dmath'
@@ -55,6 +55,8 @@ export interface BodyOptions {
   material?: Partial<Material>
   beltSpeed?: number
   color?: string
+  /** Air resistance (26.51, D50). */
+  drag?: DragDef
 }
 
 let counter = 0
@@ -79,11 +81,12 @@ export function addBody(scene: Scene, o: BodyOptions): BodyDef {
     name: o.name, kind, role, shape: o.shape,
     position: { ...o.position }, angle: o.angle ?? 0,
     velocity: { ...(o.velocity ?? { x: 0, y: 0 }) }, angularVelocity: o.angularVelocity ?? 0,
-    mass: kind === 'static' ? 0 : (o.mass ?? 1), inertia: o.inertia ?? null,
+    mass: kind === 'static' ? (o.mass ?? 0) : (o.mass ?? 1), inertia: o.inertia ?? null,
     fixedRotation: o.fixedRotation ?? false,
     material: { ...DEFAULT_MATERIAL, ...(o.material ?? {}) },
     beltSpeed: o.beltSpeed ?? 0,
-    color: o.color ?? COLORS[role]
+    color: o.color ?? COLORS[role],
+    ...(o.drag ? { drag: { ...o.drag } } : {})
   }
   scene.bodies.push(body)
   return body

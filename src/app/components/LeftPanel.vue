@@ -34,7 +34,12 @@ const groups: Array<{ title: string; tools: Array<{ tool: Tool; icon: string; la
     { tool: 'connect-rope', icon: 'rope', label: tl('轻绳'), tip: tl('只能拉、不可伸长；可绕过滑轮') },
     { tool: 'connect-rod', icon: 'rod', label: tl('轻杆'), tip: tl('长度不变，可拉可压') },
     { tool: 'connect-spring', icon: 'spring', label: tl('弹簧'), tip: tl('胡克定律 F = kx，可设阻尼') },
+    { tool: 'connect-damper', icon: 'damper', label: tl('阻尼器'), tip: tl('阻力与相对速度成正比 F = cv，没有弹力') },
     { tool: 'connect-hinge', icon: 'hinge', label: tl('铰链'), tip: tl('光滑转轴') },
+    { tool: 'connect-weld', icon: 'weld', label: tl('焊接'), tip: tl('把两个物体连成一个整体，或把物体固定住') },
+    { tool: 'connect-slider', icon: 'slider', label: tl('滑轨'), tip: tl('物体只能沿一条直线滑动（移动副）') },
+    { tool: 'connect-motor', icon: 'motor', label: tl('马达'), tip: tl('带驱动的转轴：恒定转速或恒定力矩') },
+    { tool: 'connect-gear', icon: 'gear', label: tl('齿轮'), tip: tl('两轮转速成比例：ω₁r₁ = ω₂r₂（齿轮或皮带）') },
     { tool: 'add-force', icon: 'force', label: tl('恒力'), tip: tl('方向和大小不变的外力') }
   ] },
   { title: tl('测量与标注'), tools: [
@@ -67,7 +72,7 @@ const snapText = computed(() => (settings.editor.snapStep > 0 ? tl('步长 {0}',
 const annText = (a: { type: string; text?: string }) => (a.type === 'text' ? a.text || tl('文字') : ({ arrow: tl('箭头'), ruler: tl('尺子'), angle: tl('量角器') } as Record<string, string>)[a.type] ?? a.type)
 
 const kindText = (k: string) => ({ particle: tl('质点'), rigid: tl('刚体'), static: tl('固定') } as Record<string, string>)[k] ?? k
-const connText = (k: string) => ({ rope: tl('绳'), rod: tl('杆'), spring: tl('弹簧'), hinge: tl('铰链'), force: tl('力') } as Record<string, string>)[k] ?? k
+const connText = (k: string) => ({ rope: tl('绳'), rod: tl('杆'), spring: tl('弹簧'), hinge: tl('铰链'), force: tl('力'), damper: tl('阻尼器'), weld: tl('焊接'), slider: tl('滑轨'), motor: tl('马达'), gear: tl('齿轮') } as Record<string, string>)[k] ?? k
 </script>
 
 <template>
@@ -83,11 +88,16 @@ const connText = (k: string) => ({ rope: tl('绳'), rod: tl('杆'), spring: tl('
           </button>
         </div>
       </template>
-      <label class="snap-row small" :title="tl('放置、移动、改大小和编辑顶点时对齐网格；按住 Alt 临时关闭')">
+      <label class="snap-row small" :title="tl('靠近其他物体时吸到刚好接触的位置；按住 Alt 临时关闭')">
+        <input v-model="settings.editor.objectSnap" type="checkbox" />
+        <Icon name="magnet" :size="15" />
+        <span class="grow">{{ tl('物体吸附') }}</span>
+      </label>
+      <label class="snap-row small" :title="tl('可选：放置、移动、改大小和编辑顶点时对齐网格；按住 Alt 临时关闭')">
         <input v-model="settings.editor.snap" type="checkbox" />
-        <Icon name="snap" :size="15" />
+        <Icon name="grid" :size="15" />
         <span class="grow">{{ tl('网格吸附') }}</span>
-        <span class="tiny muted">{{ snapText }}</span>
+        <span v-if="settings.editor.snap" class="tiny muted">{{ snapText }}</span>
       </label>
     </div>
     <div class="pane-header">{{ tl('对象') }} <span class="tiny muted">{{ state.scene.bodies.length + state.scene.connectors.length + state.scene.pulleys.length + state.scene.annotations.length }}</span></div>

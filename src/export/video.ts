@@ -18,6 +18,7 @@ import { evaluateQuantity, listQuantities } from '../core/observe/quantities'
 import { observeAt } from '../formula/situations'
 import { ENGINE_VERSION } from '../core/scene/types'
 import type { UnitChoice } from '../units/units'
+import { shownTime } from '../units/clock'
 import { defaultChoice, displayLabel, formatQuantity, toDisplay } from '../units/units'
 import { drawStill } from './still'
 import { fingerprintShort } from './fingerprint'
@@ -56,10 +57,10 @@ export interface VideoOptions {
 /** Encoded video and its container format. */
 export interface VideoResult { data: Uint8Array; extension: 'mp4' | 'webm'; mime: string; frames: number }
 
-/** Time label such as "t = 1.250 s" in the display time unit. */
+/** Time label such as "t = 1.250 s" in the display time unit (recording clock as shown, see units/clock). */
 export function timeLabel(t: number, units: UnitChoice): string {
   const label = displayLabel('s', units)
-  const v = toDisplay(t, 's', units)
+  const v = toDisplay(shownTime(t), 's', units)
   return `t = ${v.toFixed(label === 'ms' ? 0 : 3)} ${label}`
 }
 

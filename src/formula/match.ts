@@ -131,6 +131,10 @@ export function evaluateCard(f: FormulaDef, sit: Situation, sample: Sample, opts
     reason = tl('条件不满足：{0}', [failed.map(c => c.label + (c.detail ? paren(c.detail) : '')).join(semiSep())])
   } else if (theory === null) {
     verdict = 'not-applicable'
+  } else if (!Number.isFinite(theory)) {
+    // 0/0 at the start of a phase (v = s/t at t = 0) and similar: no value to compare
+    verdict = 'not-applicable'
+    reason = tl('此刻理论值无定义（如除以零），请在其他时刻查看')
   } else if (sim === null) {
     verdict = 'no-measure'
     reason = measure?.note ?? tl('仿真中没有可比较的测量值')

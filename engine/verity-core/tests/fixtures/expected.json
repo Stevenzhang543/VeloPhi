@@ -22,9 +22,9 @@
    "events": 3
   },
   "unbounded10": {
-   "hash": "374270ded819917fb33ec0db529446ac6fc52c84788e991e194e5be277134c83",
-   "frames": 6001,
-   "stopReason": "user"
+   "hash": "b5f389722dbaa59ca846d8be4043995fb271102f49ae499bdedb6703feaa6cd5",
+   "frames": 1417,
+   "stopReason": "restApprox"
   }
  },
  {
@@ -171,14 +171,14 @@
   "name": "template-atwood",
   "file": "template-atwood.json",
   "bounded": {
-   "hash": "c80279a5336ec92e6a32e3bd3f7728fc1361958998c8b8716ac9d19e28d98dd2",
-   "frames": 601,
-   "events": 0
+   "hash": "c9210c01363e849ccd58069a1d9b973dcad226219c764afd504412322b9169c5",
+   "frames": 575,
+   "events": 1
   },
   "unbounded10": {
-   "hash": "e241b32f7a50f23b36832b7efb1a1bb001426c64e904fc2600769ad2051b4b90",
-   "frames": 1413,
-   "stopReason": "error"
+   "hash": "4fa72ece3dda40864dcdc243dda5dd952ff25b9fb7f1d3d4c1a7ef0a29550608",
+   "frames": 575,
+   "stopReason": "pulley"
   }
  },
  {
@@ -190,9 +190,9 @@
    "events": 0
   },
   "unbounded10": {
-   "hash": "9136274451139a50af72c5cb189ecda184b427862eb7e42d83523137cda1ed52",
+   "hash": "aa4f7a62804213566df18b4b0efcf2ab7bf8e543cf1f495055c16add56ed68dc",
    "frames": 784,
-   "stopReason": "error"
+   "stopReason": "pulley"
   }
  },
  {
@@ -294,6 +294,146 @@
   }
  },
  {
+  "name": "template-uniform-motion",
+  "file": "template-uniform-motion.json",
+  "bounded": {
+   "hash": "a16551f2fc588740036a87c84522ae83d80a9d0e1703c83b660addfc77592e4f",
+   "frames": 1201,
+   "events": 0
+  },
+  "unbounded10": {
+   "hash": "7c4697e1fc39393dbdd583d103884d35698794a57e5fc70b71c21ff88189f932",
+   "frames": 6001,
+   "stopReason": "user"
+  }
+ },
+ {
+  "name": "template-pull-force",
+  "file": "template-pull-force.json",
+  "bounded": {
+   "hash": "24ac26508d702b8d8ee0029e24fec5bf83603abbbf84b76fcba0dc5e680a0572",
+   "frames": 1201,
+   "events": 0
+  },
+  "unbounded10": {
+   "hash": "37abea69c924ef5caa100f7fa65ce24fa15754c041549fce78bcaecf248f962a",
+   "frames": 6001,
+   "stopReason": "user"
+  }
+ },
+ {
+  "name": "template-free-fall",
+  "file": "template-free-fall.json",
+  "bounded": {
+   "hash": "bd6995ceef104cc3338b94e08678127b125747b3fd4b36fb36939d16eae9aaa0",
+   "frames": 787,
+   "events": 1
+  },
+  "unbounded10": {
+   "hash": "bc2435c05f0c54682923fe104c46d3085995836d3876bfa24c7466c120fe5a54",
+   "frames": 608,
+   "stopReason": "rest"
+  }
+ },
+ {
+  "name": "template-lever",
+  "file": "template-lever.json",
+  "bounded": {
+   "hash": "c7c797f0c4fd2eb56225cac117dcd8fb91104b7dbb474d800e3c10e1df036b82",
+   "frames": 601,
+   "events": 0
+  },
+  "unbounded10": {
+   "hash": "d89d513b9c65746d90722224c61a7424330638b1f81a95c0fdac7a91ef321bb9",
+   "frames": 601,
+   "stopReason": "restApprox"
+  }
+ },
+ {
+  "name": "template-uniform-circle",
+  "file": "template-uniform-circle.json",
+  "bounded": {
+   "hash": "8ac9d575f3125b934ed71724f309971cd018420d02968c0a3fc33d40f014682e",
+   "frames": 1132,
+   "events": 0
+  },
+  "unbounded10": {
+   "hash": "0723785e8ef480ef5a5b87af3bdb654d53e724447d135382e96abef047abf010",
+   "frames": 6001,
+   "stopReason": "user"
+  }
+ },
+ {
+  "name": "template-orbit",
+  "file": "template-orbit.json",
+  "bounded": {
+   "hash": "a57fca4aa952a9b666d49465705ea1b0ba1fc26b0598476ec234e614e881ca00",
+   "frames": 1534,
+   "events": 0
+  },
+  "unbounded10": {
+   "hash": "42fa8e7732959e859a10bad22fbe3eb9cefc7f3c762ce6c98b48db5d797f0b60",
+   "frames": 6001,
+   "stopReason": "user"
+  }
+ },
+ {
+  "name": "template-drag-fall",
+  "file": "template-drag-fall.json",
+  "bounded": {
+   "hash": "900ce9b3f2bba5690d339f4a02be303b8159aa499158e94a92c80496952260fd",
+   "frames": 4801,
+   "events": 0
+  },
+  "unbounded10": {
+   "hash": "454dee9cb0c5555a127cd9f94bbc0b5bb0c7bcf118302a2613314c47c11780ee",
+   "frames": 6001,
+   "stopReason": "user"
+  }
+ },
+ {
+  "name": "template-damped-spring",
+  "file": "template-damped-spring.json",
+  "bounded": {
+   "hash": "1e6d38f9ca3a13ee6199a66ac5401dc68cdd446ae2700ce2766cb70596228947",
+   "frames": 2401,
+   "events": 0
+  },
+  "unbounded10": {
+   "hash": "616c89596a0b5647e1e3c7cb173cf6f1d084ac1d9365e5f5abaa50152174ef9b",
+   "frames": 6001,
+   "stopReason": "user"
+  }
+ },
+ {
+  "name": "template-motor-disc",
+  "file": "template-motor-disc.json",
+  "bounded": {
+   "hash": "d5af70e85abfff05cf2865471c3138b33b4e9d9e641c32479f45a197732a9ef6",
+   "frames": 1201,
+   "events": 0
+  },
+  "unbounded10": {
+   "hash": "8fb9a7b2ff67f3f9a242204635bed10acfd46296c3db8c243eca82aecd7e3ac0",
+   "frames": 6001,
+   "stopReason": "user"
+  }
+ },
+ {
+  "name": "template-gears",
+  "file": "template-gears.json",
+  "bounded": {
+   "hash": "ccb89c9f2eb0fedaf6ddaaa87e48f2307159fa5d73cb9e832f42f169b20fce2f",
+   "frames": 1201,
+   "events": 0
+  },
+  "unbounded10": {
+   "hash": "074aa33109168f5c07477d9ae2c86ea1c22090481ff640d3449377e42879cdc6",
+   "frames": 6001,
+   "stopReason": "user"
+  }
+ },
+ {
   "name": "golden-stack",
   "file": "golden-stack.json",
   "bounded": {
@@ -302,9 +442,9 @@
    "events": 0
   },
   "unbounded10": {
-   "hash": "fc5e2d41d9d2790e0514e0c5e6f151913401f388cbe3a6e7743a4265f47e516c",
-   "frames": 6001,
-   "stopReason": "user"
+   "hash": "9749f274b28372009ce7a797d97ba34ea7d5a1dabb69fe1047f97396491bf494",
+   "frames": 601,
+   "stopReason": "restApprox"
   }
  },
  {
@@ -344,9 +484,9 @@
    "events": 5
   },
   "unbounded10": {
-   "hash": "feaa77c72fa0f3ff609d90f752559cb40b20c995c43f140b319bdec80ef2c620",
-   "frames": 6001,
-   "stopReason": "user"
+   "hash": "ed487fb1697e3fc88163506416dbb364f1bda38cb17dcd3abdc879c0b90427f7",
+   "frames": 1274,
+   "stopReason": "restApprox"
   }
  },
  {

@@ -5,6 +5,7 @@
  * and the lab report dialogs.
  */
 import { tl } from '../../i18n'
+import { inExportLanguage } from '../exportLang'
 import { computed, ref } from 'vue'
 import { state, showToast, viewCamera } from '../store'
 import { effectiveEffects, settings, toDisp, unitLabel } from '../settings'
@@ -39,7 +40,7 @@ const tScale = computed(() => toDisp(1, 's'))
 async function doCsv() {
   const r = rec.value
   const from = Math.max(0, Math.round(t0.value / r.dt)), to = Math.min(r.frameCount - 1, Math.round(t1.value / r.dt))
-  const text = recordingCsv(r, { ids: picked.value, stride: stride.value, from, to, units: csvUnits.value, unitChoice: settings.units, separator: settings.export.csvSeparator, decimal: settings.export.csvDecimal })
+  const text = await inExportLanguage(async () => recordingCsv(r, { ids: picked.value, stride: stride.value, from, to, units: csvUnits.value, unitChoice: settings.units, separator: settings.export.csvSeparator, decimal: settings.export.csvDecimal }))
   const path = await saveFile(text, `${safeName.value}.csv`, [{ name: tl('CSV 表格'), extensions: ['csv'] }])
   if (path) { showToast(tl('已导出 {0}', [path])); logEvent('export.csv', { columns: picked.value.length, units: csvUnits.value }) }
 }
@@ -63,13 +64,13 @@ async function doVideo() {
   progress.value = 0
   try {
     const [w, h] = res.value === '1080' ? [1920, 1080] : [1280, 720]
-    const out = await exportVideo(rec.value, {
+    const out = await inExportLanguage(() => exportVideo(rec.value, {
       width: w, height: h, fps: fps.value, speed: speed.value, t0: t0.value, t1: t1.value,
       view: { cx: viewCamera.cx, cy: viewCamera.cy, ppmAtHeight: viewCamera.ppm, viewHeight: viewCamera.height },
       options: { ...state.display }, palette: state.theme === 'dark' ? DARK : LIGHT, selectedId: state.selection?.id ?? null,
       digits: state.digits, overlayIds: overlay.value, title: state.scene.name,
       units: settings.units, effects: videoEffects(), annotations: state.scene.annotations, style: settings.projector ? PROJECTOR_STYLE : null, bitrate: settings.export.bitrate
-    }, p => { progress.value = p }, () => cancel)
+    }, p => { progress.value = p }, () => cancel))
     const path = await saveFile(out.data, `${safeName.value}.${out.extension}`, [{ name: out.extension === 'mp4' ? tl('MP4 视频') : tl('WebM 视频'), extensions: [out.extension] }])
     if (path) { showToast(tl('已导出视频（{0} 帧）：{1}', [out.frames, path])); logEvent('export.video', { frames: out.frames, format: out.extension, fps: fps.value }) }
   } catch (e) {
@@ -96,6 +97,7 @@ function openReport() { state.showExport = false; state.showReport = true }
         <div class="group">
           <div class="row"><label>{{ tl('开始时刻') }}</label><NumField class="grow" :model-value="t0" :unit="unitLabel('s')" :scale="tScale" :min="0" :max="total" @update:model-value="v => (t0 = v)" /></div>
           <div class="row"><label>{{ tl('结束时刻') }}</label><NumField class="grow" :model-value="t1" :unit="unitLabel('s')" :scale="tScale" :min="0" :max="total" @update:model-value="v => (t1 = v)" /></div>
+          <div class="row"><label>{{ tl('导出语言') }}</label><select v-model="settings.export.language" class="field grow" :title="tl('报告、课件、视频叠字与 CSV 表头使用的语言，可与界面语言不同')"><option value="ui">{{ tl('跟随界面') }}</option><option value="zh">{{ tl('简体中文') }}</option><option value="en">English</option><option value="de">Deutsch</option></select></div>
           <div v-if="rec.unbounded" class="tiny muted">{{ tl('不限时长：可导出已算出的范围（0 至 {0} {1}），默认全部。', [(total * tScale).toPrecision(6), unitLabel('s')]) }}</div>
         </div>
         <template v-if="tab === 'csv'">

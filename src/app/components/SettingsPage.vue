@@ -8,7 +8,9 @@ import { tl, paren } from '../../i18n'
 import { computed, provide, ref, watch } from 'vue'
 import { applyLookAhead, applyMemoryBudget, state } from '../store'
 import type { DisplayToggle } from '../settings'
-import { applyUnitPreset, effectiveEffects, fmtQ, resetSettings, settings, sysEnv, texQ, unitLabel } from '../settings'
+import { applyUnitPreset, effectiveCurriculum, effectiveEffects, fmtQ, resetSettings, settings, sysEnv, texQ, unitLabel } from '../settings'
+import { LEVEL_CHOICES, nearestLevel, withinLevel } from '../../formula/levels'
+import { FORMULAS } from '../../formula/library'
 import { clearTrialLog, exportTrialLog, logEvent, trialLogSize } from '../trialLog'
 import { showToast } from '../store'
 import type { SettingsSection, ThemeMode, EffectQuality } from '../settings'
@@ -19,18 +21,22 @@ import NumField from './NumField.vue'
 import Icon from './Icon.vue'
 import Tex from './Tex.vue'
 import AboutContent from './AboutContent.vue'
+import HandbookView from './HandbookView.vue'
 import { PAGE_ACTIVE } from '../live'
+import { ask } from '../../platform/ask'
 
 const props = withDefaults(defineProps<{ active?: boolean }>(), { active: true })
 provide(PAGE_ACTIVE, computed(() => props.active))
 
-type SectionId = SettingsSection | 'keys' | 'about'
+type SectionId = SettingsSection | 'handbook' | 'keys' | 'about'
 const SECTIONS: Array<{ id: SectionId; label: string; icon: string; desc: string }> = [
   { id: 'general', label: tl('通用'), icon: 'settings', desc: tl('外观、界面缩放、自动重算与新场景的默认值。') },
   { id: 'units', label: tl('单位与数值'), icon: 'ruler', desc: tl('所有面板、曲线、公式代入、导出都按这里的单位显示；内部计算始终使用国际单位。') },
   { id: 'display', label: tl('显示'), icon: 'display', desc: tl('画布上默认叠加的内容，以及适合教室投影的投影仪模式。') },
   { id: 'effects', label: tl('视觉效果'), icon: 'sparkle', desc: tl('玻璃质感、动态背景、运动模糊、粒子与拖尾。配置较低的电脑或投影时可降低或关闭。') },
-  { id: 'editor', label: tl('编辑'), icon: 'pen', desc: tl('在画布上放置和拖动物体时的吸附。') },
+  { id: 'knowledge', label: tl('知识与公式'), icon: 'graduation', desc: tl('按你的课程体系和知识水平决定公式卡片显示哪些公式；超出水平的公式折叠为一行，可随时展开。') },
+  { id: 'handbook', label: tl('学习手册'), icon: 'book', desc: tl('按主题整理的原理讲解与全部公式：符号、适用条件、推导、知识水平与示例；“打开示例”在工作台中载入模板并跳到该公式出现的时刻。') },
+  { id: 'editor', label: tl('编辑'), icon: 'pen', desc: tl('在画布上放置、拖动、缩放和旋转物体时的吸附。') },
   { id: 'sim', label: tl('仿真'), icon: 'cpu', desc: tl('计算方式与时间上限。结果与计算方式无关，同一场景逐位一致。') },
   { id: 'export', label: tl('导出'), icon: 'export', desc: tl('视频、图片与 CSV 数据的默认格式。') },
   { id: 'keys', label: tl('快捷键'), icon: 'keyboard', desc: tl('全部键盘与鼠标操作。') },
@@ -39,7 +45,12 @@ const SECTIONS: Array<{ id: SectionId; label: string; icon: string; desc: string
 ]
 const current = ref<SectionId>('general')
 const section = computed(() => SECTIONS.find(s => s.id === current.value)!)
-const resettable = computed(() => current.value !== 'keys' && current.value !== 'about')
+const resettable = computed(() => current.value !== 'keys' && current.value !== 'about' && current.value !== 'handbook')
+// Another part of the app asked for a section (the formula cards open the handbook)
+watch(() => state.settingsSection, id => {
+  if (id && SECTIONS.some(s => s.id === id)) current.value = id as SectionId
+  if (id) state.settingsSection = null
+}, { immediate: true })
 function reset() { if (resettable.value) resetSettings(current.value as SettingsSection) }
 
 // ---- General ----
@@ -47,6 +58,28 @@ const THEMES: Array<{ id: ThemeMode; label: string; icon: string }> = [
   { id: 'system', label: tl('跟随系统'), icon: 'display' }, { id: 'light', label: tl('浅色'), icon: 'sun' }, { id: 'dark', label: tl('深色'), icon: 'moon' }
 ]
 const G_PRESETS = [{ v: 9.8, label: '9.8' }, { v: 9.80665, label: tl('9.80665（标准）') }, { v: 10, label: '10' }, { v: 1.62, label: tl('1.62（月面）') }]
+
+// ---- Knowledge (D44) ----
+const curriculum = computed(() => effectiveCurriculum())
+const LEVEL_DESC: Record<string, string> = {
+  'cn:1': tl('义务教育物理：二力平衡、平均速度、重力、杠杆平衡条件、定滑轮与动滑轮、功与功率'),
+  'cn:2': tl('必修与选择性必修：匀变速直线运动、牛顿定律、摩擦力、抛体与圆周运动、万有引力、动能定理与机械能守恒、动量定理与动量守恒、简谐运动与单摆'),
+  'cn:4': tl('普通物理：刚体转动定律、转动惯量与角动量、滚动、恢复系数与一般碰撞、阻尼振动、约化质量、积分形式'),
+  'cn:5': tl('理论力学与精确解：拉格朗日方程、大摆角单摆的精确周期（椭圆积分）等'),
+  'ib:1': tl('MYP 科学：力的平衡、速度、重力、力矩（杠杆）、简单机械、功与功率'),
+  'ib:2': tl('DP SL：A.1 运动学、A.2 力与动量（含圆周运动）、A.3 功能与功率、C.1 简谐运动、D.1 引力场'),
+  'ib:3': tl('DP HL：在 SL 基础上加 A.4 刚体力学（力矩、转动惯量、角动量、滚动）、简谐运动的相位与能量、引力势能与逃逸速度'),
+  'ib:4': tl('大学普通物理：恢复系数、阻尼与受迫振动、约化质量、积分形式'),
+  'ib:5': tl('理论力学与精确解：拉格朗日方程、大摆角单摆的精确周期（椭圆积分）等')
+}
+function setCurriculum(v: 'auto' | 'cn' | 'ib') {
+  settings.knowledge.curriculum = v
+  settings.knowledge.level = nearestLevel(effectiveCurriculum(), settings.knowledge.level)
+}
+const levelCount = computed(() => {
+  const cur = curriculum.value, lv = settings.knowledge.level
+  return { within: FORMULAS.filter(f => withinLevel(f.id, cur, lv)).length, all: FORMULAS.length }
+})
 
 // ---- Units ----
 const presetLabel = computed(() => {
@@ -110,13 +143,13 @@ async function exportLog() {
     showToast(tl('导出失败：{0}', [(e as Error).message]), true)
   } finally { busy.value = false }
 }
-function clearLog() {
-  if (!confirm(tl('清除本机保存的全部操作日志？此操作不能撤销。'))) return
+async function clearLog() {
+  if (!(await ask(tl('清除本机保存的全部操作日志？此操作不能撤销。')))) return
   clearTrialLog()
   refreshCount()
   showToast(tl('操作日志已清除'))
 }
-function resetAll() { if (confirm(tl('将所有设置恢复为默认值？场景文件不受影响。'))) resetSettings() }
+async function resetAll() { if (await ask(tl('将所有设置恢复为默认值？场景文件不受影响。'))) resetSettings() }
 </script>
 
 <template>
@@ -182,6 +215,9 @@ function resetAll() { if (confirm(tl('将所有设置恢复为默认值？场景
             </div>
           </div>
           <div class="sgroup">
+            <div class="srow"><div class="sl"><b>{{ tl('小数点') }}</b><span>{{ tl('读数、公式代入与导出文字中的小数点；输入框两种都接受。') }}</span></div>
+              <select v-model="settings.decimalSeparator" class="field"><option value="point">{{ tl('点 .') }}</option><option value="auto">{{ tl('德文界面用逗号') }}</option><option value="comma">{{ tl('逗号 ,') }}</option></select>
+            </div>
             <div class="srow"><div class="sl"><b>{{ tl('有效数字') }}</b><span>{{ tl('读数、公式代入与曲线图例的位数（3–12）。') }}</span></div>
               <div class="sc range"><input v-model.number="state.digits" type="range" min="3" max="12" step="1" :aria-label="tl('有效数字')" /><span class="mono val">{{ tl('{0} 位', [state.digits]) }}</span></div>
             </div>
@@ -251,16 +287,33 @@ function resetAll() { if (confirm(tl('将所有设置恢复为默认值？场景
           </div>
         </template>
 
+        <!-- ---- Knowledge and formulas (D44) ---- -->
+        <template v-else-if="current === 'knowledge'">
+          <div class="sgroup">
+            <div class="srow"><div class="sl"><b>{{ tl('课程体系') }}</b><span>{{ tl('决定知识水平的分级与公式卡片上的级别标签。“自动”：中文界面用中国课标，其他语言用 IB。') }}</span></div>
+              <div class="sc"><select :value="settings.knowledge.curriculum" :aria-label="tl('课程体系')" @change="setCurriculum(($event.target as HTMLSelectElement).value as 'auto' | 'cn' | 'ib')"><option value="auto">{{ tl('自动') }}</option><option value="cn">{{ tl('中国课程标准') }}</option><option value="ib">IB</option></select></div>
+            </div>
+          </div>
+          <div class="sgroup levels">
+            <div class="srow"><div class="sl"><b>{{ tl('知识水平') }}</b><span>{{ tl('公式卡片只显示不超过这一水平的公式（当前 {0} / {1} 条）。识别与对照不受影响，切换不需要重算。', [levelCount.within, levelCount.all]) }}</span></div></div>
+            <label v-for="ch in LEVEL_CHOICES[curriculum]" :key="ch.ord" class="srow level-row" :class="{ on: settings.knowledge.level === ch.ord }">
+              <input v-model.number="settings.knowledge.level" type="radio" name="knowledge-level" :value="ch.ord" />
+              <div class="sl"><b>{{ tl(ch.name) }}</b><span>{{ LEVEL_DESC[`${curriculum}:${ch.ord}`] }}</span></div>
+            </label>
+          </div>
+        </template>
+
         <!-- ---- Editor ---- -->
         <template v-else-if="current === 'editor'">
           <div class="sgroup">
-            <div class="srow"><div class="sl"><b>{{ tl('网格吸附') }}</b><span>{{ tl('放置、拖动和改变尺寸时对齐网格；按住 Alt 临时关闭。') }}</span></div><input v-model="settings.editor.snap" type="checkbox" class="switch" /></div>
+            <div class="srow"><div class="sl"><b>{{ tl('物体吸附') }}</b><span>{{ tl('移动、缩放和旋转都是连续的；只有靠近其他物体的面、顶点或圆周时才吸到刚好接触的位置，离开一段距离后脱开。按住 Alt 临时关闭。') }}</span></div><input v-model="settings.editor.objectSnap" type="checkbox" class="switch" /></div>
+            <div class="srow"><div class="sl"><b>{{ tl('网格吸附') }}</b><span>{{ tl('可选：放置、拖动和改变尺寸时对齐网格（打开时优先于物体吸附）；按住 Alt 临时关闭。') }}</span></div><input v-model="settings.editor.snap" type="checkbox" class="switch" /></div>
             <div class="srow"><div class="sl"><b>{{ tl('吸附步长') }}</b><span>{{ tl('0 表示自动（随缩放使用画面上的细网格间距）。') }}</span></div>
               <div class="sc"><NumField :model-value="settings.editor.snapStep" unit="m" :min="0" :max="100" width="150px" :disabled="!settings.editor.snap" @update:model-value="v => (settings.editor.snapStep = v)" /></div>
             </div>
-            <div class="srow"><div class="sl"><b>{{ tl('角度吸附') }}</b><span>{{ tl('旋转手柄的角度步长。') }}</span></div>
+            <div class="srow"><div class="sl"><b>{{ tl('角度吸附') }}</b><span>{{ tl('旋转手柄的角度步长；“自由”时可停在任意角度，靠近 0°、90° 或附近表面的倾角时吸附。') }}</span></div>
               <select v-model.number="settings.editor.angleSnap" class="field">
-                <option v-for="a in ANGLE_SNAPS" :key="a" :value="a">{{ a === 0 ? tl('关闭') : `${a}°` }}</option>
+                <option v-for="a in ANGLE_SNAPS" :key="a" :value="a">{{ a === 0 ? tl('自由') : `${a}°` }}</option>
               </select>
             </div>
           </div>
@@ -294,6 +347,9 @@ function resetAll() { if (confirm(tl('将所有设置恢复为默认值？场景
             <div class="srow"><div class="sl"><b>{{ tl('视频帧率') }}</b></div><select v-model.number="settings.export.fps" class="field"><option v-for="f in FPS" :key="f" :value="f">{{ tl('{0} 帧/秒', [f]) }}</option></select></div>
             <div class="srow"><div class="sl"><b>{{ tl('分辨率') }}</b><span>{{ tl('相对画布的像素倍数。') }}</span></div><select v-model.number="settings.export.scale" class="field"><option v-for="s in SCALES" :key="s" :value="s">{{ s }}×</option></select></div>
             <div class="srow"><div class="sl"><b>{{ tl('视频码率') }}</b></div><select v-model.number="settings.export.bitrate" class="field"><option v-for="b in BITRATES" :key="b.v" :value="b.v">{{ b.label }}</option></select></div>
+            <div class="srow"><div class="sl"><b>{{ tl('导出语言') }}</b><span>{{ tl('报告、课件、视频叠字与 CSV 表头使用的语言，可与界面语言不同') }}</span></div>
+              <select v-model="settings.export.language" class="field"><option value="ui">{{ tl('跟随界面') }}</option><option value="zh">{{ tl('简体中文') }}</option><option value="en">English</option><option value="de">Deutsch</option></select>
+            </div>
             <div class="srow"><div class="sl"><b>{{ tl('截图背景') }}</b></div>
               <select v-model="settings.export.imageBackground" class="field"><option value="theme">{{ tl('跟随主题') }}</option><option value="white">{{ tl('白色') }}</option><option value="transparent">{{ tl('透明') }}</option></select>
             </div>
@@ -335,6 +391,11 @@ function resetAll() { if (confirm(tl('将所有设置恢复为默认值？场景
               <button class="btn danger" :disabled="!logCount" @click="clearLog"><Icon name="trash" :size="14" />{{ tl('清除日志') }}</button>
             </div>
           </div>
+        </template>
+
+        <!-- ---- Learning handbook (26.51, D46) ---- -->
+        <template v-else-if="current === 'handbook'">
+          <HandbookView />
         </template>
 
         <!-- ---- About ---- -->
@@ -393,4 +454,8 @@ select.field { min-width: 160px; }
 .privacy { padding: 4px 0; line-height: 1.55; }
 .privacy p { margin: 6px 0; display: block; }
 .privacy :deep(.icon) { display: inline-block; vertical-align: -2px; margin-right: 6px; color: var(--success); }
+.levels .level-row { cursor: pointer; align-items: flex-start; justify-content: flex-start; gap: 10px; }
+.levels .level-row .sl { flex: 1; }
+.levels .level-row input { margin-top: 4px; }
+.levels .level-row.on b { color: var(--accent); }
 </style>

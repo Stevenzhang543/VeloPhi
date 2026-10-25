@@ -20,6 +20,7 @@ import type { ObservationContext } from '../core/observe/quantities'
 import { contactForces, makeContextFor } from '../core/observe/quantities'
 import { atan2, acos, cos, sin, tan, DEG } from '../core/math/dmath'
 import { crossings } from './measure'
+import { situations2651 } from './situations2651'
 
 /** Status of a condition: holds, holds approximately, or fails. */
 export type CondStatus = 'ok' | 'approx' | 'fail'
@@ -79,7 +80,7 @@ export function segmentAt(rec: Recording, t: number): Segment {
 /** Observation at time t (exact state, mode of the segment containing t). */
 export function observeAt(rec: Recording, t: number): ObservationContext {
   const seg = segmentAt(rec, t)
-  return makeContextFor(rec, exactStateAt(rec, t), seg.mode, seg.impactLoss)
+  return makeContextFor(rec, exactStateAt(rec, t), seg.mode, seg.impactLoss, t)
 }
 
 function closedUnits(mode: Mode, id: string): UnitMode[] {
@@ -90,15 +91,28 @@ function touchingUnits(mode: Mode, id: string): UnitMode[] {
 }
 function otherBody(u: UnitMode, id: string): BodyModel { return u.pair.X.id === id ? u.pair.Y : u.pair.X }
 
-interface Attached { ropes: number[]; rods: number[]; springs: number[]; hinges: number[]; forces: number[] }
+/**
+ * Connectors acting on a body. `extra` counts everything the recognizers of 26.48–26.50 do not model: the
+ * connectors of 26.51 (weld, slider, motor, gear, damper, a spring with a cubic term), drag on the body and
+ * gravitation between bodies; a situation that needs "no other connector" also needs extra = 0.
+ */
+interface Attached { ropes: number[]; rods: number[]; springs: number[]; hinges: number[]; forces: number[]; extra: number }
 function attached(model: Model, id: string): Attached {
   const has = (a: { body: BodyModel | null }) => a.body?.id === id
   const idx = <T extends { a: { body: BodyModel | null }; b?: { body: BodyModel | null } }>(list: T[]) => list.map((c, i) => (has(c.a) || (c.b ? has(c.b) : false) ? i : -1)).filter(i => i >= 0)
   // A rope also acts on the bodies that carry its movable pulleys
   const ropes = model.ropes.map((r, i) => (has(r.a) || has(r.b) || r.pulleys.some(p => p.pulley.body?.id === id) ? i : -1)).filter(i => i >= 0)
-  return { ropes, rods: idx(model.rods), springs: idx(model.springs), hinges: idx(model.hinges), forces: idx(model.forces) }
+  const springs = idx(model.springs)
+  let extra = 0
+  extra += idx(model.welds).length + idx(model.sliders).length + idx(model.motors).length
+  extra += model.gears.filter(g => g.a?.id === id || g.b?.id === id).length
+  for (const i of springs) if (model.springs[i].stiffness === 0 || model.springs[i].cubic !== 0) extra++
+  const body = model.byId.get(id)
+  if (body && (body.dragLin > 0 || body.dragQuad > 0)) extra++
+  if (model.G > 0 && body && body.attract > 0) extra++
+  return { ropes, rods: idx(model.rods), springs: springs.filter(i => model.springs[i].stiffness > 0 && model.springs[i].cubic === 0), hinges: idx(model.hinges), forces: idx(model.forces), extra }
 }
-const noConnectors = (a: Attached) => a.ropes.length + a.rods.length + a.springs.length + a.hinges.length + a.forces.length === 0
+const noConnectors = (a: Attached) => a.ropes.length + a.rods.length + a.springs.length + a.hinges.length + a.forces.length + a.extra === 0
 
 function gravity(model: Model): { g: number; vertical: boolean } {
   const g = model.settings.gravity
@@ -434,7 +448,11 @@ function impactSituations(rec: Recording, out: Situation[]) {
             cond('isolated', tl('碰撞瞬间系统不受外界冲量'), true),
             cond('oblique', tl('斜碰（有切向分量）'), oblique, oblique ? '' : tl('正碰')),
             cond('equalMassElasticRest', tl('等质量、弹性、被碰球静止'), Math.abs(b1.mass - b2.mass) <= 1e-12 * b1.mass && e === 1 && Math.abs(u2) < 1e-12 && Math.abs(w2) < 1e-12),
-            frictionCond
+            frictionCond,
+            // 26.51: textbook special cases
+            cond('elastic', tl('弹性碰撞（e = 1）'), e === 1, `e = ${e}`),
+            cond('perfectlyInelastic', tl('完全非弹性碰撞（e = 0，碰后共速）'), e === 0, `e = ${e}`),
+            cond('equalMass', tl('两球质量相等'), Math.abs(b1.mass - b2.mass) <= 1e-12 * b1.mass)
           ]
         }
         out.push({ key: `col:${ev.index}`, type: 'collision', title: tl('{0}与{1}碰撞（e = {2}）', [b1.name, b2.name, e]), t0: ev.t, t1, tEvent: ev.t, bodies: [b1.id, b2.id], sample: () => sample })
@@ -508,20 +526,27 @@ function projectileSituations(rec: Recording, out: Situation[]) {
         sample: t => {
           const st = bodyVel(sys, exactStateAt(rec, t), b)
           const ap = findApex()
+          const speed = Math.sqrt(st.vx * st.vx + st.vy * st.vy)
+          const fromRest = s0.vx === 0 && s0.vy === 0
           return {
             vars: {
               x0: V(s0.x, 'm', 'x_0', tl('初始水平位置')), y0: V(s0.y, 'm', 'y_0', tl('初始高度')), vx0: V(s0.vx, 'm/s', 'v_{0x}', tl('初速度水平分量')),
               vy0: V(s0.vy, 'm/s', 'v_{0y}', tl('初速度竖直分量')), g: V(g, 'm/s²', 'g', tl('重力加速度')), t: V(t - r.t0, 's', 't', tl('飞行时间')),
-              y1: V(sEnd.y, 'm', 'y_1', tl('落点高度（质心）'))
+              y1: V(sEnd.y, 'm', 'y_1', tl('落点高度（质心）')),
+              // 26.51: free fall and energy (D44)
+              m: V(b.mass, 'kg', 'm', tl('质量')), y: V(st.y, 'm', 'y', tl('当前高度（仿真）')), h: V(s0.y - st.y, 'm', 'h', tl('下落高度（仿真）'))
             },
             measures: {
               x: M(st.x, 'm', tl('水平位置')), y: M(st.y, 'm', tl('竖直位置')), vx: M(st.vx, 'm/s', tl('水平速度')), vy: M(st.vy, 'm/s', tl('竖直速度')),
               T: M(lands ? r.t1 - r.t0 : null, 's', tl('飞行时间（到落地事件）')), R: M(lands ? sEnd.x - s0.x : null, 'm', tl('水平射程')),
-              H: M(ap ? ap.y : null, 'm', tl('最高点高度（质心）'))
+              H: M(ap ? ap.y : null, 'm', tl('最高点高度（质心）')),
+              speed: M(speed, 'm/s', tl('速率')), drop: M(s0.y - st.y, 'm', tl('下落高度')),
+              E: M(0.5 * b.mass * speed * speed + b.mass * g * st.y, 'J', tl('机械能 ½mv² + mgy'))
             },
             conditions: [
               cond('lands', tl('记录内落到接触面'), lands, lands ? '' : tl('记录内没有落地')),
-              cond('rises', tl('向上抛出且到达最高点'), s0.vy > 0 && !!ap)
+              cond('rises', tl('向上抛出且到达最高点'), s0.vy > 0 && !!ap),
+              cond('fromRest', tl('由静止释放（自由落体）'), fromRest, fromRest ? '' : tl('有初速度'))
             ]
           }
         }
@@ -544,7 +569,7 @@ function pendulumSituations(rec: Recording, out: Situation[]) {
   const n = sys.n
   for (const b of model.dynamic) {
     const at = attached(model, b.id)
-    const single = at.ropes.length + at.rods.length === 1 && at.springs.length + at.hinges.length + at.forces.length === 0
+    const single = at.ropes.length + at.rods.length === 1 && at.springs.length + at.hinges.length + at.forces.length + at.extra === 0
     if (!single) continue
     const isRope = at.ropes.length === 1
     const c = isRope ? model.ropes[at.ropes[0]] : model.rods[at.rods[0]]
@@ -608,7 +633,7 @@ function springSituations(rec: Recording, out: Situation[]) {
   const n = sys.n
   for (const b of model.dynamic) {
     const at = attached(model, b.id)
-    if (at.springs.length !== 1 || at.ropes.length + at.rods.length + at.hinges.length + at.forces.length > 0) continue
+    if (at.springs.length !== 1 || at.ropes.length + at.rods.length + at.hinges.length + at.forces.length + at.extra > 0) continue
     const sp = model.springs[at.springs[0]]
     if (sp.damping !== 0) continue
     const mine = sp.a.body?.id === b.id ? sp.a : sp.b, fixed = mine === sp.a ? sp.b : sp.a
@@ -682,7 +707,7 @@ function rotationSituations(rec: Recording, out: Situation[]) {
     if (!piv) return
     const b = piv.body
     const at = attached(model, b.id)
-    if (at.hinges.length !== 1 || at.ropes.length + at.rods.length + at.springs.length + at.forces.length > 0 || b.invInertia === 0) return
+    if (at.hinges.length !== 1 || at.ropes.length + at.rods.length + at.springs.length + at.forces.length + at.extra > 0 || b.invInertia === 0) return
     const list = runs(rec, seg => (touchingUnits(seg.mode, b.id).length === 0 ? `rot:${b.id}` : null))
     for (const r of list) {
       const X0 = r.segs[0].X0
@@ -743,7 +768,7 @@ function pulleySituations(rec: Recording, out: Situation[]) {
   model.ropes.forEach((rope, ri) => {
     if (rope.pulleys.length === 0 || !rope.a.body?.dynamic || !rope.b.body?.dynamic) return
     const A = rope.a.body, B = rope.b.body
-    for (const b of [A, B]) { const at = attached(model, b.id); if (at.ropes.length !== 1 || at.rods.length + at.springs.length + at.hinges.length + at.forces.length > 0) return }
+    for (const b of [A, B]) { const at = attached(model, b.id); if (at.ropes.length !== 1 || at.rods.length + at.springs.length + at.hinges.length + at.forces.length + at.extra > 0) return }
     const list = runs(rec, seg => {
       if (!seg.mode.taut[ri]) return null
       const ua = closedUnits(seg.mode, A.id), ub = closedUnits(seg.mode, B.id)
@@ -853,6 +878,8 @@ export function recognizePhases(rec: Recording): Situation[] {
   springPairSituations(rec, out)
   rollSlipSituations(rec, out)
   variableForceSituations(rec, out)
+  // 26.51: graded formula library (D44) and the physics of D50/D51
+  situations2651(rec, out)
   return out
 }
 
@@ -860,7 +887,7 @@ export function recognizePhases(rec: Recording): Situation[] {
 /** A body hanging from a fixed point by exactly one rope (no pulleys) or rod, attached at its centre. */
 function singleLink(model: Model, b: BodyModel): { isRope: boolean; index: number; length: number; pivot: { x: number; y: number } } | null {
   const at = attached(model, b.id)
-  if (at.ropes.length + at.rods.length !== 1 || at.springs.length + at.hinges.length + at.forces.length !== 0) return null
+  if (at.ropes.length + at.rods.length !== 1 || at.springs.length + at.hinges.length + at.forces.length + at.extra !== 0) return null
   const isRope = at.ropes.length === 1
   const c = isRope ? model.ropes[at.ropes[0]] : model.rods[at.rods[0]]
   if (isRope && model.ropes[at.ropes[0]].pulleys.length > 0) return null
@@ -1013,7 +1040,7 @@ function movablePulleySituations(rec: Recording, out: Situation[]) {
     if (B === P) return
     for (const body of [P, B]) {
       const at = attached(model, body.id)
-      if (at.ropes.length !== 1 || at.rods.length + at.springs.length + at.hinges.length + at.forces.length > 0) return
+      if (at.ropes.length !== 1 || at.rods.length + at.springs.length + at.hinges.length + at.forces.length + at.extra > 0) return
     }
     if (P.invInertia > 0 && Math.abs(mov[0].p.position.x) > 1e-12) return
     const list = runs(rec, seg => {
@@ -1121,7 +1148,7 @@ function springPairSituations(rec: Recording, out: Situation[]) {
     if (!A || !B || !A.dynamic || !B.dynamic || A === B || sp.damping !== 0) return
     for (const body of [A, B]) {
       const at = attached(model, body.id)
-      if (at.springs.length !== 1 || at.ropes.length + at.rods.length + at.hinges.length + at.forces.length > 0) return
+      if (at.springs.length !== 1 || at.ropes.length + at.rods.length + at.hinges.length + at.forces.length + at.extra > 0) return
     }
     const list = runs(rec, seg => {
       for (const body of [A, B]) {
@@ -1277,7 +1304,7 @@ function variableForceSituations(rec: Recording, out: Situation[]) {
     const b = f.a.body
     if (!f.expr || !b || !b.dynamic) return
     const at = attached(model, b.id)
-    if (at.forces.length !== 1 || at.ropes.length + at.rods.length + at.springs.length + at.hinges.length > 0) return
+    if (at.forces.length !== 1 || at.ropes.length + at.rods.length + at.springs.length + at.hinges.length + at.extra > 0) return
     const timeOnly = f.expr.x.uses.every(u => u === 't' || u === 'm' || u === 'g')
     const list = runs(rec, seg => {
       const us = closedUnits(seg.mode, b.id)
@@ -1328,3 +1355,7 @@ function variableForceSituations(rec: Recording, out: Situation[]) {
     }
   })
 }
+
+/** Helpers shared with the recognizers of 26.51 (situations2651.ts). */
+export { runs, closedUnits, touchingUnits, otherBody, attached, noConnectors, gravity, bodyVel, eventAt, anchorWorld, singleLink, rodForce, sq, cond, V, M }
+export type { Attached, Run }

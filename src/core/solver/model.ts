@@ -55,6 +55,13 @@ export interface BodyModel {
   staticAngle: number
   staticC: number
   staticS: number
+  /** Drag coefficients (26.51): linear b (N·s/m) and quadratic c (N·s²/m²); 0 without drag. */
+  dragLin: number
+  dragQuad: number
+  /** Gravitating mass (kg; 26.51): the body's mass when gravitation is on (static bodies too), else 0. */
+  attract: number
+  /** Centre of attraction of a static body (world, m): its area centroid. Dynamic bodies use their centre of mass. */
+  gravPos: Vec2
 }
 
 /** Anchor resolved to its body model (null: the world). */
@@ -78,8 +85,19 @@ export interface RopeModel {
 }
 /** Compiled rod; `length` (m) is NaN until buildSystem resolves it from the initial state. */
 export interface RodModel { id: string; name: string; a: AnchorModel; b: AnchorModel; length: number }
-/** Compiled spring; `restLength` (m) is NaN until buildSystem resolves it from the initial state. */
-export interface SpringModel { id: string; name: string; a: AnchorModel; b: AnchorModel; stiffness: number; restLength: number; damping: number }
+/**
+ * Compiled spring; `restLength` (m) is NaN until buildSystem resolves it from the initial state. A damper is a spring
+ * with stiffness 0 (`damper` set); `cubic` is the k₃ of a nonlinear spring (0: linear).
+ */
+export interface SpringModel { id: string; name: string; a: AnchorModel; b: AnchorModel; stiffness: number; restLength: number; damping: number; cubic: number; damper: boolean }
+/** Compiled weld; `angle0` (rad) is NaN until buildSystem resolves it from the initial state. */
+export interface WeldModel { id: string; name: string; a: AnchorModel; b: AnchorModel; angle0: number }
+/** Compiled slider; `axis` is the unit direction in a's body frame (world when a has no dynamic body). */
+export interface SliderModel { id: string; name: string; a: AnchorModel; b: AnchorModel; axis: Vec2; free: boolean; angle0: number }
+/** Compiled motor (a pin joint with a drive). */
+export interface MotorModel { id: string; name: string; a: AnchorModel; b: AnchorModel; mode: 'speed' | 'torque'; speed: number; torque: number }
+/** Compiled gear: ω_a + ratio·ω_b = 0 (b null: the world); `offset0` = θ_a + ratio·θ_b at the start (NaN until resolved). */
+export interface GearModel { id: string; name: string; a: BodyModel | null; b: BodyModel | null; ratio: number; offset0: number }
 /** Compiled pin joint. */
 export interface HingeModel { id: string; name: string; a: AnchorModel; b: AnchorModel }
 /** Compiled applied force. */
@@ -104,9 +122,18 @@ export interface Model {
   springs: SpringModel[]
   hinges: HingeModel[]
   forces: ForceModel[]
+  /** Connectors of 26.51 (D51). */
+  welds: WeldModel[]
+  sliders: SliderModel[]
+  motors: MotorModel[]
+  gears: GearModel[]
+  /** Gravitational constant when gravitation is on (26.51, D50), else 0. */
+  G: number
+  /** Bodies with a gravitating mass, in scene order. */
+  attractors: BodyModel[]
   /** Number of dynamic bodies. */
   n: number
-  /** Body pairs that never collide (joined by a hinge). */
+  /** Body pairs that never collide (joined by a hinge, weld, motor, slider or gear). */
   noCollide: Set<string>
   /** Switches of all variable forces (in force order, x before y); the mode holds their branches. */
   switches: SwitchDef[]
@@ -207,7 +234,16 @@ export function compileModel(scene: Scene): Model {
       invInertia: isDynamic && !fixed && inertia > 0 ? 1 / inertia : 0,
       material: { ...def.material }, beltSpeed: def.kind === 'static' ? def.beltSpeed : 0,
       bound: boundRadius(shape), staticPos: { x: def.position.x, y: def.position.y }, staticAngle: def.angle,
-      staticC: cos(def.angle), staticS: sin(def.angle)
+      staticC: cos(def.angle), staticS: sin(def.angle),
+      dragLin: isDynamic && def.drag ? Math.max(0, def.drag.linear) : 0,
+      dragQuad: isDynamic && def.drag ? Math.max(0, def.drag.quadratic) : 0,
+      attract: scene.settings.gravitation && def.mass > 0 ? def.mass : 0,
+      gravPos: { x: def.position.x, y: def.position.y }
+    }
+    if (!isDynamic && shape.kind === 'polygon') {
+      // Centre of attraction of a static polygon: its centroid in the world
+      const c = polygonCentroid(shape.verts)
+      model.gravPos = { x: def.position.x + model.staticC * c.x - model.staticS * c.y, y: def.position.y + model.staticS * c.x + model.staticC * c.y }
     }
     if (def.material.muS < def.material.muK) warnings.push(msg('warn.muSBelowMuK', { body: def.name }))
     bodies.push(model)
@@ -228,13 +264,33 @@ export function compileModel(scene: Scene): Model {
   const pulleyById = new Map(pulleys.map(p => [p.id, p]))
   const switches: SwitchDef[] = [], switchForce: number[] = []
   const ropes: RopeModel[] = [], rods: RodModel[] = [], springs: SpringModel[] = [], hinges: HingeModel[] = [], forces: ForceModel[] = []
+  const welds: WeldModel[] = [], sliders: SliderModel[] = [], motors: MotorModel[] = [], gears: GearModel[] = []
   const noCollide = new Set<string>()
   for (const c of scene.connectors) {
     if (c.type === 'rope') {
       const list = c.pulleys.map(p => ({ pulley: pulleyById.get(p.pulley)!, wrap: p.wrap === 'ccw' ? 1 as const : -1 as const })).filter(p => p.pulley)
       ropes.push({ id: c.id, name: c.name, a: anchor(c.a), b: anchor(c.b), pulleys: list, length: c.length ?? Number.NaN, movable: list.some(p => p.pulley.body !== null) })
     } else if (c.type === 'rod') rods.push({ id: c.id, name: c.name, a: anchor(c.a), b: anchor(c.b), length: c.length ?? Number.NaN })
-    else if (c.type === 'spring') springs.push({ id: c.id, name: c.name, a: anchor(c.a), b: anchor(c.b), stiffness: c.stiffness, restLength: c.restLength ?? Number.NaN, damping: c.damping })
+    else if (c.type === 'spring') springs.push({ id: c.id, name: c.name, a: anchor(c.a), b: anchor(c.b), stiffness: c.stiffness, restLength: c.restLength ?? Number.NaN, damping: c.damping, cubic: c.cubic ?? 0, damper: false })
+    else if (c.type === 'damper') springs.push({ id: c.id, name: c.name, a: anchor(c.a), b: anchor(c.b), stiffness: 0, restLength: Number.NaN, damping: c.damping, cubic: 0, damper: true })
+    else if (c.type === 'weld' || c.type === 'motor') {
+      if (c.type === 'weld') welds.push({ id: c.id, name: c.name, a: anchor(c.a), b: anchor(c.b), angle0: Number.NaN })
+      else motors.push({ id: c.id, name: c.name, a: anchor(c.a), b: anchor(c.b), mode: c.mode === 'torque' ? 'torque' : 'speed', speed: c.speed, torque: c.torque })
+      if (c.a.body && c.b.body) noCollide.add(pairKey(c.a.body, c.b.body))
+    } else if (c.type === 'slider') {
+      const a = anchor(c.a)
+      const l = Math.sqrt(c.axis.x * c.axis.x + c.axis.y * c.axis.y)
+      let axis = { x: c.axis.x / l, y: c.axis.y / l }
+      // On a static body (or the world) the axis is fixed in the world
+      if (a.body && !a.body.dynamic) axis = { x: a.body.staticC * axis.x - a.body.staticS * axis.y, y: a.body.staticS * axis.x + a.body.staticC * axis.y }
+      sliders.push({ id: c.id, name: c.name, a, b: anchor(c.b), axis, free: !!c.free, angle0: Number.NaN })
+      if (c.a.body && c.b.body) noCollide.add(pairKey(c.a.body, c.b.body))
+    } else if (c.type === 'gear') {
+      const a = c.a.body ? byId.get(c.a.body) ?? null : null, b = c.b.body ? byId.get(c.b.body) ?? null : null
+      gears.push({ id: c.id, name: c.name, a: a && a.dynamic ? a : null, b: b && b.dynamic ? b : null, ratio: c.ratio, offset0: Number.NaN })
+      // Meshing gears overlap at their teeth: the two bodies do not collide
+      if (c.a.body && c.b.body) noCollide.add(pairKey(c.a.body, c.b.body))
+    }
     else if (c.type === 'hinge') {
       hinges.push({ id: c.id, name: c.name, a: anchor(c.a), b: anchor(c.b) })
       if (c.a.body && c.b.body) noCollide.add(pairKey(c.a.body, c.b.body))
@@ -268,10 +324,25 @@ export function compileModel(scene: Scene): Model {
     if (Number.isFinite(size)) forceScale += size
   }
   for (const s of springs) forceScale += s.stiffness * 0.1
+  // 26.51: motors and gravitation add to the force scale (absent in older scenes, so their tolerances are unchanged)
+  for (const m of motors) if (m.mode === 'torque') forceScale += Math.abs(m.torque)
+  const G = scene.settings.gravitation ? scene.settings.gravitation.G : 0
+  const attractors = bodies.filter(b => b.attract > 0)
+  for (let i = 0; i < attractors.length; i++) {
+    for (let j = i + 1; j < attractors.length; j++) {
+      const A = attractors[i], B = attractors[j]
+      if (!A.dynamic && !B.dynamic) continue
+      const dx = B.gravPos.x - A.gravPos.x, dy = B.gravPos.y - A.gravPos.y
+      const d2 = dx * dx + dy * dy
+      const R = A.bound + B.bound, d = Math.sqrt(d2)
+      if (d2 > 0) forceScale += d >= R ? G * A.attract * B.attract / d2 : G * A.attract * B.attract * d / (R * R * R)
+    }
+  }
   forceScale = Math.max(forceScale, 1e-6)
-  const accelScale = Math.max(g, 1)
+  let accelScale = Math.max(g, 1)
+  if (G > 0) for (const b of dynamic) accelScale = Math.max(accelScale, forceScale * b.invMass)
   return {
-    scene, settings: scene.settings, bodies, dynamic, byId, pulleys, ropes, rods, springs, hinges, forces,
+    scene, settings: scene.settings, bodies, dynamic, byId, pulleys, ropes, rods, springs, hinges, forces, welds, sliders, motors, gears, G, attractors,
     n: dynamic.length, noCollide, switches, switchForce, hasExpr: forces.some(f => f.expr !== null), forceScale, accelScale, warnings
   }
 }

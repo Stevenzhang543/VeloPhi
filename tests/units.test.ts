@@ -20,7 +20,8 @@ const KIND_DIM: Record<UnitKind, Dim> = {
   length: [1, 0, 0], mass: [0, 1, 0], time: [0, 0, 1], velocity: [1, 0, -1], acceleration: [1, 0, -2], force: [1, 1, -2],
   energy: [2, 1, -2], power: [2, 1, -3], momentum: [1, 1, -1], angularMomentum: [2, 1, -1], angle: [0, 0, 0],
   angularVelocity: [0, 0, -1], angularAcceleration: [0, 0, -2], stiffness: [0, 1, -2], damping: [0, 1, -1],
-  inertia: [2, 1, 0], torque: [2, 1, -2], frequency: [0, 0, -1]
+  inertia: [2, 1, 0], torque: [2, 1, -2], frequency: [0, 0, -1],
+  quadDrag: [-1, 1, 0], cubicStiffness: [-2, 1, -2], gravConst: [3, -1, -2], area: [2, 0, 0], arealVelocity: [2, 0, -1]
 }
 
 function checkUnit(unit: string, where: string) {

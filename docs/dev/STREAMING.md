@@ -166,6 +166,18 @@ Checked as part of the run definition (exact):
   values), and a Dormand–Prince step from X with all stages zero returns X (up to the sign of zero). Playback holds
   the final state. Scenes that come to rest only up to round-off (accelerations of 10⁻¹⁵) are not detected and keep
   computing; the bouncing ball that sticks to the floor is.
+* **Approximate rest** (26.51; same conditions as permanent rest). On every recorded frame of the accept branch
+  where the run is not at permanent rest, a counter grows when every velocity and acceleration (the first 6n
+  components of k1) is at most `REST_TOL` = 10⁻⁶ in magnitude, and is reset otherwise; when it reaches
+  `round(REST_HOLD / Δt)` frames (`REST_HOLD` = 1 s) the run ends with reason `restApprox`. The counter is not part of
+  the checkpoint: a rebuilt chunk can only stop later, never earlier, than the original run, so its frames are the
+  same. The fingerprint text says that the run stopped at approximate rest.
+* **Reaching a pulley** (26.51): event functions `pulley` (length of a rope's end segment minus 1 mm, for each end
+  on a moving body of a rope over pulleys) are located like every event; the event carries a change `pulley` (subject
+  the rope, the body) and the run ends with reason `pulley`.
+* **Stops decided inside a step** (rest, approximate rest, pulley; 26.51): they set `pendingStop`, and the run ends at
+  the next loop top, after the checkpoint of a chunk that starts at the last recorded frame, so every chunk is closed
+  in order.
 * **User stop** (`run.stop()`): ends the run at the current frame without an error (`completed`, reason `user`).
   `cancel()` ends it with the error '已取消' (reason `user`).
 * **Errors** end the run with reason `error` (step size below 1e-14, a chattering variable-force switch, an internal

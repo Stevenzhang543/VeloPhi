@@ -58,6 +58,8 @@ export function detailCss(o: Pick<DetailImageOptions, 'theme' | 'background'>, w
     '.vdet .katex-display{margin:4px 0}',
     `.vdet-chain{background:${soft};border-radius:10px;padding:2px 12px;margin:4px 0 8px}`,
     '.vdet-chain .katex-display,.vdet-chain .katex-display>.katex{text-align:left}',
+    `.vdet-calc{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;align-items:center;background:${soft};border-radius:10px;padding:8px 12px;margin:4px 0 8px}`,
+    '.vdet-calc .eq:nth-of-type(n+2){padding-left:1.2em}.vdet-calc .note{font-size:0.86em;opacity:0.78}',
     `.vdet-basis{display:inline-block;font-size:11px;color:${c.text2};border:1px solid ${c.border};border-radius:999px;padding:0 8px}`,
     `.vdet-step{display:flex;gap:8px;background:${soft};border-radius:10px;padding:5px 10px;margin:4px 0}`,
     `.vdet-step .n{flex:0 0 auto;width:18px;height:18px;border-radius:50%;border:1px solid ${c.border};font-size:11px;font-weight:700;text-align:center;line-height:18px;margin-top:3px}`,
@@ -88,6 +90,7 @@ function blockHtml(b: DetailBlock): string {
     case 'equation': return `<div>${tex(b.tex, true)}${b.text ? `<p>${rich(b.text)}</p>` : ''}${b.basis ? `<span class="vdet-basis">${esc(b.basis)}</span>` : ''}</div>`
     case 'steps': return b.steps.map((s, i) => `<div class="vdet-step"><span class="n">${i + 1}</span><div class="b"><p>${rich(s.text)}</p>${tex(s.tex, true)}${s.basis ? `<span class="vdet-basis">${esc(s.basis)}</span>` : ''}</div></div>`).join('')
     case 'chain': return `<div class="vdet-chain">${tex(chainLatex(b.lhs, b.rhs), true)}</div>`
+    case 'calc': return `<div class="vdet-calc">${b.lines.map((l, i) => `<div class="eq">${tex(i === 0 ? `${b.lhs} = ${l.tex}` : `= ${l.tex}`, false)}</div><div class="note">${l.note ? rich(l.note) : ''}</div>`).join('')}</div>`
     case 'table': {
       const al = (i: number) => (b.align?.[i] && b.align[i] !== 'left' ? ` style="text-align:${b.align[i]}"` : '')
       const head = b.head ? `<thead><tr>${b.head.map((h, i) => `<th${al(i)}>${rich(h)}</th>`).join('')}</tr></thead>` : ''

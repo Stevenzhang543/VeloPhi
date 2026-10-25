@@ -11,7 +11,8 @@
  *   - `<rope>.T .len`, `<spring>.F .x`, `<hinge>.F .Fx .Fy`, `<rod>.F`: connectors;
  *   - `<force>.Fx .Fy .F .P`: applied (constant or variable) force and its power;
  *   - `system.ek .ep .es .e .px .py .Lz@pivot`: system totals;
- *   - `ledger.frictionHeat .appliedWork .damping .beltWork .impactLoss .balance`: energy ledger.
+ *   - `ledger.frictionHeat .appliedWork .damping .beltWork .impactLoss .balance`: energy ledger;
+ *   - `custom.<id>`: custom (expression) quantities of the scene (26.51, see observe/custom).
  */
 import { tl } from '../../i18n'
 import type { Pose } from '../solver/kinematics'
@@ -22,9 +23,23 @@ import type { Recording } from '../solver/simulation'
 import { frameImpactLoss, frameSegment, frameState, ledgerAt } from '../solver/simulation'
 import { pairKey } from '../solver/model'
 import { atan2 } from '../math/dmath'
+import type { CompiledCustom, CustomQuantityDef } from './custom'
+import { compileCustom, customSymbol, evaluateCustom } from './custom'
 
 /** Group of a quantity in the watch panel. */
-export type QuantityGroup = '物体' | '接触' | '连接件' | '系统' | '能量账本'
+export type QuantityGroup = '物体' | '接触' | '连接件' | '系统' | '能量账本' | '自定义'
+
+/** Display name of a quantity group. */
+export function groupLabel(g: QuantityGroup): string {
+  switch (g) {
+    case '物体': return tl('物体')
+    case '接触': return tl('接触')
+    case '连接件': return tl('连接件')
+    case '系统': return tl('系统')
+    case '能量账本': return tl('能量账本')
+    case '自定义': return tl('自定义')
+  }
+}
 
 /** A quantity that can be watched, charted and exported. */
 export interface QuantityDef {
@@ -50,6 +65,8 @@ export interface ObservationContext {
   /** Cumulative impact loss (J). */
   impactLoss: number
   rec: Recording
+  /** Time of the state (s), when known (custom quantities read it as t). */
+  t?: number
 }
 
 /** Per-body quantities: key, label, KaTeX symbol, SI unit. */
@@ -63,8 +80,46 @@ const bodyQ: Array<[string, string, string, string]> = [
   ['px', '动量 pₓ', 'p_x', 'kg·m/s'], ['py', '动量 p_y', 'p_y', 'kg·m/s']
 ]
 
-/** Every quantity available for a system, in display order. */
+/** Every quantity available for a system, in display order (custom quantities last). */
 export function listQuantities(sys: System): QuantityDef[] {
+  const out = builtinQuantities(sys)
+  for (const c of customQuantities(sys)) {
+    if (!c.compiled) continue
+    out.push({ id: `custom.${c.def.id}`, label: c.def.name, symbol: customSymbol(c.def.id), unit: c.compiled.unit, group: '自定义', owner: tl('自定义') })
+  }
+  return out
+}
+
+/** A custom quantity of a system's scene and its compiled form (null with the error when it does not compile). */
+export interface CustomEntry { def: CustomQuantityDef; compiled: CompiledCustom | null; error: string | null }
+
+const customCache = new WeakMap<System, CustomEntry[]>()
+
+/** The scope in which custom expressions of a system are compiled. */
+export function customScope(sys: System) {
+  const scene = sys.model.scene
+  return {
+    units: new Map(builtinQuantities(sys).map(q => [q.id, q.unit])),
+    owners: [...scene.bodies, ...scene.connectors, ...scene.pulleys].map(o => ({ id: o.id, name: o.name })),
+    canonical: canonicalQuantityId
+  }
+}
+
+/** Custom quantities of a system's scene, compiled once per system. */
+export function customQuantities(sys: System): CustomEntry[] {
+  const hit = customCache.get(sys)
+  if (hit) return hit
+  const defs = sys.model.scene.customQuantities ?? []
+  const scope = defs.length ? customScope(sys) : null
+  const out = defs.map(def => {
+    try { return { def, compiled: compileCustom(def.expr, scope!), error: null } } catch (e) { return { def, compiled: null, error: (e as Error).message } }
+  })
+  customCache.set(sys, out)
+  return out
+}
+
+/** The built-in quantities of a system, in display order. */
+function builtinQuantities(sys: System): QuantityDef[] {
   const out: QuantityDef[] = []
   const model = sys.model
   const pivot = pivotOf(sys)
@@ -74,6 +129,9 @@ export function listQuantities(sys: System): QuantityDef[] {
       out.push({ id: `${b.id}.${k}`, label: tl(label), symbol: sym, unit, group: '物体', owner: b.name })
     }
     if (pivot) out.push({ id: `${b.id}.angle@pivot`, label: tl('摆角（相对竖直）'), symbol: '\\varphi', unit: 'rad', group: '物体', owner: b.name })
+    // 26.51: air drag and gravitation on the body
+    if (b.dragLin > 0 || b.dragQuad > 0) out.push({ id: `${b.id}.fd`, label: tl('空气阻力大小 f'), symbol: 'f_d', unit: 'N', group: '物体', owner: b.name })
+    if (model.G > 0 && b.attract > 0 && model.attractors.length > 1) out.push({ id: `${b.id}.Fg`, label: tl('受到的引力大小'), symbol: 'F_g', unit: 'N', group: '物体', owner: b.name })
   }
   for (const pair of sys.pairs) {
     for (const [on, by] of [[pair.X, pair.Y], [pair.Y, pair.X]]) {
@@ -96,9 +154,26 @@ export function listQuantities(sys: System): QuantityDef[] {
     out.push({ id: `${r.id}.len`, label: tl('绳路径长度'), symbol: '\\ell', unit: 'm', group: '连接件', owner: r.name })
   }
   for (const s of model.springs) {
+    if (s.damper) { out.push({ id: `${s.id}.F`, label: tl('阻尼力（拉为正）F'), symbol: 'F', unit: 'N', group: '连接件', owner: s.name }); continue }
     out.push({ id: `${s.id}.F`, label: tl('弹力（拉为正）F'), symbol: 'F', unit: 'N', group: '连接件', owner: s.name })
     out.push({ id: `${s.id}.x`, label: tl('形变量 x'), symbol: 'x', unit: 'm', group: '连接件', owner: s.name })
   }
+  // 26.51 connectors: pin forces of welds and motors, the torque and power of motors, the normal force of sliders
+  for (const w of model.welds) {
+    out.push({ id: `${w.id}.F`, label: tl('焊接点作用力大小'), symbol: 'F', unit: 'N', group: '连接件', owner: w.name })
+    out.push({ id: `${w.id}.M`, label: tl('焊接点力矩'), symbol: 'M', unit: 'N·m', group: '连接件', owner: w.name })
+  }
+  for (const m of model.motors) {
+    out.push({ id: `${m.id}.M`, label: tl('马达力矩 M'), symbol: 'M', unit: 'N·m', group: '连接件', owner: m.name })
+    out.push({ id: `${m.id}.P`, label: tl('马达功率 P'), symbol: 'P', unit: 'W', group: '连接件', owner: m.name })
+    out.push({ id: `${m.id}.w`, label: tl('相对角速度 ω'), symbol: '\\omega', unit: 'rad/s', group: '连接件', owner: m.name })
+    out.push({ id: `${m.id}.F`, label: tl('转轴作用力大小'), symbol: 'F', unit: 'N', group: '连接件', owner: m.name })
+  }
+  for (const sl of model.sliders) {
+    out.push({ id: `${sl.id}.N`, label: tl('滑轨支持力 N'), symbol: 'N', unit: 'N', group: '连接件', owner: sl.name })
+    out.push({ id: `${sl.id}.s`, label: tl('沿滑轨的位移 s'), symbol: 's', unit: 'm', group: '连接件', owner: sl.name })
+  }
+  for (const g of model.gears) out.push({ id: `${g.id}.M`, label: tl('齿轮传递的力矩'), symbol: 'M', unit: 'N·m', group: '连接件', owner: g.name })
   for (const h of model.hinges) {
     out.push({ id: `${h.id}.F`, label: tl('铰链力大小'), symbol: 'F', unit: 'N', group: '连接件', owner: h.name })
     out.push({ id: `${h.id}.Fx`, label: tl('铰链力 Fₓ'), symbol: 'F_x', unit: 'N', group: '连接件', owner: h.name })
@@ -120,7 +195,7 @@ export function listQuantities(sys: System): QuantityDef[] {
   if (pivot) out.push({ id: 'system.Lz@pivot', label: tl('对转轴角动量'), symbol: 'L', unit: 'kg·m²/s', group: '系统', owner: tl('系统') })
   const led: Array<[string, string, string]> = [
     ['ledger.frictionHeat', tl('摩擦生热（累计）'), 'Q_f'], ['ledger.appliedWork', tl('外力做功（累计）'), 'W_F'],
-    ['ledger.damping', tl('阻尼耗散（累计）'), 'Q_d'], ['ledger.beltWork', tl('传送带电机做功（累计）'), 'W_{\\mathrm{belt}}'],
+    ['ledger.damping', tl('阻尼耗散（累计）'), 'Q_d'], ['ledger.beltWork', tl('电机与传送带做功（累计）'), 'W_{\\mathrm{belt}}'],
     ['ledger.impactLoss', tl('碰撞损失动能（累计）'), '\\Delta E_{\\mathrm{coll}}'], ['ledger.balance', tl('能量账本合计（应守恒）'), 'E_{\\Sigma}']
   ]
   for (const [id, label, sym] of led) out.push({ id, label, symbol: sym, unit: 'J', group: '能量账本', owner: tl('系统') })
@@ -175,13 +250,13 @@ export function contactForces(ctx: ObservationContext, onId: string, byId: strin
 export function makeContext(rec: Recording, k: number): ObservationContext {
   const X = frameState(rec, k)
   const seg = rec.segments[frameSegment(rec, k)]
-  return makeContextFor(rec, X, seg.mode, frameImpactLoss(rec, k))
+  return makeContextFor(rec, X, seg.mode, frameImpactLoss(rec, k), k * rec.dt)
 }
 
-/** Observation context of any state in a given mode (event pre/post states, exactStateAt). */
-export function makeContextFor(rec: Recording, X: Float64Array, mode: Mode, impactLoss: number): ObservationContext {
+/** Observation context of any state in a given mode (event pre/post states, exactStateAt); `t`: its time, when known. */
+export function makeContextFor(rec: Recording, X: Float64Array, mode: Mode, impactLoss: number, t?: number): ObservationContext {
   const sol = solveMode(rec.system, X, mode, computePoses(rec.system.model, X))
-  return { sys: rec.system, X, mode, sol, poses: sol.poses, impactLoss, rec }
+  return { sys: rec.system, X, mode, sol, poses: sol.poses, impactLoss, rec, ...(t !== undefined ? { t } : {}) }
 }
 
 /** Value of quantity `id` in a context; NaN for unknown ids. */
@@ -189,6 +264,15 @@ export function evaluateQuantity(ctx: ObservationContext, id: string): number {
   const sys = ctx.sys, model = sys.model, n = sys.n, X = ctx.X
   const dot = id.lastIndexOf('.')
   const head = id.slice(0, dot), q = id.slice(dot + 1)
+  if (head === 'custom') {
+    const c = customQuantities(sys).find(e => e.def.id === q)?.compiled
+    if (!c) return Number.NaN
+    return evaluateCustom(c, ref => evaluateQuantity(ctx, ref), g => {
+      if (g === 't') return ctx.t ?? (sys.timeSlot >= 0 ? X[sys.timeSlot] : Number.NaN)
+      if (g === 'g') return Math.hypot(model.settings.gravity.x, model.settings.gravity.y)
+      return evaluateQuantity(ctx, ({ E: 'system.e', Ek: 'system.ek', Ep: 'system.ep', Es: 'system.es', Px: 'system.px', Py: 'system.py' } as Record<string, string>)[g] ?? '')
+    })
+  }
   if (head.startsWith('contact.')) {
     const [on, by] = head.slice(8).split('|')
     const c = contactForces(ctx, on, by)
@@ -262,6 +346,20 @@ export function evaluateQuantity(ctx: ObservationContext, id: string): number {
       case 'ep': return -body.mass * (g.x * X[3 * i] + g.y * (X[3 * i + 1] - model.settings.energyZeroY))
       case 'px': return body.mass * vx
       case 'py': return body.mass * vy
+      case 'fd': { const sp = Math.sqrt(vx * vx + vy * vy); return (body.dragLin + body.dragQuad * sp) * sp }
+      case 'Fg': {
+        let fx = 0, fy = 0
+        const p = ctx.poses[body.global]
+        for (const o of model.attractors) {
+          if (o === body) continue
+          const po = o.dynamic ? ctx.poses[o.global] : o.gravPos
+          const dx = po.x - p.x, dy = po.y - p.y, d2 = dx * dx + dy * dy
+          if (!(d2 > 0)) continue
+          const d = Math.sqrt(d2), R = body.bound + o.bound, f = d >= R ? model.G * body.attract * o.attract / d2 : model.G * body.attract * o.attract * d / (R * R * R)
+          fx += f * dx / d; fy += f * dy / d
+        }
+        return Math.sqrt(fx * fx + fy * fy)
+      }
       case 'angle@pivot': {
         const pv = pivotOf(sys)
         if (!pv) return Number.NaN
@@ -283,9 +381,42 @@ export function evaluateQuantity(ctx: ObservationContext, id: string): number {
     if (q === 'F') {
       const pa = anchorState(ctx.poses, sp.a), pb = anchorState(ctx.poses, sp.b)
       const vrel = d.ux * (pa.vx - pb.vx) + d.uy * (pa.vy - pb.vy)
-      return sp.stiffness * ext + sp.damping * vrel
+      return sp.stiffness * ext + sp.cubic * ext * ext * ext + sp.damping * vrel
     }
   }
+  // 26.51 connectors: constraint forces from the rows of the mode solution
+  const rowLambda = (kind: string, owner: number, sub: number) => {
+    for (let k = 0; k < ctx.sol.rows.length; k++) { const r = ctx.sol.rows[k]; if (r.kind === kind && r.owner === owner && r.sub === sub) return ctx.sol.lambda[k] }
+    return 0
+  }
+  const wIdx = model.welds.findIndex(w => w.id === head)
+  if (wIdx >= 0) {
+    if (q === 'F') return Math.hypot(rowLambda('weld', wIdx, 0), rowLambda('weld', wIdx, 1))
+    if (q === 'M') return rowLambda('weld', wIdx, 2)
+  }
+  const mIdx = model.motors.findIndex(m => m.id === head)
+  if (mIdx >= 0) {
+    const mo = model.motors[mIdx]
+    const wa = mo.a.body ? ctx.poses[mo.a.body.global].w : 0, wb = mo.b.body ? ctx.poses[mo.b.body.global].w : 0
+    const M = mo.mode === 'torque' ? mo.torque : rowLambda('drive', mIdx, 2)
+    if (q === 'M') return M
+    if (q === 'P') return M * (wb - wa)
+    if (q === 'w') return wb - wa
+    if (q === 'F') return Math.hypot(rowLambda('motor', mIdx, 0), rowLambda('motor', mIdx, 1))
+  }
+  const sIdx = model.sliders.findIndex(sl => sl.id === head)
+  if (sIdx >= 0) {
+    const sl = model.sliders[sIdx]
+    if (q === 'N') return Math.abs(rowLambda('slider', sIdx, 0))
+    if (q === 's') {
+      const pa = anchorState(ctx.poses, sl.a), pb = anchorState(ctx.poses, sl.b)
+      const A = sl.a.body && sl.a.body.dynamic ? ctx.poses[sl.a.body.global] : null
+      const ax = A ? A.c * sl.axis.x - A.s * sl.axis.y : sl.axis.x, ay = A ? A.s * sl.axis.x + A.c * sl.axis.y : sl.axis.y
+      return ax * (pb.px - pa.px) + ay * (pb.py - pa.py)
+    }
+  }
+  const gIdx = model.gears.findIndex(g => g.id === head)
+  if (gIdx >= 0 && q === 'M') return rowLambda('gear', gIdx, 0)
   const hIdx = model.hinges.findIndex(h => h.id === head)
   if (hIdx >= 0) {
     let Fx = 0, Fy = 0

@@ -18,7 +18,19 @@ import { MAX_DURATION, STOP_KINDS, finiteDuration } from '../../core/scene/types
 const s = computed(() => state.scene.settings)
 const gMag = computed(() => Math.hypot(s.value.gravity.x, s.value.gravity.y))
 
-function setG(v: number) { edit(sc => { sc.settings.gravity = { x: 0, y: -v } }) }
+/** Direction of gravity (rad from +x); straight down when g is zero. */
+const gDir = computed(() => (gMag.value > 0 ? Math.atan2(s.value.gravity.y, s.value.gravity.x) : -Math.PI / 2))
+/** Gravity vector of size v along d; components that are zero up to rounding are exactly 0 (fingerprints). */
+function gravityOf(v: number, d: number) {
+  const c = Math.cos(d), sn = Math.sin(d)
+  return { x: Math.abs(c) < 1e-12 ? 0 : v * c, y: Math.abs(sn) < 1e-12 ? 0 : v * sn }
+}
+function setG(v: number) { const d = gDir.value; edit(sc => { sc.settings.gravity = gravityOf(v, d) }) }
+function setGDir(d: number) { const v = gMag.value; edit(sc => { sc.settings.gravity = gravityOf(v, d) }) }
+/** Gravitational constant: the real one, or G = 1 for classroom orbits. */
+const G_REAL = 6.674e-11
+function setGravitation(on: boolean) { edit(sc => { if (on) sc.settings.gravitation = { G: sc.settings.gravitation?.G ?? G_REAL }; else delete sc.settings.gravitation }) }
+function setGConst(v: number) { if (v > 0) edit(sc => { sc.settings.gravitation = { G: v } }) }
 const rec = computed(() => (state.stale ? null : state.recording))
 const frames = computed(() => Math.round(finiteDuration(s.value) / s.value.outputStep) + 1)
 
@@ -42,7 +54,7 @@ const fingerprint = computed(() => {
   const f = state.run.fingerprint ?? r.rolling ?? null
   return f ? { hash: f.hash, upTo: f.t } : null
 })
-const STOP_REASONS: Record<string, string> = { duration: tl('到达设定时长'), stopAt: tl('到达停止条件'), rest: tl('检测到永久静止'), user: tl('已手动停止'), error: tl('出错停止') }
+const STOP_REASONS: Record<string, string> = { duration: tl('到达设定时长'), stopAt: tl('到达停止条件'), rest: tl('检测到永久静止'), user: tl('已手动停止'), error: tl('出错停止'), pulley: tl('物体到达滑轮'), restApprox: tl('近似静止（速度与加速度持续 1 s 低于 10⁻⁶）') }
 /** Engine line of the solver information (D29): Rust/WASM, or the TypeScript fallback and why. */
 const engineText = computed(() => {
   const r = state.run
@@ -69,7 +81,13 @@ const reducedFrom = computed(() => rec.value?.reducedFrom ?? null)
     <div class="group-title">{{ tl('物理参数') }}</div>
     <div class="group">
       <div class="row"><label>{{ tl('重力加速度 g') }}</label><NumField class="grow" :model-value="gMag" unit="m/s²" :min="0" @update:model-value="setG" /></div>
-      <div class="row"><label>{{ tl('方向') }}</label><span class="grow small muted">{{ tl('竖直向下（−y）{0}', [s.gravity.x !== 0 ? tl('；当前含水平分量 {0}', [fmtQ(s.gravity.x, 'm/s²')]) : '']) }}</span></div>
+      <div class="row"><label>{{ tl('方向') }}</label><NumField class="grow" :model-value="gDir" unit="rad" @update:model-value="setGDir" /><button class="btn small ghost" :disabled="s.gravity.x === 0 && s.gravity.y <= 0" :title="tl('恢复为竖直向下')" @click="setGDir(-Math.PI / 2)">{{ tl('向下') }}</button></div>
+      <div class="row"><label>{{ tl('万有引力') }}</label><label class="check grow"><input type="checkbox" :checked="!!s.gravitation" @change="setGravitation(($event.target as HTMLInputElement).checked)" />{{ tl('物体之间相互吸引 F = Gm₁m₂/r²') }}</label></div>
+      <template v-if="s.gravitation">
+        <div class="row"><label>{{ tl('引力常量 G') }}</label><NumField class="grow" :model-value="s.gravitation.G" unit="N·m²/kg²" :min="1e-30" @update:model-value="setGConst" /></div>
+        <div class="row"><label /><span class="grow"><button class="btn small" @click="setGConst(G_REAL)">{{ tl('真实值') }}</button> <button class="btn small" @click="setGConst(1)">{{ tl('教学用 G = 1') }}</button></span></div>
+        <div class="tiny muted note">{{ tl('每一对有质量的物体之间都有引力（固定物体也吸引，但自己不动）；引力势能 −Gm₁m₂/r 计入能量账本。研究行星运动时通常把上面的重力设为 0。') }}</div>
+      </template>
       <div class="row"><label>{{ tl('势能零点 y₀') }}</label><NumField class="grow" :model-value="s.energyZeroY" unit="m" @update:model-value="v => edit(sc => { sc.settings.energyZeroY = v })" /></div>
     </div>
 

@@ -8,12 +8,13 @@
  * Mounted by App.vue while `state.showReport` is true (and a recording exists); closes itself by setting the
  * flag to false. No props, no emits.
  */
-import { tl, listSep, paren, commaSep, stripLabel } from '../../i18n'
-import { locale, msgText } from '../../i18n/locale'
+import { tl, listSep, paren, commaSep, stripLabel, activeLang } from '../../i18n'
+import { exportSituations, inExportLanguage } from '../exportLang'
+import { msgText } from '../../i18n/locale'
 import { derivationPages } from '../../export/derivationPages'
 import { computed, reactive, ref, watch } from 'vue'
 import { state, showToast, viewCamera } from '../store'
-import { fmtQ, settings, unitLabel, toDisp } from '../settings'
+import { fmtQ, settings, unitLabel, toDisp, effectiveCurriculum } from '../settings'
 import type { Recording } from '../../core/solver/simulation'
 import type { QuantityDef } from '../../core/observe/quantities'
 import { listQuantities, quantitySeries } from '../../core/observe/quantities'
@@ -21,7 +22,7 @@ import { ENGINE_VERSION } from '../../core/scene/types'
 import { exportFingerprint } from '../../export/fingerprint'
 import { DARK, LIGHT, computeTrajectories, eventLabel, vectorScales } from '../../render/renderer'
 import { THRESHOLDS } from '../../formula/match'
-import { cardsForMoment, changeWho, keyMoments, nameOf, reducedNotice } from '../../export/moments'
+import { cardsForMoment, changeWho, keyMoments, nameOf, reducedNotice, relabelMoments } from '../../export/moments'
 import type { KeyMoment } from '../../export/moments'
 import { stillPng } from '../../export/still'
 import { PROJECTOR_STYLE } from '../../render/frame'
@@ -40,10 +41,12 @@ import { logEvent } from '../trialLog'
 import Icon from './Icon.vue'
 
 const rec = computed(() => (state.stale ? null : state.recording))
+/** Knowledge-level filter of the formula cards and pages (D44), from the option and the settings. */
+const levelFilter = () => (opt.levelOnly ? { curriculum: effectiveCurriculum(), level: settings.knowledge.level } : null)
 const opt = reactive({
   title: state.scene.name,
   notes: '',
-  params: true, shots: true, curves: true, formulas: true, formulaImages: false, derivations: false, events: true, predictions: true,
+  params: true, shots: true, curves: true, formulas: true, formulaImages: false, derivations: false, events: true, predictions: true, levelOnly: true,
   shotBg: (settings.export.imageBackground === 'theme' ? 'white' : settings.export.imageBackground) as ImageBackground
 })
 const hasPredictions = computed(() => readPredictions(state.scene).length > 0)
@@ -67,11 +70,12 @@ const busy = ref(false)
 const stepText = ref('')
 const html = ref<string | null>(null)
 watch(() => ({ ...opt }), () => { html.value = null }, { deep: true })
-watch(() => [state.recording, state.stale, state.digits, settings.units], () => { html.value = null }, { deep: true })
+watch(() => [state.recording, state.stale, state.digits, settings.units, settings.export.language, settings.decimalSeparator], () => { html.value = null }, { deep: true })
 
 // ---- Content ----
-const KIND: Record<string, string> = { particle: tl('质点'), rigid: tl('刚体'), static: tl('固定') }
-const INTEGRATOR: Record<string, string> = { dopri5: tl('Dormand–Prince 5(4) 自适应'), rk4: tl('经典四阶 Runge–Kutta'), euler: tl('半隐式欧拉') }
+// Translated when the report is generated (the export language may differ from the interface, 26.51 hand check)
+const kindText = (k: string) => ({ particle: tl('质点'), rigid: tl('刚体'), static: tl('固定') } as Record<string, string>)[k] ?? k
+const integratorText = (m: string) => ({ dopri5: tl('Dormand–Prince 5(4) 自适应'), rk4: tl('经典四阶 Runge–Kutta'), euler: tl('半隐式欧拉') } as Record<string, string>)[m] ?? m
 const d = () => state.digits
 const pair = (x: number, y: number, unit: string) => `(${fmtQ(x, unit, d()).replace(` ${unitLabel(unit)}`, '')}, ${fmtQ(y, unit, d())})`
 
@@ -81,7 +85,7 @@ function parameterTables(r: Recording): ReportTable[] {
   const g = Math.hypot(st.gravity.x, st.gravity.y)
   out.push({ title: tl('场景与求解'), header: [tl('项目'), tl('数值')], rows: [
     [tl('重力加速度 g'), fmtQ(g, 'm/s²', d())], [tl('仿真时长'), st.duration === null ? tl('不限时长（已算出 {0}）', [fmtQ((r.frameCount - 1) * r.dt, 's', d())]) : fmtQ(st.duration, 's', d())], [tl('记录步长 Δt'), fmtQ(st.outputStep, 's', d())],
-    [tl('积分方法'), INTEGRATOR[st.integrator] ?? st.integrator], [tl('相对容差 / 绝对容差'), `${st.relTol} / ${st.absTol}`], [tl('重力势能零点 y₀'), fmtQ(st.energyZeroY, 'm', d())],
+    [tl('积分方法'), integratorText(st.integrator)], [tl('相对容差 / 绝对容差'), `${st.relTol} / ${st.absTol}`], [tl('重力势能零点 y₀'), fmtQ(st.energyZeroY, 'm', d())],
     [tl('记录帧数'), String(r.frameCount)]
   ] })
   const tpl = (sc.extra as { template?: { id?: string; values?: Record<string, number> } } | undefined)?.template
@@ -89,7 +93,7 @@ function parameterTables(r: Recording): ReportTable[] {
   if (info && tpl?.values) out.push({ title: tl('模板参数（{0}）', [info.name]), header: [tl('参数'), tl('数值')], rows: info.params.map(p => [p.label, `${tpl.values![p.key] ?? p.value}${p.unit ? ` ${p.unit}` : ''}`]), note: tl('模板参数按模板原始单位列出；场景创建后若有修改，以下方物体参数为准。') })
   const dyn = sc.bodies.filter(b => b.kind !== 'static')
   if (dyn.length) out.push({ title: tl('运动物体'), header: [tl('名称'), tl('类型'), tl('质量'), tl('初位置 (x, y)'), tl('初速度 (vₓ, v_y)'), tl('初角度'), 'μs', 'μk', 'e'], rows: dyn.map(b => [
-    b.name, KIND[b.kind] ?? b.kind, fmtQ(b.mass, 'kg', d()), pair(b.position.x, b.position.y, 'm'), pair(b.velocity.x, b.velocity.y, 'm/s'), fmtQ(b.angle, 'rad', d()),
+    b.name, kindText(b.kind), fmtQ(b.mass, 'kg', d()), pair(b.position.x, b.position.y, 'm'), pair(b.velocity.x, b.velocity.y, 'm/s'), fmtQ(b.angle, 'rad', d()),
     String(b.material.muS), String(b.material.muK), String(b.material.restitution)
   ]) })
   const fixed = sc.bodies.filter(b => b.kind === 'static')
@@ -98,7 +102,12 @@ function parameterTables(r: Recording): ReportTable[] {
   ]) })
   if (sc.contactPairs.length) out.push({ title: tl('接触对（覆盖物体材料）'), header: [tl('接触对'), 'μs', 'μk', 'e'], rows: sc.contactPairs.map(p => [`${nameOf(r, p.a)}–${nameOf(r, p.b)}`, String(p.muS), String(p.muK), String(p.restitution)]) })
   if (sc.connectors.length) out.push({ title: tl('连接件'), header: [tl('名称'), tl('类型'), tl('参数')], rows: sc.connectors.map(c => {
-    if (c.type === 'spring') return [c.name, tl('弹簧'), `k = ${fmtQ(c.stiffness, 'N/m', d())}${commaSep()}L₀ = ${c.restLength === null ? tl('初始长度') : fmtQ(c.restLength, 'm', d())}${commaSep()}c = ${fmtQ(c.damping, 'N·s/m', d())}`]
+    if (c.type === 'spring') return [c.name, tl('弹簧'), `k = ${fmtQ(c.stiffness, 'N/m', d())}${c.cubic ? `${commaSep()}k₃ = ${fmtQ(c.cubic, 'N/m³', d())}` : ''}${commaSep()}L₀ = ${c.restLength === null ? tl('初始长度') : fmtQ(c.restLength, 'm', d())}${commaSep()}c = ${fmtQ(c.damping, 'N·s/m', d())}`]
+    if (c.type === 'damper') return [c.name, tl('阻尼器'), `c = ${fmtQ(c.damping, 'N·s/m', d())}`]
+    if (c.type === 'weld') return [c.name, tl('焊接'), '']
+    if (c.type === 'slider') return [c.name, tl('滑轨'), `${tl('方向')} ${fmtQ(Math.atan2(c.axis.y, c.axis.x), 'rad', d())}${c.free ? commaSep() + tl('可转动') : ''}`]
+    if (c.type === 'motor') return [c.name, tl('马达'), c.mode === 'speed' ? `ω = ${fmtQ(c.speed, 'rad/s', d())}` : `M = ${fmtQ(c.torque, 'N·m', d())}`]
+    if (c.type === 'gear') return [c.name, tl('齿轮'), `r = ${fmtQ(c.ratio, '', d())}`]
     if (c.type === 'rope') return [c.name, tl('轻绳'), `L = ${c.length === null ? tl('初始长度（拉直）') : fmtQ(c.length, 'm', d())}${c.pulleys.length ? tl('，经过 {0} 个滑轮', [c.pulleys.length]) : ''}`]
     if (c.type === 'rod') return [c.name, tl('轻杆'), `L = ${c.length === null ? tl('初始长度') : fmtQ(c.length, 'm', d())}`]
     if (c.type === 'hinge') return [c.name, tl('铰链'), '']
@@ -112,12 +121,13 @@ async function curveFigures(r: Recording): Promise<ReportFigure[]> {
   const groups = new Map<string, QuantityDef[]>()
   for (const id of curveIds.value) { const q = defs.get(id)!; const l = groups.get(q.unit) ?? []; l.push(q); groups.set(q.unit, l) }
   const stride = Math.max(1, Math.floor(r.frameCount / 2000))
-  const marks = r.events.filter(e => e.changes.length).map(e => toDisp(e.t, 's'))
+  const o = r.scene.settings.startTime ?? 0
+  const marks = r.events.filter(e => e.changes.length).map(e => toDisp(e.t + o, 's'))
   const out: ReportFigure[] = []
   let color = 0
   for (const [unit, list] of groups) {
     const data = quantitySeries(r, list.map(q => q.id), 0, r.frameCount - 1, stride)
-    const x = Array.from(data.t, t => toDisp(t, 's'))
+    const x = Array.from(data.t, t => toDisp(t + o, 's'))
     const series = list.map((q, i) => ({ label: `${q.owner} ${q.label}`, color: SERIES_COLORS[color++ % SERIES_COLORS.length], x, y: Array.from(data.values[i], v => (Number.isFinite(v) ? toDisp(v, unit) : null)) }))
     const ul = unitLabel(unit)
     const png = await chartPng(series, { width: 860, height: 300, xLabel: `t / ${unitLabel('s')}`, yLabel: list.length === 1 ? `${list[0].label}${ul ? ` / ${ul}` : ''}` : ul || list.map(q => q.label).join(listSep()), colors: CHART_LIGHT, marks })
@@ -141,7 +151,9 @@ async function generate(): Promise<string> {
     ]
   }
   if (opt.params) { stepText.value = tl('参数表'); input.parameters = parameterTables(r) }
-  const ms = moments.value
+  // Moment labels and situation titles in the export language
+  const ms = relabelMoments(r, moments.value)
+  const sits = exportSituations(r, state.situations)
   if (opt.shots && ms.length) {
     const palette = state.theme === 'dark' ? DARK : LIGHT
     const view = { cx: viewCamera.cx, cy: viewCamera.cy, ppmAtHeight: viewCamera.ppm, viewHeight: viewCamera.height }
@@ -161,7 +173,7 @@ async function generate(): Promise<string> {
     const seen = new Set<string>()
     const images: ReportFigure[] = []
     for (const m of ms) {
-      for (const c of shownCards(cardsForMoment(state.situations, m.t, state.digits, units))) {
+      for (const c of shownCards(cardsForMoment(sits, m.t, state.digits, units), levelFilter())) {
         const key = `${c.key}@${m.t}`
         if (seen.has(key)) continue
         seen.add(key)
@@ -182,12 +194,12 @@ async function generate(): Promise<string> {
   }
   if (opt.derivations) {
     stepText.value = tl('推导与解题过程')
-    const pages = await derivationPages(r, state.situations, ms, { digits: state.digits, units, lang: locale.lang, theme: 'light', background: 'white', maxFormulas: 24 })
+    const pages = await derivationPages(r, sits, ms, { digits: state.digits, units, lang: activeLang(), theme: 'light', background: 'white', maxFormulas: 24, level: levelFilter() })
     input.derivations = pages.filter(p => p.png).map(p => ({ src: dataUrl('image/png', p.png!), caption: p.title, width: p.width }))
   }
   if (opt.events) {
     input.events = r.events.filter(e => e.changes.length).flatMap(e => e.changes.map((c, i) => ({
-      t: i === 0 ? fmtQ(e.t, 's', Math.max(state.digits, 9)) : '',
+      t: i === 0 ? fmtQ(e.t + (r.scene.settings.startTime ?? 0), 's', Math.max(state.digits, 9)) : '',
       what: eventLabel(c), who: changeWho(r, c),
       detail: c.type === 'impact'
         ? tl('法向速度 {0} → {1}，冲量 {2}{3}，e = {4}{5}', [fmtQ(c.vnBefore ?? null, 'm/s', 4), fmtQ(c.vnAfter ?? null, 'm/s', 4), fmtQ(c.impulse ?? null, 'N·s', 4), c.tangentImpulse !== undefined && Math.abs(c.tangentImpulse) > 1e-12 ? tl('，摩擦冲量 {0}', [fmtQ(Math.abs(c.tangentImpulse), 'N·s', 4)]) : '', c.restitution, i === 0 && e.impact && e.impact.loss > 1e-12 ? tl('；损失动能 {0}', [fmtQ(e.impact.loss, 'J', 5)]) : ''])
@@ -198,7 +210,7 @@ async function generate(): Promise<string> {
     const defs = new Map(listQuantities(r.system).map(q => [q.id, q]))
     const ctx = { quantities: defs, bodyName: (id: string) => nameOf(r, id), time: (t: number) => timeLabel(t, units) }
     input.predictions = readPredictions(state.scene).map(p => {
-      const c = comparePrediction(r, state.situations, p)
+      const c = comparePrediction(r, sits, p)
       const u = c.value.unit
       return {
         target: targetLabel(p.target, ctx) + (p.note ? tl('（思路：{0}）', [p.note]) : ''), predicted: fmtQ(p.value, u, d()), sim: fmtQ(c.value.sim, u, d()), formula: fmtQ(c.value.formula, u, d()),
@@ -218,7 +230,7 @@ async function ensure(): Promise<string | null> {
   if (html.value) return html.value
   busy.value = true
   try {
-    html.value = await generate()
+    html.value = await inExportLanguage(generate)
     return html.value
   } catch (e) {
     showToast(tl('报告生成失败：{0}', [(e as Error).message]), true)
@@ -257,6 +269,7 @@ function close() { if (!busy.value) state.showReport = false }
           <section>
             <div class="group">
               <div class="row"><label>{{ tl('标题') }}</label><input v-model="opt.title" class="field grow" /></div>
+              <div class="row"><label>{{ tl('导出语言') }}</label><select v-model="settings.export.language" class="field grow" :title="tl('报告、课件、视频叠字与 CSV 表头使用的语言，可与界面语言不同')"><option value="ui">{{ tl('跟随界面') }}</option><option value="zh">{{ tl('简体中文') }}</option><option value="en">English</option><option value="de">Deutsch</option></select></div>
               <div class="row notes"><label>{{ tl('目的与结论') }}</label><textarea v-model="opt.notes" class="field grow" rows="4" :placeholder="tl('（可选）实验目的、结论或讨论，原样写入报告')" /></div>
             </div>
             <div class="group-title">{{ tl('包含') }}</div>
@@ -269,6 +282,7 @@ function close() { if (!busy.value) state.showReport = false }
               <label class="check small"><input v-model="opt.formulas" type="checkbox" />{{ tl('公式对照与误差表') }}</label>
               <label class="check small"><input v-model="opt.formulaImages" type="checkbox" />{{ tl('附公式卡片图片') }}</label>
               <label class="check small"><input v-model="opt.derivations" type="checkbox" />{{ tl('附推导与解题过程') }}</label>
+              <label class="check small"><input v-model="opt.levelOnly" type="checkbox" />{{ tl('只含所选知识水平内的公式') }}</label>
               <label class="check small"><input v-model="opt.events" type="checkbox" />{{ tl('事件表') }}</label>
               <label class="check small"><input v-model="opt.predictions" type="checkbox" :disabled="!hasPredictions" />{{ tl('预测与对比{0}', [hasPredictions ? '' : tl('（本场景没有预测）')]) }}</label>
             </div>

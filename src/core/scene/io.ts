@@ -4,7 +4,7 @@
  * versions are migrated step by step; unknown fields of newer files are kept in `extra`.
  */
 import { tl } from '../../i18n'
-import type { AnnotationDef, BodyDef, ConnectorDef, Scene, StopAtDef, StopKind } from './types'
+import type { AnnotationDef, BodyDef, BranchDef, ConnectorDef, Scene, StartLedgerDef, StopAtDef, StopKind } from './types'
 import { ENGINE_VERSION, MAX_DURATION, SCENE_FORMAT, SCENE_VERSION, STOP_KINDS } from './types'
 import { emptyScene } from './build'
 import { checkForceExpr } from '../solver/forceExpr'
@@ -15,7 +15,7 @@ export class SceneFileError extends Error {}
 type Json = null | boolean | number | string | Json[] | { [k: string]: Json }
 
 const BODY_KEYS = ['id', 'name', 'kind', 'role', 'shape', 'position', 'angle', 'velocity', 'angularVelocity', 'mass', 'inertia', 'fixedRotation', 'material', 'beltSpeed', 'color'] as const
-const SCENE_KEYS = ['format', 'version', 'dimension', 'engine', 'name', 'description', 'settings', 'bodies', 'pulleys', 'connectors', 'contactPairs', 'view', 'watch', 'annotations', 'extra'] as const
+const SCENE_KEYS = ['format', 'version', 'dimension', 'engine', 'name', 'description', 'settings', 'bodies', 'pulleys', 'connectors', 'contactPairs', 'view', 'watch', 'annotations', 'customQuantities', 'branches', 'extra'] as const
 
 function ordered(value: unknown, order?: readonly string[]): Json {
   if (value === null || value === undefined) return null
@@ -33,13 +33,19 @@ function ordered(value: unknown, order?: readonly string[]): Json {
 
 /** Serialize a scene to the canonical file text (fixed key order, trailing newline). */
 export function serializeScene(scene: Scene): string {
+  return JSON.stringify(sceneDoc(scene), null, 2) + '\n'
+}
+
+/** The ordered JSON document of a scene (branches hold their own scenes as documents). */
+function sceneDoc(scene: Scene): Json {
   const doc = {
     ...scene,
     format: SCENE_FORMAT, version: SCENE_VERSION, engine: ENGINE_VERSION,
     bodies: scene.bodies.map(b => ordered(b, BODY_KEYS)),
-    connectors: scene.connectors.map(c => ordered(c, ['id', 'name', 'type']))
+    connectors: scene.connectors.map(c => ordered(c, ['id', 'name', 'type'])),
+    ...(scene.branches ? { branches: scene.branches.map(b => ({ id: b.id, name: b.name, parent: b.parent, t: b.t, scene: sceneDoc(b.scene) })) } : {})
   }
-  return JSON.stringify(ordered(doc, SCENE_KEYS), null, 2) + '\n'
+  return ordered(doc, SCENE_KEYS)
 }
 
 const num = (v: unknown, path: string, def?: number): number => {
@@ -71,7 +77,9 @@ const MIGRATIONS: Record<number, (doc: Record<string, unknown>) => Record<string
     st.legacyDuration = st.duration
     st.stopAt = null
     return { ...doc, settings: st }
-  }
+  },
+  // 26.50 -> 26.51: drag, gravitation and the new connectors are optional fields; nothing to change
+  3: doc => doc
 }
 
 function parseStopAt(v: unknown): StopAtDef | null {
@@ -110,7 +118,10 @@ export function parseScene(text: string): { scene: Scene; warnings: string[] } {
       duration: st.duration === null || st.duration === undefined ? null : num(st.duration, 'settings.duration'),
       stopAt: parseStopAt(st.stopAt),
       legacyDuration: num(st.legacyDuration, 'settings.legacyDuration', typeof st.duration === 'number' ? st.duration : base.settings.legacyDuration),
-      energyZeroY: num(st.energyZeroY, 'settings.energyZeroY', 0)
+      energyZeroY: num(st.energyZeroY, 'settings.energyZeroY', 0),
+      ...(st.gravitation && typeof st.gravitation === 'object' ? { gravitation: { G: num((st.gravitation as Record<string, unknown>).G, 'settings.gravitation.G') } } : {}),
+      ...(st.startTime !== undefined && st.startTime !== null ? { startTime: num(st.startTime, 'settings.startTime') } : {}),
+      ...(st.startLedger && typeof st.startLedger === 'object' ? { startLedger: parseStartLedger(st.startLedger as Record<string, unknown>) } : {})
     },
     bodies: ((doc.bodies ?? []) as unknown[]).map((b, i) => parseBody(b as Record<string, unknown>, `bodies[${i}]`)),
     pulleys: ((doc.pulleys ?? []) as Array<Record<string, unknown>>).map((p, i) => ({ id: str(p.id, `pulleys[${i}].id`), name: str(p.name, `pulleys[${i}].name`, tl('滑轮')), position: vec(p.position, `pulleys[${i}].position`), radius: num(p.radius, `pulleys[${i}].radius`, 0), ...(typeof p.body === 'string' ? { body: p.body } : {}) })),
@@ -118,7 +129,9 @@ export function parseScene(text: string): { scene: Scene; warnings: string[] } {
     contactPairs: ((doc.contactPairs ?? []) as Array<Record<string, unknown>>).map((p, i) => ({ a: str(p.a, `contactPairs[${i}].a`), b: str(p.b, `contactPairs[${i}].b`), muS: num(p.muS, 'muS'), muK: num(p.muK, 'muK'), restitution: num(p.restitution, 'restitution') })),
     view: { center: vec((doc.view as Record<string, unknown> | undefined)?.center, 'view.center', base.view.center), pixelsPerMeter: num((doc.view as Record<string, unknown> | undefined)?.pixelsPerMeter, 'view.pixelsPerMeter', base.view.pixelsPerMeter) },
     watch: Array.isArray(doc.watch) ? (doc.watch as unknown[]).filter((w): w is string => typeof w === 'string') : [],
-    annotations: Array.isArray(doc.annotations) ? (doc.annotations as unknown[]).filter(isAnnotation) : []
+    annotations: Array.isArray(doc.annotations) ? (doc.annotations as unknown[]).filter(isAnnotation) : [],
+    ...(Array.isArray(doc.branches) && doc.branches.length ? { branches: (doc.branches as Array<Record<string, unknown>>).map((b, i) => parseBranch(b, i)) } : {}),
+    ...(Array.isArray(doc.customQuantities) && doc.customQuantities.length ? { customQuantities: (doc.customQuantities as Array<Record<string, unknown>>).map((q, i) => ({ id: str(q?.id, `customQuantities[${i}].id`), name: str(q?.name, `customQuantities[${i}].name`, ''), expr: str(q?.expr, `customQuantities[${i}].expr`) })) } : {})
   }
   const known = new Set<string>(SCENE_KEYS)
   const extra: Record<string, unknown> = { ...((doc.extra as Record<string, unknown>) ?? {}) }
@@ -126,6 +139,30 @@ export function parseScene(text: string): { scene: Scene; warnings: string[] } {
   if (Object.keys(extra).length) scene.extra = extra
   validateScene(scene)
   return { scene, warnings }
+}
+
+function parseBranch(b: Record<string, unknown>, i: number): BranchDef {
+  if (!b || typeof b !== 'object' || !b.scene || typeof b.scene !== 'object') throw new SceneFileError(tl('{0} 应为分支', [`branches[${i}]`]))
+  const scene = parseScene(JSON.stringify(b.scene)).scene
+  delete scene.branches
+  return { id: str(b.id, `branches[${i}].id`), name: str(b.name, `branches[${i}].name`, ''), parent: b.parent === null || b.parent === undefined ? null : str(b.parent, `branches[${i}].parent`), t: num(b.t, `branches[${i}].t`), scene }
+}
+
+function parseStartLedger(o: Record<string, unknown>): StartLedgerDef {
+  const out: StartLedgerDef = {
+    frictionHeat: num(o.frictionHeat, 'settings.startLedger.frictionHeat', 0), appliedWork: num(o.appliedWork, 'settings.startLedger.appliedWork', 0),
+    damping: num(o.damping, 'settings.startLedger.damping', 0), beltWork: num(o.beltWork, 'settings.startLedger.beltWork', 0),
+    impactLoss: num(o.impactLoss, 'settings.startLedger.impactLoss', 0)
+  }
+  if (o.pairs && typeof o.pairs === 'object') {
+    const pairs: Record<string, [number, number]> = {}
+    for (const [k, v] of Object.entries(o.pairs as Record<string, unknown>)) {
+      if (!Array.isArray(v) || v.length !== 2) throw new SceneFileError(tl('{0} 应为数值', [`settings.startLedger.pairs.${k}`]))
+      pairs[k] = [num(v[0], `settings.startLedger.pairs.${k}`), num(v[1], `settings.startLedger.pairs.${k}`)]
+    }
+    out.pairs = pairs
+  }
+  return out
 }
 
 function isAnnotation(a: unknown): a is AnnotationDef {
@@ -158,7 +195,8 @@ function parseBody(b: Record<string, unknown>, path: string): BodyDef {
     mass: num(b.mass, `${path}.mass`, kind === 'static' ? 0 : 1), inertia: b.inertia === null || b.inertia === undefined ? null : num(b.inertia, `${path}.inertia`),
     fixedRotation: !!b.fixedRotation,
     material: { muS: num(mat.muS, `${path}.material.muS`, 0), muK: num(mat.muK, `${path}.material.muK`, 0), restitution: num(mat.restitution, `${path}.material.restitution`, 0) },
-    beltSpeed: num(b.beltSpeed, `${path}.beltSpeed`, 0), color: str(b.color, `${path}.color`, '#2563eb')
+    beltSpeed: num(b.beltSpeed, `${path}.beltSpeed`, 0), color: str(b.color, `${path}.color`, '#2563eb'),
+    ...(b.drag && typeof b.drag === 'object' ? { drag: { linear: num((b.drag as Record<string, unknown>).linear, `${path}.drag.linear`, 0), quadratic: num((b.drag as Record<string, unknown>).quadratic, `${path}.drag.quadratic`, 0) } } : {})
   }
 }
 
@@ -191,6 +229,11 @@ export function validateScene(scene: Scene) {
       }
     }
     if (c.type === 'spring' && !(c.stiffness > 0)) throw new SceneFileError(tl('{0}：劲度系数必须大于 0', [c.name]))
+    if (c.type === 'spring' && c.cubic !== undefined && !Number.isFinite(c.cubic)) throw new SceneFileError(tl('{0}：三次项系数应为有限数', [c.name]))
+    if (c.type === 'damper' && !(c.damping >= 0)) throw new SceneFileError(tl('{0}：阻尼系数应 ≥ 0', [c.name]))
+    if (c.type === 'slider' && !(Math.hypot(c.axis?.x ?? 0, c.axis?.y ?? 0) > 0)) throw new SceneFileError(tl('{0}：滑轨方向不能为零向量', [c.name]))
+    if (c.type === 'motor' && !(Number.isFinite(c.speed) && Number.isFinite(c.torque))) throw new SceneFileError(tl('{0}：马达的转速和力矩应为有限数', [c.name]))
+    if (c.type === 'gear' && (!c.a.body || !(Number.isFinite(c.ratio) && c.ratio !== 0))) throw new SceneFileError(tl('{0}：齿轮需要连接物体，传动比不能为 0', [c.name]))
     if (c.type === 'force' && c.expr) {
       if (!c.a.body) throw new SceneFileError(tl('{0}：变力必须作用在物体上', [c.name]))
       for (const comp of ['x', 'y'] as const) {
@@ -208,6 +251,20 @@ export function validateScene(scene: Scene) {
     if (!(s.stopAt.after >= 0 && s.stopAt.after <= MAX_DURATION)) throw new SceneFileError(tl('停止条件的延时应在 [0, {0}] s', [MAX_DURATION]))
   }
   if (!(s.relTol > 0 && s.absTol > 0)) throw new SceneFileError(tl('容差必须大于 0'))
+  if (s.gravitation && !(s.gravitation.G > 0)) throw new SceneFileError(tl('引力常量 G 必须大于 0'))
+  if (s.startTime !== undefined && !(s.startTime >= 0 && s.startTime <= MAX_DURATION)) throw new SceneFileError(tl('分支起始时刻应在 [0, {0}] s', [MAX_DURATION]))
+  for (const b of scene.bodies) if (b.drag && !(b.drag.linear >= 0 && b.drag.quadratic >= 0)) throw new SceneFileError(tl('{0}：阻力系数应 ≥ 0', [b.name]))
+  const branchIds = new Set<string>()
+  for (const b of scene.branches ?? []) {
+    if (!b.id || branchIds.has(b.id)) throw new SceneFileError(tl('分支 id 无效或重复：{0}', [b.id]))
+    if (b.parent !== null && !branchIds.has(b.parent)) throw new SceneFileError(tl('分支 {0} 的父分支 {1} 不存在（父分支须排在前面）', [b.id, b.parent]))
+    branchIds.add(b.id)
+  }
+  const custom = new Set<string>()
+  for (const q of scene.customQuantities ?? []) {
+    if (!/^[A-Za-z_][A-Za-z_0-9]*$/.test(q.id) || custom.has(q.id)) throw new SceneFileError(tl('自定义量的 id 无效或重复：{0}', [q.id]))
+    custom.add(q.id)
+  }
 }
 
 function bodyName(scene: Scene, id: string): string { return scene.bodies.find(b => b.id === id)?.name ?? id }

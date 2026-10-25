@@ -150,7 +150,13 @@ describe('formula detail', () => {
       const steps = d.filter(b => b.kind === 'steps')
       expect(steps.length).toBe(2)
       expect(v.title).toBe(sampleDerivation('incline.a.down')!.title[lang])
-      expect(v.sections[1].blocks.some(b => b.kind === 'chain')).toBe(true)
+      // Worked solution (D45): given / find / solution / answer, the calculation with a note on every line
+      const sol = v.sections[1].blocks
+      expect(sol.filter(b => b.kind === 'subhead').length).toBe(4)
+      const calc = sol.find(b => b.kind === 'calc') as Extract<(typeof sol)[number], { kind: 'calc' }>
+      expect(calc.lines.length).toBeGreaterThan(2)
+      for (const ln of calc.lines) expect(ln.note, `${lang}: a calculation line without a note`).toBeTruthy()
+      expect(calc.lines[0].tex).toContain('\\textcolor')
       expect(detailLatex(v)).toContain('\\begin{aligned}')
     }
   })
@@ -272,7 +278,7 @@ describe('event detail', () => {
 describe('templates', () => {
   const tri = (t: { zh: string; en: string; de: string }) => LANGS.every(l => t[l].trim().length > 0)
   it('every event function type has a trilingual template', () => {
-    const types: EventType[] = ['contact', 'liftoff', 'leave', 'slip', 'stop', 'slack', 'taut', 'switch']
+    const types: EventType[] = ['contact', 'liftoff', 'leave', 'slip', 'stop', 'slack', 'taut', 'switch', 'pulley']
     expect(Object.keys(TRIGGER_TEXT).sort()).toEqual([...types].sort())
     for (const t of types) {
       expect(tri(TRIGGER_TEXT[t].name) && tri(TRIGGER_TEXT[t].meaning), t).toBe(true)
@@ -280,7 +286,7 @@ describe('templates', () => {
     }
   })
   it('every change type has a trilingual template', () => {
-    const types: ChangeType[] = ['impact', 'touch', 'separate', 'stick', 'slip', 'reverse', 'leave', 'slack', 'taut', 'switch', 'timestep']
+    const types: ChangeType[] = ['impact', 'touch', 'separate', 'stick', 'slip', 'reverse', 'leave', 'slack', 'taut', 'switch', 'timestep', 'pulley']
     expect(Object.keys(CHANGE_TEXT).sort()).toEqual([...types].sort())
     for (const t of types) expect(tri(CHANGE_TEXT[t].name) && tri(CHANGE_TEXT[t].text) && tri(CHANGE_TEXT[t].law), t).toBe(true)
   })

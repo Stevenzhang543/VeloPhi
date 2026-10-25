@@ -1,9 +1,9 @@
-# Packages a finished build into releases\v26.50 (no rebuild). Run from the repository root.
-# Never deletes: an existing releases\v26.50 is moved aside to .cache\superseded-<time> first.
+# Packages a finished build into releases\v26.51 (no rebuild). Run from the repository root.
+# Never deletes: an existing releases\v26.51 is moved aside to .cache\superseded-<time> first.
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
-$Version = '26.50'
-$Full = '26.50.0'
+$Version = '26.51'
+$Full = '26.51.0'
 $Root = (Get-Location).Path
 $Out = Join-Path $Root "releases\v$Version"
 $Ev = Join-Path $Root ".cache\evidence-$Version"
@@ -54,7 +54,7 @@ Copy-Item (Join-Path $Root 'docs\THIRD_PARTY_NOTICES.md') (Join-Path $Out 'THIRD
 Copy-Item (Join-Path $Root 'README.md') (Join-Path $Out 'README.md')
 
 # Evidence: logs, test report, build info
-Copy-Item (Join-Path $Root '.cache\release-26.50.log') $Ev -ErrorAction SilentlyContinue
+Copy-Item (Join-Path $Root ".cache\release-$Version.log") $Ev -ErrorAction SilentlyContinue
 $info = [ordered]@{
   product = 'Verity'; version = $Full; builtAt = (Get-Date).ToString('s')
   node = (node --version); rustc = (rustc --version); os = [System.Environment]::OSVersion.VersionString
