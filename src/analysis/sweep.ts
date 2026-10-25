@@ -11,7 +11,10 @@
  * the loop yields between runs so the interface stays responsive, and it stops at the next opportunity when
  * cancelled. Pure (no DOM, no Vue).
  */
+import { tl } from '../i18n'
+import { msgText } from '../i18n/locale'
 import type { Scene } from '../core/scene/types'
+import { finiteDuration } from '../core/scene/types'
 import type { ChangeType, Recording } from '../core/solver/simulation'
 import { cloneScene, serializeScene, validateScene } from '../core/scene/io'
 import { evaluateQuantity, listQuantities, makeContext } from '../core/observe/quantities'
@@ -73,7 +76,7 @@ export function listSweepParams(scene: Scene): SweepParam[] {
     for (const p of info.params) {
       const { unit, toSi } = templateUnit(p.unit)
       out.push({
-        id: `template:${p.key}`, group: `模板参数（${info.name}，按模板重建场景）`, label: p.label, unit,
+        id: `template:${p.key}`, group: tl('模板参数（{0}，按模板重建场景）', [info.name]), label: p.label, unit,
         min: p.min !== undefined ? p.min * toSi : undefined, max: p.max !== undefined ? p.max * toSi : undefined,
         get: s => {
           const v = (s.extra as { template?: { values?: Record<string, number> } } | undefined)?.template?.values?.[p.key]
@@ -90,58 +93,58 @@ export function listSweepParams(scene: Scene): SweepParam[] {
       })
     }
   }
-  const body = (s: Scene, id: string) => { const b = s.bodies.find(x => x.id === id); if (!b) throw new Error(`物体 ${id} 不存在`); return b }
+  const body = (s: Scene, id: string) => { const b = s.bodies.find(x => x.id === id); if (!b) throw new Error(tl('物体 {0} 不存在', [id])); return b }
   for (const b0 of scene.bodies) {
-    const id = b0.id, g = `物体：${b0.name}`
+    const id = b0.id, g = tl('物体：{0}', [b0.name])
     if (b0.kind !== 'static') {
-      out.push({ id: `body:${id}:mass`, group: g, label: '质量 m', unit: 'kg', min: 1e-9, get: s => body(s, id).mass, set: (s, v) => { body(s, id).mass = v } })
-      out.push({ id: `body:${id}:vx`, group: g, label: '初速度 vₓ', unit: 'm/s', get: s => body(s, id).velocity.x, set: (s, v) => { body(s, id).velocity.x = v } })
-      out.push({ id: `body:${id}:vy`, group: g, label: '初速度 v_y', unit: 'm/s', get: s => body(s, id).velocity.y, set: (s, v) => { body(s, id).velocity.y = v } })
+      out.push({ id: `body:${id}:mass`, group: g, label: tl('质量 m'), unit: 'kg', min: 1e-9, get: s => body(s, id).mass, set: (s, v) => { body(s, id).mass = v } })
+      out.push({ id: `body:${id}:vx`, group: g, label: tl('初速度 vₓ'), unit: 'm/s', get: s => body(s, id).velocity.x, set: (s, v) => { body(s, id).velocity.x = v } })
+      out.push({ id: `body:${id}:vy`, group: g, label: tl('初速度 v_y'), unit: 'm/s', get: s => body(s, id).velocity.y, set: (s, v) => { body(s, id).velocity.y = v } })
       out.push({
-        id: `body:${id}:speed`, group: g, label: '初速度大小 |v₀|（方向不变）', unit: 'm/s', min: 0,
+        id: `body:${id}:speed`, group: g, label: tl('初速度大小 |v₀|（方向不变）'), unit: 'm/s', min: 0,
         get: s => Math.hypot(body(s, id).velocity.x, body(s, id).velocity.y),
         set: (s, v) => { const b = body(s, id); const a = Math.atan2(b.velocity.y, b.velocity.x); b.velocity = { x: v * Math.cos(a), y: v * Math.sin(a) } }
       })
       out.push({
-        id: `body:${id}:dir`, group: g, label: '初速度方向角 α（大小不变）', unit: 'rad',
+        id: `body:${id}:dir`, group: g, label: tl('初速度方向角 α（大小不变）'), unit: 'rad',
         get: s => Math.atan2(body(s, id).velocity.y, body(s, id).velocity.x),
         set: (s, v) => { const b = body(s, id); const m = Math.hypot(b.velocity.x, b.velocity.y); b.velocity = { x: m * Math.cos(v), y: m * Math.sin(v) } }
       })
-      if (b0.kind === 'rigid' && !b0.fixedRotation) out.push({ id: `body:${id}:omega`, group: g, label: '初角速度 ω₀', unit: 'rad/s', get: s => body(s, id).angularVelocity, set: (s, v) => { body(s, id).angularVelocity = v } })
+      if (b0.kind === 'rigid' && !b0.fixedRotation) out.push({ id: `body:${id}:omega`, group: g, label: tl('初角速度 ω₀'), unit: 'rad/s', get: s => body(s, id).angularVelocity, set: (s, v) => { body(s, id).angularVelocity = v } })
     }
-    out.push({ id: `body:${id}:angle`, group: g, label: '初始角度 θ', unit: 'rad', get: s => body(s, id).angle, set: (s, v) => { body(s, id).angle = v } })
-    out.push({ id: `body:${id}:mu`, group: g, label: '摩擦因数 μs = μk', unit: '', min: 0, get: s => body(s, id).material.muK, set: (s, v) => { const m = body(s, id).material; m.muS = v; m.muK = v } })
-    out.push({ id: `body:${id}:muS`, group: g, label: '静摩擦因数 μs', unit: '', min: 0, get: s => body(s, id).material.muS, set: (s, v) => { body(s, id).material.muS = v } })
-    out.push({ id: `body:${id}:muK`, group: g, label: '动摩擦因数 μk', unit: '', min: 0, get: s => body(s, id).material.muK, set: (s, v) => { body(s, id).material.muK = v } })
-    out.push({ id: `body:${id}:e`, group: g, label: '恢复系数 e', unit: '', min: 0, max: 1, get: s => body(s, id).material.restitution, set: (s, v) => { body(s, id).material.restitution = v } })
-    if (b0.kind === 'static' && (b0.role === 'conveyor' || b0.beltSpeed !== 0)) out.push({ id: `body:${id}:belt`, group: g, label: '传送带速度 u', unit: 'm/s', get: s => body(s, id).beltSpeed, set: (s, v) => { body(s, id).beltSpeed = v } })
+    out.push({ id: `body:${id}:angle`, group: g, label: tl('初始角度 θ'), unit: 'rad', get: s => body(s, id).angle, set: (s, v) => { body(s, id).angle = v } })
+    out.push({ id: `body:${id}:mu`, group: g, label: tl('摩擦因数 μs = μk'), unit: '', min: 0, get: s => body(s, id).material.muK, set: (s, v) => { const m = body(s, id).material; m.muS = v; m.muK = v } })
+    out.push({ id: `body:${id}:muS`, group: g, label: tl('静摩擦因数 μs'), unit: '', min: 0, get: s => body(s, id).material.muS, set: (s, v) => { body(s, id).material.muS = v } })
+    out.push({ id: `body:${id}:muK`, group: g, label: tl('动摩擦因数 μk'), unit: '', min: 0, get: s => body(s, id).material.muK, set: (s, v) => { body(s, id).material.muK = v } })
+    out.push({ id: `body:${id}:e`, group: g, label: tl('恢复系数 e'), unit: '', min: 0, max: 1, get: s => body(s, id).material.restitution, set: (s, v) => { body(s, id).material.restitution = v } })
+    if (b0.kind === 'static' && (b0.role === 'conveyor' || b0.beltSpeed !== 0)) out.push({ id: `body:${id}:belt`, group: g, label: tl('传送带速度 u'), unit: 'm/s', get: s => body(s, id).beltSpeed, set: (s, v) => { body(s, id).beltSpeed = v } })
   }
   scene.contactPairs.forEach((p0, i) => {
     const name = (bid: string) => scene.bodies.find(b => b.id === bid)?.name ?? bid
-    const g = `接触对：${name(p0.a)}–${name(p0.b)}`
-    const pair = (s: Scene) => { const p = s.contactPairs[i]; if (!p) throw new Error('接触对不存在'); return p }
-    out.push({ id: `pair:${p0.a}|${p0.b}:mu`, group: g, label: '摩擦因数 μs = μk', unit: '', min: 0, get: s => pair(s).muK, set: (s, v) => { const p = pair(s); p.muS = v; p.muK = v } })
-    out.push({ id: `pair:${p0.a}|${p0.b}:muS`, group: g, label: '静摩擦因数 μs', unit: '', min: 0, get: s => pair(s).muS, set: (s, v) => { pair(s).muS = v } })
-    out.push({ id: `pair:${p0.a}|${p0.b}:muK`, group: g, label: '动摩擦因数 μk', unit: '', min: 0, get: s => pair(s).muK, set: (s, v) => { pair(s).muK = v } })
-    out.push({ id: `pair:${p0.a}|${p0.b}:e`, group: g, label: '恢复系数 e', unit: '', min: 0, max: 1, get: s => pair(s).restitution, set: (s, v) => { pair(s).restitution = v } })
+    const g = tl('接触对：{0}–{1}', [name(p0.a), name(p0.b)])
+    const pair = (s: Scene) => { const p = s.contactPairs[i]; if (!p) throw new Error(tl('接触对不存在')); return p }
+    out.push({ id: `pair:${p0.a}|${p0.b}:mu`, group: g, label: tl('摩擦因数 μs = μk'), unit: '', min: 0, get: s => pair(s).muK, set: (s, v) => { const p = pair(s); p.muS = v; p.muK = v } })
+    out.push({ id: `pair:${p0.a}|${p0.b}:muS`, group: g, label: tl('静摩擦因数 μs'), unit: '', min: 0, get: s => pair(s).muS, set: (s, v) => { pair(s).muS = v } })
+    out.push({ id: `pair:${p0.a}|${p0.b}:muK`, group: g, label: tl('动摩擦因数 μk'), unit: '', min: 0, get: s => pair(s).muK, set: (s, v) => { pair(s).muK = v } })
+    out.push({ id: `pair:${p0.a}|${p0.b}:e`, group: g, label: tl('恢复系数 e'), unit: '', min: 0, max: 1, get: s => pair(s).restitution, set: (s, v) => { pair(s).restitution = v } })
   })
   for (const c0 of scene.connectors) {
     const id = c0.id
-    const conn = (s: Scene) => { const c = s.connectors.find(x => x.id === id); if (!c) throw new Error(`连接件 ${id} 不存在`); return c }
-    const g = `连接件：${c0.name}`
+    const conn = (s: Scene) => { const c = s.connectors.find(x => x.id === id); if (!c) throw new Error(tl('连接件 {0} 不存在', [id])); return c }
+    const g = tl('连接件：{0}', [c0.name])
     if (c0.type === 'spring') {
-      out.push({ id: `spring:${id}:k`, group: g, label: '劲度系数 k', unit: 'N/m', min: 1e-9, get: s => (conn(s) as typeof c0).stiffness, set: (s, v) => { (conn(s) as typeof c0).stiffness = v } })
-      out.push({ id: `spring:${id}:c`, group: g, label: '阻尼系数 c', unit: 'N·s/m', min: 0, get: s => (conn(s) as typeof c0).damping, set: (s, v) => { (conn(s) as typeof c0).damping = v } })
-      if (c0.restLength !== null) out.push({ id: `spring:${id}:L0`, group: g, label: '原长 L₀', unit: 'm', min: 0, get: s => (conn(s) as typeof c0).restLength ?? 0, set: (s, v) => { (conn(s) as typeof c0).restLength = v } })
+      out.push({ id: `spring:${id}:k`, group: g, label: tl('劲度系数 k'), unit: 'N/m', min: 1e-9, get: s => (conn(s) as typeof c0).stiffness, set: (s, v) => { (conn(s) as typeof c0).stiffness = v } })
+      out.push({ id: `spring:${id}:c`, group: g, label: tl('阻尼系数 c'), unit: 'N·s/m', min: 0, get: s => (conn(s) as typeof c0).damping, set: (s, v) => { (conn(s) as typeof c0).damping = v } })
+      if (c0.restLength !== null) out.push({ id: `spring:${id}:L0`, group: g, label: tl('原长 L₀'), unit: 'm', min: 0, get: s => (conn(s) as typeof c0).restLength ?? 0, set: (s, v) => { (conn(s) as typeof c0).restLength = v } })
     } else if ((c0.type === 'rope' || c0.type === 'rod') && c0.length !== null) {
-      out.push({ id: `${c0.type}:${id}:L`, group: g, label: c0.type === 'rope' ? '绳长 L' : '杆长 L', unit: 'm', min: 1e-6, get: s => (conn(s) as typeof c0).length ?? 0, set: (s, v) => { (conn(s) as typeof c0).length = v } })
+      out.push({ id: `${c0.type}:${id}:L`, group: g, label: c0.type === 'rope' ? tl('绳长 L') : tl('杆长 L'), unit: 'm', min: 1e-6, get: s => (conn(s) as typeof c0).length ?? 0, set: (s, v) => { (conn(s) as typeof c0).length = v } })
     } else if (c0.type === 'force' && !c0.expr) {
-      out.push({ id: `force:${id}:fx`, group: g, label: '力 Fₓ', unit: 'N', get: s => (conn(s) as typeof c0).force.x, set: (s, v) => { (conn(s) as typeof c0).force.x = v } })
-      out.push({ id: `force:${id}:fy`, group: g, label: '力 F_y', unit: 'N', get: s => (conn(s) as typeof c0).force.y, set: (s, v) => { (conn(s) as typeof c0).force.y = v } })
+      out.push({ id: `force:${id}:fx`, group: g, label: tl('力 Fₓ'), unit: 'N', get: s => (conn(s) as typeof c0).force.x, set: (s, v) => { (conn(s) as typeof c0).force.x = v } })
+      out.push({ id: `force:${id}:fy`, group: g, label: tl('力 F_y'), unit: 'N', get: s => (conn(s) as typeof c0).force.y, set: (s, v) => { (conn(s) as typeof c0).force.y = v } })
     }
   }
   out.push({
-    id: 'gravity:g', group: '场景', label: '重力加速度 g（方向不变）', unit: 'm/s²', min: 0,
+    id: 'gravity:g', group: tl('场景'), label: tl('重力加速度 g（方向不变）'), unit: 'm/s²', min: 0,
     get: s => Math.hypot(s.settings.gravity.x, s.settings.gravity.y),
     set: (s, v) => {
       const g = s.settings.gravity, m = Math.hypot(g.x, g.y)
@@ -161,9 +164,9 @@ export function linspace(a: number, b: number, n: number): number[] {
 
 /** Scene with the parameter set (a validated copy; the original is not touched). */
 export function sceneWith(base: Scene, param: SweepParam, value: number): Scene {
-  if (!Number.isFinite(value)) throw new Error('参数值不是有限数')
-  if (param.min !== undefined && value < param.min - 1e-15) throw new Error(`参数值应 ≥ ${param.min}`)
-  if (param.max !== undefined && value > param.max + 1e-15) throw new Error(`参数值应 ≤ ${param.max}`)
+  if (!Number.isFinite(value)) throw new Error(tl('参数值不是有限数'))
+  if (param.min !== undefined && value < param.min - 1e-15) throw new Error(tl('参数值应 ≥ {0}', [param.min]))
+  if (param.max !== undefined && value > param.max + 1e-15) throw new Error(tl('参数值应 ≤ {0}', [param.max]))
   const s = cloneScene(base)
   param.set(s, value)
   validateScene(s)
@@ -247,13 +250,15 @@ export async function runSweep(base: Scene, spec: SweepSpec, runner: SweepRunner
     let point: SweepPoint
     try {
       const scene = sceneWith(base, spec.param, value)
+      // Sweeps always run bounded: an unbounded scene runs for its legacyDuration
+      scene.settings.duration = finiteDuration(scene.settings)
       const handle = runner(scene, f => cb.onProgress?.((i + Math.max(0, Math.min(1, f))) / n))
       // Cancel the running simulation as soon as the sweep is cancelled
       const poll = setInterval(() => { if (cb.cancelled()) handle.cancel() }, 50)
       let rec: Recording | null
       try { rec = await handle.done } finally { clearInterval(poll) }
       if (!rec) break
-      point = { value, result: measureRecording(rec, spec.measure), incomplete: !rec.completed, hash: rec.hash, error: rec.error ?? undefined }
+      point = { value, result: measureRecording(rec, spec.measure), incomplete: !rec.completed, hash: rec.hash, error: rec.error ? msgText(rec.error) : undefined }
     } catch (e) {
       point = { value, result: null, incomplete: false, error: (e as Error).message }
     }

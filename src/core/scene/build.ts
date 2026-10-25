@@ -1,4 +1,5 @@
 /** Helpers to build scenes in code (templates, tests). All values SI; the default gravity is set here. */
+import { tl } from '../../i18n'
 import type { Anchor, BodyDef, BodyKind, BodyRole, ConnectorDef, Material, PulleyDef, Scene, ShapeDef } from './types'
 import { ENGINE_VERSION, SCENE_FORMAT, SCENE_VERSION } from './types'
 import type { Vec2 } from '../math/vec'
@@ -12,7 +13,7 @@ let defaultG = 9.8
 
 /** Set the default gravity magnitude used by `emptyScene` and the templates (the app's default-gravity setting). */
 export function setDefaultGravity(g: number) {
-  if (!(Number.isFinite(g) && g >= 0)) throw new Error('重力加速度应为非负数')
+  if (!(Number.isFinite(g) && g >= 0)) throw new Error(tl('重力加速度应为非负数'))
   defaultG = g
 }
 
@@ -20,11 +21,11 @@ export function setDefaultGravity(g: number) {
 export function defaultGravity(): number { return defaultG }
 
 /** A new scene with the default settings and nothing in it. */
-export function emptyScene(name = '未命名场景'): Scene {
+export function emptyScene(name = tl('未命名场景')): Scene {
   return {
     format: SCENE_FORMAT, version: SCENE_VERSION, dimension: 2, engine: ENGINE_VERSION,
     name, description: '',
-    settings: { gravity: { x: 0, y: -defaultG }, outputStep: 1 / 600, integrator: 'dopri5', relTol: 1e-10, absTol: 1e-12, duration: 5, energyZeroY: 0 },
+    settings: { gravity: { x: 0, y: -defaultG }, outputStep: 1 / 600, integrator: 'dopri5', relTol: 1e-10, absTol: 1e-12, duration: null, stopAt: null, legacyDuration: 5, energyZeroY: 0 },
     bodies: [], pulleys: [], connectors: [], contactPairs: [],
     view: { center: { x: 0, y: 1 }, pixelsPerMeter: 80 },
     watch: [],
@@ -92,7 +93,7 @@ export function addBody(scene: Scene, o: BodyOptions): BodyDef {
 export function addGround(scene: Scene, o: { name?: string; top?: number; left?: number; right?: number; thickness?: number; material?: Partial<Material>; id?: string; beltSpeed?: number; role?: BodyRole }): BodyDef {
   const left = o.left ?? -10, right = o.right ?? 10, top = o.top ?? 0, th = o.thickness ?? 0.4
   return addBody(scene, {
-    id: o.id, name: o.name ?? '地面', kind: 'static', role: o.role ?? 'ground',
+    id: o.id, name: o.name ?? tl('地面'), kind: 'static', role: o.role ?? 'ground',
     shape: { type: 'box', width: right - left, height: th },
     position: { x: (left + right) / 2, y: top - th / 2 }, material: o.material, beltSpeed: o.beltSpeed
   })
@@ -107,7 +108,7 @@ export function addIncline(scene: Scene, o: { name?: string; angle: number; base
   const h = o.base * sin(o.angle) / cos(o.angle)
   // Vertices CCW: bottom-left, bottom-right, top-left (slope from top-left down to bottom-right)
   const pts = [{ x: x0, y: y0 }, { x: x0 + o.base, y: y0 }, { x: x0, y: y0 + h }]
-  return addBody(scene, { id: o.id, name: o.name ?? '斜面', kind: 'static', role: o.role ?? 'incline', shape: { type: 'polygon', points: pts }, position: { x: 0, y: 0 }, material: o.material, beltSpeed: o.beltSpeed })
+  return addBody(scene, { id: o.id, name: o.name ?? tl('斜面'), kind: 'static', role: o.role ?? 'incline', shape: { type: 'polygon', points: pts }, position: { x: 0, y: 0 }, material: o.material, beltSpeed: o.beltSpeed })
 }
 
 /** Position of a box of size w×h resting on the slope of addIncline at distance s (along the slope, from the top). */
@@ -131,7 +132,7 @@ export function addConnector<T extends ConnectorDef>(scene: Scene, c: Omit<T, 'i
 
 /** Add a pulley. With `body` it is a movable pulley and `position` is the axle in that body's coordinates. */
 export function addPulley(scene: Scene, o: { name?: string; position: Vec2; radius: number; id?: string; body?: string | null }): PulleyDef {
-  const p: PulleyDef = { id: o.id ?? nextId(scene, 'p'), name: o.name ?? '滑轮', position: { ...o.position }, radius: o.radius }
+  const p: PulleyDef = { id: o.id ?? nextId(scene, 'p'), name: o.name ?? tl('滑轮'), position: { ...o.position }, radius: o.radius }
   if (o.body) p.body = o.body
   scene.pulleys.push(p)
   return p

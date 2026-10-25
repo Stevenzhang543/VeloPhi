@@ -5,12 +5,14 @@
  * units. The latest event at or before the current frame is highlighted; later ones are dimmed.
  * `compact` drops the description column (dashboard).
  */
+import { tl, commaSep, colonSep } from '../../i18n'
 import { computed } from 'vue'
 import { state, seekAfter } from '../store'
 import { eventLabel } from '../../render/renderer'
 import { useGated } from '../live'
 import { fmtNum, fmtQ, unitLabel } from '../settings'
 import type { ChangeDetail, SimEvent } from '../../core/solver/simulation'
+import { openEventDetail } from '../details'
 
 const props = withDefaults(defineProps<{ active?: boolean; compact?: boolean }>(), { active: true, compact: false })
 
@@ -19,23 +21,23 @@ const name = (id: string) => {
   const m = rec.value?.system.model
   return m?.byId.get(id)?.name ?? m?.ropes.find(r => r.id === id)?.name ?? m?.forces.find(f => f.id === id)?.name ?? id
 }
-const FRICTION: Record<string, string> = { slip: '碰撞中一直相对滑动', stick: '碰撞结束时切向相对静止', reverse: '切向相对速度反向' }
+const FRICTION: Record<string, string> = { slip: tl('碰撞中一直相对滑动'), stick: tl('碰撞结束时切向相对静止'), reverse: tl('切向相对速度反向') }
 
 /** Description of one change in display units (impacts with their friction, variable-force switches, fallback). */
 function detail(e: SimEvent, c: ChangeDetail): string {
   if (c.type === 'impact') {
-    const parts = [`法向速度 ${fmtQ(c.vnBefore ?? null, 'm/s', 4)} → ${fmtQ(c.vnAfter ?? null, 'm/s', 4)}`, `冲量 ${fmtQ(c.impulse ?? null, 'N·s', 4)}`, `e = ${c.restitution}`]
-    if (c.tangentImpulse !== undefined && Math.abs(c.tangentImpulse) > 1e-12) parts.push(`摩擦冲量 ${fmtQ(Math.abs(c.tangentImpulse), 'N·s', 4)}`)
-    if (c.vtBefore !== undefined && c.vtAfter !== undefined) parts.push(`切向相对速度 碰前 ${fmtQ(c.vtBefore, 'm/s', 4)} → 碰后 ${fmtQ(c.vtAfter, 'm/s', 4)}`)
+    const parts = [tl('法向速度 {0} → {1}', [fmtQ(c.vnBefore ?? null, 'm/s', 4), fmtQ(c.vnAfter ?? null, 'm/s', 4)]), tl('冲量 {0}', [fmtQ(c.impulse ?? null, 'N·s', 4)]), `e = ${c.restitution}`]
+    if (c.tangentImpulse !== undefined && Math.abs(c.tangentImpulse) > 1e-12) parts.push(tl('摩擦冲量 {0}', [fmtQ(Math.abs(c.tangentImpulse), 'N·s', 4)]))
+    if (c.vtBefore !== undefined && c.vtAfter !== undefined) parts.push(tl('切向相对速度 碰前 {0} → 碰后 {1}', [fmtQ(c.vtBefore, 'm/s', 4), fmtQ(c.vtAfter, 'm/s', 4)]))
     const p = e.impact?.points.find(pt => pt.pair?.key === c.subject && pt.friction)
     if (p?.friction) parts.push(FRICTION[p.friction] ?? p.friction)
-    return parts.join('，')
+    return parts.join(commaSep())
   }
-  if (c.type === 'taut' && c.impulse !== undefined) return `绳突然绷紧，冲量 ${fmtQ(Math.abs(c.impulse), 'N·s', 4)}`
-  if (c.type === 'switch') return `${name(c.subject)}：${c.kink ? '表达式出现折点（abs、min、max、clamp），力连续但斜率突变' : '表达式跳变（step、sign、if），力突然改变'}`
+  if (c.type === 'taut' && c.impulse !== undefined) return tl('绳突然绷紧，冲量 {0}', [fmtQ(Math.abs(c.impulse), 'N·s', 4)])
+  if (c.type === 'switch') return `${name(c.subject)}${colonSep()}${c.kink ? tl('表达式出现折点（abs、min、max、clamp），力连续但斜率突变') : tl('表达式跳变（step、sign、if），力突然改变')}`
   if (c.type === 'timestep') {
     const chosen = rec.value?.scene.settings.integrator === 'moreau'
-    return `${chosen ? '按“场景”页的设置' : '事件过于密集，此后'}改用 Moreau–Jean 时间步进计算：精度降级，事件时刻不再精确定位`
+    return tl('{0}改用 Moreau–Jean 时间步进计算：精度降级，事件时刻不再精确定位', [chosen ? tl('按“场景”页的设置') : tl('事件过于密集，此后')])
   }
   return ''
 }
@@ -43,8 +45,9 @@ function detail(e: SimEvent, c: ChangeDetail): string {
 const rows = computed(() => {
   const r = rec.value
   if (!r) return []
-  return r.events.filter(e => e.changes.length > 0).map(e => ({
+  return r.events.map((e, index) => ({ e, index })).filter(({ e }) => e.changes.length > 0).map(({ e, index }) => ({
     e,
+    index,
     items: e.changes.map(c => ({
       text: eventLabel(c),
       who: c.bodies.map(name).join(' – ') || (c.type === 'switch' ? name(c.subject) : ''),
@@ -65,22 +68,22 @@ const currentIndex = computed(() => {
 
 <template>
   <div class="events" :class="{ compact }">
-    <div v-if="!rec" class="empty">运行仿真后列出事件。</div>
-    <div v-else-if="rows.length === 0" class="empty">本次仿真没有碰撞、开始滑动、共速、分离等状态切换。</div>
+    <div v-if="!rec" class="empty">{{ tl('运行仿真后列出事件。') }}</div>
+    <div v-else-if="rows.length === 0" class="empty">{{ tl('本次仿真没有碰撞、开始滑动、共速、分离等状态切换。') }}</div>
     <table v-else>
-      <thead><tr><th>时刻 / {{ unitLabel('s') }}</th><th>事件</th><th>对象</th><th v-if="!compact">说明</th></tr></thead>
+      <thead><tr><th>{{ tl('时刻 / {0}', [unitLabel('s')]) }}</th><th>{{ tl('事件') }}</th><th>{{ tl('对象') }}</th><th v-if="!compact">{{ tl('说明') }}</th></tr></thead>
       <tbody>
         <template v-for="(row, ri) in rows" :key="row.e.index">
-          <tr v-for="(it, i) in row.items" :key="i" :class="{ current: ri === currentIndex, future: ri > currentIndex, warn: it.warn }" title="跳到事件后的第一帧" @click="seekAfter(row.e.t)">
+          <tr v-for="(it, i) in row.items" :key="i" :class="{ current: ri === currentIndex, future: ri > currentIndex, warn: it.warn }" :title="tl('跳到事件后的第一帧并查看详情')" @click="seekAfter(row.e.t); openEventDetail(row.index)">
             <td v-if="i === 0" :rowspan="row.items.length" class="mono">{{ fmtNum(row.e.t, 's', compact ? Math.max(state.digits, 6) : Math.max(state.digits, 9)) }}</td>
-            <td>{{ it.text }}<div v-if="compact && it.detail" class="tiny muted sub">{{ it.detail }}<template v-if="i === 0 && row.loss > 1e-12">；损失动能 {{ fmtQ(row.loss, 'J', 4) }}</template></div></td>
+            <td>{{ it.text }}<div v-if="compact && it.detail" class="tiny muted sub">{{ it.detail }}<template v-if="i === 0 && row.loss > 1e-12">{{ tl('；损失动能 {0}', [fmtQ(row.loss, 'J', 4)]) }}</template></div></td>
             <td>{{ it.who }}</td>
-            <td v-if="!compact" class="small muted">{{ it.detail }}<template v-if="i === 0 && row.loss > 1e-12">；损失动能 {{ fmtQ(row.loss, 'J', 5) }}</template></td>
+            <td v-if="!compact" class="small muted">{{ it.detail }}<template v-if="i === 0 && row.loss > 1e-12">{{ tl('；损失动能 {0}', [fmtQ(row.loss, 'J', 5)]) }}</template></td>
           </tr>
         </template>
       </tbody>
     </table>
-    <div v-if="!compact" class="tiny muted foot">事件时刻由求解器在两次积分步之间精确定位（误差约 10⁻¹² s）；点击一行跳到事件后的第一帧。</div>
+    <div v-if="!compact" class="tiny muted foot">{{ tl('事件时刻由求解器在两次积分步之间精确定位（误差约 10⁻¹² s）；点击一行跳到事件后的第一帧并打开事件详情。') }}</div>
   </div>
 </template>
 

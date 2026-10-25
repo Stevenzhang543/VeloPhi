@@ -3,6 +3,7 @@
  * output is independent of the page styles and sharp at any pixel ratio. Values are passed in display units
  * already; NaN / null values break the line.
  */
+import { tl } from '../i18n'
 
 /** One line of a chart; values are in display units. */
 export interface ChartSeries {
@@ -168,6 +169,6 @@ export function renderChart(series: ChartSeries[], o: ChartImageOptions): HTMLCa
 export async function chartPng(series: ChartSeries[], o: ChartImageOptions): Promise<Uint8Array> {
   const canvas = renderChart(series, o)
   const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'))
-  if (!blob) throw new Error('PNG 编码失败')
+  if (!blob) throw new Error(tl('PNG 编码失败'))
   return new Uint8Array(await blob.arrayBuffer())
 }

@@ -3,6 +3,7 @@
  * Inline text box of the text annotation tool, placed over the canvas at the annotation point. Enter commits
  * (Shift+Enter starts a new line), Esc cancels, leaving the box commits.
  */
+import { tl } from '../../i18n'
 import { nextTick, onMounted, ref } from 'vue'
 
 const props = defineProps<{ x: number; y: number; text: string; size: number }>()
@@ -39,7 +40,7 @@ onMounted(async () => {
 
 <template>
   <textarea ref="el" v-model="value" class="ann-input" :rows="rows()" :style="{ left: `${props.x - 5}px`, top: `${props.y - 4}px`, fontSize: `${props.size}px` }"
-    placeholder="输入文字，Enter 完成" spellcheck="false" @keydown="onKey" @blur="commit" @mousedown.stop />
+    :placeholder="tl('输入文字，Enter 完成')" spellcheck="false" @keydown="onKey" @blur="commit" @mousedown.stop />
 </template>
 
 <style scoped>

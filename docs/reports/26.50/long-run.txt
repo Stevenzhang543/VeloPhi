@@ -1,0 +1,9 @@
+pendulum: 1080001 frames, 148.6× real time (TS), memory 96.8 MiB default / 24.0 MiB with a 24 MiB budget (418/1801 chunks resident, 1383 evictions)
+  fingerprint 39772a5bb559b13c… same with eviction: true; scrub-back {"10":{"frame":true,"exact":true,"rebuilt":1,"ms":30.9},"600":{"frame":true,"exact":true,"rebuilt":1,"ms":26.3},"1700":{"frame":true,"exact":true,"rebuilt":1,"ms":32.9}}
+  rebuild 9.9 ms per 1 s chunk; ledger drift 100 s: 1.57e-10, 600 s: 1.77e-10, 1700 s: 4.12e-10, 1800 s: 5.92e-10; per 100 s ≤ 1.57e-10
+spring: 1080001 frames, 102.8× real time (TS), memory 130.8 MiB default / 24.0 MiB with a 24 MiB budget (295/1801 chunks resident, 1506 evictions)
+  fingerprint 04785db811a0c922… same with eviction: true; scrub-back {"10":{"frame":true,"exact":true,"rebuilt":1,"ms":28.2},"600":{"frame":true,"exact":true,"rebuilt":1,"ms":48.4},"1700":{"frame":true,"exact":true,"rebuilt":1,"ms":28.9}}
+  rebuild 11.5 ms per 1 s chunk; ledger drift 100 s: 3.64e-10, 600 s: 2.19e-9, 1700 s: 6.19e-9, 1800 s: 6.56e-9; per 100 s ≤ 3.64e-10
+vertical-circle-rod: 1080001 frames, 120.8× real time (TS), memory 96.7 MiB default / 24.0 MiB with a 24 MiB budget (419/1801 chunks resident, 1382 evictions)
+  fingerprint 7b52f07129800281… same with eviction: true; scrub-back {"10":{"frame":true,"exact":true,"rebuilt":1,"ms":11.6},"600":{"frame":true,"exact":true,"rebuilt":1,"ms":13.4},"1700":{"frame":true,"exact":true,"rebuilt":1,"ms":25.6}}
+  rebuild 9.7 ms per 1 s chunk; ledger drift 100 s: 1.64e-10, 600 s: 9.91e-10, 1700 s: 2.81e-9, 1800 s: 2.98e-9; per 100 s ≤ 1.66e-10

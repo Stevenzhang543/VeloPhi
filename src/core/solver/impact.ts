@@ -20,6 +20,8 @@
  * Simultaneous frictional impacts at several points have no comparably safe model; they keep the
  * frictionless impulses (still dissipative) and a warning is recorded when friction would have acted.
  */
+import type { Message } from '../../i18n/message'
+import { msg } from '../../i18n/message'
 import { solveDense } from '../math/linalg'
 import type { ContactFeature, Pose, RowJ } from './kinematics'
 import { computePoses, distanceKin, hingeKin, ropeKin } from './kinematics'
@@ -60,13 +62,13 @@ export interface ImpactResult {
   /** Kinetic energy lost (J). */
   loss: number
   /** Set when friction was left out (simultaneous frictional impacts). */
-  warning?: string
+  warning?: Message
 }
 
 interface IRow { j: RowJ; u: number; target: number; unilateral: boolean; approach: boolean; info: ImpactPoint | null; kin: ContactKin | null }
 
 /** Warning recorded when friction impulses are left out of a multi-point impact. */
-export const MULTI_IMPACT_WARNING = '多个接触点同时碰撞时，碰撞冲量未计摩擦（只对单点碰撞计入摩擦冲量）；之后的滑动摩擦照常计算'
+export const MULTI_IMPACT_WARNING: Message = msg('warn.multiImpactFriction')
 
 /** Whether some touching contact or rope at full length is approaching, so an impact is needed. */
 export function approaching(sys: System, X: Float64Array, posesIn?: Pose[]): boolean {

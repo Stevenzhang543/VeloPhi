@@ -6,11 +6,13 @@
  * `DrawInput.style` (projector mode). Optional layers let `renderFrame` put purely visual effects (motion
  * blur, trails, particles) underneath or on top of the bodies.
  */
+import { tl, listSep, paren } from '../i18n'
 import type { System, Mode, ModeSolution } from '../core/solver/dynamics'
 import type { Pose } from '../core/solver/kinematics'
 import { anchorState, computePoses, pulleyCenter, ropeKin } from '../core/solver/kinematics'
 import type { BodyModel } from '../core/solver/model'
 import type { Recording } from '../core/solver/simulation'
+import { frameIsCheap, frameState } from '../core/solver/simulation'
 import type { AnnotationDef } from '../core/scene/types'
 import type { UnitChoice } from '../units/units'
 import type { RenderStyle } from './style'
@@ -57,6 +59,8 @@ export const DARK: Palette = {
 export interface DrawOptions {
   velocity: boolean; acceleration: boolean; forces: boolean; forcesAll: boolean
   trajectory: boolean; labels: boolean; grid: boolean; axes: boolean; names: boolean
+  /** Stroboscopic picture (render/strobe.ts); absent: off. */
+  strobe?: boolean; strobeInterval?: number; strobeCount?: number; strobeOpacity?: number; strobeLabels?: boolean
 }
 
 /** Extra drawing passes around the bodies (purely visual effects). */
@@ -84,7 +88,7 @@ export interface DrawInput {
   palette: Palette
   /** Scales: pixels per m/s, per m/s², per N. */
   scales: { v: number; a: number; f: number }
-  trajectories: Map<string, Float64Array> | null
+  trajectories: Trajectories | null
   /** Edit mode: draw initial velocities as dashed arrows. */
   editing: boolean
   /** Connector being created: first anchor, cursor and the pulleys clicked so far (world, m). */
@@ -114,14 +118,14 @@ export function minorGridStep(ppm: number): number { return niceStep(ppm, 24) }
 
 function drawGrid(ctx: CanvasRenderingContext2D, cam: Camera, P: Palette, axes: boolean, grid: boolean) {
   const minor = minorGridStep(cam.ppm), major = minor * 5
-  const tl = toWorld(cam, 0, 0), br = toWorld(cam, cam.width, cam.height)
+  const topLeft = toWorld(cam, 0, 0), br = toWorld(cam, cam.width, cam.height)
   if (grid) {
     for (const [step, color] of [[minor, P.gridMinor], [major, P.gridMajor]] as Array<[number, string]>) {
       ctx.strokeStyle = color
       ctx.lineWidth = 1
       ctx.beginPath()
-      for (let x = Math.ceil(tl.x / step) * step; x <= br.x; x += step) { const [sx] = toScreen(cam, x, 0); ctx.moveTo(Math.round(sx) + 0.5, 0); ctx.lineTo(Math.round(sx) + 0.5, cam.height) }
-      for (let y = Math.ceil(br.y / step) * step; y <= tl.y; y += step) { const [, sy] = toScreen(cam, 0, y); ctx.moveTo(0, Math.round(sy) + 0.5); ctx.lineTo(cam.width, Math.round(sy) + 0.5) }
+      for (let x = Math.ceil(topLeft.x / step) * step; x <= br.x; x += step) { const [sx] = toScreen(cam, x, 0); ctx.moveTo(Math.round(sx) + 0.5, 0); ctx.lineTo(Math.round(sx) + 0.5, cam.height) }
+      for (let y = Math.ceil(br.y / step) * step; y <= topLeft.y; y += step) { const [, sy] = toScreen(cam, 0, y); ctx.moveTo(0, Math.round(sy) + 0.5); ctx.lineTo(cam.width, Math.round(sy) + 0.5) }
       ctx.stroke()
     }
   }
@@ -144,14 +148,14 @@ function drawGrid(ctx: CanvasRenderingContext2D, cam: Camera, P: Palette, axes: 
     const ly = Math.max(fpx(12), Math.min(cam.height - 30, oy + fpx(12)))
     // Label every major line, or every other one when they would crowd
     const every = major * cam.ppm < fpx(10) * 7 ? 2 : 1
-    for (let x = Math.ceil(tl.x / major) * major; x <= br.x; x += major) {
+    for (let x = Math.ceil(topLeft.x / major) * major; x <= br.x; x += major) {
       if (Math.abs(x) < major * 1e-6 || (Math.round(x / major) % every) !== 0) continue
       const [sx] = toScreen(cam, x, 0)
       const s = tickText(disp(x, 'm'))
       ctx.fillText(s, sx + 3, ly)
     }
     const lx = Math.max(4, Math.min(cam.width - 40, ox + 4))
-    for (let y = Math.ceil(br.y / major) * major; y <= tl.y; y += major) {
+    for (let y = Math.ceil(br.y / major) * major; y <= topLeft.y; y += major) {
       if (Math.abs(y) < major * 1e-6 || (Math.round(y / major) % every) !== 0) continue
       const [, sy] = toScreen(cam, 0, y)
       if (sy < fpx(20) || sy > cam.height - 24) continue
@@ -327,8 +331,8 @@ export function bodyForces(input: DrawInput, b: BodyModel, poses: Pose[]): Force
     const ux = dx / L, uy = dy / L
     const vrel = ux * (pa.vx - pb.vx) + uy * (pa.vy - pb.vy)
     const mag = -s.stiffness * (L - s.restLength) - s.damping * vrel
-    if (s.a.body === b) out.push({ x: pa.px, y: pa.py, fx: mag * ux, fy: mag * uy, color: P.spring, label: 'F弹' })
-    else out.push({ x: pb.px, y: pb.py, fx: -mag * ux, fy: -mag * uy, color: P.spring, label: 'F弹' })
+    if (s.a.body === b) out.push({ x: pa.px, y: pa.py, fx: mag * ux, fy: mag * uy, color: P.spring, label: tl('F弹') })
+    else out.push({ x: pb.px, y: pb.py, fx: -mag * ux, fy: -mag * uy, color: P.spring, label: tl('F弹') })
   }
   for (const f of sys.model.forces) {
     if (f.a.body !== b) continue
@@ -359,9 +363,9 @@ export function drawScene(ctx: CanvasRenderingContext2D, cam: Camera, input: Dra
   // Trajectories
   if (options.trajectory && input.trajectories && input.rec) {
     for (const b of model.dynamic) {
-      const tr = input.trajectories.get(b.id)
+      const tr = input.trajectories.paths.get(b.id)
       if (!tr) continue
-      const upto = Math.min(tr.length / 2, input.frame + 1)
+      const upto = trajectoryUpTo(input.trajectories, input.frame)
       if (upto < 2) continue
       ctx.strokeStyle = b.def.color
       ctx.globalAlpha = 0.55
@@ -564,7 +568,7 @@ export function drawScene(ctx: CanvasRenderingContext2D, cam: Camera, input: Dra
         const x1 = x0 + f.fx * input.scales.f * k, y1 = y0 - f.fy * input.scales.f * k
         arrow(ctx, x0, y0, x1, y1, f.color, 2.4)
         const mag = Math.sqrt(f.fx * f.fx + f.fy * f.fy)
-        if (mag * input.scales.f > 5) tag(ctx, x1 + 4, y1 + (f.fy > 0 ? -4 : fpx(14)), `${f.label} = ${q(mag, 'N', input.digits)}${k < 1 ? '（箭头已缩短）' : ''}`, f.color, P, valueFont)
+        if (mag * input.scales.f > 5) tag(ctx, x1 + 4, y1 + (f.fy > 0 ? -4 : fpx(14)), `${f.label} = ${q(mag, 'N', input.digits)}${k < 1 ? tl('（箭头已缩短）') : ''}`, f.color, P, valueFont)
       }
     }
   }
@@ -587,6 +591,7 @@ export function drawScene(ctx: CanvasRenderingContext2D, cam: Camera, input: Dra
 
   // Key moments
   if (options.labels && input.rec && !input.editing) drawKeyMoments(ctx, cam, input)
+  else labelHits.delete(ctx.canvas)
 
   // Teaching annotations
   if (input.annotations && input.annotations.length) drawAnnotations(ctx, cam, input.annotations, P, input.digits, input.selectedAnnotation ?? null)
@@ -648,23 +653,45 @@ const CHANGE_TEXT: Record<string, string> = {
 
 /** Display text of a change (a switch that is a kink has its own text). */
 export function eventLabel(change: { type: string; kink?: boolean }): string {
-  if (change.type === 'switch' && change.kink) return '变力折点'
-  return CHANGE_TEXT[change.type] ?? change.type
+  if (change.type === 'switch' && change.kink) return tl('变力折点')
+  const text = CHANGE_TEXT[change.type]
+  return text ? tl(text) : change.type
 }
 
 /** Impulses of an impact change in display units (normal impulse, plus the friction impulse if any); '' when none. */
 export function impactDetail(c: { type: string; impulse?: number; tangentImpulse?: number }, digits: number): string {
   if (c.type !== 'impact' || c.impulse === undefined) return ''
   const n = `I = ${q(Math.abs(c.impulse), 'N·s', Math.min(digits, 4))}`
-  return c.tangentImpulse !== undefined && Math.abs(c.tangentImpulse) > 1e-12 ? `${n}，摩擦冲量 ${q(Math.abs(c.tangentImpulse), 'N·s', Math.min(digits, 4))}` : n
+  return c.tangentImpulse !== undefined && Math.abs(c.tangentImpulse) > 1e-12 ? tl('{0}，摩擦冲量 {1}', [n, q(Math.abs(c.tangentImpulse), 'N·s', Math.min(digits, 4))]) : n
 }
 
 /** At most this many key-moment labels are drawn (the most recent ones); older ones keep their dot. */
 const KEY_LABELS = 8
 
+/** A key-moment dot or label on screen (CSS px) and the index of its event in `rec.events`. */
+interface LabelHit { x: number; y: number; w: number; h: number; event: number }
+/** Key-moment dots and labels drawn last on each canvas, in drawing order (for hit testing). */
+const labelHits = new WeakMap<object, LabelHit[]>()
+
+/**
+ * Index (into `rec.events`) of the key-moment label or dot at screen point (sx, sy) (CSS px) of the frame last drawn
+ * on `canvas`, or null.
+ */
+export function eventLabelAt(canvas: object, sx: number, sy: number): number | null {
+  const hits = labelHits.get(canvas)
+  if (!hits) return null
+  for (let k = hits.length - 1; k >= 0; k--) {
+    const h = hits[k]
+    if (sx >= h.x && sx <= h.x + h.w && sy >= h.y && sy <= h.y + h.h) return h.event
+  }
+  return null
+}
+
 function drawKeyMoments(ctx: CanvasRenderingContext2D, cam: Camera, input: DrawInput) {
   const rec = input.rec!
   const P = input.palette
+  const hits: LabelHit[] = []
+  labelHits.set(ctx.canvas, hits)
   // Events up to the current time (binary search; events are sorted by time)
   let lo = 0, hi = rec.events.length
   while (lo < hi) { const mid = (lo + hi) >> 1; if (rec.events[mid].t > input.time + 1e-12) hi = mid; else lo = mid + 1 }
@@ -679,7 +706,7 @@ function drawKeyMoments(ctx: CanvasRenderingContext2D, cam: Camera, input: DrawI
     const c = e.changes[0]
     if (c.type === 'timestep') {
       // A solver change has no place in the scene: one note above the scale bar
-      if (!solverNote) { solverNote = true; tag(ctx, 12, cam.height - 34, `t = ${q(e.t, 's', input.digits)} 起${eventLabel(c)}`, P.friction, P, font(11)) }
+      if (!solverNote) { solverNote = true; tag(ctx, 12, cam.height - 34, tl('t = {0} 起{1}', [q(e.t, 's', input.digits), eventLabel(c)]), P.friction, P, font(11)) }
       continue
     }
     const body = rec.system.model.byId.get(c.bodies.find(id => rec.system.model.byId.get(id)?.dynamic) ?? '')
@@ -689,23 +716,27 @@ function drawKeyMoments(ctx: CanvasRenderingContext2D, cam: Camera, input: DrawI
     if (sx < -50 || sy < -50 || sx > cam.width + 50 || sy > cam.height + 50) continue
     ctx.fillStyle = P.accent
     ctx.beginPath(); ctx.arc(sx, sy, 3.5, 0, Math.PI * 2); ctx.fill()
+    hits.push({ x: sx - 6, y: sy - 6, w: 12, h: 12, event: i })
     if (labelled >= KEY_LABELS) continue
     ctx.strokeStyle = P.accent
     ctx.lineWidth = lw(1)
     const ly = sy - 30 - (labelled % 4) * fpx(20)
     ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx, ly + 4); ctx.stroke()
     const who = c.bodies.map(id => rec.system.model.byId.get(id)?.name ?? rec.system.model.ropes.find(r => r.id === id)?.name ?? id).join('–')
-    const what = e.changes.filter(ch => ch.type !== 'timestep').map(eventLabel).filter((v, i2, a) => a.indexOf(v) === i2).join('、')
+    const what = e.changes.filter(ch => ch.type !== 'timestep').map(eventLabel).filter((v, i2, a) => a.indexOf(v) === i2).join(listSep())
     const detail = impactDetail(c, input.digits)
-    const text = `${who} ${what}${detail ? `（${detail}）` : ''}  t = ${q(e.t, 's', input.digits)}`
-    tag(ctx, sx + 3, ly, text, P.accent, P, font(11))
+    const text = `${who} ${what}${detail ? paren(detail) : ''}  t = ${q(e.t, 's', input.digits)}`
+    const f11 = font(11)
+    tag(ctx, sx + 3, ly, text, P.accent, P, f11)
+    const fh = parseFloat(/(\d+(?:\.\d+)?)px/.exec(f11)?.[1] ?? '11')
+    hits.push({ x: sx, y: ly - fh, w: ctx.measureText(text).width + 6, h: fh + 4, event: i })
     labelled++
   }
 }
 
 // ---- Per-recording caches ----
 
-interface RecCache { frames: number; trajectories?: Map<string, Float64Array>; scales?: { v: number; a: number; f: number } }
+interface RecCache { frames: number; scales?: { v: number; a: number; f: number } }
 const recCache = new WeakMap<Recording, RecCache>()
 function cacheFor(rec: Recording): RecCache {
   let c = recCache.get(rec)
@@ -713,21 +744,68 @@ function cacheFor(rec: Recording): RecCache {
   return c
 }
 
-/** Centre-of-mass paths of every dynamic body over the whole recording (cached per recording). */
-export function computeTrajectories(rec: Recording): Map<string, Float64Array> {
-  const c = cacheFor(rec)
-  if (c.trajectories) return c.trajectories
-  const out = new Map<string, Float64Array>()
-  for (const b of rec.system.model.dynamic) {
-    const arr = new Float64Array(rec.frameCount * 2)
-    for (let k = 0; k < rec.frameCount; k++) {
-      arr[2 * k] = rec.states[k * rec.size + 3 * b.index]
-      arr[2 * k + 1] = rec.states[k * rec.size + 3 * b.index + 1]
-    }
-    out.set(b.id, arr)
+/**
+ * Centre-of-mass paths of the dynamic bodies: points at frames `ks[i]` (every `stride`-th frame; the stride
+ * doubles whenever a long recording exceeds TRAIL_POINTS), x and y interleaved in `paths`. Frames that are not in
+ * memory (evicted chunks of a long run) are skipped rather than recomputed.
+ */
+export interface Trajectories { ks: Float64Array; n: number; stride: number; paths: Map<string, Float64Array> }
+
+/** Points kept per path before the stride doubles. */
+const TRAIL_POINTS = 1 << 16
+
+interface TrailCache { tr: Trajectories; scanned: number; provisional: boolean }
+/** Per frame store, so the growing snapshots of one streaming run extend the same paths. */
+const trailCache = new WeakMap<object, TrailCache>()
+
+/** Number of trajectory points at or before frame k. */
+export function trajectoryUpTo(tr: Trajectories, k: number): number {
+  let lo = 0, hi = tr.n
+  while (lo < hi) { const mid = (lo + hi) >> 1; if (tr.ks[mid] <= k) lo = mid + 1; else hi = mid }
+  return lo
+}
+
+/** Centre-of-mass paths of every dynamic body up to the recording's last frame (cached and extended per run). */
+export function computeTrajectories(rec: Recording): Trajectories {
+  let c = trailCache.get(rec.frames)
+  if (!c) {
+    c = { tr: { ks: new Float64Array(1024), n: 0, stride: 1, paths: new Map(rec.system.model.dynamic.map(b => [b.id, new Float64Array(2048)])) }, scanned: 0, provisional: false }
+    trailCache.set(rec.frames, c)
   }
-  c.trajectories = out
-  return out
+  const tr = c.tr
+  if (rec.frameCount <= c.scanned) return tr
+  const dyn = rec.system.model.dynamic
+  // The last point of the previous call was only a provisional end (off the stride)
+  if (c.provisional) { tr.n--; c.provisional = false }
+  for (let k = c.scanned; k < rec.frameCount; k++) {
+    const last = k === rec.frameCount - 1
+    if (k % tr.stride !== 0 && !last) continue
+    if (!frameIsCheap(rec, k)) continue
+    if (tr.n === tr.ks.length) {
+      const ks = new Float64Array(tr.ks.length * 2); ks.set(tr.ks); tr.ks = ks
+      for (const [id, p] of tr.paths) { const q = new Float64Array(p.length * 2); q.set(p); tr.paths.set(id, q) }
+    }
+    const X = frameState(rec, k)
+    tr.ks[tr.n] = k
+    for (const b of dyn) { const p = tr.paths.get(b.id)!; p[2 * tr.n] = X[3 * b.index]; p[2 * tr.n + 1] = X[3 * b.index + 1] }
+    tr.n++
+    if (k % tr.stride !== 0) c.provisional = true
+    if (tr.n > TRAIL_POINTS) {
+      // Keep every other point (and the last) and double the stride
+      let m = 0
+      for (let i = 0; i < tr.n; i++) {
+        if (tr.ks[i] % (2 * tr.stride) !== 0 && i !== tr.n - 1) continue
+        tr.ks[m] = tr.ks[i]
+        for (const p of tr.paths.values()) { p[2 * m] = p[2 * i]; p[2 * m + 1] = p[2 * i + 1] }
+        m++
+      }
+      tr.n = m
+      tr.stride *= 2
+      c.provisional = tr.ks[tr.n - 1] % tr.stride !== 0
+    }
+  }
+  c.scanned = rec.frameCount
+  return tr
 }
 
 /** Vector scales chosen once per recording so arrows keep their meaning while playing (cached per recording). */
@@ -744,11 +822,14 @@ function computeScales(rec: Recording | null, sys: System): { v: number; a: numb
   let vmax = 0, amax = 0
   const n = sys.n
   if (rec) {
+    // Sampled frames that are in memory (a long run's evicted chunks are not recomputed for this)
     const stride = Math.max(1, Math.floor(rec.frameCount / 400))
     for (let k = 0; k < rec.frameCount; k += stride) {
+      if (!frameIsCheap(rec, k)) continue
+      const X = frameState(rec, k)
       for (const b of sys.model.dynamic) {
-        const o = k * rec.size + 3 * n + 3 * b.index
-        vmax = Math.max(vmax, Math.hypot(rec.states[o], rec.states[o + 1]))
+        const o = 3 * n + 3 * b.index
+        vmax = Math.max(vmax, Math.hypot(X[o], X[o + 1]))
       }
     }
     const g = Math.hypot(sys.model.settings.gravity.x, sys.model.settings.gravity.y)

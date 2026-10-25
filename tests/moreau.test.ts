@@ -6,7 +6,7 @@
 import { describe, expect, it } from 'vitest'
 import { addBody, addGround, emptyScene } from '../src/core/scene/build'
 import type { Scene } from '../src/core/scene/types'
-import { exactStateAt, frameState, simulate } from '../src/core/solver/simulation'
+import { exactStateAt, frameImpactLoss, frameState, simulate } from '../src/core/solver/simulation'
 import { energy } from '../src/core/solver/dynamics'
 import { computePoses, probeValue } from '../src/core/solver/kinematics'
 import { decodeRecording, encodeRecording } from '../src/core/solver/transport'
@@ -40,7 +40,7 @@ describe('Moreau–Jean time stepping', () => {
   it('is flagged as reduced accuracy', () => {
     expect(rec.error).toBeNull()
     expect(rec.reducedFrom).toBe(0)
-    expect(rec.warnings.some(w => w.includes('Moreau–Jean') && w.includes('精度降级'))).toBe(true)
+    expect(rec.warnings.some(w => w.key === 'warn.reducedAccuracy')).toBe(true)
     expect(rec.events[0].changes[0].type).toBe('timestep')
     expect(rec.segments.every(s => s.reduced)).toBe(true)
     expect(recognize(rec)).toEqual([])
@@ -57,7 +57,7 @@ describe('Moreau–Jean time stepping', () => {
     const last = energy(sys, frameState(rec, rec.frameCount - 1))
     expect(last.kinetic).toBeLessThan(1e-3)
     // The ledger books what the impulses removed
-    expect(rec.impactLoss[rec.frameCount - 1]).toBeGreaterThan(0)
+    expect(frameImpactLoss(rec, rec.frameCount - 1)).toBeGreaterThan(0)
   })
   it('is reproducible and survives save/load and transport', () => {
     expect(simulate(parseScene(serializeScene(pile())).scene).hash).toBe(rec.hash)

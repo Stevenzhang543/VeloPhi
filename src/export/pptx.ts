@@ -8,6 +8,7 @@
  *      only in recent PowerPoint versions, which the slide says).
  * Images are PNG (PowerPoint and WPS do not render SVG <foreignObject>), text uses Microsoft YaHei.
  */
+import { tl } from '../i18n'
 import { bytesToBase64 } from './zip'
 
 /** A PNG with its pixel size. */
@@ -33,6 +34,8 @@ export interface DeckInput {
   /** Prominent warning on the title slide (the reduced-accuracy notice). */
   notice?: string | null
   moments: DeckMoment[]
+  /** Derivation and solution pages (one slide each, after the key moments). */
+  derivations?: Array<DeckImage & { title: string }>
   video: { data: Uint8Array; extension: 'mp4' | 'webm'; cover?: DeckImage | null } | null
 }
 
@@ -70,7 +73,7 @@ export async function buildPptx(input: DeckInput): Promise<Uint8Array> {
   pptx.layout = 'LAYOUT_WIDE'
   pptx.title = input.title
   pptx.author = 'Verity'
-  pptx.subject = '物理仿真课件'
+  pptx.subject = tl('物理仿真课件')
   pptx.theme = { headFontFace: FONT, bodyFontFace: FONT }
 
   const footer = (slide: ReturnType<typeof pptx.addSlide>, n: number) => {
@@ -129,7 +132,7 @@ export async function buildPptx(input: DeckInput): Promise<Uint8Array> {
     while (rest.length) {
       const c = pptx.addSlide()
       n++
-      c.addText(`${m.title}（续）· 公式对照`, { x: 0.5, y: 0.3, w: W - 1, h: 0.6, fontFace: FONT, fontSize: 22, bold: true, color: TEXT })
+      c.addText(tl('{0}（续）· 公式对照', [m.title]), { x: 0.5, y: 0.3, w: W - 1, h: 0.6, fontFace: FONT, fontSize: 22, bold: true, color: TEXT })
       const page = rest.slice(0, cols * rowsPerSlide)
       page.forEach((f, k) => {
         const b = fitBox(f.width, f.height, { x: 0.5 + (k % cols) * (cellW + cellGap), y: 1.15 + Math.floor(k / cols) * (cellH + cellGap), w: cellW, h: cellH })
@@ -140,16 +143,26 @@ export async function buildPptx(input: DeckInput): Promise<Uint8Array> {
     }
   }
 
-  // 3. Video
+  // 3. Derivations and step-by-step solutions: one image per slide (tall pages are scaled to the slide height)
+  for (const d of input.derivations ?? []) {
+    const s = pptx.addSlide()
+    n++
+    s.addText(tl('推导与解题过程 · {0}', [d.title]), { x: 0.5, y: 0.3, w: W - 1, h: 0.6, fontFace: FONT, fontSize: 20, bold: true, color: TEXT })
+    const b = fitBox(d.width, d.height, { x: 0.8, y: 1.05, w: W - 1.6, h: H - 1.6 })
+    s.addImage({ data: png64(d), ...b, altText: d.title })
+    footer(s, n)
+  }
+
+  // 4. Video
   if (input.video) {
     const s = pptx.addSlide()
     n++
-    s.addText('仿真视频', { x: 0.5, y: 0.3, w: W - 1, h: 0.6, fontFace: FONT, fontSize: 24, bold: true, color: TEXT })
+    s.addText(tl('仿真视频'), { x: 0.5, y: 0.3, w: W - 1, h: 0.6, fontFace: FONT, fontSize: 24, bold: true, color: TEXT })
     const cover = input.video.cover
     const b = fitBox(cover?.width ?? 16, cover?.height ?? 9, { x: 0.8, y: 1.15, w: W - 1.6, h: H - 2.1 })
     const ext = input.video.extension
     s.addMedia({ type: 'video', data: `video/${ext};base64,${bytesToBase64(input.video.data)}`, extn: ext, ...b, ...(cover ? { cover: `data:${png64(cover)}` } : {}) })
-    const note = ext === 'mp4' ? '放映时点击画面播放。视频按仿真时刻逐帧渲染，与软件画面一致。' : '本机只能导出 WebM 视频，部分 PowerPoint / WPS 版本无法播放；请改用课件包中的视频文件。'
+    const note = ext === 'mp4' ? tl('放映时点击画面播放。视频按仿真时刻逐帧渲染，与软件画面一致。') : tl('本机只能导出 WebM 视频，部分 PowerPoint / WPS 版本无法播放；请改用课件包中的视频文件。')
     s.addText(note, { x: 0.8, y: H - 0.9, w: W - 1.6, h: 0.35, fontFace: FONT, fontSize: 11, color: TEXT2 })
     footer(s, n)
   }

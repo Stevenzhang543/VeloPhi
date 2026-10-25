@@ -1,0 +1,377 @@
+{
+  "seconds": 1800,
+  "scenes": {
+    "pendulum": {
+      "frames": 1080001,
+      "stop": "user",
+      "speed": 148.55635705268202,
+      "memoryDefault": {
+        "memoryBytes": 101476024,
+        "residentBytes": 99415200,
+        "chunks": 1801,
+        "residentChunks": 1801,
+        "checkpoints": 1801,
+        "evictions": 0,
+        "rebuilds": 0,
+        "rebuildMs": 0
+      },
+      "memorySmall": {
+        "memoryBytes": 25134424,
+        "residentBytes": 23073600,
+        "chunks": 1801,
+        "residentChunks": 418,
+        "checkpoints": 1801,
+        "evictions": 1383,
+        "rebuilds": 0,
+        "rebuildMs": 0
+      },
+      "fingerprint": "39772a5bb559b13c8f6a694b54f0057448940ff25f5a7235518145bd046b7004",
+      "fingerprintSame": true,
+      "scrub": {
+        "10": {
+          "frame": true,
+          "exact": true,
+          "rebuilt": 1,
+          "ms": 30.9
+        },
+        "600": {
+          "frame": true,
+          "exact": true,
+          "rebuilt": 1,
+          "ms": 26.3
+        },
+        "1700": {
+          "frame": true,
+          "exact": true,
+          "rebuilt": 1,
+          "ms": 32.9
+        }
+      },
+      "ledger": [
+        {
+          "t": 100,
+          "drift": 1.5706400606831863e-10
+        },
+        {
+          "t": 200,
+          "drift": 4.5934218586402975e-11
+        },
+        {
+          "t": 300,
+          "drift": 1.8053201429630497e-10
+        },
+        {
+          "t": 400,
+          "drift": 3.243692741613617e-11
+        },
+        {
+          "t": 500,
+          "drift": 1.1381774662452411e-10
+        },
+        {
+          "t": 600,
+          "drift": 1.769285935046841e-10
+        },
+        {
+          "t": 700,
+          "drift": 1.929904797782717e-10
+        },
+        {
+          "t": 800,
+          "drift": 1.7026898214700038e-10
+        },
+        {
+          "t": 900,
+          "drift": 3.629055578487636e-10
+        },
+        {
+          "t": 1000,
+          "drift": 2.5436101917810376e-10
+        },
+        {
+          "t": 1100,
+          "drift": 3.692004731023692e-10
+        },
+        {
+          "t": 1200,
+          "drift": 4.566849281791626e-10
+        },
+        {
+          "t": 1300,
+          "drift": 2.550042612351436e-10
+        },
+        {
+          "t": 1400,
+          "drift": 2.793013948915851e-10
+        },
+        {
+          "t": 1500,
+          "drift": 5.305628693239066e-10
+        },
+        {
+          "t": 1600,
+          "drift": 4.800710658531721e-10
+        },
+        {
+          "t": 1700,
+          "drift": 4.119878853050124e-10
+        },
+        {
+          "t": 1800,
+          "drift": 5.916381165210999e-10
+        }
+      ],
+      "rebuildMsPerChunk": 9.9,
+      "driftPer100s": 3.286878425117221e-11,
+      "maxDriftPer100s": 1.5706400606831863e-10
+    },
+    "spring": {
+      "frames": 1080001,
+      "stop": "user",
+      "speed": 102.84306029831922,
+      "memoryDefault": {
+        "memoryBytes": 137164704,
+        "residentBytes": 133994400,
+        "chunks": 1801,
+        "residentChunks": 1801,
+        "checkpoints": 1801,
+        "evictions": 0,
+        "rebuilds": 0,
+        "rebuildMs": 0
+      },
+      "memorySmall": {
+        "memoryBytes": 25118304,
+        "residentBytes": 21948000,
+        "chunks": 1801,
+        "residentChunks": 295,
+        "checkpoints": 1801,
+        "evictions": 1506,
+        "rebuilds": 0,
+        "rebuildMs": 0
+      },
+      "fingerprint": "04785db811a0c922d8b88bf2a1b64ba920e44e53b58cfcd227b0365a3716bd52",
+      "fingerprintSame": true,
+      "scrub": {
+        "10": {
+          "frame": true,
+          "exact": true,
+          "rebuilt": 1,
+          "ms": 28.2
+        },
+        "600": {
+          "frame": true,
+          "exact": true,
+          "rebuilt": 1,
+          "ms": 48.4
+        },
+        "1700": {
+          "frame": true,
+          "exact": true,
+          "rebuilt": 1,
+          "ms": 28.9
+        }
+      },
+      "ledger": [
+        {
+          "t": 100,
+          "drift": 3.6433713189117646e-10
+        },
+        {
+          "t": 200,
+          "drift": 7.279659868078703e-10
+        },
+        {
+          "t": 300,
+          "drift": 1.0930068641509799e-9
+        },
+        {
+          "t": 400,
+          "drift": 1.4563171530324457e-9
+        },
+        {
+          "t": 500,
+          "drift": 1.820733133415983e-9
+        },
+        {
+          "t": 600,
+          "drift": 2.1856793019378088e-9
+        },
+        {
+          "t": 700,
+          "drift": 2.5487308408816994e-9
+        },
+        {
+          "t": 800,
+          "drift": 2.9134037585937922e-9
+        },
+        {
+          "t": 900,
+          "drift": 3.27794616845646e-9
+        },
+        {
+          "t": 1000,
+          "drift": 3.6430579641274688e-9
+        },
+        {
+          "t": 1100,
+          "drift": 4.007556644797534e-9
+        },
+        {
+          "t": 1200,
+          "drift": 4.371531028308625e-9
+        },
+        {
+          "t": 1300,
+          "drift": 4.736015208106531e-9
+        },
+        {
+          "t": 1400,
+          "drift": 5.100131201697294e-9
+        },
+        {
+          "t": 1500,
+          "drift": 5.463728562532269e-9
+        },
+        {
+          "t": 1600,
+          "drift": 5.827910716352254e-9
+        },
+        {
+          "t": 1700,
+          "drift": 6.1940765441682695e-9
+        },
+        {
+          "t": 1800,
+          "drift": 6.557137372733387e-9
+        }
+      ],
+      "rebuildMsPerChunk": 11.5,
+      "driftPer100s": 3.6428540959629927e-10,
+      "maxDriftPer100s": 3.643574437746041e-10
+    },
+    "vertical-circle-rod": {
+      "frames": 1080001,
+      "stop": "user",
+      "speed": 120.76626774144695,
+      "memoryDefault": {
+        "memoryBytes": 101432800,
+        "residentBytes": 99415200,
+        "chunks": 1801,
+        "residentChunks": 1801,
+        "checkpoints": 1801,
+        "evictions": 0,
+        "rebuilds": 0,
+        "rebuildMs": 0
+      },
+      "memorySmall": {
+        "memoryBytes": 25146400,
+        "residentBytes": 23128800,
+        "chunks": 1801,
+        "residentChunks": 419,
+        "checkpoints": 1801,
+        "evictions": 1382,
+        "rebuilds": 0,
+        "rebuildMs": 0
+      },
+      "fingerprint": "7b52f07129800281d9d905efdf209810aa69d7f3fea9b83b8044495c5d6a83bb",
+      "fingerprintSame": true,
+      "scrub": {
+        "10": {
+          "frame": true,
+          "exact": true,
+          "rebuilt": 1,
+          "ms": 11.6
+        },
+        "600": {
+          "frame": true,
+          "exact": true,
+          "rebuilt": 1,
+          "ms": 13.4
+        },
+        "1700": {
+          "frame": true,
+          "exact": true,
+          "rebuilt": 1,
+          "ms": 25.6
+        }
+      },
+      "ledger": [
+        {
+          "t": 100,
+          "drift": 1.6395992930977818e-10
+        },
+        {
+          "t": 200,
+          "drift": 3.2935673392964904e-10
+        },
+        {
+          "t": 300,
+          "drift": 4.961774749641156e-10
+        },
+        {
+          "t": 400,
+          "drift": 6.641962700002666e-10
+        },
+        {
+          "t": 500,
+          "drift": 8.264526511707287e-10
+        },
+        {
+          "t": 600,
+          "drift": 9.90913469248555e-10
+        },
+        {
+          "t": 700,
+          "drift": 1.157554162262633e-9
+        },
+        {
+          "t": 800,
+          "drift": 1.3197565948179725e-9
+        },
+        {
+          "t": 900,
+          "drift": 1.4894094188430583e-9
+        },
+        {
+          "t": 1000,
+          "drift": 1.6556981300389587e-9
+        },
+        {
+          "t": 1100,
+          "drift": 1.821812056493995e-9
+        },
+        {
+          "t": 1200,
+          "drift": 1.9869691625922035e-9
+        },
+        {
+          "t": 1300,
+          "drift": 2.1523512738900695e-9
+        },
+        {
+          "t": 1400,
+          "drift": 2.3205209496059126e-9
+        },
+        {
+          "t": 1500,
+          "drift": 2.4859317896378477e-9
+        },
+        {
+          "t": 1600,
+          "drift": 2.648435106339318e-9
+        },
+        {
+          "t": 1700,
+          "drift": 2.8114373380790146e-9
+        },
+        {
+          "t": 1800,
+          "drift": 2.9780155296487433e-9
+        }
+      ],
+      "rebuildMsPerChunk": 9.7,
+      "driftPer100s": 1.6544530720270797e-10,
+      "maxDriftPer100s": 1.6604906750006666e-10
+    }
+  }
+}

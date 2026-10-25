@@ -12,6 +12,7 @@
  *
  * `buildReportHtml` is pure; the dialog collects the content.
  */
+import { tl, stripLabel } from '../i18n'
 
 /** A titled table of text cells. */
 export interface ReportTable { title: string; header: string[]; rows: string[][]; note?: string }
@@ -62,6 +63,8 @@ export interface ReportInput {
   curves: ReportFigure[]
   /** Formula cards as images (optional, in addition to the table). */
   formulaImages?: ReportFigure[]
+  /** Derivation and solution pages of the formulas and key events (optional, D28). */
+  derivations?: ReportFigure[]
   formulas: ReportFormulaRow[]
   events: ReportEventRow[]
   predictions: ReportPredictionRow[]
@@ -131,38 +134,39 @@ export function buildReportHtml(r: ReportInput): string {
   const parts: string[] = []
   parts.push(`<h1>${escapeHtml(r.title)}</h1>`)
   if (r.description) parts.push(`<p class="sub">${escapeHtml(r.description)}</p>`)
-  parts.push(`<p class="meta">实验报告 · 生成于 ${escapeHtml(r.generatedAt)} · Verity ${escapeHtml(r.engineVersion)}</p>`)
-  if (r.notice) parts.push(`<div class="notice"><span class="badge warn">精度降级</span> ${escapeHtml(r.notice.replace(/^精度降级：/, ''))}</div>`)
+  parts.push(tl('<p class="meta">实验报告 · 生成于 {0} · Verity {1}</p>', [escapeHtml(r.generatedAt), escapeHtml(r.engineVersion)]))
+  if (r.notice) parts.push(tl('<div class="notice"><span class="badge warn">精度降级</span> {0}</div>', [escapeHtml(stripLabel(r.notice))]))
   if (r.notes?.trim()) parts.push(`<div class="notes">${escapeHtml(r.notes.trim())}</div>`)
 
   let sec = 0
   const h2 = (t: string) => `<h2>${++sec}. ${escapeHtml(t)}</h2>`
-  if (r.parameters.length) parts.push(h2('实验参数'), ...r.parameters.map(t => table(t)))
-  if (r.screenshots.length) parts.push(h2('关键时刻截图'), figures(r.screenshots, true))
-  if (r.curves.length) parts.push(h2('曲线'), figures(r.curves, false))
+  if (r.parameters.length) parts.push(h2(tl('实验参数')), ...r.parameters.map(t => table(t)))
+  if (r.screenshots.length) parts.push(h2(tl('关键时刻截图')), figures(r.screenshots, true))
+  if (r.curves.length) parts.push(h2(tl('曲线')), figures(r.curves, false))
   if (r.formulas.length || r.formulaImages?.length) {
-    parts.push(h2('公式对照与误差'))
+    parts.push(h2(tl('公式对照与误差')))
     if (r.formulas.length) {
-      const head = ['时刻', '情形', '公式', '理论值', '仿真值', '绝对误差', '相对误差', '判定'].map(h => `<th>${h}</th>`).join('')
+      const head = [tl('时刻'), tl('情形'), tl('公式'), tl('理论值'), tl('仿真值'), tl('绝对误差'), tl('相对误差'), tl('判定')].map(h => `<th>${h}</th>`).join('')
       const rows = r.formulas.map(f => `<tr><td class="nowrap">${escapeHtml(f.moment)}</td><td>${escapeHtml(f.situation)}</td><td>${escapeHtml(f.formula)}</td><td class="num">${escapeHtml(f.theory)}</td><td class="num">${escapeHtml(f.sim)}</td><td class="num">${escapeHtml(f.absError)}</td><td class="num">${escapeHtml(f.relError)}</td><td>${badge(f.verdict, f.verdictClass)}</td></tr>`).join('')
       parts.push(`<table><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table>`)
     }
     if (r.formulaImages?.length) parts.push(figures(r.formulaImages, true))
   }
   if (r.predictions.length) {
-    parts.push(h2('预测与对比'))
-    const head = ['预测对象', '我的预测', '仿真结果', '公式结果', '与仿真的误差', '评价'].map(h => `<th>${h}</th>`).join('')
+    parts.push(h2(tl('预测与对比')))
+    const head = [tl('预测对象'), tl('我的预测'), tl('仿真结果'), tl('公式结果'), tl('与仿真的误差'), tl('评价')].map(h => `<th>${h}</th>`).join('')
     const rows = r.predictions.map(p => `<tr><td>${escapeHtml(p.target)}</td><td class="num">${escapeHtml(p.predicted)}</td><td class="num">${escapeHtml(p.sim)}</td><td class="num">${escapeHtml(p.formula)}</td><td class="num">${escapeHtml(p.error)}</td><td>${badge(p.grade, p.gradeClass)}</td></tr>`).join('')
     parts.push(`<table><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table>`)
   }
   if (r.events.length) {
-    parts.push(h2('事件'))
-    parts.push(table({ title: '', header: ['时刻', '事件', '对象', '说明'], rows: r.events.map(e => [e.t, e.what, e.who, e.detail]) }, 9))
+    parts.push(h2(tl('事件')))
+    parts.push(table({ title: '', header: [tl('时刻'), tl('事件'), tl('对象'), tl('说明')], rows: r.events.map(e => [e.t, e.what, e.who, e.detail]) }, 9))
   }
-  if (r.warnings.length) parts.push(h2('提示'), `<ul class="warn-list">${r.warnings.map(w => `<li>${escapeHtml(w)}</li>`).join('')}</ul>`)
+  if (r.derivations?.length) parts.push(h2(tl('推导与解题过程')), figures(r.derivations, false))
+  if (r.warnings.length) parts.push(h2(tl('提示')), `<ul class="warn-list">${r.warnings.map(w => `<li>${escapeHtml(w)}</li>`).join('')}</ul>`)
   if (r.legend.length) parts.push(`<div class="legend">${r.legend.map(l => `<p>${escapeHtml(l)}</p>`).join('')}</div>`)
-  parts.push(`<footer>Verity ${escapeHtml(r.engineVersion)} · 仿真结果指纹 SHA-256 <code>${escapeHtml(r.hash)}</code><br/>用同一场景文件重新计算可得到相同的指纹与逐位相同的数值。本报告离线生成，不含任何外部链接。</footer>`)
-  return `<!doctype html>\n<html lang="zh-CN"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><meta name="generator" content="Verity ${escapeHtml(r.engineVersion)}"/><title>${escapeHtml(r.title)} — 实验报告</title><style>${CSS}</style></head><body><main>${parts.join('\n')}</main></body></html>\n`
+  parts.push(tl('<footer>Verity {0} · 仿真结果指纹 SHA-256 <code>{1}</code><br/>用同一场景文件重新计算可得到相同的指纹与逐位相同的数值。本报告离线生成，不含任何外部链接。</footer>', [escapeHtml(r.engineVersion), escapeHtml(r.hash)]))
+  return tl('<!doctype html>\n<html lang="zh-CN"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><meta name="generator" content="Verity {0}"/><title>{1} — 实验报告</title><style>{2}</style></head><body><main>{3}</main></body></html>\n', [escapeHtml(r.engineVersion), escapeHtml(r.title), CSS, parts.join('\n')])
 }
 
 /**

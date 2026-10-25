@@ -2,9 +2,21 @@
  * Simulation driver: integrates mode by mode, locates events, applies impacts, re-determines the mode and
  * records the full state on the output grid t_k = k·Δt. Steps never cross a grid time, so every recorded
  * frame is an integration point and the whole recording is a pure function of the scene.
+ *
+ * Streaming (decision D26, docs/dev/STREAMING.md): frames are grouped in chunks of F frames (1 s by default). At
+ * the start of every chunk the run takes a checkpoint — everything that influences the rest of the run — so a
+ * chunk can be recomputed later from its checkpoint through the same code path, bit for bit (`rebuildChunk`).
+ * A run is bounded (the scene's duration, or `SimOptions.duration`) or unbounded (duration null: it runs until
+ * it is stopped by the user, by `settings.stopAt` or by permanent rest). Bounded runs keep the 26.49 limits and
+ * fingerprint and give exactly the 26.49 recording; unbounded runs have a per-chunk step limit, no wall-clock
+ * budget and a rolling fingerprint (core/record/fingerprint.ts).
  */
-import type { Scene } from '../scene/types'
+import type { Scene, StopKind } from '../scene/types'
+import { finiteDuration } from '../scene/types'
 import { Sha256 } from '../record/sha256'
+import type { FrameChunk, FrameStore } from '../record/frames'
+import { ChunkFrames, chunkSummary, framesPerChunk, newChunk } from '../record/frames'
+import { CHAIN_START, chainDigest, chunkDigest, digestHex, hashEvents } from '../record/fingerprint'
 import { compileModel } from './model'
 import type { Mode, ModeSolution, System } from './dynamics'
 import { AUX_BELT, AUX_DAMP, AUX_HEAT, AUX_WORK, buildSystem, derivative, energy, initialState, solveMode } from './dynamics'
@@ -21,7 +33,14 @@ import type { Rhs, StepResult } from './integrators'
 import { dopri5Step, eulerStep, rk4Step } from './integrators'
 import { computePoses } from './kinematics'
 import { ForceExprError } from './forceExpr'
+import type { Message } from '../../i18n/message'
+import { msg, sameMessage } from '../../i18n/message'
 import { pow } from '../math/dmath'
+import type { Checkpoint } from './checkpoint'
+import { decodeCheckpoint, encodeCheckpoint } from './checkpoint'
+import { decodeMode, encodeMode } from './codec'
+
+export { recordingHash } from '../record/fingerprint'
 
 /** A time interval with one mode. */
 export interface Segment {
@@ -105,38 +124,66 @@ export interface SimStats {
   wallMs: number
 }
 
-/** The result of a simulation: the state of every frame plus segments, events and diagnostics. */
+/**
+ * Why a run ended: its duration was reached, its stop condition (settings.stopAt) fired, permanent rest was
+ * detected (unbounded runs), the user stopped or cancelled it, or an error (including limits) stopped it.
+ */
+export type StopReason = 'duration' | 'stopAt' | 'rest' | 'user' | 'error'
+
+/** Rolling fingerprint of a run up to time `t` (core/record/fingerprint.ts). */
+export interface RollingFingerprint {
+  /** hex(H_c) of the last closed chunk c. */
+  hash: string
+  /** Time of the last frame the chain covers (s). */
+  t: number
+  /** Closed chunks in the chain (c + 1). */
+  chunks: number
+}
+
+/** The result of a simulation: frames (through `frames`), segments, events and diagnostics. */
 export interface Recording {
   scene: Scene
   system: System
   dt: number
+  /** Valid frames (a prefix while the run continues). */
   frameCount: number
   /** Length of one state vector. */
   size: number
-  /** All frame states: frameCount × size, row-major. */
-  states: Float64Array
-  /** Segment index of each frame. */
-  frameSegment: Int32Array
-  /** Cumulative kinetic energy lost in impacts up to each frame (J). */
-  impactLoss: Float64Array
+  /**
+   * Frame data: read it with frameState, frameSegment and frameImpactLoss (chunks may be evicted and recomputed
+   * on demand; the arrays are not part of the interface).
+   */
+  frames: FrameStore
   segments: Segment[]
   events: SimEvent[]
-  warnings: string[]
+  warnings: Message[]
   stats: SimStats
   completed: boolean
   /** User-facing reason the run stopped early; null when it completed. */
-  error: string | null
-  /** `recordingHash` of the states and events; empty for a partial recording. */
+  error: Message | null
+  /**
+   * Final fingerprint: `recordingHash` of the states and events for a bounded run, the rolling fingerprint of
+   * the whole run for an unbounded one; empty while the run continues.
+   */
   hash: string
   /** Time from which the Moreau–Jean fallback computed the recording (reduced accuracy); null: never. */
   reducedFrom?: number | null
+  /** The run has no fixed duration (settings.duration null): it grows until it is stopped. */
+  unbounded?: boolean
+  /** Why the run ended; absent while it continues. */
+  stopReason?: StopReason
+  /** Rolling fingerprint up to the last closed chunk (both kinds of run; the one shown for unbounded runs). */
+  rolling?: RollingFingerprint | null
 }
 
 /** Options of a simulation run. */
 export interface SimOptions {
-  /** Simulated time (s); default: the scene's duration. */
-  duration?: number
-  /** Wall-clock budget in ms (the recording is kept up to where it stopped). */
+  /**
+   * Simulated time (s); null: unbounded; default: the scene's duration (`simulate` falls back to the scene's
+   * legacyDuration when that is null).
+   */
+  duration?: number | null
+  /** Wall-clock budget in ms (bounded runs only; the recording is kept up to where it stopped). */
   budgetMs?: number
   /** Called every ~0.1 s of simulated time; return false to stop. */
   progress?: (t: number, total: number) => boolean | void
@@ -148,11 +195,45 @@ export interface SimOptions {
    * Moreau–Jean fallback (reduced accuracy). false: stop with an error instead. Default 400 events / 0.05 s.
    */
   fallback?: { events: number; window: number } | false
+  /** Length of a chunk of frames in simulated seconds (default 1; rounded to whole frames). */
+  chunkSeconds?: number
+  /**
+   * Reuse the mode solution of the last right-hand-side evaluation in the event check (default true). The
+   * reuse is result-neutral (docs/dev/STREAMING.md §3); false is a diagnostic that proves it.
+   */
+  solutionCache?: boolean
 }
 
-/** State of frame k (a view into the recording). */
+/** Accepted steps a bounded run may take (26.49 limit). */
+export const MAX_STEPS = 5_000_000
+/** Accepted steps an unbounded run may take within one chunk. */
+export const MAX_STEPS_PER_CHUNK = 500_000
+
+/** State of frame k (a read-only view). */
 export function frameState(rec: Recording, k: number): Float64Array {
-  return rec.states.subarray(k * rec.size, (k + 1) * rec.size)
+  return rec.frames.state(k)
+}
+
+/** Segment index of frame k. */
+export function frameSegment(rec: Recording, k: number): number {
+  return rec.frames.segment(k)
+}
+
+/** Cumulative impact loss up to frame k (J). */
+export function frameImpactLoss(rec: Recording, k: number): number {
+  return rec.frames.impactLoss(k)
+}
+
+/** Frame k can be read without recomputing a chunk (see FrameStore.cheap). */
+export function frameIsCheap(rec: Recording, k: number): boolean {
+  return rec.frames.cheap ? rec.frames.cheap(k) : true
+}
+
+/** All frame states of a recording as one contiguous array (tests, small exports). */
+export function recordingStates(rec: Recording, from = 0, to = rec.frameCount): Float64Array {
+  const out = new Float64Array((to - from) * rec.size)
+  for (let k = from; k < to; k++) out.set(rec.frames.state(k), (k - from) * rec.size)
+  return out
 }
 
 function unitStatus(mode: Mode): Map<string, { status: string; bodies: string[] }> {
@@ -212,44 +293,87 @@ function diffModes(sys: System, prev: Mode | null, next: Mode, impact: ImpactRes
   return out
 }
 
-/** Simulate a scene to the end (or until the budget, cancellation or an error) and return the recording. */
+/** Does a change match a stop kind (settings.stopAt.on)? 'touch' also matches an impact (contact with a bounce). */
+export function changeMatches(c: ChangeDetail, on: StopKind): boolean {
+  return c.type === on || (on === 'touch' && c.type === 'impact')
+}
+
+/**
+ * Simulate a scene to the end (or until the budget, cancellation or an error) and return the recording. Always
+ * bounded: an unbounded scene runs for its legacyDuration (the stop condition still applies).
+ */
 export function simulate(scene: Scene, opts: SimOptions = {}): Recording {
-  const run = new SimulationRun(scene, opts)
+  const run = new SimulationRun(scene, { ...opts, duration: opts.duration ?? finiteDuration(scene.settings) })
   run.advance(Infinity)
   return run.result()
 }
+
+/** A closed chunk: its frames are final and its digest is known. */
+export interface ClosedChunk {
+  chunk: number
+  /** First frame and number of frames. */
+  first: number
+  frames: number
+  /** Events the chunk owns: indices [eventsFrom, eventsTo). */
+  eventsFrom: number
+  eventsTo: number
+  /** Segments that exist when the chunk closes. */
+  segmentsTo: number
+  /** d_c and the chain value H_c after it. */
+  digest: Uint8Array
+  rolling: Uint8Array
+  /** Min, max, first and last of every state component (core/record/frames.ts chunkSummary). */
+  summary: Float64Array
+  /** Time of the chunk's last frame (s). */
+  t: number
+}
+
+/** Where a resumed run starts: a compiled system of the same scene and a serialized checkpoint. */
+export interface ResumePoint { system: System; checkpoint: Float64Array }
 
 /**
  * An incremental simulation: `advance(deadline)` runs until the wall clock (ms, Date.now()) passes the
  * deadline or the run ends, so the work can be sliced (Web Worker posts, main-thread fallback). The
  * algorithm is the same whatever the slicing, so the recording is bit-identical to `simulate`.
  * `partial()` returns a consistent prefix of the recording at any time.
+ *
+ * With a ResumePoint the run continues from a checkpoint of an earlier run of the same scene and options
+ * (`rebuildChunk`): it reproduces that run from the checkpoint on.
  */
 export class SimulationRun {
   readonly scene: Scene
   readonly system: System
   readonly dt: number
   readonly size: number
-  /** Number of output intervals (frames − 1). */
+  /** Number of output intervals (frames − 1); +∞ for an unbounded run. */
   readonly K: number
-  /** Simulated duration (s). */
+  /** Simulated duration (s); +∞ for an unbounded run. */
   readonly T: number
-  /** Full-size buffers; only the first `frames` frames are valid. */
-  readonly states: Float64Array
-  readonly frameSegment: Int32Array
-  readonly impactLossArr: Float64Array
+  /** The run has a fixed duration (26.49 limits and fingerprint). */
+  readonly bounded: boolean
+  /** Frames per chunk (F). */
+  readonly chunkFrames: number
+  /** Frame chunks (released ones are null). */
+  readonly frames: ChunkFrames
+  /** Serialized checkpoint of every chunk taken so far, by chunk index. */
+  readonly checkpoints: Array<Float64Array | undefined> = []
+  /** Closed chunks in order (see ClosedChunk). */
+  readonly closed: ClosedChunk[] = []
   readonly segments: Segment[] = []
   readonly events: SimEvent[] = []
-  readonly warnings: string[]
+  readonly warnings: Message[]
   readonly stats: SimStats = { steps: 0, rejected: 0, events: 0, locateIterations: 0, maxPositionCorrection: 0, maxVelocityCorrection: 0, ambiguousModes: 0, wallMs: 0 }
-  error: string | null = null
+  error: Message | null = null
   finished = false
+  stopReason: StopReason | null = null
   /** Start of the Moreau–Jean part, null while event-driven. */
   reducedFrom: number | null = null
   /** Index of the last recorded frame. */
   k = 0
   /** Simulated time reached. */
   t = 0
+  /** Chain value H_c of the last closed chunk (CHAIN_START before the first). */
+  rolling: Uint8Array = CHAIN_START
 
   private readonly opts: SimOptions
   private readonly wall0: number
@@ -258,52 +382,93 @@ export class SimulationRun {
   private sliceStart = 0
   private readonly projInfo: ProjectionInfo = { position: 0, velocity: 0 }
   private impactLoss = 0
-  private X: Float64Array
-  private mode: Mode
-  private sol: ModeSolution
-  private rhsMode: Mode
-  private fns: EventFn[]
-  private k1: Float64Array
-  private h: number
+  private X!: Float64Array
+  private mode!: Mode
+  private sol!: ModeSolution
+  private rhsMode!: Mode
+  private fns: EventFn[] = []
+  private k1!: Float64Array
+  private h = 0
   private lastEventT = -1
   private eventsAtInstant = 0
   private nextProgress = 0.1
   private readonly toggles = new Map<number, number[]>()
   /** Recent event times (event storm detection). */
-  private readonly recentEvents: number[] = []
+  private recentEvents: number[] = []
   /** Last right-hand-side evaluation (state array and its mode solution), reused by the event check. */
   private lastY: Float64Array | null = null
   private lastSol: ModeSolution | null = null
+  private readonly useCache: boolean
   private readonly rhs: Rhs
   private readonly ctl: { relTol: number; absTol: number; count: number }
   private result_: Recording | null = null
+  /** Global index of segments[0] and events[0] (non-zero in a resumed run). */
+  private segBase = 0
+  private eventBase = 0
+  /** First chunk this run computes (non-zero in a resumed run). */
+  private readonly firstChunk: number
+  /** Frame at which the next checkpoint is taken. */
+  private cpFrame = 0
+  /** advance() returns at the top of the loop once k reaches this frame (pause, end of a rebuild). */
+  private pauseFrame = Infinity
+  /** Frame at which a fired stop condition ends the run; +∞ while none has fired. */
+  private kStop = Infinity
+  /** Accepted steps at the last checkpoint (per-chunk limit of unbounded runs). */
+  private chunkSteps = 0
+  /** Events owned by each chunk start at this global index (E_c). */
+  private readonly chunkEvents: number[] = []
+  /** Permanent rest may end this run (see restAllowed in the constructor). */
+  private readonly restAllowed: boolean
+  /** Streamed 26.49 fingerprint of a bounded run (states of the closed chunks so far). */
+  private readonly stateHasher: Sha256 | null
 
-  constructor(scene: Scene, opts: SimOptions = {}) {
+  constructor(scene: Scene, opts: SimOptions = {}, from?: ResumePoint) {
     this.wall0 = Date.now()
     this.scene = scene
     this.opts = opts
-    const model = compileModel(scene)
-    this.warnings = [...model.warnings]
-    const sys = buildSystem(model)
+    let sys: System
+    if (from) {
+      sys = from.system
+      this.warnings = []
+    } else {
+      const model = compileModel(scene)
+      this.warnings = [...model.warnings]
+      sys = buildSystem(model)
+    }
     this.system = sys
+    const model = sys.model
     const st = model.settings
     this.dt = st.outputStep
-    this.T = opts.duration ?? st.duration
-    this.K = Math.max(0, Math.round(this.T / this.dt))
+    const duration = opts.duration !== undefined ? opts.duration : st.duration
+    this.bounded = duration !== null
+    this.T = duration ?? Infinity
+    this.K = duration !== null ? Math.max(0, Math.round(duration / this.dt)) : Infinity
     this.size = sys.size
-    this.states = new Float64Array((this.K + 1) * this.size)
-    this.frameSegment = new Int32Array(this.K + 1)
-    this.impactLossArr = new Float64Array(this.K + 1)
+    this.chunkFrames = framesPerChunk(this.dt, opts.chunkSeconds ?? 1)
+    this.frames = new ChunkFrames(this.size, this.chunkFrames)
     this.ctl = { relTol: st.relTol, absTol: st.absTol, count: 6 * sys.n }
+    this.useCache = opts.solutionCache !== false
     this.rhs = (Y, out) => { this.lastSol = derivative(sys, Y, this.rhsMode, out); this.lastY = Y }
+    // Permanent rest is only detected when nothing depends on time: no variable forces (the clock entry) and no
+    // running conveyor belts; and only in unbounded runs, so bounded runs keep their 26.49 length
+    this.restAllowed = !this.bounded && sys.timeSlot < 0 && !scene.bodies.some(b => b.kind === 'static' && b.beltSpeed !== 0)
+    this.stateHasher = this.bounded && !from ? new Sha256() : null
+
+    if (from) {
+      this.firstChunk = this.restore(decodeCheckpoint(from.checkpoint))
+      this.wallUsed = Date.now() - this.wall0
+      return
+    }
+    this.firstChunk = 0
+    this.chunkEvents[0] = 0
 
     let X = initialState(sys)
     const overlap = resolveInitialOverlap(sys, X)
     if (overlap.removed > 0) {
       X = overlap.X
-      this.warnings.push(`初始重叠 ${(overlap.removed * 1000).toPrecision(3)} mm 已移除（物体被推到刚好接触）`)
+      this.warnings.push(msg('warn.initialOverlapRemoved', { mm: overlap.removed * 1000 }))
     }
-    if (overlap.deep.length) this.warnings.push(`初始时 ${overlap.deep.join('、')} 深度重叠（超过 5 cm），这些物体之间的接触不会被正确处理，请调整位置`)
+    if (overlap.deep.length) this.warnings.push(msg('warn.initialDeepOverlap', { pairs: overlap.deep.slice() }))
 
     const first = this.settle(X)
     X = first.X
@@ -312,32 +477,32 @@ export class SimulationRun {
     this.sol = first.choice.solution
     this.segments.push({ index: 0, t0: 0, t1: this.T, mode: this.mode, X0: Float64Array.from(X), label: describeMode(this.mode), impactLoss: this.impactLoss })
     if (first.impact) {
-      this.events.push({ index: 0, t: 0, triggers: ['contact'], changes: diffModes(sys, null, this.mode, first.impact), before: initialState(sys), after: Float64Array.from(X), impact: first.impact, segment: 0 })
+      const changes = diffModes(sys, null, this.mode, first.impact)
+      this.events.push({ index: 0, t: 0, triggers: ['contact'], changes, before: initialState(sys), after: Float64Array.from(X), impact: first.impact, segment: 0 })
+      this.checkStopAt(changes, 0)
     }
-    this.states.set(X, 0)
-    this.frameSegment[0] = 0
-    this.impactLossArr[0] = this.impactLoss
     this.X = X
+    this.record(0, X)
     this.fns = buildEventFns(sys, this.mode, computePoses(model, X), this.sol, X)
     this.k1 = new Float64Array(this.size)
     this.rhs(X, this.k1)
     this.h = st.integrator === 'dopri5' ? Math.min(this.dt, initialStepGuess(X, this.k1, this.ctl, this.dt)) : this.dt
-    if (this.K === 0) this.finished = true
-    if (st.integrator === 'moreau' && !this.finished) this.startReduced('已选择 Moreau–Jean 时间步进')
+    if (this.K === 0) { this.finished = true; this.stopReason = 'duration' }
+    if (st.integrator === 'moreau' && !this.finished) this.startReduced(msg('reason.moreauSelected'))
     this.wallUsed = Date.now() - this.wall0
   }
 
   /** Switch the rest of the run to the Moreau–Jean fallback (flagged as reduced accuracy). */
-  private startReduced(reason: string) {
+  private startReduced(reason: Message) {
     const sys = this.system
     this.reducedFrom = this.t
-    this.warnings.push(`自 t = ${this.t.toFixed(6)} s 起改用 Moreau–Jean 时间步进（${reason}）：精度降级——事件时刻不再精确定位，接触力读数为近似值，碰撞、摩擦与数值误差损失的能量合计记为“碰撞损失”，公式对照不再给出`)
+    this.warnings.push(msg('warn.reducedAccuracy', { t: this.t, reason }))
     const mode = stateMode(sys, this.X, MOREAU.stickSpeed)
     this.mode = mode
     const last = this.segments[this.segments.length - 1]
-    const seg: Segment = { index: this.segments.length, t0: this.t, t1: this.T, mode, X0: Float64Array.from(this.X), label: describeMode(mode), impactLoss: this.impactLoss, reduced: true }
+    const seg: Segment = { index: this.segBase + this.segments.length, t0: this.t, t1: this.T, mode, X0: Float64Array.from(this.X), label: describeMode(mode), impactLoss: this.impactLoss, reduced: true }
     if (last.t0 === this.t) { seg.index = last.index; this.segments[this.segments.length - 1] = seg } else { last.t1 = this.t; this.segments.push(seg) }
-    this.events.push({ index: this.events.length, t: this.t, triggers: [], changes: [{ type: 'timestep', subject: 'solver', bodies: [] }], before: Float64Array.from(this.X), after: Float64Array.from(this.X), impact: null, segment: this.segments.length - 1 })
+    this.events.push({ index: this.eventBase + this.events.length, t: this.t, triggers: [], changes: [{ type: 'timestep', subject: 'solver', bodies: [] }], before: Float64Array.from(this.X), after: Float64Array.from(this.X), impact: null, segment: this.segBase + this.segments.length - 1 })
     this.stats.events++
   }
 
@@ -345,7 +510,10 @@ export class SimulationRun {
   private reducedLoop(deadline: number) {
     const sys = this.system
     const dt = this.dt
-    while (this.k < this.K) {
+    for (;;) {
+      if (this.k === this.cpFrame) this.checkpoint()
+      if (this.k >= this.K || this.k >= this.kStop) { this.end(this.k >= this.K ? 'duration' : 'stopAt'); return }
+      if (this.k >= this.pauseFrame) return
       if (Date.now() > deadline) return
       const tNext = (this.k + 1) * dt
       const t0 = this.t
@@ -367,17 +535,16 @@ export class SimulationRun {
       if (label !== last.label) {
         last.t1 = tNext
         this.mode = mode
-        this.segments.push({ index: this.segments.length, t0: tNext, t1: this.T, mode, X0: Float64Array.from(X), label, impactLoss: this.impactLoss, reduced: true })
+        this.segments.push({ index: this.segBase + this.segments.length, t0: tNext, t1: this.T, mode, X0: Float64Array.from(X), label, impactLoss: this.impactLoss, reduced: true })
       }
       this.k++
       this.record(this.k, X)
       if (this.t >= this.nextProgress) {
         this.nextProgress += 0.1
-        if (this.opts.progress && this.opts.progress(this.t, this.T) === false) { this.error = '已取消'; this.finished = true; return }
+        if (this.opts.progress && this.opts.progress(this.t, this.T) === false) { this.fail(msg('err.cancelled'), 'user'); return }
       }
-      if (this.opts.budgetMs && this.elapsed() > this.opts.budgetMs) { this.error = `计算时间超过 ${Math.round(this.opts.budgetMs / 1000)} s，已计算到 t = ${this.t.toFixed(4)} s`; this.finished = true; return }
+      if (this.bounded && this.opts.budgetMs && this.elapsed() > this.opts.budgetMs) { this.fail(msg('err.budget', { seconds: Math.round(this.opts.budgetMs / 1000), t: this.t })); return }
     }
-    this.finished = true
   }
 
   /** Too many events recently (simulated time)? */
@@ -390,7 +557,7 @@ export class SimulationRun {
   }
 
   /** Number of valid frames. */
-  get frames(): number { return this.k + 1 }
+  get frameCount(): number { return this.k + 1 }
 
   /** Impacts, then the mode, then projection; returns the post-event state. */
   private settle(Xin: Float64Array, fired: EventFn[] = []): { X: Float64Array; choice: ModeChoice; impact: ImpactResult | null } {
@@ -402,7 +569,7 @@ export class SimulationRun {
       if (!imp) break
       Xc = imp.X
       this.impactLoss += imp.loss
-      if (imp.warning && !this.warnings.includes(imp.warning)) this.warnings.push(imp.warning)
+      if (imp.warning && !this.warnings.some(w => sameMessage(w, imp.warning!))) this.warnings.push(imp.warning)
       combined = combined ? { ...imp, points: [...combined.points, ...imp.points], energyBefore: combined.energyBefore, loss: combined.loss + imp.loss } : imp
     }
     const slack = fired.filter(f => f.type === 'slack').map(f => f.rope)
@@ -411,7 +578,7 @@ export class SimulationRun {
     choice = { ...choice, solution: solveMode(sys, Xc, choice.mode) }
     if (choice.ambiguous) {
       this.stats.ambiguousModes++
-      if (this.stats.ambiguousModes <= 3) this.warnings.push(`t 时刻接触状态无完全一致解（违背量 ${choice.violation.toExponential(2)}），已取最接近的一种`)
+      if (this.stats.ambiguousModes <= 3) this.warnings.push(msg('warn.ambiguousMode', { violation: choice.violation }))
     }
     return { X: Xc, choice, impact: combined }
   }
@@ -426,17 +593,28 @@ export class SimulationRun {
 
   /** The mode solution at X when the last right-hand side was evaluated exactly there. */
   private cached(X: Float64Array): ModeSolution | undefined {
-    return this.lastY === X && this.lastSol ? this.lastSol : undefined
+    return this.useCache && this.lastY === X && this.lastSol ? this.lastSol : undefined
   }
 
+  /** Store frame `index` (the next one) in its chunk. */
   private record(index: number, Xr: Float64Array) {
-    this.states.set(Xr, index * this.size)
-    this.frameSegment[index] = this.segments.length - 1
-    this.impactLossArr[index] = this.impactLoss
+    const F = this.chunkFrames
+    const ci = Math.floor(index / F)
+    let c = this.frames.chunks[ci]
+    if (!c) {
+      const first = ci * F
+      c = newChunk(ci, first, this.bounded ? Math.min(F, this.K + 1 - first) : F, this.size)
+      this.frames.chunks[ci] = c
+    }
+    const j = index - c.first
+    c.states.set(Xr, j * this.size)
+    c.segment[j] = this.segBase + this.segments.length - 1
+    c.impactLoss[j] = this.impactLoss
+    c.count = j + 1
   }
 
   /** A switch of a variable force that keeps toggling (sign(vx) at vx = 0 …) cannot be integrated. */
-  private checkToggles(changes: ChangeDetail[]): string | null {
+  private checkToggles(changes: ChangeDetail[]): Message | null {
     for (const c of changes) {
       if (c.type !== 'switch' || c.switchIndex === undefined) continue
       const list = this.toggles.get(c.switchIndex) ?? []
@@ -445,44 +623,70 @@ export class SimulationRun {
       this.toggles.set(c.switchIndex, list)
       if (list.length > 40) {
         const f = this.system.model.forces.find(x => x.id === c.subject)
-        return `${f?.name ?? c.subject}：变力表达式在 t = ${this.t.toFixed(9)} s 附近反复切换（例如 sign(vx) 在 vx = 0 处），无法确定方向，仿真停止。模拟摩擦请使用接触面的摩擦因数`
+        return msg('err.switchChatter', { force: f?.name ?? c.subject, t: this.t })
       }
     }
     return null
   }
 
   /**
-   * Run until Date.now() passes `deadline` (checked every few steps) or the run ends. Returns true when
-   * the run has ended (completed, stopped by an error, the budget or cancellation).
+   * The first event with a change of the kind of settings.stopAt arms the stop: the run ends at the first grid
+   * frame kStop = max(k, ceil((tE + after) / Δt)).
    */
-  advance(deadline: number): boolean {
+  private checkStopAt(changes: ChangeDetail[], tE: number) {
+    const sa = this.system.model.settings.stopAt
+    if (!sa || this.kStop !== Infinity) return
+    if (!changes.some(c => changeMatches(c, sa.on))) return
+    this.kStop = Math.max(this.k, Math.ceil((tE + sa.after) / this.dt))
+  }
+
+  /**
+   * Run until Date.now() passes `deadline` (checked every few steps) or the run ends; with `untilFrame`, also
+   * return (paused) at the top of the loop once frame `untilFrame` is recorded. Pausing never changes the result.
+   * Returns true when the run has ended (completed, stopped by a condition, an error, the budget or cancellation).
+   */
+  advance(deadline: number, untilFrame = Infinity): boolean {
     if (this.finished) return true
     const started = Date.now()
     this.sliceStart = started
+    this.pauseFrame = untilFrame
     try {
       this.loop(deadline)
     } catch (e) {
-      this.error = e instanceof ForceExprError ? e.message : `求解器内部错误：${(e as Error).message}`
-      this.finished = true
+      this.fail(e instanceof ForceExprError ? e.msg : msg('err.internal', { message: (e as Error).message }))
     }
     this.wallUsed += Date.now() - started
     if (this.finished) this.finish()
     return this.finished
   }
 
-  /** Event-driven integration until the deadline or the end of the run. */
+  private fail(message: Message, reason: StopReason = 'error') {
+    this.error = message
+    this.finished = true
+    if (!this.stopReason) this.stopReason = reason
+  }
+
+  private end(reason: StopReason) {
+    this.finished = true
+    if (!this.stopReason) this.stopReason = reason
+  }
+
+  /** Event-driven integration until the deadline, a pause or the end of the run. */
   private loop(deadline: number) {
     if (this.reducedFrom !== null) { this.reducedLoop(deadline); return }
     const sys = this.system, model = sys.model
     const opts = this.opts
     const st = model.settings
     const integrator = st.integrator
-    const dt = this.dt, T = this.T, K = this.K
+    const dt = this.dt, T = this.T
     const slot = sys.timeSlot
     const maxAtInstant = opts.maxEventsPerInstant ?? 200
-    const budget = opts.budgetMs
+    const budget = this.bounded ? opts.budgetMs : undefined
     let since = 0
-    while (this.k < K) {
+    for (;;) {
+      if (this.k === this.cpFrame) this.checkpoint()
+      if (this.k >= this.K || this.k >= this.kStop) { this.end(this.k >= this.K ? 'duration' : 'stopAt'); return }
+      if (this.k >= this.pauseFrame) return
       if (++since >= 4) {
         since = 0
         if (Date.now() > deadline) return
@@ -497,7 +701,7 @@ export class SimulationRun {
       if (integrator === 'dopri5' && r.err > 1) {
         this.stats.rejected++
         this.h = hTry * Math.max(0.2, 0.9 * pow(r.err, -0.2))
-        if (this.h < 1e-14) { this.error = `步长过小（t = ${t.toFixed(6)} s），仿真停止`; this.finished = true; return }
+        if (this.h < 1e-14) { this.fail(msg('err.stepTooSmall', { t })); return }
         continue
       }
       const check = eventMargin(sys, this.fns, this.mode, r.X, this.cached(r.X))
@@ -516,26 +720,27 @@ export class SimulationRun {
         this.X = settled.X
         this.t = tE
         this.segments[this.segments.length - 1].t1 = tE
-        this.segments.push({ index: this.segments.length, t0: tE, t1: T, mode: this.mode, X0: Float64Array.from(this.X), label: describeMode(this.mode), impactLoss: this.impactLoss })
+        this.segments.push({ index: this.segBase + this.segments.length, t0: tE, t1: T, mode: this.mode, X0: Float64Array.from(this.X), label: describeMode(this.mode), impactLoss: this.impactLoss })
         const changes = diffModes(sys, prevMode, this.mode, settled.impact)
-        this.events.push({ index: this.events.length, t: tE, triggers: [...new Set(loc.fired.map(f => f.type))], changes, before: Float64Array.from(before), after: Float64Array.from(this.X), impact: settled.impact, segment: this.segments.length - 1 })
+        this.events.push({ index: this.eventBase + this.events.length, t: tE, triggers: [...new Set(loc.fired.map(f => f.type))], changes, before: Float64Array.from(before), after: Float64Array.from(this.X), impact: settled.impact, segment: this.segBase + this.segments.length - 1 })
         this.stats.events++
         if (tE === tNext) { this.k++; this.record(this.k, this.X) }
-        if (budget && this.elapsed() > budget) { this.error = `计算时间超过 ${Math.round(budget / 1000)} s，已计算到 t = ${tE.toFixed(4)} s`; this.finished = true; return }
+        this.checkStopAt(changes, tE)
+        if (budget && this.elapsed() > budget) { this.fail(msg('err.budget', { seconds: Math.round(budget / 1000), t: tE })); return }
         const chatter = model.switches.length ? this.checkToggles(changes) : null
-        if (chatter) { this.error = chatter; this.finished = true; return }
+        if (chatter) { this.fail(chatter); return }
         if (tE - this.lastEventT <= 1e-12) {
           this.eventsAtInstant++
           if (this.eventsAtInstant > maxAtInstant) {
-            if (opts.fallback === false) { this.error = `t = ${tE.toFixed(9)} s 处事件抖振（同一时刻 ${this.eventsAtInstant} 次状态切换），仿真停止`; this.finished = true; return }
-            this.startReduced(`t = ${tE.toFixed(9)} s 处同一时刻发生 ${this.eventsAtInstant} 次状态切换`)
+            if (opts.fallback === false) { this.fail(msg('err.eventChatter', { t: tE, count: this.eventsAtInstant })); return }
+            this.startReduced(msg('reason.eventsAtInstant', { t: tE, count: this.eventsAtInstant }))
             this.reducedLoop(deadline)
             return
           }
         } else this.eventsAtInstant = 0
         this.lastEventT = tE
         if (this.eventStorm(tE)) {
-          this.startReduced(`碰撞与接触切换过于密集（${this.recentEvents.length} 次 / ${(opts.fallback || { window: 0.05 }).window} s）`)
+          this.startReduced(msg('reason.eventStorm', { count: this.recentEvents.length, window: (opts.fallback || { window: 0.05 }).window }))
           this.reducedLoop(deadline)
           return
         }
@@ -568,41 +773,199 @@ export class SimulationRun {
       // First-same-as-last: f(X) was the last stage of the step when X was kept unchanged
       if (reuse) this.k1 = r.k7!
       else this.rhs(Xn, this.k1)
+      // Permanent rest: on a recorded frame, f(X) is exactly zero in every component (STREAMING.md §6)
+      if (clipped && this.restAllowed && atRest(this.k1)) { this.end('rest'); return }
       if (this.t >= this.nextProgress) {
         this.nextProgress += 0.1
-        if (opts.progress && opts.progress(this.t, T) === false) { this.error = '已取消'; this.finished = true; return }
+        if (opts.progress && opts.progress(this.t, T) === false) { this.fail(msg('err.cancelled'), 'user'); return }
       }
-      if (this.stats.steps > 5_000_000) { this.error = '步数超过上限，仿真停止'; this.finished = true; return }
-      if (budget && (this.stats.steps & 255) === 0 && this.elapsed() > budget) { this.error = `计算时间超过 ${Math.round(budget / 1000)} s，已计算到 t = ${this.t.toFixed(4)} s（可缩短仿真时长或放宽容差）`; this.finished = true; return }
+      if (this.bounded ? this.stats.steps > MAX_STEPS : this.stats.steps - this.chunkSteps > MAX_STEPS_PER_CHUNK) {
+        this.fail(this.bounded ? msg('err.stepLimit') : msg('err.chunkStepLimit', { t: this.t, limit: MAX_STEPS_PER_CHUNK }))
+        return
+      }
+      if (budget && (this.stats.steps & 255) === 0 && this.elapsed() > budget) { this.fail(msg('err.budget', { seconds: Math.round(budget / 1000), t: this.t })); return }
     }
-    this.finished = true
   }
 
   /** Wall-clock time spent computing (ms), pauses between slices excluded. */
   private elapsed(): number { return this.wallUsed + Date.now() - this.sliceStart }
 
-  /** Stop the run (the recording keeps what was computed). */
-  cancel(message = '已取消') {
+  // ---- Chunks and checkpoints ----
+
+  /**
+   * Take the checkpoint of chunk c = k / F at the top of the loop (frame c·F has just been recorded and its
+   * iteration is complete), after closing chunk c − 1.
+   */
+  private checkpoint() {
+    const F = this.chunkFrames
+    const c = this.k / F
+    if (c > this.firstChunk) this.closeChunk(c - 1)
+    this.chunkEvents[c] = c === 0 ? 0 : this.eventBase + this.events.length
+    // The identity cache never carries over a checkpoint (it is result-neutral anyway, STREAMING.md §3)
+    this.lastY = null
+    this.lastSol = null
+    this.checkpoints[c] = encodeCheckpoint(this.snapshotState(c))
+    this.chunkSteps = this.stats.steps
+    this.cpFrame += F
+  }
+
+  /** The checkpoint of chunk c (see core/solver/checkpoint.ts). */
+  private snapshotState(c: number): Checkpoint {
+    const sys = this.system
+    const seg = this.segments[this.segments.length - 1]
+    const reduced = this.reducedFrom !== null
+    if (!reduced && this.rhsMode !== this.mode) throw new Error('checkpoint: right-hand-side mode differs from the mode')
+    const toggles = [...this.toggles.entries()].sort((a, b) => a[0] - b[0]).map(([index, times]) => ({ index, times: times.slice() }))
+    return {
+      chunk: c, k: this.k, t: this.t, h: reduced ? 0 : this.h, impactLoss: this.impactLoss,
+      lastEventT: reduced ? 0 : this.lastEventT, eventsAtInstant: reduced ? 0 : this.eventsAtInstant,
+      reducedFrom: this.reducedFrom, kStop: this.kStop, eventCount: this.eventBase + this.events.length,
+      frameSegment: this.frames.segment(this.k),
+      segment: { index: seg.index, t0: seg.t0, impactLoss: seg.impactLoss, reduced: !!seg.reduced, X0: seg.X0 },
+      stats: { steps: this.stats.steps, rejected: this.stats.rejected, events: this.stats.events, locateIterations: this.stats.locateIterations, ambiguousModes: this.stats.ambiguousModes },
+      projection: { position: this.projInfo.position, velocity: this.projInfo.velocity },
+      X: this.X, k1: reduced ? new Float64Array(this.size) : this.k1, mode: encodeMode(sys, this.mode),
+      thresholds: reduced ? new Float64Array(0) : Float64Array.from(this.fns, f => f.threshold),
+      starts: reduced ? new Float64Array(0) : Float64Array.from(this.fns, f => f.start),
+      recentEvents: reduced ? [] : this.recentEvents.slice(),
+      toggles: reduced ? [] : toggles
+    }
+  }
+
+  /** Continue from a checkpoint (resumed run); returns its chunk index. */
+  private restore(cp: Checkpoint): number {
+    const sys = this.system, model = sys.model
+    if (cp.X.length !== this.size) throw new Error('checkpoint: state size differs from the scene')
+    const mode = decodeMode(sys, cp.mode)
+    this.k = cp.k
+    this.t = cp.t
+    this.X = Float64Array.from(cp.X)
+    this.mode = mode
+    this.rhsMode = mode
+    this.impactLoss = cp.impactLoss
+    this.reducedFrom = cp.reducedFrom
+    this.kStop = cp.kStop
+    this.stats.steps = cp.stats.steps
+    this.stats.rejected = cp.stats.rejected
+    this.stats.events = cp.stats.events
+    this.stats.locateIterations = cp.stats.locateIterations
+    this.stats.ambiguousModes = cp.stats.ambiguousModes
+    this.projInfo.position = cp.projection.position
+    this.projInfo.velocity = cp.projection.velocity
+    this.segBase = cp.segment.index
+    this.eventBase = cp.eventCount
+    const seg: Segment = { index: cp.segment.index, t0: cp.segment.t0, t1: this.T, mode, X0: Float64Array.from(cp.segment.X0), label: describeMode(mode), impactLoss: cp.segment.impactLoss }
+    if (cp.segment.reduced) seg.reduced = true
+    this.segments.push(seg)
+    // Frame k itself (the checkpoint's state)
+    const F = this.chunkFrames
+    const c = cp.chunk
+    if (c * F !== cp.k) throw new Error('checkpoint: chunk length differs from the run')
+    const chunk = newChunk(c, cp.k, this.bounded ? Math.min(F, this.K + 1 - cp.k) : F, this.size)
+    chunk.states.set(cp.X, 0)
+    chunk.segment[0] = cp.frameSegment
+    chunk.impactLoss[0] = cp.impactLoss
+    chunk.count = 1
+    this.frames.chunks[c] = chunk
+    // The checkpoint is taken again at the first loop top: the restored state must encode to the same values
+    this.chunkEvents[c] = c === 0 ? 0 : cp.eventCount
+    this.chunkSteps = cp.stats.steps
+    this.cpFrame = cp.k
+    if (cp.reducedFrom === null) {
+      this.h = cp.h
+      this.k1 = Float64Array.from(cp.k1)
+      this.lastEventT = cp.lastEventT
+      this.eventsAtInstant = cp.eventsAtInstant
+      this.recentEvents = cp.recentEvents.slice()
+      for (const tg of cp.toggles) this.toggles.set(tg.index, tg.times.slice())
+      // The event functions of the mode, with their hysteresis state from the checkpoint
+      this.sol = solveMode(sys, this.X, mode)
+      this.fns = buildEventFns(sys, mode, computePoses(model, this.X), this.sol, this.X)
+      if (this.fns.length !== cp.thresholds.length) throw new Error('checkpoint: event functions differ from the mode')
+      this.fns.forEach((f, i) => { f.threshold = cp.thresholds[i]; f.start = cp.starts[i] })
+    } else {
+      this.k1 = new Float64Array(this.size)
+    }
+    this.nextProgress = Infinity
+    return c
+  }
+
+  /** Close chunk c: its frames are final; digest, chain, summary, and the streamed bounded fingerprint. */
+  private closeChunk(c: number) {
+    const chunk = this.frames.chunks[c]
+    if (!chunk) throw new Error(`chunk ${c} was released before it was closed`)
+    const states = chunk.states.subarray(0, chunk.count * this.size)
+    const eventsFrom = this.chunkEvents[c]
+    const eventsTo = this.eventBase + this.events.length
+    const local = eventsFrom - this.eventBase
+    const digest = chunkDigest(states, this.events, Math.max(0, local), this.events.length)
+    this.rolling = chainDigest(this.rolling, digest)
+    this.stateHasher?.updateFloat64(states)
+    this.closed.push({
+      chunk: c, first: chunk.first, frames: chunk.count, eventsFrom, eventsTo, segmentsTo: this.segBase + this.segments.length,
+      digest, rolling: this.rolling, summary: chunkSummary(chunk, this.size), t: (chunk.first + chunk.count - 1) * this.dt
+    })
+  }
+
+  /** Drop the frames of a closed chunk (they were posted to another thread). */
+  releaseChunk(c: number) {
+    if (!this.closed.length || this.closed[this.closed.length - 1].chunk < c) throw new Error('only closed chunks can be released')
+    this.frames.chunks[c] = null
+  }
+
+  /**
+   * Drop segments and events that have been posted to another thread (unbounded runs in a worker, so that a run of
+   * hours does not hold every event twice). Keeps the open segment and the events the open chunk will own.
+   */
+  forget(segmentsBefore: number, eventsBefore: number) {
+    if (this.bounded) return
+    const segDrop = Math.min(segmentsBefore - this.segBase, this.segments.length - 1)
+    if (segDrop > 0) { this.segments.splice(0, segDrop); this.segBase += segDrop }
+    const open = this.chunkEvents[Math.floor(this.k / this.chunkFrames)] ?? 0
+    const evDrop = Math.min(eventsBefore, open) - this.eventBase
+    if (evDrop > 0) { this.events.splice(0, evDrop); this.eventBase += evDrop }
+  }
+
+  /** The rolling fingerprint up to the last closed chunk, or null before the first one closes. */
+  rollingFingerprint(): RollingFingerprint | null {
+    const last = this.closed[this.closed.length - 1]
+    return last ? { hash: digestHex(last.rolling), t: last.t, chunks: this.closed.length } : null
+  }
+
+  /** Stop the run with an error message (the recording keeps what was computed). */
+  cancel(message: Message = msg('err.cancelled')) {
     if (this.finished) return
-    this.error = message
-    this.finished = true
+    this.fail(message, 'user')
+    this.finish()
+  }
+
+  /** End the run here without an error (an unbounded run stopped by the user); the recording is complete. */
+  stop() {
+    if (this.finished) return
+    this.end('user')
     this.finish()
   }
 
   private finish() {
     if (this.result_) return
-    const frameCount = this.error ? this.k + 1 : this.K + 1
+    const frameCount = this.k + 1
     this.segments[this.segments.length - 1].t1 = Math.min(this.T, this.t)
     this.stats.maxPositionCorrection = this.projInfo.position
     this.stats.maxVelocityCorrection = this.projInfo.velocity
     this.stats.wallMs = this.wallUsed
-    const size = this.size
-    const statesOut = frameCount === this.K + 1 ? this.states : this.states.slice(0, frameCount * size)
+    const lastChunk = Math.floor(this.k / this.chunkFrames)
+    if (!this.closed.length || this.closed[this.closed.length - 1].chunk < lastChunk) {
+      if (this.frames.chunks[lastChunk]) this.closeChunk(lastChunk)
+    }
+    let hash = ''
+    if (this.stateHasher) {
+      hashEvents(this.stateHasher, this.events)
+      hash = this.stateHasher.digestHex()
+    } else if (!this.bounded && this.firstChunk === 0) hash = digestHex(this.rolling)
     this.result_ = {
-      scene: this.scene, system: this.system, dt: this.dt, frameCount, size, states: statesOut,
-      frameSegment: this.frameSegment.slice(0, frameCount), impactLoss: this.impactLossArr.slice(0, frameCount),
+      scene: this.scene, system: this.system, dt: this.dt, frameCount, size: this.size, frames: this.frames,
       segments: this.segments, events: this.events, warnings: this.warnings, stats: this.stats, completed: !this.error, error: this.error,
-      hash: recordingHash(statesOut, this.events)
+      hash, unbounded: !this.bounded, stopReason: this.stopReason ?? 'duration', rolling: this.rollingFingerprint()
     }
     if (this.reducedFrom !== null) this.result_.reducedFrom = this.reducedFrom
   }
@@ -615,34 +978,60 @@ export class SimulationRun {
   }
 
   /**
-   * A consistent prefix of the recording: the frames computed so far (sharing the run's buffers, which are
-   * only appended to), the segments and events up to now. `completed` is false and `hash` empty.
+   * A consistent prefix of the recording: the frames computed so far (sharing the run's chunks, which are only
+   * appended to), the segments and events up to now. `completed` is false and `hash` empty.
    */
   partial(): Recording {
     if (this.finished) return this.result()
     const frameCount = this.k + 1
-    const size = this.size
     const segs = this.segments.slice()
     const last = segs[segs.length - 1]
     segs[segs.length - 1] = { ...last, t1: Math.min(this.T, this.t) }
     const rec: Recording = {
-      scene: this.scene, system: this.system, dt: this.dt, frameCount, size,
-      states: this.states.subarray(0, frameCount * size),
-      frameSegment: this.frameSegment.subarray(0, frameCount), impactLoss: this.impactLossArr.subarray(0, frameCount),
+      scene: this.scene, system: this.system, dt: this.dt, frameCount, size: this.size, frames: this.frames,
       segments: segs, events: this.events.slice(), warnings: this.warnings.slice(), stats: { ...this.stats, wallMs: this.wallUsed },
-      completed: false, error: null, hash: ''
+      completed: false, error: null, hash: '', unbounded: !this.bounded, rolling: this.rollingFingerprint()
     }
     if (this.reducedFrom !== null) rec.reducedFrom = this.reducedFrom
     return rec
   }
+
+  /** Segments and events created so far, from their global indices (DeltaWriter). */
+  segmentsFrom(i: number): Segment[] { return this.segments.slice(Math.max(0, i - this.segBase)) }
+  eventsFrom(i: number): SimEvent[] { return this.events.slice(Math.max(0, i - this.eventBase)) }
+  /** Global count of segments and events. */
+  get segmentCount(): number { return this.segBase + this.segments.length }
+  get eventCount(): number { return this.eventBase + this.events.length }
 }
 
-/** SHA-256 fingerprint of a recording: all frame states, then the time and post-event state of every event. */
-export function recordingHash(states: Float64Array, events: ReadonlyArray<{ t: number; after: Float64Array }>): string {
-  const hasher = new Sha256()
-  hasher.updateFloat64(states)
-  for (const e of events) { hasher.updateFloat64(new Float64Array([e.t])); hasher.updateFloat64(e.after) }
-  return hasher.digestHex()
+/** Is the derivative exactly zero in every component (no motion, no work, no heat)? */
+function atRest(f: Float64Array): boolean {
+  for (let i = 0; i < f.length; i++) if (f[i] !== 0) return false
+  return true
+}
+
+/** Result of `rebuildChunk`. */
+export interface RebuiltChunk {
+  /** The chunk's frames (count as recorded by the original run when it was complete). */
+  chunk: FrameChunk
+  /** Events the rebuilt run created after the checkpoint (global indices from the checkpoint's eventCount). */
+  events: SimEvent[]
+  /** The checkpoint taken at the end (chunk + 1), when the run got there. */
+  next: Float64Array | null
+  /** The checkpoint of the chunk as the rebuilt run took it again (must equal the input). */
+  again: Float64Array | null
+}
+
+/**
+ * Recompute one chunk from its checkpoint through the same code path as the original run (same scene,
+ * compiled system and options, including the run's effective duration in `opts.duration`): runs to the top of the
+ * loop at frame `endFrame` — the next chunk start for a complete chunk, the last frame of a final one.
+ */
+export function rebuildChunk(scene: Scene, system: System, checkpoint: Float64Array, opts: SimOptions, endFrame: number): RebuiltChunk {
+  const run = new SimulationRun(scene, { duration: opts.duration, maxEventsPerInstant: opts.maxEventsPerInstant, fallback: opts.fallback, chunkSeconds: opts.chunkSeconds, solutionCache: opts.solutionCache }, { system, checkpoint })
+  const c = run.frames.chunks.findIndex(x => !!x)
+  run.advance(Infinity, endFrame)
+  return { chunk: run.frames.chunks[c]!, events: run.events, next: run.checkpoints[c + 1] ?? null, again: run.checkpoints[c] ?? null }
 }
 
 function initialStepGuess(X: Float64Array, f: Float64Array, ctl: { relTol: number; absTol: number; count: number }, dt: number): number {
@@ -691,7 +1080,7 @@ export function exactStateAt(rec: Recording, t: number): Float64Array {
 
 /** Mode solution (forces, contact states) at frame k. */
 export function frameSolution(rec: Recording, k: number): ModeSolution {
-  const seg = rec.segments[rec.frameSegment[k]]
+  const seg = rec.segments[frameSegment(rec, k)]
   return solveMode(rec.system, frameState(rec, k), seg.mode)
 }
 
@@ -717,4 +1106,4 @@ export function ledgerAt(rec: Recording, X: Float64Array, impactLoss: number): L
 }
 
 /** Energy ledger of frame k. */
-export function frameLedger(rec: Recording, k: number): Ledger { return ledgerAt(rec, frameState(rec, k), rec.impactLoss[k]) }
+export function frameLedger(rec: Recording, k: number): Ledger { return ledgerAt(rec, frameState(rec, k), frameImpactLoss(rec, k)) }

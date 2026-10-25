@@ -8,6 +8,7 @@
  *
  * Props: `closable` (show a close button). Emits: `close`.
  */
+import { tl, paren } from '../../i18n'
 import { computed, reactive, ref, watch } from 'vue'
 import { state, edit } from '../store'
 import { fmtQ, settings, toDisp, unitLabel } from '../settings'
@@ -113,7 +114,7 @@ watch([comparisons, showResults], ([cmp, show]) => {
 const q = (v: number | null, unit: string, digits = state.digits) => fmtQ(v, unit, digits)
 function errText(abs: number | null, rel: number | null, unit: string): string {
   if (abs === null) return '—'
-  return `${abs > 0 ? '+' : ''}${fmtQ(abs, unit, 3)}（${relErrorText(rel)}）`
+  return `${abs > 0 ? '+' : ''}${fmtQ(abs, unit, 3)}${paren(relErrorText(rel))}`
 }
 const pct = (x: number) => `${Number((x * 100).toPrecision(3))}%`
 </script>
@@ -121,71 +122,71 @@ const pct = (x: number) => `${Number((x * 100).toPrecision(3))}%`
 <template>
   <div class="predict">
     <div class="head">
-      <span class="title">预测与对比</span>
+      <span class="title">{{ tl('预测与对比') }}</span>
       <span class="spacer" />
-      <button v-if="closable" class="btn icon ghost" title="关闭" @click="emit('close')"><Icon name="close" /></button>
+      <button v-if="closable" class="btn icon ghost" :title="tl('关闭')" @click="emit('close')"><Icon name="close" /></button>
     </div>
-    <div class="tiny muted intro">运行前先写下你的计算结果，运行后与仿真和公式逐项对照。预测随场景文件保存，数值按当前显示单位输入。</div>
+    <div class="tiny muted intro">{{ tl('运行前先写下你的计算结果，运行后与仿真和公式逐项对照。预测随场景文件保存，数值按当前显示单位输入。') }}</div>
 
-    <div class="group-title">新的预测</div>
+    <div class="group-title">{{ tl('新的预测') }}</div>
     <div class="group">
       <div class="tabs kinds">
-        <button :class="{ on: draft.kind === 'event' }" @click="draft.kind = 'event'">事件时刻</button>
-        <button :class="{ on: draft.kind === 'quantity' }" @click="draft.kind = 'quantity'">物理量</button>
-        <button :class="{ on: draft.kind === 'formula' }" @click="draft.kind = 'formula'">公式结果</button>
+        <button :class="{ on: draft.kind === 'event' }" @click="draft.kind = 'event'">{{ tl('事件时刻') }}</button>
+        <button :class="{ on: draft.kind === 'quantity' }" @click="draft.kind = 'quantity'">{{ tl('物理量') }}</button>
+        <button :class="{ on: draft.kind === 'formula' }" @click="draft.kind = 'formula'">{{ tl('公式结果') }}</button>
       </div>
       <template v-if="draft.kind === 'event'">
-        <div class="row"><label>事件</label><select v-model="draft.event" class="field grow"><option v-for="e in EVENT_TYPES" :key="e.type" :value="e.type">首次{{ e.label }}</option></select></div>
-        <div class="row"><label>涉及物体</label><select v-model="draft.body" class="field grow"><option value="">任意</option><option v-for="b in dynamicBodies" :key="b.id" :value="b.id">{{ b.name }}</option></select></div>
+        <div class="row"><label>{{ tl('事件') }}</label><select v-model="draft.event" class="field grow"><option v-for="e in EVENT_TYPES" :key="e.type" :value="e.type">{{ tl('首次{0}', [e.label]) }}</option></select></div>
+        <div class="row"><label>{{ tl('涉及物体') }}</label><select v-model="draft.body" class="field grow"><option value="">{{ tl('任意') }}</option><option v-for="b in dynamicBodies" :key="b.id" :value="b.id">{{ b.name }}</option></select></div>
       </template>
       <template v-else-if="draft.kind === 'quantity'">
-        <div class="row"><label>物理量</label><select v-model="draft.quantity" class="field grow"><option v-for="x in quantities" :key="x.id" :value="x.id">{{ x.owner }} · {{ x.label }}</option></select></div>
-        <div class="row"><label>时刻</label><NumField class="grow" :model-value="draft.t" :unit="labelOf('s')" :scale="scaleOf('s')" :min="0" @update:model-value="v => (draft.t = v)" /></div>
+        <div class="row"><label>{{ tl('物理量') }}</label><select v-model="draft.quantity" class="field grow"><option v-for="x in quantities" :key="x.id" :value="x.id">{{ x.owner }} · {{ x.label }}</option></select></div>
+        <div class="row"><label>{{ tl('时刻') }}</label><NumField class="grow" :model-value="draft.t" :unit="labelOf('s')" :scale="scaleOf('s')" :min="0" @update:model-value="v => (draft.t = v)" /></div>
       </template>
       <template v-else>
-        <div class="row"><label>情形</label><select v-model="draft.situation" class="field grow"><option v-for="t in situationTypes" :key="t" :value="t">{{ SITUATION_NAMES[t] ?? t }}</option></select></div>
-        <div class="row"><label>公式</label><select v-model="draft.formula" class="field grow"><option v-for="f in formulasOfType" :key="f.id" :value="f.id">{{ f.title }}</option></select></div>
-        <div v-if="occurrences.length > 1" class="row"><label>第几段</label>
-          <select v-model.number="draft.occurrence" class="field grow"><option v-for="(s, i) in occurrences" :key="s.key" :value="i">第 {{ i + 1 }} 段（{{ timeLabel(s.t0, settings.units).replace('t = ', '') }} 起）</option></select>
+        <div class="row"><label>{{ tl('情形') }}</label><select v-model="draft.situation" class="field grow"><option v-for="t in situationTypes" :key="t" :value="t">{{ SITUATION_NAMES[t] ?? t }}</option></select></div>
+        <div class="row"><label>{{ tl('公式') }}</label><select v-model="draft.formula" class="field grow"><option v-for="f in formulasOfType" :key="f.id" :value="f.id">{{ f.title }}</option></select></div>
+        <div v-if="occurrences.length > 1" class="row"><label>{{ tl('第几段') }}</label>
+          <select v-model.number="draft.occurrence" class="field grow"><option v-for="(s, i) in occurrences" :key="s.key" :value="i">{{ tl('第 {0} 段（{1} 起）', [i + 1, timeLabel(s.t0, settings.units).replace('t = ', '')]) }}</option></select>
         </div>
       </template>
-      <div class="row"><label>我的预测</label><NumField class="grow" :model-value="draft.value" :unit="labelOf(draftUnit)" :scale="scaleOf(draftUnit)" @update:model-value="v => (draft.value = v)" /></div>
-      <div class="row"><label>思路（可选）</label><input v-model="draft.note" class="field grow" maxlength="200" placeholder="如：隔离物块，a₁ = μ₁g" /></div>
-      <div class="row end"><span class="tiny muted grow">{{ targetLabel(draftTarget, ctx) }}</span><button class="btn primary small" :disabled="!canAdd" @click="add"><Icon name="plus" />添加预测</button></div>
+      <div class="row"><label>{{ tl('我的预测') }}</label><NumField class="grow" :model-value="draft.value" :unit="labelOf(draftUnit)" :scale="scaleOf(draftUnit)" @update:model-value="v => (draft.value = v)" /></div>
+      <div class="row"><label>{{ tl('思路（可选）') }}</label><input v-model="draft.note" class="field grow" maxlength="200" :placeholder="tl('如：隔离物块，a₁ = μ₁g')" /></div>
+      <div class="row end"><span class="tiny muted grow">{{ targetLabel(draftTarget, ctx) }}</span><button class="btn primary small" :disabled="!canAdd" @click="add"><Icon name="plus" />{{ tl('添加预测') }}</button></div>
     </div>
 
     <div class="list-head">
-      <span class="group-title">我的预测（{{ predictions.length }}）</span>
+      <span class="group-title">{{ tl('我的预测（{0}）', [predictions.length]) }}</span>
       <span class="spacer" />
-      <label class="check tiny" title="避免先看到答案"><input v-model="hideUntilReveal" type="checkbox" />揭晓前隐藏结果</label>
+      <label class="check tiny" :title="tl('避免先看到答案')"><input v-model="hideUntilReveal" type="checkbox" />{{ tl('揭晓前隐藏结果') }}</label>
     </div>
-    <div v-if="!predictions.length" class="empty">还没有预测。选择一个对象，写下你算出的数值。</div>
-    <div v-else-if="!fresh" class="tiny muted status">{{ state.computing ? '正在计算…' : '运行仿真后显示对比。' }}</div>
-    <div v-else-if="!showResults" class="reveal"><button class="btn primary" @click="reveal">揭晓对比结果</button></div>
+    <div v-if="!predictions.length" class="empty">{{ tl('还没有预测。选择一个对象，写下你算出的数值。') }}</div>
+    <div v-else-if="!fresh" class="tiny muted status">{{ state.computing ? tl('正在计算…') : tl('运行仿真后显示对比。') }}</div>
+    <div v-else-if="!showResults" class="reveal"><button class="btn primary" @click="reveal">{{ tl('揭晓对比结果') }}</button></div>
 
     <article v-for="p in predictions" :key="p.id" class="card" :class="showResults && comparisons.get(p.id) ? comparisons.get(p.id)!.grade : ''">
       <div class="card-head">
         <span class="card-title">{{ targetLabel(p.target, ctx) }}</span>
         <span class="spacer" />
         <span v-if="showResults && comparisons.get(p.id)" class="badge" :class="comparisons.get(p.id)!.grade === 'none' ? '' : comparisons.get(p.id)!.grade">{{ GRADE_TEXT[comparisons.get(p.id)!.grade] }}</span>
-        <button class="btn icon ghost del" title="删除这条预测" @click="remove(p.id)"><Icon name="trash" :size="14" /></button>
+        <button class="btn icon ghost del" :title="tl('删除这条预测')" @click="remove(p.id)"><Icon name="trash" :size="14" /></button>
       </div>
       <div class="grid small">
-        <span class="muted">我的预测</span><span class="mono">{{ q(p.value, comparisons.get(p.id)?.value.unit ?? targetUnit(p.target, qById), 8) }}</span>
+        <span class="muted">{{ tl('我的预测') }}</span><span class="mono">{{ q(p.value, comparisons.get(p.id)?.value.unit ?? targetUnit(p.target, qById), 8) }}</span>
         <template v-if="showResults && comparisons.get(p.id)">
-          <span class="muted">仿真结果</span><span class="mono">{{ q(comparisons.get(p.id)!.value.sim, comparisons.get(p.id)!.value.unit) }}</span>
-          <span class="muted">公式结果</span><span class="mono">{{ q(comparisons.get(p.id)!.value.formula, comparisons.get(p.id)!.value.unit) }}</span>
-          <span class="muted">与仿真之差</span><span class="mono">{{ errText(comparisons.get(p.id)!.absError, comparisons.get(p.id)!.relError, comparisons.get(p.id)!.value.unit) }}</span>
-          <span class="muted">与公式之差</span><span class="mono">{{ errText(comparisons.get(p.id)!.absErrorFormula, comparisons.get(p.id)!.relErrorFormula, comparisons.get(p.id)!.value.unit) }}</span>
+          <span class="muted">{{ tl('仿真结果') }}</span><span class="mono">{{ q(comparisons.get(p.id)!.value.sim, comparisons.get(p.id)!.value.unit) }}</span>
+          <span class="muted">{{ tl('公式结果') }}</span><span class="mono">{{ q(comparisons.get(p.id)!.value.formula, comparisons.get(p.id)!.value.unit) }}</span>
+          <span class="muted">{{ tl('与仿真之差') }}</span><span class="mono">{{ errText(comparisons.get(p.id)!.absError, comparisons.get(p.id)!.relError, comparisons.get(p.id)!.value.unit) }}</span>
+          <span class="muted">{{ tl('与公式之差') }}</span><span class="mono">{{ errText(comparisons.get(p.id)!.absErrorFormula, comparisons.get(p.id)!.relErrorFormula, comparisons.get(p.id)!.value.unit) }}</span>
         </template>
       </div>
-      <div v-if="p.note" class="tiny note">思路：{{ p.note }}</div>
+      <div v-if="p.note" class="tiny note">{{ tl('思路：{0}', [p.note]) }}</div>
       <div v-if="showResults && comparisons.get(p.id)?.value.simNote" class="tiny muted">{{ comparisons.get(p.id)!.value.simNote }}</div>
-      <div v-if="showResults && comparisons.get(p.id)?.value.formulaNote" class="tiny muted">公式：{{ comparisons.get(p.id)!.value.formulaNote }}</div>
+      <div v-if="showResults && comparisons.get(p.id)?.value.formulaNote" class="tiny muted">{{ tl('公式：{0}', [comparisons.get(p.id)!.value.formulaNote]) }}</div>
     </article>
 
     <div v-if="predictions.length" class="tiny muted legend">
-      评价按与仿真结果的相对误差：≤ {{ pct(PREDICTION_TOLERANCE.ok) }} 准确，≤ {{ pct(PREDICTION_TOLERANCE.warn) }} 接近，否则偏差较大。手算常取 g = 10 m/s²，与场景中的 g 不同会带来约 2% 的差别。
+      {{ tl('评价按与仿真结果的相对误差：≤ {0} 准确，≤ {1} 接近，否则偏差较大。手算常取 g = 10 m/s²，与场景中的 g 不同会带来约 2% 的差别。', [pct(PREDICTION_TOLERANCE.ok), pct(PREDICTION_TOLERANCE.warn)]) }}
     </div>
   </div>
 </template>

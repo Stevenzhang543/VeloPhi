@@ -3,6 +3,7 @@
  * (copy / paste / duplicate — never the OS clipboard), drawing order, static ⇄ dynamic, fixed rotation,
  * box → polygon, resetting the initial velocity and nudging. Every command is one undoable step.
  */
+import { tl } from '../../i18n'
 import type { AnnotationDef, BodyDef, ConnectorDef, ForceDef, PulleyDef, Scene } from '../../core/scene/types'
 import { nextId } from '../../core/scene/build'
 import { edit, state } from '../store'
@@ -57,7 +58,7 @@ export function copySelection(): boolean {
     clipboard = { kind: 'pulley', pulley: JSON.parse(JSON.stringify(p)) }
   } else return false
   pasteCount = 0
-  notify('已复制（Ctrl+V 粘贴）', 1600)
+  notify(tl('已复制（Ctrl+V 粘贴）'), 1600)
   return true
 }
 
@@ -100,7 +101,7 @@ export function paste(at: Pt | null, offset: number): boolean {
     if (clip.kind === 'pulley') {
       const p = JSON.parse(JSON.stringify(clip.pulley)) as PulleyDef
       p.id = nextId(scene, 'p')
-      p.name = nextName(scene, p.name.replace(/\d+$/, '') || '滑轮')
+      p.name = nextName(scene, p.name.replace(/\d+$/, '') || tl('滑轮'))
       p.position = at ? { ...at } : { x: p.position.x + shift, y: p.position.y - shift }
       scene.pulleys.push(p)
       sel = { kind: 'pulley', id: p.id }
@@ -109,14 +110,14 @@ export function paste(at: Pt | null, offset: number): boolean {
     const b = JSON.parse(JSON.stringify(clip.body)) as BodyDef
     const oldId = b.id
     b.id = nextId(scene, b.kind === 'static' ? 's' : 'b')
-    b.name = nextName(scene, b.name.replace(/\d+$/, '') || '物体')
+    b.name = nextName(scene, b.name.replace(/\d+$/, '') || tl('物体'))
     scene.bodies.push(b)
     const c = bodyCenter(b)
     placeBodyAt(b, at ?? { x: c.x + shift, y: c.y - (b.kind === 'static' ? shift : 0) })
     for (const f of clip.forces) {
       const copy = JSON.parse(JSON.stringify(f)) as ForceDef
       copy.id = nextId(scene, 'f')
-      copy.name = connectorName(scene, f.name.replace(/\d+$/, '') || '拉力')
+      copy.name = connectorName(scene, f.name.replace(/\d+$/, '') || tl('拉力'))
       if (copy.a.body === oldId) copy.a.body = b.id
       scene.connectors.push(copy)
     }
@@ -124,7 +125,7 @@ export function paste(at: Pt | null, offset: number): boolean {
     for (const pl of clip.pulleys ?? []) {
       const copy = JSON.parse(JSON.stringify(pl)) as PulleyDef
       copy.id = nextId(scene, 'p')
-      copy.name = nextName(scene, pl.name.replace(/\d+$/, '') || '动滑轮')
+      copy.name = nextName(scene, pl.name.replace(/\d+$/, '') || tl('动滑轮'))
       copy.body = b.id
       scene.pulleys.push(copy)
     }
@@ -209,18 +210,18 @@ export function sendToBack(id: string) {
 /** Why a body cannot change between static and dynamic, or null when it can. */
 export function kindChangeBlocker(scene: Scene, b: BodyDef): string | null {
   if (b.kind === 'static') {
-    if (b.beltSpeed !== 0) return '传送带只能是固定物体'
+    if (b.beltSpeed !== 0) return tl('传送带只能是固定物体')
     return null
   }
   const touches = (c: ConnectorDef) => c.a.body === b.id || (c.type !== 'force' && c.b.body === b.id)
   for (const c of scene.connectors) {
     if (!touches(c)) continue
-    if (c.type === 'force') return '物体上有外力，先删除外力再转为固定'
+    if (c.type === 'force') return tl('物体上有外力，先删除外力再转为固定')
     const other = c.a.body === b.id ? c.b.body : c.a.body
     const otherBody = other ? scene.bodies.find(x => x.id === other) : null
-    if (!otherBody || otherBody.kind === 'static') return `${c.name} 的另一端也是固定的，转为固定后连接没有意义`
+    if (!otherBody || otherBody.kind === 'static') return tl('{0} 的另一端也是固定的，转为固定后连接没有意义', [c.name])
   }
-  if (scene.pulleys.some(p => p.body === b.id)) return '物体上装有动滑轮'
+  if (scene.pulleys.some(p => p.body === b.id)) return tl('物体上装有动滑轮')
   return null
 }
 
@@ -270,7 +271,7 @@ export function toggleFixedRotation(id: string) {
 export function convertToPolygon(id: string): boolean {
   let ok = false
   edit(scene => { const b = scene.bodies.find(x => x.id === id); if (b) ok = boxToPolygon(b) })
-  if (ok) notify('已转为多边形：拖动顶点改形状，双击边添加顶点，Alt+单击顶点删除')
+  if (ok) notify(tl('已转为多边形：拖动顶点改形状，双击边添加顶点，Alt+单击顶点删除'))
   return ok
 }
 

@@ -2,11 +2,11 @@
 import { describe, expect, it } from 'vitest'
 import { addBody, addConnector, addGround, addIncline, anchor, emptyScene, onIncline } from '../src/core/scene/build'
 import type { Scene, SpringDef } from '../src/core/scene/types'
-import { frameLedger, simulate } from '../src/core/solver/simulation'
+import { frameLedger, frameState, simulate } from '../src/core/solver/simulation'
 
 function ledgerDrift(scene: Scene) {
   const rec = simulate(scene)
-  expect(rec.error, rec.error ?? '').toBeNull()
+  expect(rec.error, rec.error ? JSON.stringify(rec.error) : '').toBeNull()
   const L0 = frameLedger(rec, 0)
   let worst = 0, scale = 1
   for (let k = 0; k < rec.frameCount; k += 5) {
@@ -25,7 +25,7 @@ describe('hand-built scenes', () => {
     s.settings.duration = 2
     const { rec, drift } = ledgerDrift(s)
     const n = rec.system.n
-    const last = rec.states.subarray((rec.frameCount - 1) * rec.size)
+    const last = frameState(rec, rec.frameCount - 1)
     for (let i = 0; i < 4; i++) expect(Math.abs(last[3 * n + 3 * i]) + Math.abs(last[3 * n + 3 * i + 1])).toBeLessThan(1e-9)
     expect(drift).toBeLessThan(1e-8)
   })
@@ -84,7 +84,7 @@ describe('hand-built scenes', () => {
     s.settings.duration = 0.6
     const { rec, drift } = ledgerDrift(s)
     const n = rec.system.n
-    const px = (k: number) => { const X = rec.states.subarray(k * rec.size); return 3 * X[3 * n] + 1 * X[3 * n + 3] }
+    const px = (k: number) => { const X = frameState(rec, k); return 3 * X[3 * n] + 1 * X[3 * n + 3] }
     expect(Math.abs(px(rec.frameCount - 1) - px(0))).toBeLessThan(1e-10)
     expect(drift).toBeLessThan(1e-8)
   })

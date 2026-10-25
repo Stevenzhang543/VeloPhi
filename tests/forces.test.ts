@@ -148,13 +148,13 @@ describe('variable forces in the solver', () => {
     const s = floorScene(1, '-2*sign(vx)', '0', 1)
     s.bodies[1].velocity = { x: 1, y: 0 }
     const rec = simulate(s)
-    expect(rec.error).toMatch(/反复切换|抖振/)
+    expect(rec.error?.key).toMatch(/^err\.(switchChatter|eventChatter)$/)
     expect(Math.abs(rec.events[0].t - 0.5)).toBeLessThan(1e-9)
   })
 
   it('a force without a finite value stops the run with the time', () => {
     const rec = simulate(floorScene(1, '2*sqrt(1 - t)', '0', 2))
-    expect(rec.error).toMatch(/没有有限值/)
+    expect(rec.error?.key).toBe('err.forceNotFinite')
     expect(rec.frameCount).toBeGreaterThan(500)
   })
 

@@ -5,9 +5,10 @@
  * ledger total, which stays constant in an exact solution. Bars share one scale for the whole recording (computed
  * once per run), so they do not jump while playing.
  */
+import { tl } from '../../i18n'
 import { computed } from 'vue'
 import type { Recording } from '../../core/solver/simulation'
-import { frameLedger } from '../../core/solver/simulation'
+import { frameLedger, frameIsCheap } from '../../core/solver/simulation'
 import type { Ledger } from '../../core/solver/simulation'
 import { fmtQ } from '../settings'
 
@@ -15,14 +16,14 @@ const props = defineProps<{ rec: Recording; frame: number; runId: number }>()
 
 type Key = keyof Omit<Ledger, 'balance' | 'mechanical'>
 const ROWS: Array<{ key: Key; label: string; color: string; always?: boolean; sign?: string }> = [
-  { key: 'kinetic', label: '动能 Eₖ', color: '#2f7cf6', always: true },
-  { key: 'gravity', label: '重力势能 Eₚ', color: '#16a34a', always: true },
-  { key: 'spring', label: '弹性势能 Eₛ', color: '#8b5cf6' },
-  { key: 'frictionHeat', label: '摩擦生热 Q', color: '#ef6c2f' },
-  { key: 'damping', label: '阻尼耗散', color: '#d97706' },
-  { key: 'impactLoss', label: '碰撞损失', color: '#e11d48' },
-  { key: 'appliedWork', label: '外力做功 W', color: '#0891b2', sign: '−' },
-  { key: 'beltWork', label: '电机做功', color: '#64748b', sign: '−' }
+  { key: 'kinetic', label: tl('动能 Eₖ'), color: '#2f7cf6', always: true },
+  { key: 'gravity', label: tl('重力势能 Eₚ'), color: '#16a34a', always: true },
+  { key: 'spring', label: tl('弹性势能 Eₛ'), color: '#8b5cf6' },
+  { key: 'frictionHeat', label: tl('摩擦生热 Q'), color: '#ef6c2f' },
+  { key: 'damping', label: tl('阻尼耗散'), color: '#d97706' },
+  { key: 'impactLoss', label: tl('碰撞损失'), color: '#e11d48' },
+  { key: 'appliedWork', label: tl('外力做功 W'), color: '#0891b2', sign: '−' },
+  { key: 'beltWork', label: tl('电机做功'), color: '#64748b', sign: '−' }
 ]
 
 /** Extent of every ledger entry over the run (sampled), for a stable scale. */
@@ -34,6 +35,7 @@ const extent = computed(() => {
   let neg = 0, pos = 0, scale = 0
   const used = new Set<Key>()
   for (let k = 0; k < r.frameCount; k += stride) {
+    if (!frameIsCheap(r, k)) continue
     const l = frameLedger(r, k)
     for (const row of ROWS) {
       const v = l[row.key]
@@ -75,9 +77,9 @@ const drift = computed(() => {
       <span class="val mono small">{{ fmtQ(r.v, 'J') }}</span>
     </div>
     <div class="total small">
-      <span class="muted">机械能</span><span class="mono">{{ fmtQ(ledger.mechanical, 'J') }}</span>
-      <span class="muted" title="机械能 + 摩擦生热 + 阻尼 + 碰撞损失 − 外力做功 − 电机做功">账本合计</span><span class="mono">{{ fmtQ(ledger.balance, 'J') }}</span>
-      <span class="muted">相对初始漂移</span><span class="mono" :class="{ bad: drift.rel > 1e-6 }">{{ drift.rel < 1e-15 ? '0' : drift.rel.toExponential(1) }}</span>
+      <span class="muted">{{ tl('机械能') }}</span><span class="mono">{{ fmtQ(ledger.mechanical, 'J') }}</span>
+      <span class="muted" :title="tl('机械能 + 摩擦生热 + 阻尼 + 碰撞损失 − 外力做功 − 电机做功')">{{ tl('账本合计') }}</span><span class="mono">{{ fmtQ(ledger.balance, 'J') }}</span>
+      <span class="muted">{{ tl('相对初始漂移') }}</span><span class="mono" :class="{ bad: drift.rel > 1e-6 }">{{ drift.rel < 1e-15 ? '0' : drift.rel.toExponential(1) }}</span>
     </div>
   </div>
 </template>

@@ -4,6 +4,7 @@
  * of the whole recording drawn up to the current time (the path is built once per recording; playback only
  * moves a clip edge).
  */
+import { tl } from '../../i18n'
 import { computed, useId } from 'vue'
 import { sparkPath } from '../live'
 import { fmtNum, fmtQ, unitLabel } from '../settings'
@@ -47,7 +48,7 @@ const clipId = `spark-${useId().replace(/[^\w-]/g, "-")}`
       <span class="name small">{{ label }}</span>
     </div>
     <div class="owner tiny muted">{{ owner }}</div>
-    <div class="value mono" :title="value === null ? '' : `仿真值 ${value}`"><span class="num">{{ fmtNum(value === null ? null : tidy(value), unit) }}</span><span class="unit">{{ unitLabel(unit) }}</span></div>
+    <div class="value mono" :title="value === null ? '' : tl('仿真值 {0}', [value])"><span class="num">{{ fmtNum(value === null ? null : tidy(value), unit) }}</span><span class="unit">{{ unitLabel(unit) }}</span></div>
     <svg v-if="spark && spark.d" class="spark" :viewBox="`0 0 ${W} ${H}`" preserveAspectRatio="none" aria-hidden="true">
       <path :d="spark.d" class="ghost" vector-effect="non-scaling-stroke" />
       <clipPath :id="clipId"><rect x="-2" y="-4" :width="clipW + 2" :height="H + 8" /></clipPath>
@@ -56,8 +57,8 @@ const clipId = `spark-${useId().replace(/[^\w-]/g, "-")}`
     </svg>
     <div v-if="spark && spark.d" class="range tiny muted mono"><span>{{ fmtQ(tidy(spark.min), unit, 3) }}</span><span>{{ fmtQ(tidy(spark.max), unit, 3) }}</span></div>
     <div class="ops">
-      <button class="op" title="在曲线中显示" @click="$emit('chart')">⌁</button>
-      <button class="op" title="移出监视列表" @click="$emit('remove')">×</button>
+      <button class="op" :title="tl('在曲线中显示')" @click="$emit('chart')">⌁</button>
+      <button class="op" :title="tl('移出监视列表')" @click="$emit('remove')">×</button>
     </div>
   </div>
 </template>

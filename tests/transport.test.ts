@@ -6,14 +6,16 @@
 import { describe, expect, it } from 'vitest'
 import { buildTemplate } from '../src/templates'
 import type { Recording } from '../src/core/solver/simulation'
-import { SimulationRun, frameSolution, frameState, recordingHash, simulate } from '../src/core/solver/simulation'
-import { RecordingAssembler, decodeRecording, encodeRecording } from '../src/core/solver/transport'
+import { SimulationRun, frameImpactLoss, frameSegment, frameSolution, frameState, recordingHash, recordingStates, simulate } from '../src/core/solver/simulation'
+import { decodeRecording, encodeRecording } from '../src/core/solver/transport'
+import { StreamRecording } from '../src/core/solver/stream'
 import { startSimJob } from '../src/worker/simJob'
 import type { FromWorker } from '../src/worker/simJob'
 import { startSimulation } from '../src/app/simClient'
 import { cloneScene } from '../src/core/scene/io'
 import { addBody, addConnector, addGround, anchor, emptyScene } from '../src/core/scene/build'
 import type { ForceDef, Scene } from '../src/core/scene/types'
+import { finiteDuration } from '../src/core/scene/types'
 
 /** Variable force with jumps, a rough floor and a bouncing rough disc: switches, frictional impacts, slips. */
 function mixedScene(): Scene {
@@ -37,11 +39,14 @@ const cases: Array<[string, () => Scene]> = [
 
 function expectSame(a: Recording, b: Recording) {
   expect(b.hash).toBe(a.hash)
-  expect(recordingHash(b.states, b.events)).toBe(a.hash)
+  const sa = recordingStates(a), sb = recordingStates(b)
+  expect(recordingHash(sb, b.events)).toBe(a.hash)
   expect(b.frameCount).toBe(a.frameCount)
-  expect(Buffer.from(b.states.buffer, b.states.byteOffset, b.states.byteLength).equals(Buffer.from(a.states.buffer, a.states.byteOffset, a.states.byteLength))).toBe(true)
-  expect(Array.from(b.frameSegment)).toEqual(Array.from(a.frameSegment))
-  expect(Array.from(b.impactLoss)).toEqual(Array.from(a.impactLoss))
+  expect(Buffer.from(sb.buffer).equals(Buffer.from(sa.buffer))).toBe(true)
+  for (let k = 0; k < a.frameCount; k++) {
+    if (frameSegment(b, k) !== frameSegment(a, k)) expect(frameSegment(b, k)).toBe(frameSegment(a, k))
+    if (!Object.is(frameImpactLoss(b, k), frameImpactLoss(a, k))) expect(frameImpactLoss(b, k)).toBe(frameImpactLoss(a, k))
+  }
   expect(b.segments.map(s => [s.t0, s.t1, s.label, s.impactLoss])).toEqual(a.segments.map(s => [s.t0, s.t1, s.label, s.impactLoss]))
   expect(b.events.map(e => [e.t, e.triggers, e.changes, e.segment])).toEqual(a.events.map(e => [e.t, e.triggers, e.changes, e.segment]))
   expect(b.events.map(e => e.impact?.points.map(p => [p.pair?.key, p.feature?.key, p.impulse, p.tangentImpulse]))).toEqual(a.events.map(e => e.impact?.points.map(p => [p.pair?.key, p.feature?.key, p.impulse, p.tangentImpulse])))
@@ -75,6 +80,7 @@ describe('progressive worker job', () => {
   for (const [name, make] of cases) {
     it(`${name}: slices assemble into the same recording, partials are prefixes`, () => {
       const scene = cloneScene(make())
+      scene.settings.duration = finiteDuration(scene.settings)
       const ref = simulate(cloneScene(scene))
       const queue: Array<() => void> = []
       const msgs: FromWorker[] = []
@@ -82,14 +88,15 @@ describe('progressive worker job', () => {
       while (queue.length) queue.shift()!()
       expect(msgs[0].type).toBe('started')
       const started = msgs[0] as Extract<FromWorker, { type: 'started' }>
-      const asm = new RecordingAssembler(scene, started.K + 1)
+      expect(started.duration).toBe(scene.settings.duration)
+      const asm = new StreamRecording({ scene, chunkFrames: started.chunkFrames, duration: started.duration })
       let partials = 0, lastFrames = 0
       for (const m of msgs.slice(1)) {
         if (m.type === 'error') throw new Error(m.message)
-        if (m.type === 'started') continue
+        if (m.type === 'started' || m.type === 'engine') continue
         asm.apply(m.delta)
         if (m.type === 'partial') {
-          const p = asm.partial()
+          const p = asm.snapshot()
           partials++
           expect(p.completed).toBe(false)
           expect(p.hash).toBe('')

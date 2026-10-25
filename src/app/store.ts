@@ -4,19 +4,25 @@
  * out of date. Recordings are large typed arrays and are kept out of Vue's reactivity (markRaw).
  *
  * Simulation runs through the simulation client (Web Worker when enabled): partial recordings are shown and
- * can be played while the rest is computed; a new edit cancels the run in flight.
+ * can be played while the rest is computed; a new edit cancels the run in flight. An unbounded scene (decision
+ * D26) is computed ahead of the playhead and keeps growing while it plays; situations are recognised as its
+ * phases complete (analysis/recognition.ts).
  */
+import type { Message } from '../i18n/message'
+import { MessageError } from '../i18n/message'
 import { markRaw, reactive } from 'vue'
 import type { Scene } from '../core/scene/types'
 import { cloneScene, parseScene, serializeScene, validateScene } from '../core/scene/io'
-import type { Recording } from '../core/solver/simulation'
+import type { Recording, RollingFingerprint } from '../core/solver/simulation'
 import type { Situation } from '../formula/situations'
 import { recognize } from '../formula/situations'
+import { IncrementalRecognizer } from '../analysis/recognition'
+import { StreamRecording } from '../core/solver/stream'
 import { canonicalQuantityId } from '../core/observe/quantities'
 import { logEvent } from './trialLog'
 import { buildTemplate } from '../templates'
 import { startSimulation } from './simClient'
-import type { SimHandle } from './simClient'
+import type { RunStats, SimHandle } from './simClient'
 import type { DisplayOptions } from './settings'
 import { settings } from './settings'
 
@@ -35,6 +41,37 @@ export type Selection = { kind: 'body' | 'connector' | 'pulley'; id: string } | 
 
 /** Top-level page. */
 export type Page = 'studio' | 'monitor' | 'settings'
+
+/** The run in flight or last run, for the timeline and the solver-information panel (decision D26). */
+export interface RunInfo {
+  /** The scene is unbounded: the run grows until stopped. */
+  unbounded: boolean
+  /** Simulated time computed (s). */
+  tComputed: number
+  /** Time the run computes to before it pauses (look-ahead target; +∞ for a bounded run). */
+  tTarget: number
+  /** Simulated seconds per wall-clock second of computing. */
+  speed: number
+  /** Memory held by the recording (bytes). */
+  memoryBytes: number
+  chunks: number
+  residentChunks: number
+  checkpoints: number
+  /** Chunks recomputed from checkpoints on this thread. */
+  rebuilds: number
+  /** Engine that computes the run, and why Rust/WASM is not used (null when it is). */
+  engine: 'wasm' | 'ts'
+  engineReason: string | null
+  /** Computing waits for the playhead (look-ahead full). */
+  paused: boolean
+  /** Rolling fingerprint up to `fingerprint.t`. */
+  fingerprint: RollingFingerprint | null
+}
+
+/** RunInfo before any run. */
+function emptyRun(): RunInfo {
+  return { unbounded: false, tComputed: 0, tTarget: 0, speed: 0, memoryBytes: 0, chunks: 0, residentChunks: 0, checkpoints: 0, rebuilds: 0, engine: 'ts', engineReason: null, paused: false, fingerprint: null }
+}
 
 /** Reactive application state. */
 export interface AppState {
@@ -58,7 +95,11 @@ export interface AppState {
   progress: number
   /** Identity of the run that produced `recording` (partial recordings of one run share it). */
   runId: number
-  simError: string | null
+  /** Statistics of the run in flight or the last run. */
+  run: RunInfo
+  /** Playback has caught up with the computation and waits for more frames. */
+  buffering: boolean
+  simError: Message | string | null
   /** Recompute after each edit (stored in the settings). */
   autoRun: boolean
   /** Recorded frame shown (floor of time / Δt). */
@@ -117,6 +158,8 @@ export const state = reactive<AppState>({
   computing: false,
   progress: 0,
   runId: 0,
+  run: emptyRun(),
+  buffering: false,
   simError: null,
   // Preferences live in `settings`; these accessors keep the old field names working everywhere
   get autoRun() { return settings.autoRun },
@@ -224,24 +267,75 @@ export function defaultChart(scene: Scene): string[] {
 let autoTimer: ReturnType<typeof setTimeout> | null = null
 let runToken = 0
 let handle: SimHandle | null = null
+/** Incremental situation recognition of the run in flight. */
+let recognizer: IncrementalRecognizer | null = null
+let lastRecognition = 0
+/** Least wall-clock time between two incremental recognitions (ms). */
+const RECOGNITION_INTERVAL_MS = 400
 
 /** The scene changed: results are out of date, the run in flight is cancelled, and (auto-run) a new one is scheduled. */
 export function markStale() {
   state.stale = true
   state.playing = false
-  cancelSimulation()
+  abortRun()
   if (autoTimer) { clearTimeout(autoTimer); autoTimer = null }
   if (state.autoRun) autoTimer = setTimeout(() => { autoTimer = null; runSimulation() }, 350)
 }
 
-/** Stop the run in flight; the recording computed so far stays (marked incomplete). */
+/**
+ * The user's stop button: an unbounded run ends where it is and becomes a complete recording (stopRun); a bounded
+ * run is cancelled, the recording computed so far stays (marked incomplete).
+ */
 export function cancelSimulation() {
+  if (handle && state.run.unbounded) { stopRun(); return }
+  abortRun()
+}
+
+/** Abandon the run in flight (the scene changed, or a bounded run is cancelled). */
+function abortRun() {
   if (!handle) return
   runToken++
   handle.cancel()
   handle = null
   state.computing = false
+  state.buffering = false
   state.progress = 0
+  state.run.paused = false
+}
+
+/**
+ * End an unbounded run where it is (the user's stop): everything computed is kept and the recording becomes
+ * complete; situations are recognised over the whole of it.
+ */
+export function stopRun() {
+  handle?.stop()
+}
+
+/** Compute the run in flight at least up to time t (an unbounded run otherwise stops at its look-ahead). */
+export function computeTo(t: number) {
+  handle?.computeTo(t)
+  state.run.tTarget = Math.max(state.run.tTarget, t)
+}
+
+/** Tell the run in flight where playback is (it computes ahead of it). */
+function reportPlayhead() {
+  if (!handle || !state.run.unbounded) return
+  handle.setPlayhead(state.time, state.playing ? state.speed : 0)
+  state.run.tTarget = Math.max(state.run.tComputed, state.time + Math.max(settings.sim.lookAheadSeconds, 3 * (state.playing ? state.speed : 0)))
+}
+
+/** Change the look-ahead of the run in flight (settings page). */
+export function applyLookAhead() {
+  handle?.setLookAhead(settings.sim.lookAheadSeconds)
+  reportPlayhead()
+}
+
+/** Change the memory budget of the current recording (settings page). */
+export function applyMemoryBudget() {
+  const bytes = settings.sim.memoryMB * 1024 * 1024
+  const frames = state.recording?.frames
+  if (frames instanceof StreamRecording) frames.setBudget(bytes)
+  handle?.stream()?.setBudget(bytes)
 }
 
 /**
@@ -258,12 +352,47 @@ function acceptRecording(rec: Recording, first: boolean, freshScene: boolean, ke
   else if (!state.playing && rec.completed !== false && keepFrame !== state.frame && keepFrame <= last && !freshScene) setFrame(keepFrame)
 }
 
+let recognitionTimer: ReturnType<typeof setTimeout> | null = null
+
+/**
+ * Recognise the situations of a growing recording, at most every RECOGNITION_INTERVAL_MS; a recording that arrives
+ * sooner is recognised at the end of the interval (so the last one of a burst is never skipped).
+ */
+function recognizeGrowing(rec: Recording, token: number) {
+  if (!recognizer || token !== runToken) return
+  const wait = RECOGNITION_INTERVAL_MS - (performance.now() - lastRecognition)
+  if (wait > 0) {
+    if (recognitionTimer) clearTimeout(recognitionTimer)
+    recognitionTimer = setTimeout(() => { recognitionTimer = null; recognizeGrowing(rec, token) }, wait)
+    return
+  }
+  lastRecognition = performance.now()
+  try { state.situations = markRaw(recognizer.update(rec)) } catch { /* Recognition of a partial recording is best effort */ }
+}
+
+/**
+ * Recognise the situations of the shown recording again (the interface language changed: titles and conditions
+ * are texts). A run in flight restarts its incremental recogniser on the recording received so far.
+ */
+export function recognizeAgain() {
+  const rec = state.recording
+  if (!rec) return
+  try {
+    if (recognizer) {
+      recognizer = new IncrementalRecognizer()
+      lastRecognition = performance.now()
+      state.situations = markRaw(recognizer.update(rec))
+    } else if (!state.computing) state.situations = markRaw(recognize(rec))
+  } catch { /* Recognition of a partial recording is best effort */ }
+}
+
 /** Compute the current scene. Partial recordings are shown while the run continues (settings.sim.progressive). */
 export function runSimulation(): Promise<void> {
   if (autoTimer) { clearTimeout(autoTimer); autoTimer = null }
   if (handle) { handle.cancel(); handle = null }
   const token = ++runToken
   state.computing = true
+  state.buffering = false
   state.progress = 0
   state.simError = null
   const freshScene = state.stale
@@ -275,24 +404,40 @@ export function runSimulation(): Promise<void> {
   } catch (e) {
     state.recording = null
     state.situations = []
-    state.simError = (e as Error).message
+    state.simError = e instanceof MessageError ? e.msg : (e as Error).message
     state.computing = false
     return Promise.resolve()
   }
+  const unbounded = scene.settings.duration === null
+  state.run = { ...emptyRun(), unbounded, tTarget: unbounded ? settings.sim.lookAheadSeconds : Infinity }
+  recognizer = new IncrementalRecognizer()
+  lastRecognition = 0
   let delivered = false
   const started = performance.now()
-  const h = startSimulation(scene, { budgetMs: settings.sim.budgetSeconds * 1000, useWorker: settings.sim.worker, progressive: settings.sim.progressive }, {
+  const playhead = freshScene ? 0 : state.time
+  const h = startSimulation(scene, {
+    budgetMs: settings.sim.budgetSeconds * 1000, useWorker: settings.sim.worker, progressive: settings.sim.progressive || unbounded,
+    lookAhead: settings.sim.lookAheadSeconds, memoryBytes: settings.sim.memoryMB * 1024 * 1024, engine: settings.sim.engine
+  }, {
     onPartial: rec => {
-      if (token !== runToken || !settings.sim.progressive || rec.frameCount < 2) return
-      // Re-running an unchanged scene: keep showing the complete recording until the new one is done
-      if (!freshScene && !delivered && state.recording?.completed) return
+      if (token !== runToken || rec.frameCount < 2) return
+      if (!unbounded && !settings.sim.progressive) return
+      // Re-running an unchanged bounded scene: keep showing the complete recording until the new one is done
+      if (!unbounded && !freshScene && !delivered && state.recording?.completed) return
       if (!delivered) state.runId = token
       acceptRecording(rec, !delivered, freshScene, keepFrame)
       delivered = true
+      recognizeGrowing(rec, token)
     },
-    onProgress: (t, total) => { if (token === runToken) state.progress = total > 0 ? Math.min(1, t / total) : 0 }
+    // Bounded: the fraction of the duration; unbounded: the fraction of the look-ahead target computed
+    onProgress: (t, total) => { if (token === runToken) state.progress = Number.isFinite(total) ? (total > 0 ? Math.min(1, t / total) : 0) : (state.run.tTarget > 0 ? Math.min(1, t / state.run.tTarget) : 0) },
+    onStats: st => {
+      if (token !== runToken) return
+      updateRunInfo(st)
+    }
   })
   handle = h
+  if (unbounded && playhead > 0) h.setPlayhead(playhead, 0)
   return h.done.then(rec => {
     if (token !== runToken) return
     handle = null
@@ -302,17 +447,40 @@ export function runSimulation(): Promise<void> {
       state.situations = markRaw(recognize(rec))
       if (rec.error) state.simError = rec.error
       state.progress = 1
+      state.run.paused = false
+      state.run.tTarget = state.run.tComputed
       logEvent('sim.run', { ms: Math.round(performance.now() - started), completed: rec.completed, frames: rec.frameCount, reduced: rec.reducedFrom != null })
     }
+    recognizer = null
+    if (recognitionTimer) { clearTimeout(recognitionTimer); recognitionTimer = null }
     state.computing = false
+    state.buffering = false
   }, e => {
     if (token !== runToken) return
     handle = null
+    recognizer = null
     state.recording = null
     state.situations = []
-    state.simError = (e as Error).message
+    state.simError = e instanceof MessageError ? e.msg : (e as Error).message
     state.computing = false
+    state.buffering = false
   })
+}
+
+function updateRunInfo(st: RunStats) {
+  const r = state.run
+  r.tComputed = st.tComputed
+  r.speed = st.speed
+  r.memoryBytes = st.memoryBytes
+  r.chunks = st.chunks
+  r.residentChunks = st.residentChunks
+  r.checkpoints = st.checkpoints
+  r.rebuilds = st.rebuilds
+  r.engine = st.engine
+  r.engineReason = st.engineReason
+  r.paused = st.paused
+  r.fingerprint = st.fingerprint
+  if (r.unbounded) r.tTarget = Math.max(r.tTarget, st.tComputed)
 }
 
 /** Playback time (s); 0 without a recording. */
@@ -332,6 +500,10 @@ let rafId = 0
 let lastWall = 0
 let lastPanel = 0
 const PANEL_INTERVAL_MS = 80
+/** Simulated time at which the playhead was last reported to the run in flight. */
+let reportedAt = -Infinity
+/** Report the playhead to the run at least every this many simulated seconds of playback. */
+const REPORT_EVERY = 1
 
 /** Set the continuous time and the derived frame indices. */
 function setTime(t: number, now = performance.now(), force = true) {
@@ -346,6 +518,7 @@ function setTime(t: number, now = performance.now(), force = true) {
     lastPanel = now
     if (state.panelFrame !== k) state.panelFrame = k
   }
+  if (force || Math.abs(tc - reportedAt) >= REPORT_EVERY) { reportedAt = tc; reportPlayhead() }
 }
 
 function setFrame(k: number) {
@@ -355,6 +528,8 @@ function setFrame(k: number) {
   state.frame = kc
   state.panelFrame = kc
   state.time = kc * rec.dt
+  reportedAt = state.time
+  reportPlayhead()
 }
 
 /** Start playback (from the start when at the end of a complete recording). */
@@ -364,6 +539,7 @@ export function play() {
   if (state.frame >= rec.frameCount - 1 && rec.completed !== false && !state.computing) setFrame(0)
   state.playing = true
   lastWall = performance.now()
+  reportPlayhead()
   cancelAnimationFrame(rafId)
   const tick = (now: number) => {
     if (!state.playing || !state.recording) return
@@ -373,10 +549,13 @@ export function play() {
     const tMax = (r.frameCount - 1) * r.dt
     let t = state.time + dtWall * state.speed
     if (t >= tMax) {
-      if (state.computing) t = tMax // Progressive run: wait for more frames
-      else if (state.loop) t = 0
-      else { setTime(tMax, now, true); state.playing = false; return }
-    }
+      if (state.computing) {
+        // Progressive run: wait for more frames
+        t = tMax
+        if (!state.buffering) state.buffering = true
+      } else if (state.loop) t = 0
+      else { setTime(tMax, now, true); state.playing = false; state.buffering = false; return }
+    } else if (state.buffering) state.buffering = false
     setTime(t, now, false)
     rafId = requestAnimationFrame(tick)
   }
@@ -386,8 +565,10 @@ export function play() {
 /** Stop playback; the panels catch up with the frame shown. */
 export function pause() {
   state.playing = false
+  state.buffering = false
   cancelAnimationFrame(rafId)
   state.panelFrame = state.frame
+  reportPlayhead()
 }
 
 /** Show recorded frame k. */

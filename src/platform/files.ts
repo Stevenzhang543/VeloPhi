@@ -3,6 +3,7 @@
  * used; in a browser the File System Access API when available, otherwise an <input type=file> and a
  * download link. Nothing is uploaded anywhere.
  */
+import { tl } from '../i18n'
 /** Running inside the Tauri desktop app. */
 export const isDesktop = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
 
@@ -95,4 +96,5 @@ export function mimeOf(name: string): string {
 }
 
 /** File filter of scene files. */
-export const SCENE_FILTER: FileFilter[] = [{ name: 'Verity 场景', extensions: ['json'] }]
+/** File type of scene files (its name in the current language). */
+export function sceneFilter(): FileFilter[] { return [{ name: tl('Verity 场景'), extensions: ['json'] }] }

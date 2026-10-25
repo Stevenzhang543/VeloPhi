@@ -2,6 +2,8 @@
  * Compiled model: the scene turned into what the solver needs (mass properties, local geometry, resolved
  * connectors, pair materials). Pure function of the scene; the scene is not modified.
  */
+import type { Message } from '../../i18n/message'
+import { msg } from '../../i18n/message'
 import type { BodyDef, Material, Scene, SceneSettings, ShapeDef } from '../scene/types'
 import type { Vec2 } from '../math/vec'
 import { cross, dot, length, sub } from '../math/vec'
@@ -117,7 +119,7 @@ export interface Model {
   /** Typical acceleration scale (m/s²) for tolerances. */
   accelScale: number
   /** Warnings found while compiling. */
-  warnings: string[]
+  warnings: Message[]
 }
 
 /** Order-independent key of a body pair. */
@@ -159,14 +161,14 @@ export function shapeInertia(shape: ShapeDef, mass: number): number {
   return den === 0 ? 0 : mass * num / (6 * den)
 }
 
-function compileShape(shape: ShapeDef, dynamic: boolean, warnings: string[], name: string): ShapeModel {
+function compileShape(shape: ShapeDef, dynamic: boolean, warnings: Message[], name: string): ShapeModel {
   if (shape.type === 'circle') return { kind: 'circle', radius: shape.radius }
   let verts = shape.type === 'box' ? boxPolygon(shape.width, shape.height) : shape.points.map(p => ({ x: p.x, y: p.y }))
   if (polygonArea(verts) < 0) verts = verts.slice().reverse()
   if (dynamic && shape.type === 'polygon') {
     const c = polygonCentroid(verts)
     if (Math.abs(c.x) > 1e-12 || Math.abs(c.y) > 1e-12) {
-      warnings.push(`${name}: polygon points are taken relative to its centre of mass`)
+      warnings.push(msg('warn.polygonCentred', { body: name }))
       verts = verts.map(p => sub(p, c))
     }
   }
@@ -188,7 +190,7 @@ function boundRadius(shape: ShapeModel): number {
 
 /** Compile a scene into the solver model. */
 export function compileModel(scene: Scene): Model {
-  const warnings: string[] = []
+  const warnings: Message[] = []
   const bodies: BodyModel[] = []
   const dynamic: BodyModel[] = []
   const byId = new Map<string, BodyModel>()
@@ -207,7 +209,7 @@ export function compileModel(scene: Scene): Model {
       bound: boundRadius(shape), staticPos: { x: def.position.x, y: def.position.y }, staticAngle: def.angle,
       staticC: cos(def.angle), staticS: sin(def.angle)
     }
-    if (def.material.muS < def.material.muK) warnings.push(`${def.name}: μs < μk`)
+    if (def.material.muS < def.material.muK) warnings.push(msg('warn.muSBelowMuK', { body: def.name }))
     bodies.push(model)
     if (isDynamic) dynamic.push(model)
     byId.set(def.id, model)

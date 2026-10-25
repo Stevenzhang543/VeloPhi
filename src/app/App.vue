@@ -5,6 +5,7 @@
  * pages and hidden tabs get `active = false` and stop following playback. The monitor and settings pages are
  * mounted on first use or when the browser is idle after startup, whichever comes first.
  */
+import { locale, tl } from '../i18n'
 import { computed, onBeforeUnmount, onMounted, provide, reactive, ref, watch } from 'vue'
 import { state, undo, redo, runSimulation, play, pause, seekFrame, edit } from './store'
 import type { Page } from './store'
@@ -30,6 +31,7 @@ import PredictionPanel from './components/PredictionPanel.vue'
 import { editor } from './editor/editorState'
 import MonitorPage from './components/MonitorPage.vue'
 import SettingsPage from './components/SettingsPage.vue'
+import DetailPanel from './components/DetailPanel.vue'
 import { isDesktop } from '../platform/files'
 import { PAGE_ACTIVE } from './live'
 import { settings } from './settings'
@@ -122,7 +124,7 @@ onMounted(async () => {
   const { ask } = await import('@tauri-apps/plugin-dialog')
   unlistenClose = await getCurrentWindow().onCloseRequested(async e => {
     if (!state.dirty) return
-    const leave = await ask('当前场景有未保存的修改，确定退出吗？', { title: 'Verity', kind: 'warning', okLabel: '退出', cancelLabel: '取消' })
+    const leave = await ask(tl('当前场景有未保存的修改，确定退出吗？'), { title: 'Verity', kind: 'warning', okLabel: tl('退出'), cancelLabel: tl('取消') })
     if (!leave) e.preventDefault()
   })
 })
@@ -143,14 +145,15 @@ function dragSplit(kind: 'bottom' | 'right', e: MouseEvent) {
   window.addEventListener('mouseup', up)
 }
 
-const RIGHT_TABS: Array<{ id: typeof state.rightTab; label: string }> = [
-  { id: 'formula', label: '公式对照' }, { id: 'inspect', label: '属性' }, { id: 'watch', label: '监视' }, { id: 'predict', label: '预测' }, { id: 'settings', label: '场景' }
-]
+/** Labels are computed so that a language change relabels them (App itself is not remounted). */
+const RIGHT_TABS = computed((): Array<{ id: typeof state.rightTab; label: string }> => [
+  { id: 'formula', label: tl('公式对照') }, { id: 'inspect', label: tl('属性') }, { id: 'watch', label: tl('监视') }, { id: 'predict', label: tl('预测') }, { id: 'settings', label: tl('场景') }
+])
 </script>
 
 <template>
   <div class="ambient" aria-hidden="true"><i /><i /><i /><i /></div>
-  <div class="app" :style="{ '--bottom-h': `${bottomHeight}px`, '--right-w': `${rightWidth}px` }">
+  <div :key="locale.lang" class="app" :style="{ '--bottom-h': `${bottomHeight}px`, '--right-w': `${rightWidth}px` }">
     <TopBar class="top" />
     <div class="pages">
         <div class="page page-studio" :class="pageClass('studio')" :inert="!studioOn">
@@ -161,7 +164,7 @@ const RIGHT_TABS: Array<{ id: typeof state.rightTab; label: string }> = [
             <section class="pane bottom">
               <Timeline :active="studioOn" />
               <div class="bottom-tabs">
-                <div class="tabs"><button :class="{ on: state.bottomTab === 'chart' }" @click="state.bottomTab = 'chart'">曲线</button><button :class="{ on: state.bottomTab === 'events' }" @click="state.bottomTab = 'events'">事件</button></div>
+                <div class="tabs"><button :class="{ on: state.bottomTab === 'chart' }" @click="state.bottomTab = 'chart'">{{ tl('曲线') }}</button><button :class="{ on: state.bottomTab === 'events' }" @click="state.bottomTab = 'events'">{{ tl('事件') }}</button></div>
               </div>
               <div class="bottom-body">
                 <ChartPanel :class="tabClass(state.bottomTab === 'chart')" :inert="state.bottomTab !== 'chart'" :active="studioOn && state.bottomTab === 'chart'" />
@@ -187,6 +190,7 @@ const RIGHT_TABS: Array<{ id: typeof state.rightTab; label: string }> = [
         </div>
         <MonitorPage v-if="mounted.monitor" class="page" :class="pageClass('monitor')" :inert="state.page !== 'monitor'" :active="state.page === 'monitor'" />
         <SettingsPage v-if="mounted.settings" class="page" :class="pageClass('settings')" :inert="state.page !== 'settings'" :active="state.page === 'settings'" />
+        <DetailPanel />
     </div>
     <TemplateGallery v-if="state.showTemplates" />
     <ExportDialog v-if="state.showExport && state.recording" />

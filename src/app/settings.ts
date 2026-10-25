@@ -26,7 +26,16 @@ export interface DisplayOptions {
   grid: boolean
   axes: boolean
   names: boolean
+  /** Stroboscopic picture (D33): images every `strobeInterval` s, `strobeCount` of them. */
+  strobe: boolean
+  strobeInterval: number
+  strobeCount: number
+  strobeOpacity: number
+  strobeLabels: boolean
 }
+
+/** The on/off overlays of DisplayOptions (the numeric fields are their parameters). */
+export type DisplayToggle = { [K in keyof DisplayOptions]: DisplayOptions[K] extends boolean ? K : never }[keyof DisplayOptions]
 
 /** Visual effect preferences. */
 export interface EffectSettings {
@@ -66,8 +75,14 @@ export interface SimSettings {
   worker: boolean
   /** Start playback while the rest of the recording is still being computed. */
   progressive: boolean
-  /** Wall-clock budget per run (s); the part computed so far is kept. */
+  /** Wall-clock budget per bounded run (s); the part computed so far is kept. */
   budgetSeconds: number
+  /** How far an unbounded run computes ahead of the playhead (s of simulated time; at least 3 s × playback rate). */
+  lookAheadSeconds: number
+  /** Memory for the frames of a recording (MiB); older chunks beyond it are recomputed when needed. */
+  memoryMB: number
+  /** Solver engine: Rust/WASM when it loads (auto), or the TypeScript engine (identical results, slower). */
+  engine: 'auto' | 'ts'
 }
 
 /** Export defaults. */
@@ -86,6 +101,8 @@ export interface ExportSettings {
 
 /** All preferences. */
 export interface AppSettings {
+  /** Interface language (D27): 'auto' follows the system. Never stored in scene files. */
+  language: 'auto' | 'zh' | 'en' | 'de'
   themeMode: ThemeMode
   /** Projector mode: larger type, thicker lines, high contrast. */
   projector: boolean
@@ -114,6 +131,7 @@ export interface AppSettings {
 function defaults(): AppSettings {
   return {
     // Light is the default: classrooms project on white boards
+    language: 'auto',
     themeMode: 'light',
     projector: false,
     uiScale: 1,
@@ -121,11 +139,11 @@ function defaults(): AppSettings {
     unitPreset: 'si',
     units: defaultChoice(),
     digits: 4,
-    display: { velocity: true, acceleration: false, forces: true, forcesAll: false, trajectory: true, labels: true, grid: true, axes: true, names: true },
+    display: { velocity: true, acceleration: false, forces: true, forcesAll: false, trajectory: true, labels: true, grid: true, axes: true, names: true, strobe: false, strobeInterval: 0.1, strobeCount: 10, strobeOpacity: 0.55, strobeLabels: false },
     defaultGravity: 9.8,
     effects: { quality: 'standard', glass: true, ambient: true, motionBlur: true, shutter: 0.5, particles: true, trails: false, trailSeconds: 0.6, respectReducedMotion: true },
     editor: { snap: true, snapStep: 0, angleSnap: 15 },
-    sim: { worker: true, progressive: true, budgetSeconds: 60 },
+    sim: { worker: true, progressive: true, budgetSeconds: 60, lookAheadSeconds: 20, memoryMB: 512, engine: 'auto' },
     export: { fps: 60, scale: 1, bitrate: 0, csvSeparator: ',', csvDecimal: '.', imageBackground: 'theme' },
     trialLog: false
   }
@@ -136,7 +154,7 @@ export const settings = reactive<AppSettings>(defaults())
 
 /** Settings page sections and the keys each one resets. */
 export const SETTINGS_SECTIONS = {
-  general: ['themeMode', 'uiScale', 'autoRun', 'defaultGravity'],
+  general: ['language', 'themeMode', 'uiScale', 'autoRun', 'defaultGravity'],
   units: ['unitPreset', 'units', 'digits'],
   display: ['display', 'projector'],
   effects: ['effects'],
@@ -257,6 +275,7 @@ const clamp = (v: number, lo: number, hi: number, fallback: number) => (Number.i
 /** Keep stored values inside their valid ranges (hand-edited or older files). */
 function sanitize() {
   const d = defaults()
+  if (!['auto', 'zh', 'en', 'de'].includes(settings.language)) settings.language = d.language
   if (!['system', 'light', 'dark'].includes(settings.themeMode)) settings.themeMode = d.themeMode
   settings.uiScale = clamp(settings.uiScale, 0.85, 1.4, 1)
   settings.digits = Math.round(clamp(settings.digits, 3, 12, d.digits))
@@ -267,6 +286,8 @@ function sanitize() {
   settings.editor.snapStep = clamp(settings.editor.snapStep, 0, 100, 0)
   settings.editor.angleSnap = clamp(settings.editor.angleSnap, 0, 90, d.editor.angleSnap)
   settings.sim.budgetSeconds = clamp(settings.sim.budgetSeconds, 1, 600, d.sim.budgetSeconds)
+  settings.sim.lookAheadSeconds = clamp(settings.sim.lookAheadSeconds, 2, 600, d.sim.lookAheadSeconds)
+  settings.sim.memoryMB = clamp(settings.sim.memoryMB, 16, 8192, d.sim.memoryMB)
   settings.export.fps = clamp(settings.export.fps, 1, 240, d.export.fps)
   settings.export.scale = clamp(settings.export.scale, 0.5, 4, d.export.scale)
   settings.export.bitrate = clamp(settings.export.bitrate, 0, 2e8, 0)

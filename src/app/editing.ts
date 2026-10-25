@@ -3,6 +3,7 @@
  * onto the surface under the cursor), creating connectors, deleting and duplicating. Drag-to-create, handles,
  * annotations and the context-menu commands build on these in `./editor/`.
  */
+import { tl } from '../i18n'
 import type { BodyDef, ConnectorDef, Scene } from '../core/scene/types'
 import { addBody, addGround, addIncline, addPulley, nextId } from '../core/scene/build'
 import type { System } from '../core/solver/dynamics'
@@ -100,38 +101,38 @@ export function placeObject(scene: Scene, sys: System, poses: Pose[], tool: Tool
   switch (tool) {
     case 'add-ball': {
       const r = 0.08, at = onSurface(r)
-      return addBody(scene, { name: nextName(scene, '小球'), kind: 'particle', role: 'ball', shape: { type: 'circle', radius: r }, position: { x: at.x, y: at.y }, mass: 0.5, material: { ...DYN_MATERIAL, restitution: 0.6 } }).id
+      return addBody(scene, { name: nextName(scene, tl('小球')), kind: 'particle', role: 'ball', shape: { type: 'circle', radius: r }, position: { x: at.x, y: at.y }, mass: 0.5, material: { ...DYN_MATERIAL, restitution: 0.6 } }).id
     }
     case 'add-block': {
       const w = 0.3, h = 0.2, at = onSurface(h / 2)
-      return addBody(scene, { name: nextName(scene, '物块'), role: 'block', shape: { type: 'box', width: w, height: h }, position: { x: at.x, y: at.y }, angle: at.angle, mass: 1, material: DYN_MATERIAL }).id
+      return addBody(scene, { name: nextName(scene, tl('物块')), role: 'block', shape: { type: 'box', width: w, height: h }, position: { x: at.x, y: at.y }, angle: at.angle, mass: 1, material: DYN_MATERIAL }).id
     }
     case 'add-disc': {
       const r = 0.15, at = onSurface(r)
-      return addBody(scene, { name: nextName(scene, '圆柱'), role: 'wheel', shape: { type: 'circle', radius: r }, position: { x: at.x, y: at.y }, mass: 1, material: DYN_MATERIAL }).id
+      return addBody(scene, { name: nextName(scene, tl('圆柱')), role: 'wheel', shape: { type: 'circle', radius: r }, position: { x: at.x, y: at.y }, mass: 1, material: DYN_MATERIAL }).id
     }
     case 'add-wedge': {
       // Right-angled wedge (30°), a dynamic polygon; points are shifted to its centre of mass when compiled
       const base = 0.6, h = base * Math.tan(Math.PI / 6)
       const at = onSurface(h / 3)
       const pts = [{ x: -base / 3, y: -h / 3 }, { x: (2 * base) / 3, y: -h / 3 }, { x: -base / 3, y: (2 * h) / 3 }]
-      return addBody(scene, { name: nextName(scene, '楔块'), role: 'generic', shape: { type: 'polygon', points: pts }, position: { x: at.x, y: at.y }, angle: at.angle, mass: 2, material: DYN_MATERIAL }).id
+      return addBody(scene, { name: nextName(scene, tl('楔块')), role: 'generic', shape: { type: 'polygon', points: pts }, position: { x: at.x, y: at.y }, angle: at.angle, mass: 2, material: DYN_MATERIAL }).id
     }
     case 'add-ground':
-      return addGround(scene, { name: nextName(scene, '地面'), top: p.y, left: p.x - 4, right: p.x + 4, material: STATIC_MATERIAL }).id
+      return addGround(scene, { name: nextName(scene, tl('地面')), top: p.y, left: p.x - 4, right: p.x + 4, material: STATIC_MATERIAL }).id
     case 'add-incline':
-      return addIncline(scene, { name: nextName(scene, '斜面'), angle: Math.PI / 6, base: 3, x0: p.x, y0: p.y, material: STATIC_MATERIAL }).id
+      return addIncline(scene, { name: nextName(scene, tl('斜面')), angle: Math.PI / 6, base: 3, x0: p.x, y0: p.y, material: STATIC_MATERIAL }).id
     case 'add-wall':
-      return addBody(scene, { name: nextName(scene, '墙'), kind: 'static', role: 'wall', shape: { type: 'box', width: 0.2, height: 2 }, position: { x: p.x, y: p.y + 1 }, material: STATIC_MATERIAL }).id
+      return addBody(scene, { name: nextName(scene, tl('墙')), kind: 'static', role: 'wall', shape: { type: 'box', width: 0.2, height: 2 }, position: { x: p.x, y: p.y + 1 }, material: STATIC_MATERIAL }).id
     case 'add-conveyor':
-      return addGround(scene, { name: nextName(scene, '传送带'), role: 'conveyor', top: p.y, left: p.x - 2, right: p.x + 2, thickness: 0.3, beltSpeed: 2, material: STATIC_MATERIAL }).id
+      return addGround(scene, { name: nextName(scene, tl('传送带')), role: 'conveyor', top: p.y, left: p.x - 2, right: p.x + 2, thickness: 0.3, beltSpeed: 2, material: STATIC_MATERIAL }).id
     case 'add-pulley':
-      return addPulley(scene, { name: nextName(scene, '滑轮'), position: { x: p.x, y: p.y }, radius: 0.05 }).id
+      return addPulley(scene, { name: nextName(scene, tl('滑轮')), position: { x: p.x, y: p.y }, radius: 0.05 }).id
     case 'add-polygon': {
       // Regular pentagon, a dynamic polygon about its centre of mass
       const r = 0.15, at = onSurface(r * Math.cos(Math.PI / 5))
       const pts = Array.from({ length: 5 }, (_, i) => ({ x: r * Math.cos(-Math.PI / 2 + Math.PI / 5 + (2 * Math.PI * i) / 5), y: r * Math.sin(-Math.PI / 2 + Math.PI / 5 + (2 * Math.PI * i) / 5) }))
-      return addBody(scene, { name: nextName(scene, '多边形'), role: 'generic', shape: { type: 'polygon', points: pts }, position: { x: at.x, y: at.y }, angle: at.angle, mass: 1, material: DYN_MATERIAL, color: '#0d9488' }).id
+      return addBody(scene, { name: nextName(scene, tl('多边形')), role: 'generic', shape: { type: 'polygon', points: pts }, position: { x: at.x, y: at.y }, angle: at.angle, mass: 1, material: DYN_MATERIAL, color: '#0d9488' }).id
     }
   }
   return null
@@ -160,9 +161,9 @@ export function createConnector(scene: Scene, tool: Tool, a: { body: string | nu
   const name = (base: string) => { const used = new Set(scene.connectors.map(c => c.name)); let k = 1; while (used.has(`${base}${k}`)) k++; return `${base}${k}` }
   let c: ConnectorDef
   const A = { body: a.body, local: { ...a.local } }, B = { body: b.body, local: { ...b.local } }
-  if (tool === 'connect-rope') c = { id: nextId(scene, 'c'), name: name('绳'), type: 'rope', a: A, b: B, pulleys, length: null }
-  else if (tool === 'connect-rod') c = { id: nextId(scene, 'c'), name: name('轻杆'), type: 'rod', a: A, b: B, length: null }
-  else if (tool === 'connect-spring') c = { id: nextId(scene, 'c'), name: name('弹簧'), type: 'spring', a: A, b: B, stiffness: 50, restLength: null, damping: 0 }
+  if (tool === 'connect-rope') c = { id: nextId(scene, 'c'), name: name(tl('绳')), type: 'rope', a: A, b: B, pulleys, length: null }
+  else if (tool === 'connect-rod') c = { id: nextId(scene, 'c'), name: name(tl('轻杆')), type: 'rod', a: A, b: B, length: null }
+  else if (tool === 'connect-spring') c = { id: nextId(scene, 'c'), name: name(tl('弹簧')), type: 'spring', a: A, b: B, stiffness: 50, restLength: null, damping: 0 }
   else return null
   scene.connectors.push(c)
   return c.id
@@ -175,8 +176,8 @@ export function createHinge(scene: Scene, sys: System, poses: Pose[], p: Pt): st
   const first = dyn[0]
   const local = (b: BodyModel) => { const ps = poses[b.global]; const dx = p.x - ps.x, dy = p.y - ps.y; return { x: ps.c * dx + ps.s * dy, y: -ps.s * dx + ps.c * dy } }
   const second = dyn[1] ?? null
-  const used = new Set(scene.connectors.map(c => c.name)); let k = 1; while (used.has(`铰链${k}`)) k++
-  const c: ConnectorDef = { id: nextId(scene, 'c'), name: `铰链${k}`, type: 'hinge', a: { body: first.id, local: local(first) }, b: second ? { body: second.id, local: local(second) } : { body: null, local: { x: p.x, y: p.y } } }
+  const used = new Set(scene.connectors.map(c => c.name)); let k = 1; while (used.has(tl('铰链{0}', [k]))) k++
+  const c: ConnectorDef = { id: nextId(scene, 'c'), name: tl('铰链{0}', [k]), type: 'hinge', a: { body: first.id, local: local(first) }, b: second ? { body: second.id, local: local(second) } : { body: null, local: { x: p.x, y: p.y } } }
   scene.connectors.push(c)
   return c.id
 }
@@ -188,8 +189,8 @@ export function createForce(scene: Scene, sys: System, poses: Pose[], p: Pt): st
   const ps = poses[b.global]
   const dx = p.x - ps.x, dy = p.y - ps.y
   const near = Math.hypot(dx, dy) < 0.05
-  const used = new Set(scene.connectors.map(c => c.name)); let k = 1; while (used.has(`拉力${k}`)) k++
-  const c: ConnectorDef = { id: nextId(scene, 'f'), name: `拉力${k}`, type: 'force', a: { body: b.id, local: near ? { x: 0, y: 0 } : { x: ps.c * dx + ps.s * dy, y: -ps.s * dx + ps.c * dy } }, force: { x: 5, y: 0 } }
+  const used = new Set(scene.connectors.map(c => c.name)); let k = 1; while (used.has(tl('拉力{0}', [k]))) k++
+  const c: ConnectorDef = { id: nextId(scene, 'f'), name: tl('拉力{0}', [k]), type: 'force', a: { body: b.id, local: near ? { x: 0, y: 0 } : { x: ps.c * dx + ps.s * dy, y: -ps.s * dx + ps.c * dy } }, force: { x: 5, y: 0 } }
   scene.connectors.push(c)
   return c.id
 }
@@ -226,7 +227,7 @@ export function duplicateBody(scene: Scene, id: string): string | null {
   copy.name = nextName(scene, b.name.replace(/\d+$/, ''))
   copy.position = { x: b.position.x + 0.4, y: b.position.y }
   scene.bodies.push(copy)
-  for (const p of scene.pulleys.filter(q => q.body === id)) scene.pulleys.push({ ...JSON.parse(JSON.stringify(p)), id: nextId(scene, 'p'), name: nextName(scene, p.name.replace(/\d+$/, '') || '滑轮'), body: copy.id })
+  for (const p of scene.pulleys.filter(q => q.body === id)) scene.pulleys.push({ ...JSON.parse(JSON.stringify(p)), id: nextId(scene, 'p'), name: nextName(scene, p.name.replace(/\d+$/, '') || tl('滑轮')), body: copy.id })
   return copy.id
 }
 

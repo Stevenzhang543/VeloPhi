@@ -5,6 +5,7 @@
  * a new kind of situation needs a recognizer (situations.ts). Expressions are checked for dimensions in the
  * tests.
  */
+import { trDeep } from '../i18n'
 /** One formula of the library. */
 export interface FormulaDef {
   id: string
@@ -39,7 +40,7 @@ export interface FormulaDef {
 const NUM = ['数值积分误差（可减小时间步长或容差）']
 
 /** All formulas, grouped by situation. */
-export const FORMULAS: FormulaDef[] = [
+export const FORMULAS: FormulaDef[] = trDeep([
   // ---- Incline (static incline or inclined belt) ----
   { id: 'incline.a.down', situation: 'incline', title: '沿斜面的加速度（相对斜面向下滑）', latex: 'a = g(\\sin\\theta - \\mu_k\\cos\\theta)', lhs: 'a', expr: 'g*(sin(theta) - muK*cos(theta))', unit: 'm/s²', measure: 'a', kind: 'exact', requires: ['slideDown'], note: '沿斜面向下为正', causes: NUM },
   { id: 'incline.a.up', situation: 'incline', title: '沿斜面的加速度（相对斜面向上滑）', latex: 'a = g(\\sin\\theta + \\mu_k\\cos\\theta)', lhs: 'a', expr: 'g*(sin(theta) + muK*cos(theta))', unit: 'm/s²', measure: 'a', kind: 'exact', requires: ['slideUp'], note: '沿斜面向下为正；摩擦力沿斜面向下', causes: NUM },
@@ -49,7 +50,7 @@ export const FORMULAS: FormulaDef[] = [
   { id: 'incline.f.static', situation: 'incline', title: '静摩擦力（平衡）', latex: 'f = mg\\sin\\theta', lhs: 'f', expr: 'm*g*sin(theta)', unit: 'N', measure: 'f', kind: 'exact', requires: ['stick', 'staticHolds'] },
   { id: 'incline.v', situation: 'incline', title: '速度—时间关系', latex: 'v = v_0 + at', lhs: 'v', expr: 'v0 + a*t', unit: 'm/s', measure: 'v', kind: 'exact', requires: ['sliding'], note: 'a 取上面的理论值；v 沿斜面向下为正' },
   { id: 'incline.s', situation: 'incline', title: '位移—时间关系', latex: 's = v_0t + \\tfrac{1}{2}at^2', lhs: 's', expr: 'v0*t + a*t^2/2', unit: 'm', measure: 's', kind: 'exact', requires: ['sliding'] },
-  { id: 'incline.t.common', situation: 'incline', title: '达到共速所需时间（传送带）', latex: 't_1 = \\dfrac{|u - v_0|}{a}', lhs: 't_1', expr: 'abs(u - v0)/abs(a)', unit: 's', measure: 'tEnd', kind: 'exact', requires: ['belt', 'sliding', 'endsAtCommon'] },
+  { id: 'incline.t.common', situation: 'incline', title: '达到共速所需时间（传送带）', latex: 't_1 = \\dfrac{|u - v_0|}{|a|}', lhs: 't_1', expr: 'abs(u - v0)/abs(a)', unit: 's', measure: 'tEnd', kind: 'exact', requires: ['belt', 'sliding', 'endsAtCommon'] },
 
   // ---- Horizontal surface (ground or belt) ----
   { id: 'flat.a', situation: 'flat', title: '滑动时的加速度大小', latex: 'a = \\mu_k g', lhs: 'a', expr: 'muK*g', unit: 'm/s²', measure: 'aMag', kind: 'exact', requires: ['sliding'] },
@@ -59,7 +60,7 @@ export const FORMULAS: FormulaDef[] = [
   { id: 'flat.x', situation: 'flat', title: '滑动阶段物块的位移', latex: 'x_1 = \\dfrac{|u^2 - v_0^2|}{2\\mu_k g}', lhs: 'x_1', expr: 'abs(u^2 - v0^2)/(2*muK*g)', unit: 'm', measure: 'xEnd', kind: 'exact', requires: ['sliding', 'endsAtRest', 'onlyGravity'] },
   { id: 'flat.ds', situation: 'flat', title: '相对滑动距离', latex: '\\Delta s = \\dfrac{(u - v_0)^2}{2\\mu_k g}', lhs: '\\Delta s', expr: '(u - v0)^2/(2*muK*g)', unit: 'm', measure: 'slideEnd', kind: 'exact', requires: ['sliding', 'endsAtRest', 'onlyGravity'] },
   { id: 'flat.Q', situation: 'flat', title: '摩擦生热', latex: 'Q = \\mu_k mg\\,\\Delta s', lhs: 'Q', expr: 'muK*m*g*(u - v0)^2/(2*muK*g)', unit: 'J', measure: 'heatEnd', kind: 'exact', requires: ['sliding', 'endsAtRest', 'onlyGravity'] },
-  { id: 'flat.W', situation: 'flat', title: '传送带电机多做的功', latex: 'W = \\mu_k mg\\,u\\,t_1', lhs: 'W', expr: 'muK*m*g*u*abs(u - v0)/(muK*g)', unit: 'J', measure: 'beltEnd', kind: 'exact', requires: ['belt', 'sliding', 'endsAtRest', 'onlyGravity'] },
+  { id: 'flat.W', situation: 'flat', title: '传送带电机多做的功', latex: 'W = \\mu_k mg\\,u\\,t_1\\,\\mathrm{sgn}(u - v_0) = mu(u - v_0)', lhs: 'W', expr: 'muK*m*g*u*(u - v0)/(muK*g)', unit: 'J', measure: 'beltEnd', kind: 'exact', requires: ['belt', 'sliding', 'endsAtRest', 'onlyGravity'] },
 
   // ---- Board and block ----
   { id: 'bb.a1', situation: 'board-block', title: '物块的加速度大小', latex: 'a_1 = \\mu_1 g', lhs: 'a_1', expr: 'mu1*g', unit: 'm/s²', measure: 'a1', kind: 'exact', method: '隔离物块' },
@@ -131,8 +132,8 @@ export const FORMULAS: FormulaDef[] = [
   { id: 'vc.r.T0', situation: 'vcircle-rope', title: '最低点绳的拉力', latex: 'F_T = mg + \\dfrac{mv_0^2}{L}', lhs: 'F_T', expr: 'm*g + m*v0^2/L', unit: 'N', measure: 'TBottom', kind: 'exact', requires: ['atBottom'], causes: NUM },
   { id: 'vc.r.vtop', situation: 'vcircle-rope', title: '最高点速率（机械能守恒）', latex: 'v_{\\text{top}} = \\sqrt{v_0^2 - 4gL}', lhs: 'v_{\\text{top}}', expr: 'sqrt(v0^2 - 4*g*L)', unit: 'm/s', measure: 'vTop', kind: 'exact', requires: ['fullCircle', 'reachesTop'] },
   { id: 'vc.r.Ttop', situation: 'vcircle-rope', title: '最高点绳的拉力', latex: 'F_T = \\dfrac{mv_{\\text{top}}^2}{L} - mg = \\dfrac{m(v_0^2 - 5gL)}{L}', lhs: 'F_T', expr: 'm*(v0^2 - 5*g*L)/L', unit: 'N', measure: 'TTop', kind: 'exact', requires: ['fullCircle', 'reachesTop'], note: '最高点速率等于临界速度 √(gL) 时拉力为零' },
-  { id: 'vc.r.crit', situation: 'vcircle-rope', title: '恰能通过最高点的最低点速度', latex: 'v_0 = \\sqrt{5gL}\\quad(\\text{此时最高点 } v = \\sqrt{gL})', lhs: 'v_0', expr: 'sqrt(5*g*L)', unit: 'm/s', measure: 'v0crit', kind: 'exact', note: '最高点的临界条件：只有重力提供向心力，mg = mv²/L，即 v = √(gL)' },
-  { id: 'vc.r.slackv', situation: 'vcircle-rope', title: '绳恰好松弛的条件', latex: 'v^2 = -gL\\cos\\varphi_s\\quad(\\varphi_s = \\pi \\text{ 时即 } v = \\sqrt{gL})', lhs: 'v', expr: 'sqrt(-g*L*cos(phiS))', unit: 'm/s', measure: 'vSlack', kind: 'exact', requires: ['slack'], note: 'φ_s 取仿真中绳松弛处的位置角（自最低点量起）' },
+  { id: 'vc.r.crit', situation: 'vcircle-rope', title: '恰能通过最高点的最低点速度', latex: 'v_0 = \\sqrt{5gL}\\quad(v_{\\mathrm{top}} = \\sqrt{gL})', lhs: 'v_0', expr: 'sqrt(5*g*L)', unit: 'm/s', measure: 'v0crit', kind: 'exact', note: '最高点的临界条件：只有重力提供向心力，mg = mv²/L，即 v = √(gL)' },
+  { id: 'vc.r.slackv', situation: 'vcircle-rope', title: '绳恰好松弛的条件', latex: 'v^2 = -gL\\cos\\varphi_s\\quad(\\varphi_s = \\pi:\\ v = \\sqrt{gL})', lhs: 'v', expr: 'sqrt(-g*L*cos(phiS))', unit: 'm/s', measure: 'vSlack', kind: 'exact', requires: ['slack'], note: 'φ_s 取仿真中绳松弛处的位置角（自最低点量起）' },
   { id: 'vc.r.phiS', situation: 'vcircle-rope', title: '绳松弛处的位置角', latex: '\\cos\\varphi_s = \\dfrac{2gL - v_0^2}{3gL}', lhs: '\\varphi_s', expr: 'acos((2*g*L - v0^2)/(3*g*L))', unit: 'rad', measure: 'phiSlack', kind: 'exact', requires: ['slack'], note: '位置角自最低点沿运动方向量起' },
   { id: 'vc.r.hS', situation: 'vcircle-rope', title: '松弛点高出圆心的高度', latex: 'h = \\dfrac{v_0^2 - 2gL}{3g}', lhs: 'h', expr: '(v0^2 - 2*g*L)/(3*g)', unit: 'm', measure: 'hSlack', kind: 'exact', requires: ['slack'] },
   { id: 'vc.r.vS', situation: 'vcircle-rope', title: '绳松弛时小球的速率', latex: 'v_s = \\sqrt{\\dfrac{v_0^2 - 2gL}{3}}', lhs: 'v_s', expr: 'sqrt((v0^2 - 2*g*L)/3)', unit: 'm/s', measure: 'vSlack', kind: 'exact', requires: ['slack'] },
@@ -142,7 +143,7 @@ export const FORMULAS: FormulaDef[] = [
   { id: 'vc.d.F0', situation: 'vcircle-rod', title: '最低点杆的拉力', latex: 'F = mg + \\dfrac{mv_0^2}{L}', lhs: 'F', expr: 'm*g + m*v0^2/L', unit: 'N', measure: 'FBottom', kind: 'exact', requires: ['atBottom'] },
   { id: 'vc.d.vtop', situation: 'vcircle-rod', title: '最高点速率（机械能守恒）', latex: 'v_{\\text{top}} = \\sqrt{v_0^2 - 4gL}', lhs: 'v_{\\text{top}}', expr: 'sqrt(v0^2 - 4*g*L)', unit: 'm/s', measure: 'vTop', kind: 'exact', requires: ['reachesTop'] },
   { id: 'vc.d.Ftop', situation: 'vcircle-rod', title: '最高点杆对球的力（拉为正）', latex: 'F = \\dfrac{mv_{\\text{top}}^2}{L} - mg = \\dfrac{m(v_0^2 - 5gL)}{L}', lhs: 'F', expr: 'm*(v0^2 - 5*g*L)/L', unit: 'N', measure: 'FTop', kind: 'exact', requires: ['reachesTop'], note: 'F > 0 为拉力，F < 0 为支持力（推力）；v_top = √(gL) 时 F = 0' },
-  { id: 'vc.d.zero', situation: 'vcircle-rod', title: '杆力为零时的速率', latex: 'v^2 = -gL\\cos\\varphi\\quad(\\text{在最高点即 } v = \\sqrt{gL})', lhs: 'v', expr: 'sqrt(-g*L*cos(phiZ))', unit: 'm/s', measure: 'vZero', kind: 'exact', requires: ['forceZero'], note: 'φ 取仿真中杆力为零处的位置角' },
+  { id: 'vc.d.zero', situation: 'vcircle-rod', title: '杆力为零时的速率', latex: 'v^2 = -gL\\cos\\varphi\\quad(v_{\\mathrm{top}} = \\sqrt{gL})', lhs: 'v', expr: 'sqrt(-g*L*cos(phiZ))', unit: 'm/s', measure: 'vZero', kind: 'exact', requires: ['forceZero'], note: 'φ 取仿真中杆力为零处的位置角' },
 
   // ---- Movable pulley ----
   { id: 'mp.rel', situation: 'movable-pulley', title: '加速度关系（动滑轮）', latex: 'a_1 = 2a_2', lhs: 'a_1', expr: '2*a2sim', unit: 'm/s²', measure: 'a1', kind: 'exact', note: '物块1移动的距离是动滑轮移动距离的 2 倍；a₂ 取仿真值' },
@@ -154,7 +155,7 @@ export const FORMULAS: FormulaDef[] = [
 
   // ---- Movable wedge ----
   { id: 'wd.A', situation: 'wedge', title: '斜面的加速度', latex: 'A = \\dfrac{mg\\sin\\theta\\cos\\theta}{M + m\\sin^2\\theta}', lhs: 'A', expr: 'm*g*sin(theta)*cos(theta)/(M + m*sin(theta)^2)', unit: 'm/s²', measure: 'A', kind: 'exact', method: '隔离法（斜面参考系中物块受惯性力）' },
-  { id: 'wd.arel', situation: 'wedge', title: '物块相对斜面的加速度', latex: 'a_{\\text{相对}} = \\dfrac{(M + m)g\\sin\\theta}{M + m\\sin^2\\theta}', lhs: 'a_{\\text{相对}}', expr: '(M + m)*g*sin(theta)/(M + m*sin(theta)^2)', unit: 'm/s²', measure: 'arel', kind: 'exact' },
+  { id: 'wd.arel', situation: 'wedge', title: '物块相对斜面的加速度', latex: 'a_{\\mathrm{rel}} = \\dfrac{(M + m)g\\sin\\theta}{M + m\\sin^2\\theta}', lhs: 'a_{\\mathrm{rel}}', expr: '(M + m)*g*sin(theta)/(M + m*sin(theta)^2)', unit: 'm/s²', measure: 'arel', kind: 'exact' },
   { id: 'wd.N', situation: 'wedge', title: '斜面对物块的支持力', latex: 'N = \\dfrac{Mmg\\cos\\theta}{M + m\\sin^2\\theta}', lhs: 'N', expr: 'M*m*g*cos(theta)/(M + m*sin(theta)^2)', unit: 'N', measure: 'N', kind: 'exact', note: '小于固定斜面时的 mg cosθ' },
   { id: 'wd.px', situation: 'wedge', title: '水平方向动量守恒', latex: 'mv_{1x} + Mv_{2x} = p_{x0}', lhs: 'p_x', expr: 'p0x', unit: 'kg·m/s', measure: 'px', kind: 'exact', note: '地面光滑，系统水平方向不受外力' },
 
@@ -183,7 +184,7 @@ export const FORMULAS: FormulaDef[] = [
   { id: 'vf.sin.x', situation: 'var-force', title: 'F = F₀ sin ωt 时的位置', latex: 'x = x_0 + v_0\\tau + \\dfrac{F_0}{m\\omega}\\left[\\tau\\cos\\omega t_0 - \\dfrac{\\sin\\omega t - \\sin\\omega t_0}{\\omega}\\right],\\ \\tau = t - t_0', lhs: 'x', expr: 'x0 + v0*(t - t0) + F0/(m*omega)*((t - t0)*cos(omega*t0) - (sin(omega*t) - sin(omega*t0))/omega)', unit: 'm', measure: 'x', kind: 'exact', requires: ['sinusoid'] },
 
   // ---- Conservation laws ----
-  { id: 'en.ledger', situation: 'energy', title: '能量守恒（能量账本）', latex: 'E_k + E_p + E_s + Q + \\Delta E_{\\text{碰}} - W = E_0', lhs: 'E_{\\Sigma}', expr: 'E0', unit: 'J', measure: 'balance', kind: 'exact', note: 'Q 含摩擦生热与阻尼耗散；W 含外力与传送带电机做的功' },
+  { id: 'en.ledger', situation: 'energy', title: '能量守恒（能量账本）', latex: 'E_k + E_p + E_s + Q + \\Delta E_{\\mathrm{coll}} - W = E_0', lhs: 'E_{\\Sigma}', expr: 'E0', unit: 'J', measure: 'balance', kind: 'exact', note: 'Q 含摩擦生热与阻尼耗散；W 含外力与传送带电机做的功' },
   { id: 'mo.px', situation: 'momentum', title: '系统动量守恒（x 方向）', latex: 'p_x = p_{x0}', lhs: 'p_x', expr: 'p0x', unit: 'kg·m/s', measure: 'px', kind: 'exact' },
   { id: 'mo.py', situation: 'momentum', title: '系统动量守恒（y 方向）', latex: 'p_y = p_{y0}', lhs: 'p_y', expr: 'p0y', unit: 'kg·m/s', measure: 'py', kind: 'exact' }
-]
+])

@@ -7,9 +7,10 @@
  * width follows the output aspect ratio. Drawing happens in CSS-pixel units at a reference height of 720 px,
  * scaled to the output, so labels and strokes keep their on-screen proportions at any resolution.
  */
+import { tl } from '../i18n'
 import type { Recording } from '../core/solver/simulation'
 import type { AnnotationDef } from '../core/scene/types'
-import type { Camera, DrawOptions, Palette } from '../render/renderer'
+import type { Camera, DrawOptions, Palette, Trajectories } from '../render/renderer'
 import { LIGHT, computeTrajectories, vectorScales } from '../render/renderer'
 import type { FrameEffects, RenderStyle } from '../render/frame'
 import { renderFrame } from '../render/frame'
@@ -52,7 +53,7 @@ export interface StillOptions {
   style?: RenderStyle | null
   overlay?: OverlayText | null
   /** Precomputed per recording (optional; computed when absent). */
-  trajectories?: Map<string, Float64Array> | null
+  trajectories?: Trajectories | null
   scales?: { v: number; a: number; f: number }
 }
 
@@ -141,7 +142,7 @@ export function renderStill(rec: Recording, t: number, o: StillOptions): HTMLCan
   canvas.width = Math.max(2, Math.round(o.width))
   canvas.height = Math.max(2, Math.round(o.height))
   const ctx = canvas.getContext('2d')
-  if (!ctx) throw new Error('无法创建画布')
+  if (!ctx) throw new Error(tl('无法创建画布'))
   drawStill(ctx, rec, t, { ...o, width: canvas.width, height: canvas.height })
   return canvas
 }
@@ -149,7 +150,7 @@ export function renderStill(rec: Recording, t: number, o: StillOptions): HTMLCan
 /** PNG bytes of a canvas. */
 export async function canvasPng(canvas: HTMLCanvasElement): Promise<Uint8Array> {
   const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'))
-  if (!blob) throw new Error('PNG 编码失败')
+  if (!blob) throw new Error(tl('PNG 编码失败'))
   return new Uint8Array(await blob.arrayBuffer())
 }
 

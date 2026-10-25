@@ -12,11 +12,13 @@
  * function, so the integrator stops exactly where the expression jumps or has a kink. Evaluation uses the
  * deterministic math library only.
  */
+import { tl, trDeep } from '../../i18n'
 import type { Node } from '../../formula/expr'
 import { ExprError, FUNCS, dimName, inferDimension, parse } from '../../formula/expr'
 import type { Dim } from '../../formula/units'
 import { dimEqual, unitDim } from '../../formula/units'
 import * as dm from '../math/dmath'
+import { MessageError } from '../../i18n/message'
 
 /** Result of checkForceExpr. */
 export interface ForceExprCheck {
@@ -26,7 +28,7 @@ export interface ForceExprCheck {
 }
 
 /** Variables of force expressions, in the order of the evaluation environment. */
-export const FORCE_VARIABLES: ReadonlyArray<{ name: string; unit: string; label: string }> = [
+export const FORCE_VARIABLES: ReadonlyArray<{ name: string; unit: string; label: string }> = trDeep([
   { name: 't', unit: 's', label: '时间' },
   { name: 'x', unit: 'm', label: '受力物体质心的 x 坐标' },
   { name: 'y', unit: 'm', label: '受力物体质心的 y 坐标' },
@@ -37,7 +39,7 @@ export const FORCE_VARIABLES: ReadonlyArray<{ name: string; unit: string; label:
   { name: 'omega', unit: 'rad/s', label: '物体的角速度（逆时针为正）' },
   { name: 'm', unit: 'kg', label: '物体的质量' },
   { name: 'g', unit: 'm/s²', label: '重力加速度的大小 |g|' }
-]
+])
 
 /** Index of each variable in the environment array. */
 export const ENV_INDEX: Readonly<Record<string, number>> = Object.fromEntries(FORCE_VARIABLES.map((v, i) => [v.name, i]))
@@ -50,13 +52,13 @@ export const FORCE_CONSTANTS: Readonly<Record<string, number>> = { pi: dm.PI_VAL
 const ALLOWED_FUNCTIONS = ['sin', 'cos', 'tan', 'asin', 'acos', 'atan', 'atan2', 'exp', 'ln', 'log', 'lg', 'sqrt', 'abs', 'min', 'max', 'sign', 'step', 'clamp', 'if']
 
 /** Variables and functions available in force expressions, for the inspector's help text. */
-export const FORCE_EXPR_HELP = {
+export const FORCE_EXPR_HELP = trDeep({
   variables: FORCE_VARIABLES.map(v => v.name),
   constants: ['pi', 'e'],
   functions: ALLOWED_FUNCTIONS.slice(),
   /** One line per variable: name, meaning, SI unit. */
-  variableInfo: FORCE_VARIABLES.map(v => ({ ...v })),
-  /** One line per function (Chinese). */
+  variableInfo: FORCE_VARIABLES.map(v => ({ name: v.name, unit: v.unit, label: v.label })),
+  /** One line per function. */
   functionInfo: [
     { name: 'sin(a)  cos(a)  tan(a)', label: '三角函数，参数为弧度' },
     { name: 'asin(a)  acos(a)  atan(a)  atan2(y, x)', label: '反三角函数，结果为弧度' },
@@ -74,7 +76,7 @@ export const FORCE_EXPR_HELP = {
     '不连续处（step、sign、if 的切换）和折点（abs、min、max、clamp）作为事件精确定位，事件表中记为“变力切换”。',
     'sign(vx) 之类在速度为零附近来回切换的写法可能无法继续计算，模拟摩擦请使用接触面的摩擦因数。'
   ]
-}
+})
 
 const DIMS: Record<string, Dim> = Object.fromEntries(FORCE_VARIABLES.map(v => [v.name, unitDim(v.unit === 'rad' ? '' : v.unit)]))
 const FORCE_DIM = unitDim('N')
@@ -82,12 +84,12 @@ const FORCE_DIM = unitDim('N')
 function checkNode(node: Node) {
   switch (node.type) {
     case 'var':
-      if (!(node.name in ENV_INDEX)) throw new ExprError(`未知变量 ${node.name}。可用变量：${FORCE_VARIABLES.map(v => v.name).join(', ')}；常数 pi、e`)
+      if (!(node.name in ENV_INDEX)) throw new ExprError(tl('未知变量 {0}。可用变量：{1}；常数 pi、e', [node.name, FORCE_VARIABLES.map(v => v.name).join(', ')]))
       return
     case 'neg': checkNode(node.arg); return
     case 'bin': case 'cmp': checkNode(node.left); checkNode(node.right); return
     case 'call':
-      if (!ALLOWED_FUNCTIONS.includes(node.fn)) throw new ExprError(`变力表达式中不能使用函数 ${node.fn}`)
+      if (!ALLOWED_FUNCTIONS.includes(node.fn)) throw new ExprError(tl('变力表达式中不能使用函数 {0}', [node.fn]))
       node.args.forEach(checkNode)
       return
     default: return
@@ -100,19 +102,19 @@ export function parseForceExpr(src: string): Node {
   checkNode(node)
   const d = inferDimension(node, DIMS)
   if (d && !dimEqual(d, FORCE_DIM)) {
-    throw new ExprError(`表达式的量纲是 ${dimName(d)}，应为力（N）。数字可作为带单位的系数，例如 2*vx 表示 (2 N·s/m)·vx`)
+    throw new ExprError(tl('表达式的量纲是 {0}，应为力（N）。数字可作为带单位的系数，例如 2*vx 表示 (2 N·s/m)·vx', [dimName(d)]))
   }
   return node
 }
 
 /** Check one force component expression: syntax, known variables and functions, and dimension of force (N). */
 export function checkForceExpr(src: string): ForceExprCheck {
-  if (!src || !src.trim()) return { ok: false, message: '表达式为空（不需要的分量请填 0）' }
+  if (!src || !src.trim()) return { ok: false, message: tl('表达式为空（不需要的分量请填 0）') }
   try {
     parseForceExpr(src)
     return { ok: true }
   } catch (e) {
-    return { ok: false, message: e instanceof ExprError ? e.message : `无法解析：${(e as Error).message}` }
+    return { ok: false, message: e instanceof ExprError ? e.message : tl('无法解析：{0}', [(e as Error).message]) }
   }
 }
 
@@ -162,7 +164,7 @@ function compileNode(node: Node, sws: SwitchDef[], base: number): ExprFn {
     case 'num': { const v = node.value; return () => v }
     case 'var': { const i = ENV_INDEX[node.name]; return env => env[i] }
     case 'neg': { const a = sub(node.arg); return (e, s) => -a(e, s) }
-    case 'cmp': throw new ExprError('比较式只能作为 if 的条件')
+    case 'cmp': throw new ExprError(tl('比较式只能作为 if 的条件'))
     case 'bin': {
       const a = sub(node.left), b = sub(node.right)
       switch (node.op) {
@@ -177,7 +179,7 @@ function compileNode(node: Node, sws: SwitchDef[], base: number): ExprFn {
       const fn = node.fn
       if (fn === 'if') {
         const c = node.args[0]
-        if (c.type !== 'cmp') throw new ExprError('if 的第一个参数应为比较式')
+        if (c.type !== 'cmp') throw new ExprError(tl('if 的第一个参数应为比较式'))
         const l = sub(c.left), r = sub(c.right)
         const less = c.op === '<' || c.op === '<='
         const arg: ExprFn = less ? (e, s) => r(e, s) - l(e, s) : (e, s) => l(e, s) - r(e, s)
@@ -256,4 +258,4 @@ export function fillEnv(env: Float64Array, X: Float64Array, n: number, i: number
 }
 
 /** Raised when a force expression has no finite value (sqrt of a negative number, division by zero …). */
-export class ForceExprError extends Error {}
+export class ForceExprError extends MessageError {}

@@ -7,9 +7,9 @@ import type { Vec2 } from '../math/vec'
 /** Value of the `format` field of every scene file. */
 export const SCENE_FORMAT = 'verity-scene'
 /** Current scene file format version; older files are migrated on load (see io.ts). */
-export const SCENE_VERSION = 2
+export const SCENE_VERSION = 3
 /** Engine version written into saved scenes. */
-export const ENGINE_VERSION = '26.49.0'
+export const ENGINE_VERSION = '26.50.0'
 
 /** Shape of a body, in body coordinates (m). */
 export type ShapeDef =
@@ -134,6 +134,22 @@ export interface ContactPairDef { a: string; b: string; muS: number; muK: number
  */
 export type IntegratorKind = 'dopri5' | 'rk4' | 'euler' | 'moreau'
 
+/**
+ * Kind of state change after which a run may stop (`SceneSettings.stopAt`): a sliding pair reaches common
+ * velocity and sticks, a sticking pair starts to slide, a contact opens (lift-off or sliding off an edge), a new
+ * contact without an impact or with one, an impact, a rope goes slack or becomes taut.
+ */
+export type StopKind = 'stick' | 'slip' | 'separate' | 'touch' | 'impact' | 'slack' | 'taut'
+
+/** All stop kinds, in the order the interface lists them. */
+export const STOP_KINDS: readonly StopKind[] = ['stick', 'slip', 'separate', 'touch', 'impact', 'slack', 'taut']
+
+/** Stop `after` seconds after the first event with a change of kind `on` (see core/solver/simulation.ts). */
+export interface StopAtDef { on: StopKind; after: number }
+
+/** Longest finite duration and stop delay a scene may ask for (s). */
+export const MAX_DURATION = 3600
+
 /** Global simulation settings of a scene. */
 export interface SceneSettings {
   /** Gravitational acceleration (m/s²). */
@@ -145,10 +161,27 @@ export interface SceneSettings {
   relTol: number
   /** Absolute error tolerance of the adaptive integrator. */
   absTol: number
-  /** Simulated time (s). */
-  duration: number
+  /**
+   * Simulated time (s); null: unbounded — the run is computed on demand from t = 0 until it is stopped (by the
+   * user, `stopAt` or permanent rest). New scenes and templates are unbounded; files of format 1 and 2 keep their
+   * number.
+   */
+  duration: number | null
+  /** Optional stop condition: end the run `after` seconds after the first event of a kind; null: none. */
+  stopAt?: StopAtDef | null
+  /**
+   * Finite length (s) used wherever a bounded run is required while `duration` is null: parameter sweeps,
+   * predictions, tests and `simulate()`. Templates keep their 26.49 duration here; format 1 and 2 files copy
+   * their duration.
+   */
+  legacyDuration: number
   /** Height of zero gravitational potential energy (m). */
   energyZeroY: number
+}
+
+/** The duration of a bounded run of the scene: `duration`, or `legacyDuration` when the scene is unbounded. */
+export function finiteDuration(settings: Pick<SceneSettings, 'duration' | 'legacyDuration'>): number {
+  return settings.duration ?? settings.legacyDuration
 }
 
 /** Initial camera of the scene: view centre (m) and zoom (px/m). */

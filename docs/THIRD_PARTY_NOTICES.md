@@ -1,7 +1,7 @@
 # Third-party notices / 第三方组件声明
 
-Verity 26.49 bundles the following open-source components. Each is used unmodified under its own license.
-Verity 26.49 使用了下列开源组件，均未修改，按各自许可证使用。许可证全文见文末（相同文本只列一次）。
+Verity 26.50 bundles the following open-source components. Each is used unmodified under its own license.
+Verity 26.50 使用了下列开源组件，均未修改，按各自许可证使用。许可证全文见文末（相同文本只列一次）。
 
 ## npm packages in the application (51)
 
@@ -294,6 +294,22 @@ Verity 26.49 使用了下列开源组件，均未修改，按各自许可证使�
 | zerovec | 0.11.9 | Unicode-3.0 | §cde87abe22 |
 | zerovec-derive | 0.11.7 | Unicode-3.0 | §cde87abe22 |
 | zlib-rs | 0.6.8 | Zlib | §1a7d409d51 |
+| zmij | 1.0.23 | MIT | §30fefc3a7d |
+
+## Rust crates in the WebAssembly engine (11)
+
+| Crate | Version | License | License text |
+|---|---|---|---|
+| itoa | 1.0.18 | MIT OR Apache-2.0 | §85ad950cce, §30fefc3a7d |
+| memchr | 2.8.3 | Unlicense OR MIT | §65314a6c96, §154c1af2b3, §ca2abdf695 |
+| proc-macro2 | 1.0.107 | MIT OR Apache-2.0 | §85ad950cce, §30fefc3a7d |
+| quote | 1.0.47 | MIT OR Apache-2.0 | §85ad950cce, §30fefc3a7d |
+| serde | 1.0.229 | MIT OR Apache-2.0 | §85ad950cce, §30fefc3a7d |
+| serde_core | 1.0.229 | MIT OR Apache-2.0 | §85ad950cce, §30fefc3a7d |
+| serde_derive | 1.0.229 | MIT OR Apache-2.0 | §85ad950cce, §30fefc3a7d |
+| serde_json | 1.0.154 | MIT OR Apache-2.0 | §85ad950cce, §30fefc3a7d |
+| syn | 3.0.9 | MIT OR Apache-2.0 | §85ad950cce, §30fefc3a7d |
+| unicode-ident | 1.0.27 | (MIT OR Apache-2.0) AND Unicode-3.0 | §85ad950cce, §30fefc3a7d, §361d791295 |
 | zmij | 1.0.23 | MIT | §30fefc3a7d |
 
 ## License texts

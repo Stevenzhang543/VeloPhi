@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest'
 import { createHash } from 'node:crypto'
 import { TEMPLATES, buildTemplate } from '../src/templates'
-import { exactStateAt, frameState, simulate } from '../src/core/solver/simulation'
+import { exactStateAt, frameState, recordingStates, simulate } from '../src/core/solver/simulation'
 import { parseScene, serializeScene } from '../src/core/scene/io'
 import { Sha256 } from '../src/core/record/sha256'
 
@@ -18,7 +18,7 @@ describe('determinism', () => {
       const scene = buildTemplate(t.id)
       const a = simulate(scene), b = simulate(buildTemplate(t.id))
       expect(a.hash).toBe(b.hash)
-      expect(Buffer.from(a.states.buffer).equals(Buffer.from(b.states.buffer))).toBe(true)
+      expect(Buffer.from(recordingStates(a).buffer).equals(Buffer.from(recordingStates(b).buffer))).toBe(true)
       const reloaded = parseScene(serializeScene(scene)).scene
       expect(serializeScene(reloaded)).toBe(serializeScene(scene))
       expect(simulate(reloaded).hash).toBe(a.hash)

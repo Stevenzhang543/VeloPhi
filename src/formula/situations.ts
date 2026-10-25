@@ -5,6 +5,7 @@
  * simulated measurements to compare against. Conditions say when a formula's assumptions hold.
  * Recognizers only read; they never change the recording.
  */
+import { tl } from '../i18n'
 import type { Recording, Segment, SimEvent } from '../core/solver/simulation'
 import { exactStateAt, ledgerAt } from '../core/solver/simulation'
 import type { Mode, System, UnitMode } from '../core/solver/dynamics'
@@ -183,7 +184,7 @@ function surfaceSituations(rec: Recording, out: Situation[]) {
       if (rolling) {
         const I = b.inertia, rr = (b.shape as { radius: number }).radius
         out.push({
-          key: `rolling:${b.id}:${r.t0}`, type: 'rolling', title: `${b.name} 在${other.name}上${status === 'stick' ? '纯滚动' : '边滚边滑'}`,
+          key: `rolling:${b.id}:${r.t0}`, type: 'rolling', title: tl('{0} 在{1}上{2}', [b.name, other.name, status === 'stick' ? tl('纯滚动') : tl('边滚边滑')]),
           t0: r.t0, t1: r.t1, bodies: [b.id, other.id],
           sample: t => {
             const o = observeAt(rec, t)
@@ -192,18 +193,18 @@ function surfaceSituations(rec: Recording, out: Situation[]) {
             const c = contactForces(o, b.id, other.id)
             return {
               vars: {
-                m: V(b.mass, 'kg', 'm', '质量'), r: V(rr, 'm', 'r', '半径'), I: V(I, 'kg·m²', 'I', '对质心的转动惯量'),
-                g: V(g, 'm/s²', 'g', '重力加速度'), theta: V(theta, 'rad', '\\theta', '倾角'),
-                muK: V(mat.muK, '', '\\mu_k', '动摩擦因数'), muS: V(mat.muS, '', '\\mu_s', '静摩擦因数'),
-                omegaSim: V(Math.abs(st.w), 'rad/s', '\\omega', '角速度（仿真）')
+                m: V(b.mass, 'kg', 'm', tl('质量')), r: V(rr, 'm', 'r', tl('半径')), I: V(I, 'kg·m²', 'I', tl('对质心的转动惯量')),
+                g: V(g, 'm/s²', 'g', tl('重力加速度')), theta: V(theta, 'rad', '\\theta', tl('倾角')),
+                muK: V(mat.muK, '', '\\mu_k', tl('动摩擦因数')), muS: V(mat.muS, '', '\\mu_s', tl('静摩擦因数')),
+                omegaSim: V(Math.abs(st.w), 'rad/s', '\\omega', tl('角速度（仿真）'))
               },
               measures: {
-                a: M(a, 'm/s²', '沿斜面向下的加速度'), f: M(c.f, 'N', '摩擦力'), v: M(Math.sqrt(st.vx * st.vx + st.vy * st.vy), 'm/s', '质心速率'),
-                beta: M(Math.abs(o.sol.acc[3 * b.index + 2]), 'rad/s²', '角加速度大小')
+                a: M(a, 'm/s²', tl('沿斜面向下的加速度')), f: M(c.f, 'N', tl('摩擦力')), v: M(Math.sqrt(st.vx * st.vx + st.vy * st.vy), 'm/s', tl('质心速率')),
+                beta: M(Math.abs(o.sol.acc[3 * b.index + 2]), 'rad/s²', tl('角加速度大小'))
               },
               conditions: [
-                cond('pureRolling', '纯滚动（接触点无相对滑动）', status === 'stick', status === 'stick' ? `需 μs ≥ tanθ/(1 + mr²/I) = ${(tan(theta) / (1 + b.mass * rr * rr / I)).toPrecision(4)}，本例 μs = ${mat.muS}` : '接触点有相对滑动'),
-                cond('slipping', '边滚边滑（向下滑动）', status === 'down', status === 'down' ? '' : '没有向下的相对滑动')
+                cond('pureRolling', tl('纯滚动（接触点无相对滑动）'), status === 'stick', status === 'stick' ? tl('需 μs ≥ tanθ/(1 + mr²/I) = {0}，本例 μs = {1}', [(tan(theta) / (1 + b.mass * rr * rr / I)).toPrecision(4), mat.muS]) : tl('接触点有相对滑动')),
+                cond('slipping', tl('边滚边滑（向下滑动）'), status === 'down', status === 'down' ? '' : tl('没有向下的相对滑动'))
               ]
             }
           }
@@ -211,8 +212,8 @@ function surfaceSituations(rec: Recording, out: Situation[]) {
         continue
       }
       const type = flat ? 'flat' : 'incline'
-      const tag = status === 'stick' ? '相对静止' : status === 'up' ? '相对上滑' : status === 'smooth' ? '光滑滑动' : '相对下滑'
-      const title = flat ? `${b.name} 在${other.name}上${status === 'stick' ? '相对静止' : '滑动'}` : `${b.name} 在${other.name}上（${tag}）`
+      const tag = status === 'stick' ? tl('相对静止') : status === 'up' ? tl('相对上滑') : status === 'smooth' ? tl('光滑滑动') : tl('相对下滑')
+      const title = flat ? tl('{0} 在{1}上{2}', [b.name, other.name, status === 'stick' ? tl('相对静止') : tl('滑动')]) : tl('{0} 在{1}上（{2}）', [b.name, other.name, tag])
       // Theoretical acceleration along downhill for v = v0 + at
       const aTh = flat
         ? (status === 'stick' ? 0 : -Math.sign(v0 - geo.u || 1) * mat.muK * g)
@@ -228,38 +229,38 @@ function surfaceSituations(rec: Recording, out: Situation[]) {
           const ax = o.sol.acc[3 * b.index], ay = o.sol.acc[3 * b.index + 1]
           const c = contactForces(o, b.id, other.id)
           const vars: Record<string, VarValue> = {
-            m: V(b.mass, 'kg', 'm', '质量'), g: V(g, 'm/s²', 'g', '重力加速度'),
-            muK: V(mat.muK, '', '\\mu_k', '动摩擦因数'), muS: V(mat.muS, '', '\\mu_s', '静摩擦因数'),
-            v0: V(v0, 'm/s', 'v_0', '本阶段初速度'), u: V(geo.u, 'm/s', 'u', '接触面速度'),
-            t: V(t - r.t0, 's', 't', '本阶段经过时间'), a: V(aTh, 'm/s²', 'a', '理论加速度')
+            m: V(b.mass, 'kg', 'm', tl('质量')), g: V(g, 'm/s²', 'g', tl('重力加速度')),
+            muK: V(mat.muK, '', '\\mu_k', tl('动摩擦因数')), muS: V(mat.muS, '', '\\mu_s', tl('静摩擦因数')),
+            v0: V(v0, 'm/s', 'v_0', tl('本阶段初速度')), u: V(geo.u, 'm/s', 'u', tl('接触面速度')),
+            t: V(t - r.t0, 's', 't', tl('本阶段经过时间')), a: V(aTh, 'm/s²', 'a', tl('理论加速度'))
           }
-          if (!flat) vars.theta = V(theta, 'rad', '\\theta', '倾角')
+          if (!flat) vars.theta = V(theta, 'rad', '\\theta', tl('倾角'))
           const along = flat ? Math.abs(ax) : ax * geo.dx + ay * geo.dy
           const v = st.vx * geo.dx + st.vy * geo.dy
           const s = (st.x - s0.x) * geo.dx + (st.y - s0.y) * geo.dy
           const measures: Record<string, Measure> = {
-            a: M(ax * geo.dx + ay * geo.dy, 'm/s²', '沿斜面向下的加速度'), aMag: M(along, 'm/s²', '加速度大小'),
-            N: M(c.N, 'N', '支持力'), f: M(c.f, 'N', '摩擦力大小'), v: M(v, 'm/s', '速度'), s: M(s, 'm', '位移'),
-            tEnd: M(endsAtRest ? r.t1 - r.t0 : null, 's', '相对滑动结束时刻（自本阶段开始）'),
-            xEnd: M(end ? Math.abs((bodyVel(sys, end, b).x - s0.x) * geo.dx + (bodyVel(sys, end, b).y - s0.y) * geo.dy) : null, 'm', '滑动阶段位移'),
-            slideEnd: M(end ? pairAux(sys, end, b.id, other.id).slide - auxStart.slide : null, 'm', '相对滑动距离'),
-            heatEnd: M(end ? pairAux(sys, end, b.id, other.id).heat - auxStart.heat : null, 'J', '摩擦生热'),
-            beltEnd: M(end ? end[sys.auxBase + AUX_BELT] - beltStart : null, 'J', '电机做功')
+            a: M(ax * geo.dx + ay * geo.dy, 'm/s²', tl('沿斜面向下的加速度')), aMag: M(along, 'm/s²', tl('加速度大小')),
+            N: M(c.N, 'N', tl('支持力')), f: M(c.f, 'N', tl('摩擦力大小')), v: M(v, 'm/s', tl('速度')), s: M(s, 'm', tl('位移')),
+            tEnd: M(endsAtRest ? r.t1 - r.t0 : null, 's', tl('相对滑动结束时刻（自本阶段开始）')),
+            xEnd: M(end ? Math.abs((bodyVel(sys, end, b).x - s0.x) * geo.dx + (bodyVel(sys, end, b).y - s0.y) * geo.dy) : null, 'm', tl('滑动阶段位移')),
+            slideEnd: M(end ? pairAux(sys, end, b.id, other.id).slide - auxStart.slide : null, 'm', tl('相对滑动距离')),
+            heatEnd: M(end ? pairAux(sys, end, b.id, other.id).heat - auxStart.heat : null, 'J', tl('摩擦生热')),
+            beltEnd: M(end ? end[sys.auxBase + AUX_BELT] - beltStart : null, 'J', tl('电机做功'))
           }
           const tanT = tan(theta)
           return {
             vars, measures,
             conditions: [
-              cond('contact', '保持接触', true),
-              cond('sliding', '相对滑动', status !== 'stick', status === 'stick' ? '物体与接触面相对静止' : ''),
-              cond('slideDown', '相对接触面向下滑动', status === 'down' || status === 'smooth', ''),
-              cond('slideUp', '相对接触面向上滑动', status === 'up', ''),
-              cond('stick', '相对静止', status === 'stick', ''),
-              cond('staticHolds', '最大静摩擦足以维持静止（μs ≥ tanθ）', mat.muS >= tanT - 1e-12, `tanθ = ${tanT.toPrecision(4)}`),
-              cond('belt', '接触面为传送带', geo.belt !== 0, ''),
-              cond('endsAtCommon', '本阶段以“共速/相对静止”结束', endsAtRest, endsAtRest ? '' : '记录内未达到共速'),
-              cond('endsAtRest', '本阶段以相对静止结束', endsAtRest, endsAtRest ? '' : '记录内未停止相对滑动'),
-              cond('onlyGravity', '只受重力、支持力和摩擦力', true)
+              cond('contact', tl('保持接触'), true),
+              cond('sliding', tl('相对滑动'), status !== 'stick', status === 'stick' ? tl('物体与接触面相对静止') : ''),
+              cond('slideDown', tl('相对接触面向下滑动'), status === 'down' || status === 'smooth', ''),
+              cond('slideUp', tl('相对接触面向上滑动'), status === 'up', ''),
+              cond('stick', tl('相对静止'), status === 'stick', ''),
+              cond('staticHolds', tl('最大静摩擦足以维持静止（μs ≥ tanθ）'), mat.muS >= tanT - 1e-12, `tanθ = ${tanT.toPrecision(4)}`),
+              cond('belt', tl('接触面为传送带'), geo.belt !== 0, ''),
+              cond('endsAtCommon', tl('本阶段以“共速/相对静止”结束'), endsAtRest, endsAtRest ? '' : tl('记录内未达到共速')),
+              cond('endsAtRest', tl('本阶段以相对静止结束'), endsAtRest, endsAtRest ? '' : tl('记录内未停止相对滑动')),
+              cond('onlyGravity', tl('只受重力、支持力和摩擦力'), true)
             ]
           }
         }
@@ -303,47 +304,47 @@ function boardBlockSituations(rec: Recording, out: Situation[]) {
         const aux0 = pairAux(sys, seg0.X0, A.id, B.id)
         if (ua.friction === 'slide') {
           out.push({
-            key: `bb:${A.id}:${B.id}:${r.t0}`, type: 'board-block', title: `${A.name} 在${B.name}上滑动（板块模型）`, t0: r.t0, t1: r.t1, bodies: [A.id, B.id, S.id],
+            key: `bb:${A.id}:${B.id}:${r.t0}`, type: 'board-block', title: tl('{0} 在{1}上滑动（板块模型）', [A.name, B.name]), t0: r.t0, t1: r.t1, bodies: [A.id, B.id, S.id],
             sample: t => {
               const o = observeAt(rec, t)
               return {
                 vars: {
-                  m: V(A.mass, 'kg', 'm', `${A.name}质量`), M: V(B.mass, 'kg', 'M', `${B.name}质量`),
-                  mu1: V(mu1, '', '\\mu_1', `${A.name}与${B.name}间动摩擦因数`), mu2: V(mu2, '', '\\mu_2', `${B.name}与${S.name}间动摩擦因数`),
-                  g: V(g, 'm/s²', 'g', '重力加速度'), v1: V(v1, 'm/s', 'v_1', `${A.name}初速度`), v2: V(v2, 'm/s', 'v_2', `${B.name}初速度`),
-                  a2: V(a2, 'm/s²', 'a_2', `${B.name}理论加速度`)
+                  m: V(A.mass, 'kg', 'm', tl('{0}质量', [A.name])), M: V(B.mass, 'kg', 'M', tl('{0}质量', [B.name])),
+                  mu1: V(mu1, '', '\\mu_1', tl('{0}与{1}间动摩擦因数', [A.name, B.name])), mu2: V(mu2, '', '\\mu_2', tl('{0}与{1}间动摩擦因数', [B.name, S.name])),
+                  g: V(g, 'm/s²', 'g', tl('重力加速度')), v1: V(v1, 'm/s', 'v_1', tl('{0}初速度', [A.name])), v2: V(v2, 'm/s', 'v_2', tl('{0}初速度', [B.name])),
+                  a2: V(a2, 'm/s²', 'a_2', tl('{0}理论加速度', [B.name]))
                 },
                 measures: {
-                  a1: M(Math.abs(o.sol.acc[3 * A.index]), 'm/s²', `${A.name}加速度大小`),
-                  a2: M(o.sol.acc[3 * B.index] * sigma, 'm/s²', `${B.name}加速度`),
-                  tEnd: M(endsAtCommon ? r.t1 - r.t0 : null, 's', '共速时刻（自本阶段开始）'),
-                  vEnd: M(end ? bodyVel(sys, end, A).vx * sigma : null, 'm/s', '共同速度'),
-                  slideEnd: M(end ? pairAux(sys, end, A.id, B.id).slide - aux0.slide : null, 'm', '相对滑动距离'),
-                  heatEnd: M(end ? pairAux(sys, end, A.id, B.id).heat - aux0.heat : null, 'J', '摩擦生热')
+                  a1: M(Math.abs(o.sol.acc[3 * A.index]), 'm/s²', tl('{0}加速度大小', [A.name])),
+                  a2: M(o.sol.acc[3 * B.index] * sigma, 'm/s²', tl('{0}加速度', [B.name])),
+                  tEnd: M(endsAtCommon ? r.t1 - r.t0 : null, 's', tl('共速时刻（自本阶段开始）')),
+                  vEnd: M(end ? bodyVel(sys, end, A).vx * sigma : null, 'm/s', tl('共同速度')),
+                  slideEnd: M(end ? pairAux(sys, end, A.id, B.id).slide - aux0.slide : null, 'm', tl('相对滑动距离')),
+                  heatEnd: M(end ? pairAux(sys, end, A.id, B.id).heat - aux0.heat : null, 'J', tl('摩擦生热'))
                 },
                 conditions: [
-                  cond('boardMoves', `${B.name}相对${S.name}滑动`, boardMoves, boardMoves ? '' : `μ₁m ≤ μ₂(M+m)，${B.name}保持静止`),
-                  cond('boardRests', `${B.name}相对${S.name}静止`, ground.friction === 'stick'),
-                  cond('endsAtCommon', '本阶段以共速结束', endsAtCommon, endsAtCommon ? '' : '记录内未达到共速')
+                  cond('boardMoves', tl('{0}相对{1}滑动', [B.name, S.name]), boardMoves, boardMoves ? '' : tl('μ₁m ≤ μ₂(M+m)，{0}保持静止', [B.name])),
+                  cond('boardRests', tl('{0}相对{1}静止', [B.name, S.name]), ground.friction === 'stick'),
+                  cond('endsAtCommon', tl('本阶段以共速结束'), endsAtCommon, endsAtCommon ? '' : tl('记录内未达到共速'))
                 ]
               }
             }
           })
         } else if (ua.friction === 'stick') {
           out.push({
-            key: `bt:${A.id}:${B.id}:${r.t0}`, type: 'board-together', title: `${A.name}与${B.name}共速后一起运动`, t0: r.t0, t1: r.t1, bodies: [A.id, B.id, S.id],
+            key: `bt:${A.id}:${B.id}:${r.t0}`, type: 'board-together', title: tl('{0}与{1}共速后一起运动', [A.name, B.name]), t0: r.t0, t1: r.t1, bodies: [A.id, B.id, S.id],
             sample: t => {
               const o = observeAt(rec, t)
               const c = contactForces(o, A.id, B.id)
               return {
                 vars: {
-                  m: V(A.mass, 'kg', 'm', `${A.name}质量`), M: V(B.mass, 'kg', 'M', `${B.name}质量`),
-                  mu1: V(mu1, '', '\\mu_1', '物块与木板间动摩擦因数'), mu2: V(mu2, '', '\\mu_2', '木板与地面间动摩擦因数'), g: V(g, 'm/s²', 'g', '重力加速度')
+                  m: V(A.mass, 'kg', 'm', tl('{0}质量', [A.name])), M: V(B.mass, 'kg', 'M', tl('{0}质量', [B.name])),
+                  mu1: V(mu1, '', '\\mu_1', tl('物块与木板间动摩擦因数')), mu2: V(mu2, '', '\\mu_2', tl('木板与地面间动摩擦因数')), g: V(g, 'm/s²', 'g', tl('重力加速度'))
                 },
-                measures: { aMag: M(Math.abs(o.sol.acc[3 * A.index]), 'm/s²', '整体加速度大小'), f: M(c.f, 'N', `${A.name}受到的静摩擦力`) },
+                measures: { aMag: M(Math.abs(o.sol.acc[3 * A.index]), 'm/s²', tl('整体加速度大小')), f: M(c.f, 'N', tl('{0}受到的静摩擦力', [A.name])) },
                 conditions: [
-                  cond('together', '物块与木板相对静止', true, `需 μ₂ ≤ μ₁（本例 ${mu2} ≤ ${mu1}）`),
-                  cond('groundSliding', `${B.name}相对${S.name}滑动`, ground.friction === 'slide', ground.friction === 'slide' ? '' : '整体已静止')
+                  cond('together', tl('物块与木板相对静止'), true, tl('需 μ₂ ≤ μ₁（本例 {0} ≤ {1}）', [mu2, mu1])),
+                  cond('groundSliding', tl('{0}相对{1}滑动', [B.name, S.name]), ground.friction === 'slide', ground.friction === 'slide' ? '' : tl('整体已静止'))
                 ]
               }
             }
@@ -385,7 +386,7 @@ function impactSituations(rec: Recording, out: Situation[]) {
     const p = pts[0]
     const pair = p.pair!, f = p.feature!
     const noFriction = !(p.tangentImpulse !== undefined && Math.abs(p.tangentImpulse) > 0)
-    const frictionCond = cond('frictionless', '碰撞时接触面无摩擦冲量（光滑或无相对滑动趋势）', noFriction, noFriction ? '' : `摩擦冲量 ${Math.abs(p.tangentImpulse!).toPrecision(4)} N·s`)
+    const frictionCond = cond('frictionless', tl('碰撞时接触面无摩擦冲量（光滑或无相对滑动趋势）'), noFriction, noFriction ? '' : tl('摩擦冲量 {0} N·s', [Math.abs(p.tangentImpulse!).toPrecision(4)]))
     const next = rec.events.find(e => e.t > ev.t + 1e-12 && e.changes.some(c => c.bodies.includes(pair.X.id) || c.bodies.includes(pair.Y.id)))
     const t1 = next ? next.t : (rec.frameCount - 1) * rec.dt
     const nAB = { x: p.nx, y: p.ny } // From feature B to feature A
@@ -418,25 +419,25 @@ function impactSituations(rec: Recording, out: Situation[]) {
         })()
         const sample: Sample = {
           vars: {
-            m1: V(b1.mass, 'kg', 'm_1', `${b1.name}质量`), m2: V(b2.mass, 'kg', 'm_2', `${b2.name}质量`), e: V(e, '', 'e', '恢复系数'),
-            u1: V(u1, 'm/s', 'u_1', `碰前${b1.name}法向速度`), u2: V(u2, 'm/s', 'u_2', `碰前${b2.name}法向速度`),
-            w1: V(w1, 'm/s', 'v_{1t}', `碰前${b1.name}切向速度`),
-            p0x: V(b1.mass * v1.x + b2.mass * v2.x, 'kg·m/s', 'p_x', '碰前总动量 x'), p0y: V(b1.mass * v1.y + b2.mass * v2.y, 'kg·m/s', 'p_y', '碰前总动量 y')
+            m1: V(b1.mass, 'kg', 'm_1', tl('{0}质量', [b1.name])), m2: V(b2.mass, 'kg', 'm_2', tl('{0}质量', [b2.name])), e: V(e, '', 'e', tl('恢复系数')),
+            u1: V(u1, 'm/s', 'u_1', tl('碰前{0}法向速度', [b1.name])), u2: V(u2, 'm/s', 'u_2', tl('碰前{0}法向速度', [b2.name])),
+            w1: V(w1, 'm/s', 'v_{1t}', tl('碰前{0}切向速度', [b1.name])),
+            p0x: V(b1.mass * v1.x + b2.mass * v2.x, 'kg·m/s', 'p_x', tl('碰前总动量 x')), p0y: V(b1.mass * v1.y + b2.mass * v2.y, 'kg·m/s', 'p_y', tl('碰前总动量 y'))
           },
           measures: {
-            v1: M(w1a.x * n12.x + w1a.y * n12.y, 'm/s', `碰后${b1.name}法向速度`), v2: M(w2a.x * n12.x + w2a.y * n12.y, 'm/s', `碰后${b2.name}法向速度`),
-            px: M(b1.mass * w1a.x + b2.mass * w2a.x, 'kg·m/s', '碰后总动量 x'), py: M(b1.mass * w1a.y + b2.mass * w2a.y, 'kg·m/s', '碰后总动量 y'),
-            dE: M(keOf(before) - keOf(after), 'J', '损失的动能'), w1after: M(w1a.x * t12.x + w1a.y * t12.y, 'm/s', `碰后${b1.name}切向速度`),
-            angle: M(ang, 'rad', '碰后两速度夹角')
+            v1: M(w1a.x * n12.x + w1a.y * n12.y, 'm/s', tl('碰后{0}法向速度', [b1.name])), v2: M(w2a.x * n12.x + w2a.y * n12.y, 'm/s', tl('碰后{0}法向速度', [b2.name])),
+            px: M(b1.mass * w1a.x + b2.mass * w2a.x, 'kg·m/s', tl('碰后总动量 x')), py: M(b1.mass * w1a.y + b2.mass * w2a.y, 'kg·m/s', tl('碰后总动量 y')),
+            dE: M(keOf(before) - keOf(after), 'J', tl('损失的动能')), w1after: M(w1a.x * t12.x + w1a.y * t12.y, 'm/s', tl('碰后{0}切向速度', [b1.name])),
+            angle: M(ang, 'rad', tl('碰后两速度夹角'))
           },
           conditions: [
-            cond('isolated', '碰撞瞬间系统不受外界冲量', true),
-            cond('oblique', '斜碰（有切向分量）', oblique, oblique ? '' : '正碰'),
-            cond('equalMassElasticRest', '等质量、弹性、被碰球静止', Math.abs(b1.mass - b2.mass) <= 1e-12 * b1.mass && e === 1 && Math.abs(u2) < 1e-12 && Math.abs(w2) < 1e-12),
+            cond('isolated', tl('碰撞瞬间系统不受外界冲量'), true),
+            cond('oblique', tl('斜碰（有切向分量）'), oblique, oblique ? '' : tl('正碰')),
+            cond('equalMassElasticRest', tl('等质量、弹性、被碰球静止'), Math.abs(b1.mass - b2.mass) <= 1e-12 * b1.mass && e === 1 && Math.abs(u2) < 1e-12 && Math.abs(w2) < 1e-12),
             frictionCond
           ]
         }
-        out.push({ key: `col:${ev.index}`, type: 'collision', title: `${b1.name}与${b2.name}碰撞（e = ${e}）`, t0: ev.t, t1, tEvent: ev.t, bodies: [b1.id, b2.id], sample: () => sample })
+        out.push({ key: `col:${ev.index}`, type: 'collision', title: tl('{0}与{1}碰撞（e = {2}）', [b1.name, b2.name, e]), t0: ev.t, t1, tEvent: ev.t, bodies: [b1.id, b2.id], sample: () => sample })
       } else if ((hingedA && noConnectors(atB) && central(XB)) || (hingedB && noConnectors(atA) && central(XA))) {
         const H = hingedA ? XA : XB, P = hingedA ? XB : XA
         const piv = hingePivot(sys, (hingedA ? atA : atB).hinges[0])
@@ -450,18 +451,18 @@ function impactSituations(rec: Recording, out: Situation[]) {
         const omega0 = before[3 * n + 3 * H.index + 2]
         const sample: Sample = {
           vars: {
-            m: V(P.mass, 'kg', 'm', `${P.name}质量`), Ip: V(Ip, 'kg·m²', 'I', `${H.name}对转轴的转动惯量`), d: V(d, 'm', 'd', '碰撞力作用线到转轴的距离'),
-            v: V(vP.x * nIn.x + vP.y * nIn.y, 'm/s', 'v', `碰前${P.name}法向速度`), e: V(p.restitution, '', 'e', '恢复系数'),
-            L0: V(lzAbout(sys, before, piv.x, piv.y, [P.id, H.id]), 'kg·m²/s', 'L', '碰前对转轴角动量')
+            m: V(P.mass, 'kg', 'm', tl('{0}质量', [P.name])), Ip: V(Ip, 'kg·m²', 'I', tl('{0}对转轴的转动惯量', [H.name])), d: V(d, 'm', 'd', tl('碰撞力作用线到转轴的距离')),
+            v: V(vP.x * nIn.x + vP.y * nIn.y, 'm/s', 'v', tl('碰前{0}法向速度', [P.name])), e: V(p.restitution, '', 'e', tl('恢复系数')),
+            L0: V(lzAbout(sys, before, piv.x, piv.y, [P.id, H.id]), 'kg·m²/s', 'L', tl('碰前对转轴角动量'))
           },
           measures: {
-            vAfter: M(vPa.x * nIn.x + vPa.y * nIn.y, 'm/s', `碰后${P.name}法向速度`),
-            omegaAfter: M(Math.abs(after[3 * n + 3 * H.index + 2]), 'rad/s', `碰后${H.name}角速度大小`),
-            LAfter: M(lzAbout(sys, after, piv.x, piv.y, [P.id, H.id]), 'kg·m²/s', '碰后对转轴角动量')
+            vAfter: M(vPa.x * nIn.x + vPa.y * nIn.y, 'm/s', tl('碰后{0}法向速度', [P.name])),
+            omegaAfter: M(Math.abs(after[3 * n + 3 * H.index + 2]), 'rad/s', tl('碰后{0}角速度大小', [H.name])),
+            LAfter: M(lzAbout(sys, after, piv.x, piv.y, [P.id, H.id]), 'kg·m²/s', tl('碰后对转轴角动量'))
           },
-          conditions: [cond('rest', `${H.name}碰前静止`, Math.abs(omega0) < 1e-12), frictionCond]
+          conditions: [cond('rest', tl('{0}碰前静止', [H.name]), Math.abs(omega0) < 1e-12), frictionCond]
         }
-        out.push({ key: `hi:${ev.index}`, type: 'hinged-impact', title: `${P.name}撞击绕轴转动的${H.name}`, t0: ev.t, t1, tEvent: ev.t, bodies: [P.id, H.id], sample: () => sample })
+        out.push({ key: `hi:${ev.index}`, type: 'hinged-impact', title: tl('{0}撞击绕轴转动的{1}', [P.name, H.name]), t0: ev.t, t1, tEvent: ev.t, bodies: [P.id, H.id], sample: () => sample })
       }
     } else {
       const D = XA.dynamic ? XA : XB
@@ -470,11 +471,11 @@ function impactSituations(rec: Recording, out: Situation[]) {
       const vb = vel(before, D), va = vel(after, D)
       const S = D === XA ? XB : XA
       const sample: Sample = {
-        vars: { e: V(p.restitution, '', 'e', '恢复系数'), u: V(vb.x * nOut.x + vb.y * nOut.y, 'm/s', 'v_n', '碰前法向速度') },
-        measures: { v: M(va.x * nOut.x + va.y * nOut.y, 'm/s', '碰后法向速度') },
+        vars: { e: V(p.restitution, '', 'e', tl('恢复系数')), u: V(vb.x * nOut.x + vb.y * nOut.y, 'm/s', 'v_n', tl('碰前法向速度')) },
+        measures: { v: M(va.x * nOut.x + va.y * nOut.y, 'm/s', tl('碰后法向速度')) },
         conditions: [frictionCond]
       }
-      out.push({ key: `bo:${ev.index}`, type: 'bounce', title: `${D.name}与${S.name}碰撞`, t0: ev.t, t1, tEvent: ev.t, bodies: [D.id, S.id], sample: () => sample })
+      out.push({ key: `bo:${ev.index}`, type: 'bounce', title: tl('{0}与{1}碰撞', [D.name, S.name]), t0: ev.t, t1, tEvent: ev.t, bodies: [D.id, S.id], sample: () => sample })
     }
   }
 }
@@ -503,24 +504,24 @@ function projectileSituations(rec: Recording, out: Situation[]) {
         return apex
       }
       out.push({
-        key: `proj:${b.id}:${r.t0}`, type: 'projectile', title: `${b.name} 的抛体运动`, t0: r.t0, t1: r.t1, bodies: [b.id],
+        key: `proj:${b.id}:${r.t0}`, type: 'projectile', title: tl('{0} 的抛体运动', [b.name]), t0: r.t0, t1: r.t1, bodies: [b.id],
         sample: t => {
           const st = bodyVel(sys, exactStateAt(rec, t), b)
           const ap = findApex()
           return {
             vars: {
-              x0: V(s0.x, 'm', 'x_0', '初始水平位置'), y0: V(s0.y, 'm', 'y_0', '初始高度'), vx0: V(s0.vx, 'm/s', 'v_{0x}', '初速度水平分量'),
-              vy0: V(s0.vy, 'm/s', 'v_{0y}', '初速度竖直分量'), g: V(g, 'm/s²', 'g', '重力加速度'), t: V(t - r.t0, 's', 't', '飞行时间'),
-              y1: V(sEnd.y, 'm', 'y_1', '落点高度（质心）')
+              x0: V(s0.x, 'm', 'x_0', tl('初始水平位置')), y0: V(s0.y, 'm', 'y_0', tl('初始高度')), vx0: V(s0.vx, 'm/s', 'v_{0x}', tl('初速度水平分量')),
+              vy0: V(s0.vy, 'm/s', 'v_{0y}', tl('初速度竖直分量')), g: V(g, 'm/s²', 'g', tl('重力加速度')), t: V(t - r.t0, 's', 't', tl('飞行时间')),
+              y1: V(sEnd.y, 'm', 'y_1', tl('落点高度（质心）'))
             },
             measures: {
-              x: M(st.x, 'm', '水平位置'), y: M(st.y, 'm', '竖直位置'), vx: M(st.vx, 'm/s', '水平速度'), vy: M(st.vy, 'm/s', '竖直速度'),
-              T: M(lands ? r.t1 - r.t0 : null, 's', '飞行时间（到落地事件）'), R: M(lands ? sEnd.x - s0.x : null, 'm', '水平射程'),
-              H: M(ap ? ap.y : null, 'm', '最高点高度（质心）')
+              x: M(st.x, 'm', tl('水平位置')), y: M(st.y, 'm', tl('竖直位置')), vx: M(st.vx, 'm/s', tl('水平速度')), vy: M(st.vy, 'm/s', tl('竖直速度')),
+              T: M(lands ? r.t1 - r.t0 : null, 's', tl('飞行时间（到落地事件）')), R: M(lands ? sEnd.x - s0.x : null, 'm', tl('水平射程')),
+              H: M(ap ? ap.y : null, 'm', tl('最高点高度（质心）'))
             },
             conditions: [
-              cond('lands', '记录内落到接触面', lands, lands ? '' : '记录内没有落地'),
-              cond('rises', '向上抛出且到达最高点', s0.vy > 0 && !!ap)
+              cond('lands', tl('记录内落到接触面'), lands, lands ? '' : tl('记录内没有落地')),
+              cond('rises', tl('向上抛出且到达最高点'), s0.vy > 0 && !!ap)
             ]
           }
         }
@@ -582,18 +583,18 @@ function pendulumSituations(rec: Recording, out: Situation[]) {
         return cache
       }
       const deg = theta0 / DEG
-      const small: Condition = { id: 'smallAngle', label: '小角度近似（θ₀ ≤ 5°）', status: deg <= 5 ? 'ok' : deg <= 10 ? 'approx' : 'fail', detail: `θ₀ = ${deg.toPrecision(4)}°` }
+      const small: Condition = { id: 'smallAngle', label: tl('小角度近似（θ₀ ≤ 5°）'), status: deg <= 5 ? 'ok' : deg <= 10 ? 'approx' : 'fail', detail: `θ₀ = ${deg.toPrecision(4)}°` }
       out.push({
-        key: `pend:${b.id}:${r.t0}`, type: 'pendulum', title: `${b.name} 的单摆运动`, t0: r.t0, t1: r.t1, bodies: [b.id],
+        key: `pend:${b.id}:${r.t0}`, type: 'pendulum', title: tl('{0} 的单摆运动', [b.name]), t0: r.t0, t1: r.t1, bodies: [b.id],
         sample: () => {
           const m = measure()
           return {
-            vars: { L: V(L, 'm', 'L', '摆长（到球心）'), m: V(b.mass, 'kg', 'm', '摆球质量'), g: V(g, 'm/s²', 'g', '重力加速度'), theta0: V(theta0, 'rad', '\\theta_0', '振幅（最大摆角）') },
+            vars: { L: V(L, 'm', 'L', tl('摆长（到球心）')), m: V(b.mass, 'kg', 'm', tl('摆球质量')), g: V(g, 'm/s²', 'g', tl('重力加速度')), theta0: V(theta0, 'rad', '\\theta_0', tl('振幅（最大摆角）')) },
             measures: {
-              T: M(m.T, 's', '周期（相邻两次同向过最低点）', m.T === null ? '记录时长不足一个完整周期' : undefined),
-              vBottom: M(m.vB, 'm/s', '过最低点的速率'), TBottom: M(m.TB, 'N', '过最低点时绳的拉力')
+              T: M(m.T, 's', tl('周期（相邻两次同向过最低点）'), m.T === null ? tl('记录时长不足一个完整周期') : undefined),
+              vBottom: M(m.vB, 'm/s', tl('过最低点的速率')), TBottom: M(m.TB, 'N', tl('过最低点时绳的拉力'))
             },
-            conditions: [small, cond('taut', '绳始终张紧', true), cond('oscillates', '往复摆动（未做圆周运动）', oscillates)]
+            conditions: [small, cond('taut', tl('绳始终张紧'), true), cond('oscillates', tl('往复摆动（未做圆周运动）'), oscillates)]
           }
         }
       })
@@ -655,15 +656,15 @@ function springSituations(rec: Recording, out: Situation[]) {
       }
       if (!oneDim) continue
       out.push({
-        key: `spring:${b.id}:${r.t0}`, type: 'spring', title: `${b.name} 的简谐振动`, t0: r.t0, t1: r.t1, bodies: [b.id],
+        key: `spring:${b.id}:${r.t0}`, type: 'spring', title: tl('{0} 的简谐振动', [b.name]), t0: r.t0, t1: r.t1, bodies: [b.id],
         sample: () => {
           const m = measure()
           return {
-            vars: { k: V(sp.stiffness, 'N/m', 'k', '劲度系数'), m: V(b.mass, 'kg', 'm', '振子质量'), A: V(A, 'm', 'A', '振幅') },
+            vars: { k: V(sp.stiffness, 'N/m', 'k', tl('劲度系数')), m: V(b.mass, 'kg', 'm', tl('振子质量')), A: V(A, 'm', 'A', tl('振幅')) },
             measures: {
-              T: M(m.T, 's', '周期', m.T === null ? '记录时长不足一个完整周期' : undefined), vmax: M(m.vmax, 'm/s', '过平衡位置的速率'), amax: M(m.amax, 'm/s²', '最大位移处加速度大小')
+              T: M(m.T, 's', tl('周期'), m.T === null ? tl('记录时长不足一个完整周期') : undefined), vmax: M(m.vmax, 'm/s', tl('过平衡位置的速率')), amax: M(m.amax, 'm/s²', tl('最大位移处加速度大小'))
             },
-            conditions: [cond('undamped', '无阻尼、无摩擦', true)]
+            conditions: [cond('undamped', tl('无阻尼、无摩擦'), true)]
           }
         }
       })
@@ -701,7 +702,7 @@ function rotationSituations(rec: Recording, out: Situation[]) {
         return cache
       }
       out.push({
-        key: `rot:${b.id}:${r.t0}`, type: 'rotation', title: `${b.name} 绕固定轴转动`, t0: r.t0, t1: r.t1, bodies: [b.id],
+        key: `rot:${b.id}:${r.t0}`, type: 'rotation', title: tl('{0} 绕固定轴转动', [b.name]), t0: r.t0, t1: r.t1, bodies: [b.id],
         sample: t => {
           const o = observeAt(rec, t)
           const phi = atan2(o.X[3 * b.index] - piv.x, -(o.X[3 * b.index + 1] - piv.y))
@@ -716,17 +717,17 @@ function rotationSituations(rec: Recording, out: Situation[]) {
           }
           return {
             vars: {
-              m: V(b.mass, 'kg', 'm', '质量'), Ip: V(Ip, 'kg·m²', 'I', '对转轴的转动惯量 I = I_C + md²'), d: V(d, 'm', 'd', '质心到转轴距离'),
-              g: V(g, 'm/s²', 'g', '重力加速度'), phi: V(phi, 'rad', '\\varphi', '当前偏角'), phi0: V(phi0, 'rad', '\\varphi_0', '初始偏角'),
-              omega0: V(omega0, 'rad/s', '\\omega_0', '初始角速度'), L: V(Lrod, 'm', 'L', '杆长')
+              m: V(b.mass, 'kg', 'm', tl('质量')), Ip: V(Ip, 'kg·m²', 'I', tl('对转轴的转动惯量 I = I_C + md²')), d: V(d, 'm', 'd', tl('质心到转轴距离')),
+              g: V(g, 'm/s²', 'g', tl('重力加速度')), phi: V(phi, 'rad', '\\varphi', tl('当前偏角')), phi0: V(phi0, 'rad', '\\varphi_0', tl('初始偏角')),
+              omega0: V(omega0, 'rad/s', '\\omega_0', tl('初始角速度')), L: V(Lrod, 'm', 'L', tl('杆长'))
             },
             measures: {
-              alpha: M(o.sol.acc[3 * b.index + 2], 'rad/s²', '角加速度'),
-              omegaBottom: M(omegaB, 'rad/s', '最低点角速度大小'), FBottom: M(FB, 'N', '最低点铰链力大小')
+              alpha: M(o.sol.acc[3 * b.index + 2], 'rad/s²', tl('角加速度')),
+              omegaBottom: M(omegaB, 'rad/s', tl('最低点角速度大小')), FBottom: M(FB, 'N', tl('最低点铰链力大小'))
             },
             conditions: [
-              cond('reachesBottom', '记录内转到最低点', bt.tB !== null),
-              cond('thinRodFromHorizontal', '匀质细杆、从水平位置静止释放', thin && fromHorizontal, thin ? '' : '转动惯量不是 mL²/12')
+              cond('reachesBottom', tl('记录内转到最低点'), bt.tB !== null),
+              cond('thinRodFromHorizontal', tl('匀质细杆、从水平位置静止释放'), thin && fromHorizontal, thin ? '' : tl('转动惯量不是 mL²/12'))
             ]
           }
         }
@@ -759,12 +760,12 @@ function pulleySituations(rec: Recording, out: Situation[]) {
       const seg0 = r.segs[0]
       if (r.sig === 'atwood') {
         out.push({
-          key: `atw:${ri}:${r.t0}`, type: 'atwood', title: `${A.name}与${B.name}跨过定滑轮（阿特伍德机）`, t0: r.t0, t1: r.t1, bodies: [A.id, B.id],
+          key: `atw:${ri}:${r.t0}`, type: 'atwood', title: tl('{0}与{1}跨过定滑轮（阿特伍德机）', [A.name, B.name]), t0: r.t0, t1: r.t1, bodies: [A.id, B.id],
           sample: t => {
             const o = observeAt(rec, t)
             return {
-              vars: { m1: V(A.mass, 'kg', 'm_1', `${A.name}质量`), m2: V(B.mass, 'kg', 'm_2', `${B.name}质量`), g: V(g, 'm/s²', 'g', '重力加速度') },
-              measures: { a: M(-o.sol.acc[3 * B.index + 1], 'm/s²', `${B.name}向下的加速度`), T: M(o.sol.ropeTension[ri], 'N', '绳的拉力') },
+              vars: { m1: V(A.mass, 'kg', 'm_1', tl('{0}质量', [A.name])), m2: V(B.mass, 'kg', 'm_2', tl('{0}质量', [B.name])), g: V(g, 'm/s²', 'g', tl('重力加速度')) },
+              measures: { a: M(-o.sol.acc[3 * B.index + 1], 'm/s²', tl('{0}向下的加速度', [B.name])), T: M(o.sol.ropeTension[ri], 'N', tl('绳的拉力')) },
               conditions: []
             }
           }
@@ -776,13 +777,13 @@ function pulleySituations(rec: Recording, out: Situation[]) {
       const u = closedUnits(seg0.mode, T1.id)[0]
       const mu = u.pair.material.muK
       out.push({
-        key: `pul:${ri}:${r.t0}`, type: 'pulley', title: `${T1.name}与${H.name}通过定滑轮相连`, t0: r.t0, t1: r.t1, bodies: [T1.id, H.id],
+        key: `pul:${ri}:${r.t0}`, type: 'pulley', title: tl('{0}与{1}通过定滑轮相连', [T1.name, H.name]), t0: r.t0, t1: r.t1, bodies: [T1.id, H.id],
         sample: t => {
           const o = observeAt(rec, t)
           return {
-            vars: { m1: V(T1.mass, 'kg', 'm_1', `${T1.name}质量（桌上）`), m2: V(H.mass, 'kg', 'm_2', `${H.name}质量（悬挂）`), mu: V(mu, '', '\\mu', '桌面动摩擦因数'), g: V(g, 'm/s²', 'g', '重力加速度') },
-            measures: { a: M(-o.sol.acc[3 * H.index + 1], 'm/s²', `${H.name}向下的加速度`), T: M(o.sol.ropeTension[ri], 'N', '绳的拉力') },
-            conditions: [cond('moving', '系统在运动（桌上物块滑动）', fr === 'slide' || fr === 'none', fr === 'stick' ? '静摩擦足以使系统静止' : '')]
+            vars: { m1: V(T1.mass, 'kg', 'm_1', tl('{0}质量（桌上）', [T1.name])), m2: V(H.mass, 'kg', 'm_2', tl('{0}质量（悬挂）', [H.name])), mu: V(mu, '', '\\mu', tl('桌面动摩擦因数')), g: V(g, 'm/s²', 'g', tl('重力加速度')) },
+            measures: { a: M(-o.sol.acc[3 * H.index + 1], 'm/s²', tl('{0}向下的加速度', [H.name])), T: M(o.sol.ropeTension[ri], 'N', tl('绳的拉力')) },
+            conditions: [cond('moving', tl('系统在运动（桌上物块滑动）'), fr === 'slide' || fr === 'none', fr === 'stick' ? tl('静摩擦足以使系统静止') : '')]
           }
         }
       })
@@ -796,10 +797,10 @@ function conservationSituations(rec: Recording, out: Situation[]) {
   if (T <= 0 && rec.reducedFrom != null) return
   const balance0 = ledgerBalance(rec, observeAt(rec, 0))
   out.push({
-    key: 'energy', type: 'energy', title: '能量账本', t0: 0, t1: T, bodies: [],
+    key: 'energy', type: 'energy', title: tl('能量账本'), t0: 0, t1: T, bodies: [],
     sample: t => {
       const o = observeAt(rec, t)
-      return { vars: { E0: V(balance0, 'J', 'E_0', '初始总能量') }, measures: { balance: M(ledgerBalance(rec, o), 'J', '当前账本合计') }, conditions: [] }
+      return { vars: { E0: V(balance0, 'J', 'E_0', tl('初始总能量')) }, measures: { balance: M(ledgerBalance(rec, o), 'J', tl('当前账本合计')) }, conditions: [] }
     }
   })
   const gv = model.settings.gravity
@@ -812,8 +813,8 @@ function conservationSituations(rec: Recording, out: Situation[]) {
     const p = (X: Float64Array) => { let px = 0, py = 0; for (const b of model.dynamic) { px += b.mass * X[3 * n + 3 * b.index]; py += b.mass * X[3 * n + 3 * b.index + 1] } return { px, py } }
     const p0 = p(exactStateAt(rec, 0))
     out.push({
-      key: 'momentum', type: 'momentum', title: '系统动量（不受外力）', t0: 0, t1: T, bodies: model.dynamic.map(b => b.id),
-      sample: t => { const q = p(exactStateAt(rec, t)); return { vars: { p0x: V(p0.px, 'kg·m/s', 'p_{x0}', '初始总动量 x'), p0y: V(p0.py, 'kg·m/s', 'p_{y0}', '初始总动量 y') }, measures: { px: M(q.px, 'kg·m/s', '总动量 x'), py: M(q.py, 'kg·m/s', '总动量 y') }, conditions: [] } }
+      key: 'momentum', type: 'momentum', title: tl('系统动量（不受外力）'), t0: 0, t1: T, bodies: model.dynamic.map(b => b.id),
+      sample: t => { const q = p(exactStateAt(rec, t)); return { vars: { p0x: V(p0.px, 'kg·m/s', 'p_{x0}', tl('初始总动量 x')), p0y: V(p0.py, 'kg·m/s', 'p_{y0}', tl('初始总动量 y')) }, measures: { px: M(q.px, 'kg·m/s', tl('总动量 x')), py: M(q.py, 'kg·m/s', tl('总动量 y')) }, conditions: [] } }
     })
   }
 }
@@ -822,6 +823,21 @@ function ledgerBalance(rec: Recording, o: ObservationContext): number { return l
 
 /** All situations of a recording, in a stable order. */
 export function recognize(rec: Recording): Situation[] {
+  return [...recognizePhases(rec), ...recognizeConservation(rec)]
+}
+
+/**
+ * The whole-run situations (energy ledger, momentum of a free system), which `recognize` lists last; computed
+ * separately while a long recording grows (analysis/recognition.ts).
+ */
+export function recognizeConservation(rec: Recording): Situation[] {
+  const out: Situation[] = []
+  conservationSituations(rec, out)
+  return out
+}
+
+/** The situations of the motion phases (everything `recognize` lists except the whole-run ones), in order. */
+export function recognizePhases(rec: Recording): Situation[] {
   const out: Situation[] = []
   surfaceSituations(rec, out)
   boardBlockSituations(rec, out)
@@ -837,7 +853,6 @@ export function recognize(rec: Recording): Situation[] {
   springPairSituations(rec, out)
   rollSlipSituations(rec, out)
   variableForceSituations(rec, out)
-  conservationSituations(rec, out)
   return out
 }
 
@@ -923,52 +938,52 @@ function verticalCircleSituations(rec: Recording, out: Situation[]) {
       }
       const slackState = slack ? endEvent!.before : null
       const common = (m: ReturnType<typeof measure>) => ({
-        L: V(L, 'm', 'L', isRope ? '绳长' : '杆长'), m: V(b.mass, 'kg', 'm', '小球质量'), g: V(g, 'm/s²', 'g', '重力加速度'),
-        v0: V(v0, 'm/s', 'v_0', '最低点速率（由本段机械能推算）'), phi0: V(phi0, 'rad', '\\varphi_0', '本段起点的位置角'),
-        ...(m.zero ? { phiZ: V(m.zero.phi, 'rad', '\\varphi', '杆力为零处的位置角（仿真）') } : {}),
-        ...(slackState ? { phiS: V(phiOf(slackState), 'rad', '\\varphi_s', '松弛处的位置角（仿真）') } : {})
+        L: V(L, 'm', 'L', isRope ? tl('绳长') : tl('杆长')), m: V(b.mass, 'kg', 'm', tl('小球质量')), g: V(g, 'm/s²', 'g', tl('重力加速度')),
+        v0: V(v0, 'm/s', 'v_0', tl('最低点速率（由本段机械能推算）')), phi0: V(phi0, 'rad', '\\varphi_0', tl('本段起点的位置角')),
+        ...(m.zero ? { phiZ: V(m.zero.phi, 'rad', '\\varphi', tl('杆力为零处的位置角（仿真）')) } : {}),
+        ...(slackState ? { phiS: V(phiOf(slackState), 'rad', '\\varphi_s', tl('松弛处的位置角（仿真）')) } : {})
       })
       if (isRope) {
         out.push({
-          key: `vcr:${b.id}:${r.t0}`, type: 'vcircle-rope', title: `${b.name} 在竖直面内的圆周运动（绳）`, t0: r.t0, t1: r.t1, bodies: [b.id],
+          key: `vcr:${b.id}:${r.t0}`, type: 'vcircle-rope', title: tl('{0} 在竖直面内的圆周运动（绳）', [b.name]), t0: r.t0, t1: r.t1, bodies: [b.id],
           sample: () => {
             const m = measure()
             const crit = Math.sqrt(5 * g * L)
             return {
               vars: common(m),
               measures: {
-                TBottom: M(m.bottom?.F ?? null, 'N', '最低点绳的拉力'), vTop: M(m.top?.v ?? null, 'm/s', '最高点速率'), TTop: M(m.top?.F ?? null, 'N', '最高点绳的拉力'),
-                v0crit: M(null, 'm/s', '临界初速度', `临界值：与本例 v₀ = ${v0.toPrecision(4)} m/s 比较`),
-                tSlack: M(slack ? r.t1 - r.t0 : null, 's', '绳松弛时刻（自本段开始）'),
-                phiSlack: M(slackState ? phiOf(slackState) : null, 'rad', '松弛处的位置角（自最低点）'),
-                hSlack: M(slackState ? slackState[3 * b.index + 1] - pivot.y : null, 'm', '松弛点高出圆心'),
-                vSlack: M(slackState ? speed(slackState) : null, 'm/s', '松弛时的速率')
+                TBottom: M(m.bottom?.F ?? null, 'N', tl('最低点绳的拉力')), vTop: M(m.top?.v ?? null, 'm/s', tl('最高点速率')), TTop: M(m.top?.F ?? null, 'N', tl('最高点绳的拉力')),
+                v0crit: M(null, 'm/s', tl('临界初速度'), tl('临界值：与本例 v₀ = {0} m/s 比较', [v0.toPrecision(4)])),
+                tSlack: M(slack ? r.t1 - r.t0 : null, 's', tl('绳松弛时刻（自本段开始）')),
+                phiSlack: M(slackState ? phiOf(slackState) : null, 'rad', tl('松弛处的位置角（自最低点）')),
+                hSlack: M(slackState ? slackState[3 * b.index + 1] - pivot.y : null, 'm', tl('松弛点高出圆心')),
+                vSlack: M(slackState ? speed(slackState) : null, 'm/s', tl('松弛时的速率'))
               },
               conditions: [
-                cond('fullCircle', `能通过最高点（v₀ ≥ √(5gL) = ${crit.toPrecision(4)} m/s）`, fullCircle, `本例 v₀ = ${v0.toPrecision(4)} m/s`),
-                cond('slack', `绳在上半圆松弛（√(2gL) < v₀ < √(5gL)）`, slack && !fullCircle, slack ? '' : '记录内绳未松弛'),
-                cond('atBottom', '经过最低点', !!m.bottom, m.bottom ? '' : '本段未经过最低点'),
-                cond('reachesTop', '到达最高点', !!m.top, m.top ? '' : '本段未到达最高点')
+                cond('fullCircle', tl('能通过最高点（v₀ ≥ √(5gL) = {0} m/s）', [crit.toPrecision(4)]), fullCircle, tl('本例 v₀ = {0} m/s', [v0.toPrecision(4)])),
+                cond('slack', tl('绳在上半圆松弛（√(2gL) < v₀ < √(5gL)）'), slack && !fullCircle, slack ? '' : tl('记录内绳未松弛')),
+                cond('atBottom', tl('经过最低点'), !!m.bottom, m.bottom ? '' : tl('本段未经过最低点')),
+                cond('reachesTop', tl('到达最高点'), !!m.top, m.top ? '' : tl('本段未到达最高点'))
               ]
             }
           }
         })
       } else {
         out.push({
-          key: `vcd:${b.id}:${r.t0}`, type: 'vcircle-rod', title: `${b.name} 在竖直面内的圆周运动（杆）`, t0: r.t0, t1: r.t1, bodies: [b.id],
+          key: `vcd:${b.id}:${r.t0}`, type: 'vcircle-rod', title: tl('{0} 在竖直面内的圆周运动（杆）', [b.name]), t0: r.t0, t1: r.t1, bodies: [b.id],
           sample: () => {
             const m = measure()
             return {
               vars: common(m),
               measures: {
-                FBottom: M(m.bottom?.F ?? null, 'N', '最低点杆的拉力'), vTop: M(m.top?.v ?? null, 'm/s', '最高点速率'),
-                FTop: M(m.top?.F ?? null, 'N', '最高点杆对球的力（拉为正，推为负）'), vZero: M(m.zero?.v ?? null, 'm/s', '杆力为零时的速率')
+                FBottom: M(m.bottom?.F ?? null, 'N', tl('最低点杆的拉力')), vTop: M(m.top?.v ?? null, 'm/s', tl('最高点速率')),
+                FTop: M(m.top?.F ?? null, 'N', tl('最高点杆对球的力（拉为正，推为负）')), vZero: M(m.zero?.v ?? null, 'm/s', tl('杆力为零时的速率'))
               },
               conditions: [
-                cond('atBottom', '经过最低点', !!m.bottom, m.bottom ? '' : '本段未经过最低点'),
-                cond('reachesTop', '到达最高点', !!m.top, m.top ? '' : '本段未到达最高点'),
-                cond('forceZero', '杆力在本段改变方向', !!m.zero, m.zero ? '' : '本段杆力未过零'),
-                cond('pushAtTop', `最高点杆对球为推力（v_top < √(gL) = ${Math.sqrt(g * L).toPrecision(4)} m/s）`, vb2 - 4 * g * L < g * L, '')
+                cond('atBottom', tl('经过最低点'), !!m.bottom, m.bottom ? '' : tl('本段未经过最低点')),
+                cond('reachesTop', tl('到达最高点'), !!m.top, m.top ? '' : tl('本段未到达最高点')),
+                cond('forceZero', tl('杆力在本段改变方向'), !!m.zero, m.zero ? '' : tl('本段杆力未过零')),
+                cond('pushAtTop', tl('最高点杆对球为推力（v_top < √(gL) = {0} m/s）', [Math.sqrt(g * L).toPrecision(4)]), vb2 - 4 * g * L < g * L, '')
               ]
             }
           }
@@ -1015,17 +1030,17 @@ function movablePulleySituations(rec: Recording, out: Situation[]) {
     })
     for (const r of list) {
       out.push({
-        key: `mp:${ri}:${r.t0}`, type: 'movable-pulley', title: `${P.name}挂在动滑轮上，${B.name}挂在绳的另一端`, t0: r.t0, t1: r.t1, bodies: [B.id, P.id],
+        key: `mp:${ri}:${r.t0}`, type: 'movable-pulley', title: tl('{0}挂在动滑轮上，{1}挂在绳的另一端', [P.name, B.name]), t0: r.t0, t1: r.t1, bodies: [B.id, P.id],
         sample: t => {
           const o = observeAt(rec, t)
           const a1 = -o.sol.acc[3 * B.index + 1], a2 = o.sol.acc[3 * P.index + 1]
           return {
             vars: {
-              m1: V(B.mass, 'kg', 'm_1', `${B.name}质量（绳端）`), m2: V(P.mass, 'kg', 'm_2', `${P.name}质量（动滑轮下）`), g: V(g, 'm/s²', 'g', '重力加速度'),
-              a1sim: V(a1, 'm/s²', 'a_1', `${B.name}向下的加速度（仿真）`), a2sim: V(a2, 'm/s²', 'a_2', `${P.name}向上的加速度（仿真）`)
+              m1: V(B.mass, 'kg', 'm_1', tl('{0}质量（绳端）', [B.name])), m2: V(P.mass, 'kg', 'm_2', tl('{0}质量（动滑轮下）', [P.name])), g: V(g, 'm/s²', 'g', tl('重力加速度')),
+              a1sim: V(a1, 'm/s²', 'a_1', tl('{0}向下的加速度（仿真）', [B.name])), a2sim: V(a2, 'm/s²', 'a_2', tl('{0}向上的加速度（仿真）', [P.name]))
             },
-            measures: { a1: M(a1, 'm/s²', `${B.name}向下的加速度`), a2: M(a2, 'm/s²', `${P.name}向上的加速度`), T: M(o.sol.ropeTension[ri], 'N', '绳的拉力') },
-            conditions: [cond('vertical', '动滑轮两侧及绳端的绳竖直', true)]
+            measures: { a1: M(a1, 'm/s²', tl('{0}向下的加速度', [B.name])), a2: M(a2, 'm/s²', tl('{0}向上的加速度', [P.name])), T: M(o.sol.ropeTension[ri], 'N', tl('绳的拉力')) },
+            conditions: [cond('vertical', tl('动滑轮两侧及绳端的绳竖直'), true)]
           }
         }
       })
@@ -1068,7 +1083,7 @@ function wedgeSituations(rec: Recording, out: Situation[]) {
         const px = (X: Float64Array) => A.mass * X[3 * n + 3 * A.index] + W.mass * X[3 * n + 3 * W.index]
         const p0 = px(seg0.X0)
         out.push({
-          key: `wd:${A.id}:${W.id}:${r.t0}`, type: 'wedge', title: `${A.name}沿可动的${W.name}下滑（${S.name}光滑）`, t0: r.t0, t1: r.t1, bodies: [A.id, W.id],
+          key: `wd:${A.id}:${W.id}:${r.t0}`, type: 'wedge', title: tl('{0}沿可动的{1}下滑（{2}光滑）', [A.name, W.name, S.name]), t0: r.t0, t1: r.t1, bodies: [A.id, W.id],
           sample: t => {
             const o = observeAt(rec, t)
             const aw = o.sol.acc[3 * W.index], aax = o.sol.acc[3 * A.index], aay = o.sol.acc[3 * A.index + 1]
@@ -1076,14 +1091,14 @@ function wedgeSituations(rec: Recording, out: Situation[]) {
             const c = contactForces(o, A.id, W.id)
             return {
               vars: {
-                M: V(W.mass, 'kg', 'M', `${W.name}质量`), m: V(A.mass, 'kg', 'm', `${A.name}质量`), theta: V(theta, 'rad', '\\theta', '斜面倾角'),
-                g: V(g, 'm/s²', 'g', '重力加速度'), p0x: V(p0, 'kg·m/s', 'p_{x0}', '本阶段开始时的水平总动量')
+                M: V(W.mass, 'kg', 'M', tl('{0}质量', [W.name])), m: V(A.mass, 'kg', 'm', tl('{0}质量', [A.name])), theta: V(theta, 'rad', '\\theta', tl('斜面倾角')),
+                g: V(g, 'm/s²', 'g', tl('重力加速度')), p0x: V(p0, 'kg·m/s', 'p_{x0}', tl('本阶段开始时的水平总动量'))
               },
               measures: {
-                A: M(Math.abs(aw), 'm/s²', `${W.name}的加速度大小`), arel: M(Math.sqrt(relx * relx + rely * rely), 'm/s²', `${A.name}相对${W.name}的加速度大小`),
-                N: M(c.N, 'N', `${W.name}对${A.name}的支持力`), px: M(px(o.X), 'kg·m/s', '水平总动量')
+                A: M(Math.abs(aw), 'm/s²', tl('{0}的加速度大小', [W.name])), arel: M(Math.sqrt(relx * relx + rely * rely), 'm/s²', tl('{0}相对{1}的加速度大小', [A.name, W.name])),
+                N: M(c.N, 'N', tl('{0}对{1}的支持力', [W.name, A.name])), px: M(px(o.X), 'kg·m/s', tl('水平总动量'))
               },
-              conditions: [cond('smooth', '斜面与地面均光滑', true), cond('noRotation', '斜面与物块都不转动', true)]
+              conditions: [cond('smooth', tl('斜面与地面均光滑'), true), cond('noRotation', tl('斜面与物块都不转动'), true)]
             }
           }
         })
@@ -1146,24 +1161,24 @@ function springPairSituations(rec: Recording, out: Situation[]) {
         return cache
       }
       out.push({
-        key: `sp2:${si}:${r.t0}`, type: 'spring-pair', title: `${A.name}与${B.name}通过弹簧相互作用`, t0: r.t0, t1: r.t1, bodies: [A.id, B.id],
+        key: `sp2:${si}:${r.t0}`, type: 'spring-pair', title: tl('{0}与{1}通过弹簧相互作用', [A.name, B.name]), t0: r.t0, t1: r.t1, bodies: [A.id, B.id],
         sample: t => {
           const X = exactStateAt(rec, t)
           const m = measure()
           return {
             vars: {
-              m1: V(A.mass, 'kg', 'm_1', `${A.name}质量`), m2: V(B.mass, 'kg', 'm_2', `${B.name}质量`), k: V(sp.stiffness, 'N/m', 'k', '劲度系数'),
-              v1: V(v1, 'm/s', 'v_1', `本段开始时${A.name}的速度（沿弹簧）`), v2: V(v2, 'm/s', 'v_2', `本段开始时${B.name}的速度（沿弹簧）`),
-              x0: V(x0, 'm', 'x_0', '本段开始时弹簧的形变量')
+              m1: V(A.mass, 'kg', 'm_1', tl('{0}质量', [A.name])), m2: V(B.mass, 'kg', 'm_2', tl('{0}质量', [B.name])), k: V(sp.stiffness, 'N/m', 'k', tl('劲度系数')),
+              v1: V(v1, 'm/s', 'v_1', tl('本段开始时{0}的速度（沿弹簧）', [A.name])), v2: V(v2, 'm/s', 'v_2', tl('本段开始时{0}的速度（沿弹簧）', [B.name])),
+              x0: V(x0, 'm', 'x_0', tl('本段开始时弹簧的形变量'))
             },
             measures: {
-              p: M(A.mass * vAlong(X, A) + B.mass * vAlong(X, B), 'kg·m/s', '沿弹簧方向的总动量'),
-              vCommon: M(m.ext?.v ?? null, 'm/s', `形变最大时${A.name}的速度`), EpMax: M(m.ext?.E ?? null, 'J', '弹性势能最大值'),
-              xMax: M(m.ext ? Math.abs(m.ext.x) : null, 'm', '最大形变量'), T: M(m.T, 's', '相对振动的周期', m.T === null ? '记录时长不足一个周期' : undefined)
+              p: M(A.mass * vAlong(X, A) + B.mass * vAlong(X, B), 'kg·m/s', tl('沿弹簧方向的总动量')),
+              vCommon: M(m.ext?.v ?? null, 'm/s', tl('形变最大时{0}的速度', [A.name])), EpMax: M(m.ext?.E ?? null, 'J', tl('弹性势能最大值')),
+              xMax: M(m.ext ? Math.abs(m.ext.x) : null, 'm', tl('最大形变量')), T: M(m.T, 's', tl('相对振动的周期'), m.T === null ? tl('记录时长不足一个周期') : undefined)
             },
             conditions: [
-              cond('restStart', '本段开始时弹簧为原长', Math.abs(x0) <= 1e-12 * Math.max(1, sp.restLength), `x₀ = ${x0.toPrecision(3)} m`),
-              cond('smooth', '水平面光滑、无阻尼', true)
+              cond('restStart', tl('本段开始时弹簧为原长'), Math.abs(x0) <= 1e-12 * Math.max(1, sp.restLength), `x₀ = ${x0.toPrecision(3)} m`),
+              cond('smooth', tl('水平面光滑、无阻尼'), true)
             ]
           }
         }
@@ -1206,25 +1221,25 @@ function rollSlipSituations(rec: Recording, out: Situation[]) {
       const heat0 = pairAux(sys, X0, b.id, other.id).heat
       const uniform = Math.abs(b.inertia - 0.5 * b.mass * rr * rr) <= 1e-12 * b.inertia
       out.push({
-        key: `rs:${b.id}:${r.t0}`, type: 'roll-slip', title: `${b.name} 在${other.name}上边滚边滑`, t0: r.t0, t1: r.t1, bodies: [b.id, other.id],
+        key: `rs:${b.id}:${r.t0}`, type: 'roll-slip', title: tl('{0} 在{1}上边滚边滑', [b.name, other.name]), t0: r.t0, t1: r.t1, bodies: [b.id, other.id],
         sample: t => {
           const o = observeAt(rec, t)
           return {
             vars: {
-              m: V(b.mass, 'kg', 'm', '质量'), r: V(rr, 'm', 'r', '半径'), I: V(b.inertia, 'kg·m²', 'I', '对质心的转动惯量'),
-              muK: V(muK, '', '\\mu_k', '动摩擦因数'), g: V(g, 'm/s²', 'g', '重力加速度'),
-              v0: V(s0.vx, 'm/s', 'v_0', '本段开始时质心速度'), omega0: V(s0.w, 'rad/s', '\\omega_0', '本段开始时角速度（逆时针为正）')
+              m: V(b.mass, 'kg', 'm', tl('质量')), r: V(rr, 'm', 'r', tl('半径')), I: V(b.inertia, 'kg·m²', 'I', tl('对质心的转动惯量')),
+              muK: V(muK, '', '\\mu_k', tl('动摩擦因数')), g: V(g, 'm/s²', 'g', tl('重力加速度')),
+              v0: V(s0.vx, 'm/s', 'v_0', tl('本段开始时质心速度')), omega0: V(s0.w, 'rad/s', '\\omega_0', tl('本段开始时角速度（逆时针为正）'))
             },
             measures: {
-              a: M(o.sol.acc[3 * b.index], 'm/s²', '质心加速度'), beta: M(o.sol.acc[3 * b.index + 2], 'rad/s²', '角加速度'),
-              tEnd: M(rolls ? r.t1 - r.t0 : null, 's', '开始纯滚动的时刻（自本段开始）'),
-              vEnd: M(end ? bodyVel(sys, end, b).vx : null, 'm/s', '开始纯滚动时的速度'),
-              heatEnd: M(end ? pairAux(sys, end, b.id, other.id).heat - heat0 : null, 'J', '打滑阶段的摩擦生热')
+              a: M(o.sol.acc[3 * b.index], 'm/s²', tl('质心加速度')), beta: M(o.sol.acc[3 * b.index + 2], 'rad/s²', tl('角加速度')),
+              tEnd: M(rolls ? r.t1 - r.t0 : null, 's', tl('开始纯滚动的时刻（自本段开始）')),
+              vEnd: M(end ? bodyVel(sys, end, b).vx : null, 'm/s', tl('开始纯滚动时的速度')),
+              heatEnd: M(end ? pairAux(sys, end, b.id, other.id).heat - heat0 : null, 'J', tl('打滑阶段的摩擦生热'))
             },
             conditions: [
-              cond('rolls', '记录内转为纯滚动', rolls, rolls ? '' : '记录内未停止打滑'),
-              cond('uniformDisc', '匀质圆柱（圆盘）I = ½mr²', uniform, uniform ? '' : `本例 I = ${b.inertia.toPrecision(4)} kg·m²`),
-              cond('noSpin', '放上时不转动（ω₀ = 0）且 v₀ > 0', Math.abs(s0.w) <= 1e-12 && s0.vx > 0)
+              cond('rolls', tl('记录内转为纯滚动'), rolls, rolls ? '' : tl('记录内未停止打滑')),
+              cond('uniformDisc', tl('匀质圆柱（圆盘）I = ½mr²'), uniform, uniform ? '' : tl('本例 I = {0} kg·m²', [b.inertia.toPrecision(4)])),
+              cond('noSpin', tl('放上时不转动（ω₀ = 0）且 v₀ > 0'), Math.abs(s0.w) <= 1e-12 && s0.vx > 0)
             ]
           }
         }
@@ -1284,28 +1299,28 @@ function variableForceSituations(rec: Recording, out: Situation[]) {
       const breaks = rec.events.filter(e => e.t > r.t0 && e.t < r.t1 && e.changes.some(c => c.type === 'switch' && c.subject === f.id)).map(e => e.t)
       const W0 = X0[sys.auxBase + AUX_WORK]
       out.push({
-        key: `vf:${fi}:${r.t0}`, type: 'var-force', title: `${b.name} 受变力 ${f.name} 作用`, t0: r.t0, t1: r.t1, bodies: [b.id],
+        key: `vf:${fi}:${r.t0}`, type: 'var-force', title: tl('{0} 受变力 {1} 作用', [b.name, f.name]), t0: r.t0, t1: r.t1, bodies: [b.id],
         sample: t => {
           const X = exactStateAt(rec, t)
           const J = timeOnly ? integrate(Fx, r.t0, t, breaks) : Number.NaN
           const dx = timeOnly ? integrate(s => (t - s) * Fx(s), r.t0, t, breaks) / b.mass : Number.NaN
           const vars: Record<string, VarValue> = {
-            m: V(b.mass, 'kg', 'm', '质量'), v0: V(s0.vx, 'm/s', 'v_0', '本段开始时的速度 vₓ'), x0: V(s0.x, 'm', 'x_0', '本段开始时的位置 x'),
-            t: V(t, 's', 't', '时刻'), t0: V(r.t0, 's', 't_0', '本段开始时刻'),
-            J: V(J, 'N·s', 'I', '冲量 ∫Fₓdt（对表达式数值积分）'), dx: V(dx, 'm', '\\Delta x_F', '(1/m)∫(t−s)Fₓ(s)ds（对表达式数值积分）')
+            m: V(b.mass, 'kg', 'm', tl('质量')), v0: V(s0.vx, 'm/s', 'v_0', tl('本段开始时的速度 vₓ')), x0: V(s0.x, 'm', 'x_0', tl('本段开始时的位置 x')),
+            t: V(t, 's', 't', tl('时刻')), t0: V(r.t0, 's', 't_0', tl('本段开始时刻')),
+            J: V(J, 'N·s', 'I', tl('冲量 ∫Fₓdt（对表达式数值积分）')), dx: V(dx, 'm', '\\Delta x_F', tl('(1/m)∫(t−s)Fₓ(s)ds（对表达式数值积分）'))
           }
-          if (sw) { vars.F0 = V(sw.F0, 'N', 'F_0', '力的幅值'); vars.omega = V(sw.omega, 'rad/s', '\\omega', '角频率') }
+          if (sw) { vars.F0 = V(sw.F0, 'N', 'F_0', tl('力的幅值')); vars.omega = V(sw.omega, 'rad/s', '\\omega', tl('角频率')) }
           return {
             vars,
             measures: {
-              dp: M(b.mass * (X[3 * n + 3 * b.index] - s0.vx), 'N·s', '动量变化 mΔvₓ'), v: M(X[3 * n + 3 * b.index], 'm/s', '速度 vₓ'),
-              x: M(X[3 * b.index], 'm', '位置 x'), W: M(X[sys.auxBase + AUX_WORK] - W0, 'J', '变力做的功（能量账本）')
+              dp: M(b.mass * (X[3 * n + 3 * b.index] - s0.vx), 'N·s', tl('动量变化 mΔvₓ')), v: M(X[3 * n + 3 * b.index], 'm/s', tl('速度 vₓ')),
+              x: M(X[3 * b.index], 'm', tl('位置 x')), W: M(X[sys.auxBase + AUX_WORK] - W0, 'J', tl('变力做的功（能量账本）'))
             },
             conditions: [
-              cond('timeOnly', 'Fₓ 只随时间变化', timeOnly, timeOnly ? '' : `Fₓ = ${f.expr!.x.src} 含状态量，积分式不适用`),
+              cond('timeOnly', tl('Fₓ 只随时间变化'), timeOnly, timeOnly ? '' : tl('Fₓ = {0} 含状态量，积分式不适用', [f.expr!.x.src])),
               cond('sinusoid', 'F = F₀ sin(ωt)', !!sw, sw ? '' : `Fₓ = ${f.expr!.x.src}`),
-              cond('smooth', '水平方向只受该力（光滑水平面或悬空）', true),
-              cond('noVerticalWork', '竖直方向无位移（只有 Fₓ 做功）', Math.abs(s0.vy) < 1e-12 && closedUnits(r.segs[0].mode, b.id).length === 1)
+              cond('smooth', tl('水平方向只受该力（光滑水平面或悬空）'), true),
+              cond('noVerticalWork', tl('竖直方向无位移（只有 Fₓ 做功）'), Math.abs(s0.vy) < 1e-12 && closedUnits(r.segs[0].mode, b.id).length === 1)
             ]
           }
         }

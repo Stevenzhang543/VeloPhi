@@ -7,6 +7,7 @@
  *   conditions fail   → 'not-applicable' (the card is listed separately with the reason)
  *   no measurement    → 'no-measure'
  */
+import { tl, paren, semiSep, colonSep } from '../i18n'
 import type { FormulaDef } from './library'
 import { FORMULAS } from './library'
 import type { Node } from './expr'
@@ -94,7 +95,7 @@ function unitLatex(u: string): string {
 export function evaluateCard(f: FormulaDef, sit: Situation, sample: Sample, opts: FormatOptions): FormulaCard {
   const node = ast(f)
   const conds = sample.conditions
-  const required = (f.requires ?? []).map(id => conds.find(c => c.id === id) ?? { id, label: id, status: 'fail' as const, detail: '情形未提供该条件' })
+  const required = (f.requires ?? []).map(id => conds.find(c => c.id === id) ?? { id, label: id, status: 'fail' as const, detail: tl('情形未提供该条件') })
   const approx = f.approxOf ? conds.find(c => c.id === f.approxOf) ?? null : null
   const vars: Record<string, number> = {}
   for (const [k, v] of Object.entries(sample.vars)) vars[k] = v.value
@@ -127,23 +128,23 @@ export function evaluateCard(f: FormulaDef, sit: Situation, sample: Sample, opts
   const failed = required.filter(c => c.status === 'fail')
   if (failed.length) {
     verdict = 'not-applicable'
-    reason = `条件不满足：${failed.map(c => c.label + (c.detail ? `（${c.detail}）` : '')).join('；')}`
+    reason = tl('条件不满足：{0}', [failed.map(c => c.label + (c.detail ? paren(c.detail) : '')).join(semiSep())])
   } else if (theory === null) {
     verdict = 'not-applicable'
   } else if (sim === null) {
     verdict = 'no-measure'
-    reason = measure?.note ?? '仿真中没有可比较的测量值'
+    reason = measure?.note ?? tl('仿真中没有可比较的测量值')
   } else if (f.kind === 'approx') {
     const st = approx?.status ?? 'ok'
     verdict = st === 'ok' ? 'approx-ok' : st === 'approx' ? 'approx' : 'approx-invalid'
-    reason = approx ? `${approx.label}：${approx.detail}` : ''
+    reason = approx ? `${approx.label}${colonSep()}${approx.detail}` : ''
   } else {
     const rel = f.situation === 'energy' ? THRESHOLDS.energyRel : THRESHOLDS.exactRel
     const ok = (relError ?? 1) <= rel || Math.abs(absError ?? 1) <= THRESHOLDS.exactAbs * Math.max(1, Math.abs(theory))
     verdict = ok ? 'match' : 'deviate'
-    if (!ok) reason = `偏差超过阈值（相对 ${rel}）。可能原因：${(f.causes ?? ['数值积分误差', '模型假设与场景不符（请检查条件）']).join('；')}`
+    if (!ok) reason = tl('偏差超过阈值（相对 {0}）。可能原因：{1}', [rel, (f.causes ?? [tl('数值积分误差'), tl('模型假设与场景不符（请检查条件）')]).join(semiSep())])
   }
-  const approxNote = required.some(c => c.status === 'approx') && verdict === 'match' ? '（条件近似成立）' : ''
+  const approxNote = required.some(c => c.status === 'approx') && verdict === 'match' ? tl('（条件近似成立）') : ''
   return {
     key: `${sit.key}/${f.id}`, formula: f, situation: sit, verdict, conditions: approx ? [approx, ...required] : required,
     theory, sim, absError, relError, symbolic, substituted, reason: reason + approxNote,
@@ -173,7 +174,7 @@ export function checkDimensions(f: FormulaDef, varUnits: Record<string, string>)
     const dims: Record<string, readonly [number, number, number]> = {}
     for (const [k, u] of Object.entries(varUnits)) dims[k] = unitDim(u)
     const d = dimension(ast(f), dims)
-    if (!dimEqual(d, unitDim(f.unit))) return `${f.id}: 结果量纲与单位 ${f.unit} 不符`
+    if (!dimEqual(d, unitDim(f.unit))) return tl('{0}: 结果量纲与单位 {1} 不符', [f.id, f.unit])
     return null
   } catch (e) {
     return `${f.id}: ${(e as Error).message}`

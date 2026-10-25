@@ -7,6 +7,7 @@
  * Shows full precision while editing, validates on commit (Enter / blur), and emits only finite values inside
  * [min, max] (SI). Arrow keys step by `step` (SI; default: a tenth of the shown magnitude, 1° for angles).
  */
+import { tl } from '../../i18n'
 import { computed, ref, watch } from 'vue'
 import { kindOf } from '../../units/units'
 import { fromDisp, toDisp, unitLabel } from '../settings'
@@ -35,10 +36,10 @@ const bound = (si: number) => String(Number(toShown(si).toPrecision(6)))
 const message = computed(() => {
   if (!invalid.value) return ''
   const u = shownLabel.value ? ` ${shownLabel.value}` : ''
-  if (props.min !== undefined && props.max !== undefined) return `应在 ${bound(props.min)} … ${bound(props.max)}${u} 之间`
-  if (props.min !== undefined) return `应 ≥ ${bound(props.min)}${u}`
-  if (props.max !== undefined) return `应 ≤ ${bound(props.max)}${u}`
-  return '请输入数值'
+  if (props.min !== undefined && props.max !== undefined) return tl('应在 {0} … {1}{2} 之间', [bound(props.min), bound(props.max), u])
+  if (props.min !== undefined) return tl('应 ≥ {0}{1}', [bound(props.min), u])
+  if (props.max !== undefined) return tl('应 ≤ {0}{1}', [bound(props.max), u])
+  return tl('请输入数值')
 })
 
 function parse(s: string): number | null {

@@ -8,6 +8,7 @@
  * move, so a drag is exact and repeatable; anchors and movable pulleys attached to the body are remapped so
  * they stay on the same material point.
  */
+import { tl } from '../../i18n'
 import type { BodyDef, PulleyDef, Scene } from '../../core/scene/types'
 import type { Pt, Attachments } from './geometry'
 import {
@@ -246,8 +247,8 @@ function resizeBox(def: BodyDef, orig: BodyDef, d: HandleDrag, h: { sx: number; 
   const kx = nw / w, ky = nh / hh
   if (d.att) remapAttachments(d.att, q => ({ x: q.x * kx, y: q.y * ky }))
   const tmp = { ...orig, position: c, shape: def.shape }
-  if (h.sx !== 0 || h.kind === 'corner') fb.labels.push({ at: toWorldPt(tmp, { x: 0, y: -nh / 2 }), text: `宽 ${o.fmtLen(nw)}` })
-  if (h.sy !== 0 || h.kind === 'corner') fb.labels.push({ at: toWorldPt(tmp, { x: nw / 2, y: 0 }), text: `高 ${o.fmtLen(nh)}` })
+  if (h.sx !== 0 || h.kind === 'corner') fb.labels.push({ at: toWorldPt(tmp, { x: 0, y: -nh / 2 }), text: tl('宽 {0}', [o.fmtLen(nw)]) })
+  if (h.sy !== 0 || h.kind === 'corner') fb.labels.push({ at: toWorldPt(tmp, { x: nw / 2, y: 0 }), text: tl('高 {0}', [o.fmtLen(nh)]) })
   return fb
 }
 
@@ -265,7 +266,7 @@ function rotateBody(def: BodyDef, orig: BodyDef, d: HandleDrag, p: Pt, o: DragOp
     const turn = (q: Pt) => { const r = rotate({ x: q.x - c.x, y: q.y - c.y }, delta); return { x: c.x + r.x, y: c.y + r.y } }
     def.shape = { type: 'polygon', points: verts.map(turn) }
     if (d.att) remapAttachments(d.att, turn)
-    fb.labels.push({ at: d.center, text: `转过 ${o.fmtAng(delta)}` })
+    fb.labels.push({ at: d.center, text: tl('转过 {0}', [o.fmtAng(delta)]) })
     return fb
   }
   let ang = orig.angle + delta

@@ -3,6 +3,7 @@
  * Classic model templates. Parameters are entered in the display units of the settings (templates take SI,
  * angles in degrees); g starts at the default gravity of the settings.
  */
+import { tl } from '../../i18n'
 import { computed, ref } from 'vue'
 import { state, loadScene } from '../store'
 import { TEMPLATES } from '../../templates'
@@ -22,7 +23,7 @@ function choose(t: TemplateInfo) {
 }
 choose(TEMPLATES[0])
 /** Groups in teaching order (groups not listed here follow in the order the templates define them). */
-const GROUP_ORDER = ['斜面与摩擦', '传送带', '抛体', '圆周运动', '碰撞', '动量守恒', '振动', '连接体', '刚体转动', '变力']
+const GROUP_ORDER = [tl('斜面与摩擦'), tl('传送带'), tl('抛体'), tl('圆周运动'), tl('碰撞'), tl('动量守恒'), tl('振动'), tl('连接体'), tl('刚体转动'), tl('变力')]
 const GROUP_ICON: Record<string, string> = {
   斜面与摩擦: 'incline', 传送带: 'conveyor', 抛体: 'ball', 圆周运动: 'disc', 碰撞: 'ball', 动量守恒: 'layers', 振动: 'spring', 连接体: 'pulley', 刚体转动: 'rod', 变力: 'force'
 }
@@ -48,7 +49,7 @@ const fieldBound = (p: TemplateParam, v: number | undefined) => (v === undefined
 function setField(p: TemplateParam, v: number) { values.value[p.key] = isAngle(p) ? Number((v / DEG).toPrecision(14)) : v }
 
 function create() {
-  if (state.dirty && !confirm('当前场景有未保存的修改，确定要用模板替换吗？')) return
+  if (state.dirty && !confirm(tl('当前场景有未保存的修改，确定要用模板替换吗？'))) return
   const scene = chosen.value.build(values.value)
   scene.extra = { ...(scene.extra ?? {}), template: { id: chosen.value.id, values: { ...values.value } } }
   loadScene(scene, null)
@@ -61,11 +62,11 @@ function create() {
 <template>
   <div class="dialog-backdrop" @mousedown.self="state.showTemplates = false">
     <div class="dialog">
-      <div class="dialog-header"><Icon name="template" :size="18" />经典模型模板<span class="spacer" /><button class="btn icon ghost" @click="state.showTemplates = false"><Icon name="close" /></button></div>
+      <div class="dialog-header"><Icon name="template" :size="18" />{{ tl('经典模型模板') }}<span class="spacer" /><button class="btn icon ghost" @click="state.showTemplates = false"><Icon name="close" /></button></div>
       <div class="dialog-body gallery">
         <nav>
-          <input v-model="query" class="field search" placeholder="搜索模板…" aria-label="搜索模板" />
-          <div v-if="!groups.length" class="tiny muted none">没有匹配的模板。</div>
+          <input v-model="query" class="field search" :placeholder="tl('搜索模板…')" :aria-label="tl('搜索模板')" />
+          <div v-if="!groups.length" class="tiny muted none">{{ tl('没有匹配的模板。') }}</div>
           <template v-for="[g, list] in groups" :key="g">
             <div class="tiny muted gname"><Icon :name="GROUP_ICON[g] ?? 'template'" :size="13" />{{ g }}<span class="count">{{ list.length }}</span></div>
             <button v-for="t in list" :key="t.id" class="titem" :class="{ on: chosen.id === t.id }" @click="choose(t)">
@@ -82,12 +83,12 @@ function create() {
               <NumField class="grow" :model-value="fieldValue(p)" :unit="fieldUnit(p)" :min="fieldBound(p, p.min)" :max="fieldBound(p, p.max)" :step="isAngle(p) ? undefined : p.step" @update:model-value="v => setField(p, v)" />
             </div>
           </div>
-          <p class="tiny muted">创建后所有物体、连接件和参数都可以继续编辑。数值按“设置 › 单位与数值”显示，场景内部一律使用国际单位。g 的初值取自“设置 › 通用 › 新场景的重力加速度”。</p>
+          <p class="tiny muted">{{ tl('创建后所有物体、连接件和参数都可以继续编辑。数值按“设置 › 单位与数值”显示，场景内部一律使用国际单位。g 的初值取自“设置 › 通用 › 新场景的重力加速度”。') }}</p>
         </section>
       </div>
       <div class="dialog-footer">
-        <button class="btn" @click="state.showTemplates = false">取消</button>
-        <button class="btn primary" @click="create">创建场景</button>
+        <button class="btn" @click="state.showTemplates = false">{{ tl('取消') }}</button>
+        <button class="btn primary" @click="create">{{ tl('创建场景') }}</button>
       </div>
     </div>
   </div>

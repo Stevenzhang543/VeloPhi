@@ -13,6 +13,8 @@
  * does not even read its size while hidden (that would force layout of a content-visibility: hidden subtree).
  * Draw requests are coalesced into one per animation frame and a pending request is never cancelled.
  */
+import { tl } from '../../i18n'
+import { msgText } from '../../i18n/locale'
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { state, edit, markStale, viewCamera } from '../store'
 import { usePageActive } from '../live'
@@ -23,11 +25,12 @@ import { buildSystem, initialState } from '../../core/solver/dynamics'
 import type { System } from '../../core/solver/dynamics'
 import type { Pose } from '../../core/solver/kinematics'
 import { computePoses, pulleyCenter } from '../../core/solver/kinematics'
-import { frameState } from '../../core/solver/simulation'
+import { frameIsCheap, frameState } from '../../core/solver/simulation'
 import type { AnnotationDef } from '../../core/scene/types'
 import { cloneScene, parseScene, serializeScene } from '../../core/scene/io'
 import type { Camera } from '../../render/renderer'
-import { DARK, LIGHT, computeTrajectories, drawScene, toScreen, toWorld, vectorScales } from '../../render/renderer'
+import { DARK, LIGHT, computeTrajectories, drawScene, eventLabelAt, toScreen, toWorld, vectorScales } from '../../render/renderer'
+import { openEventDetail } from '../details'
 import type { FrameEffects } from '../../render/frame'
 import { DEFAULT_STYLE, PROJECTOR_STYLE, renderFrame } from '../../render/frame'
 import type { EditorOverlay, HandleKind } from '../../render/overlay'
@@ -199,9 +202,12 @@ function fitView() {
   const grow = (x: number, y: number, r = 0) => { minX = Math.min(minX, x - r); maxX = Math.max(maxX, x + r); minY = Math.min(minY, y - r); maxY = Math.max(maxY, y + r) }
   const rec = state.recording
   if (rec && !state.stale) {
-    const stride = Math.max(1, Math.floor(rec.frameCount / 300))
-    for (const b of rec.system.model.dynamic) for (let k = 0; k < rec.frameCount; k += stride) grow(rec.states[k * rec.size + 3 * b.index], rec.states[k * rec.size + 3 * b.index + 1], b.bound)
-    for (const b of rec.system.model.dynamic) { const k = rec.frameCount - 1; grow(rec.states[k * rec.size + 3 * b.index], rec.states[k * rec.size + 3 * b.index + 1], b.bound) }
+    // An unbounded run can go anywhere (a body falling off a table falls for ever): fit the first part of the
+    // motion — the scene's former duration — rather than everything computed so far
+    const last = rec.unbounded ? Math.min(rec.frameCount - 1, Math.round(Math.max(1, state.scene.settings.legacyDuration ?? 3) / rec.dt)) : rec.frameCount - 1
+    const stride = Math.max(1, Math.floor((last + 1) / 300))
+    for (const b of rec.system.model.dynamic) for (let k = 0; k <= last; k += stride) if (frameIsCheap(rec, k)) { const X = frameState(rec, k); grow(X[3 * b.index], X[3 * b.index + 1], b.bound) }
+    for (const b of rec.system.model.dynamic) { const X = frameState(rec, last); grow(X[3 * b.index], X[3 * b.index + 1], b.bound) }
   } else {
     for (const b of state.scene.bodies) if (b.kind !== 'static') grow(b.position.x, b.position.y, b.shape.type === 'circle' ? b.shape.radius : b.shape.type === 'box' ? Math.hypot(b.shape.width, b.shape.height) / 2 : 0.3)
   }
@@ -210,8 +216,9 @@ function fitView() {
     if (carrier && carrier.dynamic) {
       // A movable pulley goes wherever its body goes
       const reach = Math.hypot(p.position.x, p.position.y) + p.radius
-      const stride = Math.max(1, Math.floor(rec!.frameCount / 300))
-      for (let k = 0; k < rec!.frameCount; k += stride) grow(rec!.states[k * rec!.size + 3 * carrier.index], rec!.states[k * rec!.size + 3 * carrier.index + 1], reach)
+      const lastK = rec!.unbounded ? Math.min(rec!.frameCount - 1, Math.round(Math.max(1, state.scene.settings.legacyDuration ?? 3) / rec!.dt)) : rec!.frameCount - 1
+      const stride = Math.max(1, Math.floor((lastK + 1) / 300))
+      for (let k = 0; k <= lastK; k += stride) if (frameIsCheap(rec!, k)) { const X = frameState(rec!, k); grow(X[3 * carrier.index], X[3 * carrier.index + 1], reach) }
     } else { const c = pulleyWorld(state.scene, p); grow(c.x, c.y, p.radius) }
   }
   for (const c of state.scene.connectors) for (const a of c.type === 'force' ? [c.a] : [c.a, c.b]) if (!a.body) grow(a.local.x, a.local.y)
@@ -437,6 +444,9 @@ function onDown(e: MouseEvent) {
   if (!cp) return
   const ppm = cam.value.ppm
   const tol = 8 / ppm
+  // A key-moment label or dot opens the event's detail view
+  const labelEvent = !editing.value && (!studio.value || state.tool === 'select') && canvas.value ? eventLabelAt(canvas.value, sx, sy) : null
+  if (labelEvent !== null) { openEventDetail(labelEvent); return }
   if (!studio.value) {
     // Monitor: choose what to watch
     state.selection = hitTest(cp.sys, cp.poses, p, tol)
@@ -463,14 +473,14 @@ function onDown(e: MouseEvent) {
   if (tool === 'add-force') {
     let id: string | null = null
     edit(scene => { id = createForce(scene, cp.sys, cp.poses, p) })
-    if (id) { state.selection = { kind: 'connector', id }; state.rightTab = 'inspect' } else notify('请点击在可运动的物体上')
+    if (id) { state.selection = { kind: 'connector', id }; state.rightTab = 'inspect' } else notify(tl('请点击在可运动的物体上'))
     if (!e.shiftKey) state.tool = 'select'
     return
   }
   if (tool === 'connect-hinge') {
     let id: string | null = null
     edit(scene => { id = createHinge(scene, cp.sys, cp.poses, p) })
-    if (id) { state.selection = { kind: 'connector', id }; state.rightTab = 'inspect' } else notify('请点击在可运动的物体上')
+    if (id) { state.selection = { kind: 'connector', id }; state.rightTab = 'inspect' } else notify(tl('请点击在可运动的物体上'))
     if (!e.shiftKey) state.tool = 'select'
     return
   }
@@ -501,7 +511,7 @@ function onDown(e: MouseEvent) {
         const id = sh.target.body, index = h.id.index
         let ok = true
         edit(scene => { const def = scene.bodies.find(b => b.id === id); if (def) ok = deleteVertex(scene, def, index) })
-        if (!ok) notify('多边形至少保留 3 个顶点')
+        if (!ok) notify(tl('多边形至少保留 3 个顶点'))
         return
       }
       const snapshot = serializeScene(state.scene)
@@ -554,7 +564,7 @@ function polygonClick(sp: Pt) {
 
 function closePolygon() {
   const pts = editor.polyDraft.slice()
-  if (pts.length < 3) { notify('多边形至少需要 3 个顶点'); return }
+  if (pts.length < 3) { notify(tl('多边形至少需要 3 个顶点')); return }
   let res: ReturnType<typeof createPolygon> | null = null
   edit(scene => { res = createPolygon(scene, pts) })
   const r = res as ReturnType<typeof createPolygon> | null
@@ -563,7 +573,7 @@ function closePolygon() {
   if ('error' in r) { notify(r.error); return }
   state.selection = { kind: 'body', id: r.id }
   state.rightTab = 'inspect'
-  if (r.dropped > 0) notify(`多边形须为凸多边形：已去掉 ${r.dropped} 个凹进的顶点`)
+  if (r.dropped > 0) notify(tl('多边形须为凸多边形：已去掉 {0} 个凹进的顶点', [r.dropped]))
   state.tool = 'select'
 }
 
@@ -677,7 +687,8 @@ function onMove(e: MouseEvent) {
     const cp = currentPoses()
     const h = cp ? hitTest(cp.sys, cp.poses, p, 8 / ppm) : null
     if ((h?.id ?? null) !== hover.value) hover.value = h?.id ?? null
-    cursor.value = h ? 'pointer' : 'default'
+    const [lx, ly] = screenOf(e)
+    cursor.value = h || (!editing.value && canvas.value && eventLabelAt(canvas.value, lx, ly) !== null) ? 'pointer' : 'default'
     return
   }
   const tool = state.tool
@@ -697,6 +708,7 @@ function onMove(e: MouseEvent) {
     if (tool === 'select') {
       const [sx, sy] = screenOf(e)
       if (hitAnnotation(cam.value, state.scene.annotations, sx, sy)) cur = 'move'
+      else if (!editing.value && canvas.value && eventLabelAt(canvas.value, sx, sy) !== null) cur = 'pointer'
       else if (h) cur = canEditGeometry.value && (h.kind === 'body' || h.kind === 'pulley') ? 'move' : 'pointer'
     }
   } else if (hover.value) hover.value = null
@@ -755,7 +767,7 @@ function onUp(e: MouseEvent) {
   if (d.kind === 'annot-create') {
     snapMark.value = null
     const len = Math.hypot(d.b.x - d.a.x, d.b.y - d.a.y) * cam.value.ppm
-    if (!d.moved || len < 4) { notify(d.tool === 'measure-ruler' ? '按住并拖动来测量长度' : '按住并拖动来画箭头'); return }
+    if (!d.moved || len < 4) { notify(d.tool === 'measure-ruler' ? tl('按住并拖动来测量长度') : tl('按住并拖动来画箭头')); return }
     let id: string | null = null
     editAnnotations(scene => {
       id = d.tool === 'measure-ruler'
@@ -801,7 +813,7 @@ function onDblClick(e: MouseEvent) {
   if (!hit) return
   const wasBox = def.shape.type === 'box'
   edit(scene => { const b = scene.bodies.find(x => x.id === sel.id); if (b) insertVertex(b, hit.index, hit.local) })
-  notify(wasBox ? '已把矩形转为多边形并添加顶点；拖动顶点改形状，Alt+单击顶点删除' : '已添加顶点；拖动它改变形状')
+  notify(wasBox ? tl('已把矩形转为多边形并添加顶点；拖动顶点改形状，Alt+单击顶点删除') : tl('已添加顶点；拖动它改变形状'))
 }
 
 // ---- Context menu ----
@@ -820,11 +832,11 @@ function openMenu(e: MouseEvent) {
 }
 
 const ADD_ITEMS: Array<{ tool: string; label: string; icon: string }> = [
-  { tool: 'add-ball', label: '小球', icon: 'ball' }, { tool: 'add-block', label: '物块', icon: 'block' },
-  { tool: 'add-disc', label: '圆柱', icon: 'disc' }, { tool: 'add-wedge', label: '楔块', icon: 'wedge' },
-  { tool: 'add-polygon', label: '多边形', icon: 'polygon' }, { tool: 'add-ground', label: '地面', icon: 'ground' },
-  { tool: 'add-incline', label: '斜面', icon: 'incline' }, { tool: 'add-wall', label: '墙', icon: 'wall' },
-  { tool: 'add-conveyor', label: '传送带', icon: 'conveyor' }, { tool: 'add-pulley', label: '定滑轮', icon: 'pulley' }
+  { tool: 'add-ball', label: tl('小球'), icon: 'ball' }, { tool: 'add-block', label: tl('物块'), icon: 'block' },
+  { tool: 'add-disc', label: tl('圆柱'), icon: 'disc' }, { tool: 'add-wedge', label: tl('楔块'), icon: 'wedge' },
+  { tool: 'add-polygon', label: tl('多边形'), icon: 'polygon' }, { tool: 'add-ground', label: tl('地面'), icon: 'ground' },
+  { tool: 'add-incline', label: tl('斜面'), icon: 'incline' }, { tool: 'add-wall', label: tl('墙'), icon: 'wall' },
+  { tool: 'add-conveyor', label: tl('传送带'), icon: 'conveyor' }, { tool: 'add-pulley', label: tl('定滑轮'), icon: 'pulley' }
 ]
 
 const menuItems = computed<MenuItem[]>(() => {
@@ -833,28 +845,28 @@ const menuItems = computed<MenuItem[]>(() => {
   const t = m.target
   if (t.kind === 'empty') {
     return [
-      { id: 'paste', label: '粘贴到此处', icon: 'paste', shortcut: 'Ctrl+V', disabled: !hasClipboard() },
-      { id: 'add', label: '添加物体', icon: 'plus', children: ADD_ITEMS.map(a => ({ id: `add:${a.tool}`, label: a.label, icon: a.icon })) },
-      { id: 'text', label: '添加文字标注', icon: 'text' },
-      { id: 'fit', label: '适合视图', icon: 'fit', sep: true }
+      { id: 'paste', label: tl('粘贴到此处'), icon: 'paste', shortcut: 'Ctrl+V', disabled: !hasClipboard() },
+      { id: 'add', label: tl('添加物体'), icon: 'plus', children: ADD_ITEMS.map(a => ({ id: `add:${a.tool}`, label: a.label, icon: a.icon })) },
+      { id: 'text', label: tl('添加文字标注'), icon: 'text' },
+      { id: 'fit', label: tl('适合视图'), icon: 'fit', sep: true }
     ]
   }
   if (t.kind === 'annotation') {
     const a = state.scene.annotations.find(x => x.id === t.id)
     return [
-      ...(a?.type === 'text' ? [{ id: 'edit-text', label: '编辑文字', icon: 'text' }] : []),
-      { id: 'copy', label: '复制', icon: 'copy', shortcut: 'Ctrl+C' },
-      { id: 'dup', label: '创建副本', icon: 'duplicate', shortcut: 'Ctrl+D' },
-      { id: 'delete', label: '删除', icon: 'trash', shortcut: 'Del', danger: true, sep: true }
+      ...(a?.type === 'text' ? [{ id: 'edit-text', label: tl('编辑文字'), icon: 'text' }] : []),
+      { id: 'copy', label: tl('复制'), icon: 'copy', shortcut: 'Ctrl+C' },
+      { id: 'dup', label: tl('创建副本'), icon: 'duplicate', shortcut: 'Ctrl+D' },
+      { id: 'delete', label: tl('删除'), icon: 'trash', shortcut: 'Del', danger: true, sep: true }
     ]
   }
-  if (t.kind === 'connector') return [{ id: 'delete', label: '删除', icon: 'trash', shortcut: 'Del', danger: true }]
+  if (t.kind === 'connector') return [{ id: 'delete', label: tl('删除'), icon: 'trash', shortcut: 'Del', danger: true }]
   if (t.kind === 'pulley') {
     const p = state.scene.pulleys.find(x => x.id === t.id)
     return [
-      { id: 'copy', label: '复制', icon: 'copy', shortcut: 'Ctrl+C', disabled: !!p?.body },
-      { id: 'dup', label: '创建副本', icon: 'duplicate', shortcut: 'Ctrl+D', disabled: !!p?.body },
-      { id: 'delete', label: '删除', icon: 'trash', shortcut: 'Del', danger: true, sep: true }
+      { id: 'copy', label: tl('复制'), icon: 'copy', shortcut: 'Ctrl+C', disabled: !!p?.body },
+      { id: 'dup', label: tl('创建副本'), icon: 'duplicate', shortcut: 'Ctrl+D', disabled: !!p?.body },
+      { id: 'delete', label: tl('删除'), icon: 'trash', shortcut: 'Del', danger: true, sep: true }
     ]
   }
   const b = state.scene.bodies.find(x => x.id === t.id)
@@ -862,20 +874,20 @@ const menuItems = computed<MenuItem[]>(() => {
   const dyn = b.kind !== 'static'
   const block = kindChangeBlocker(state.scene, b)
   const items: MenuItem[] = [
-    { id: 'copy', label: '复制', icon: 'copy', shortcut: 'Ctrl+C' },
-    { id: 'dup', label: '创建副本', icon: 'duplicate', shortcut: 'Ctrl+D' },
-    { id: 'delete', label: '删除', icon: 'trash', shortcut: 'Del', danger: true },
-    { id: 'front', label: '移到最前', icon: 'front', sep: true },
-    { id: 'back', label: '移到最后', icon: 'back' },
-    { id: 'static', label: dyn ? '转为固定物体' : '转为可运动物体', icon: dyn ? 'anchor' : 'unlock', sep: true, disabled: !!block, title: block ?? undefined }
+    { id: 'copy', label: tl('复制'), icon: 'copy', shortcut: 'Ctrl+C' },
+    { id: 'dup', label: tl('创建副本'), icon: 'duplicate', shortcut: 'Ctrl+D' },
+    { id: 'delete', label: tl('删除'), icon: 'trash', shortcut: 'Del', danger: true },
+    { id: 'front', label: tl('移到最前'), icon: 'front', sep: true },
+    { id: 'back', label: tl('移到最后'), icon: 'back' },
+    { id: 'static', label: dyn ? tl('转为固定物体') : tl('转为可运动物体'), icon: dyn ? 'anchor' : 'unlock', sep: true, disabled: !!block, title: block ?? undefined }
   ]
-  if (b.kind === 'rigid') items.push({ id: 'fixrot', label: b.fixedRotation ? '允许转动' : '固定转动（只平动）', icon: 'norotate' })
-  if (b.shape.type === 'box') items.push({ id: 'poly', label: '转为多边形（编辑顶点）', icon: 'polygon' })
+  if (b.kind === 'rigid') items.push({ id: 'fixrot', label: b.fixedRotation ? tl('允许转动') : tl('固定转动（只平动）'), icon: 'norotate' })
+  if (b.shape.type === 'box') items.push({ id: 'poly', label: tl('转为多边形（编辑顶点）'), icon: 'polygon' })
   if (dyn) {
     const moving = b.velocity.x !== 0 || b.velocity.y !== 0 || b.angularVelocity !== 0
-    items.push({ id: 'v0', label: '初速度清零', icon: 'zero', disabled: !moving })
-    items.push({ id: 'force', label: '在此处添加外力', icon: 'force', sep: true })
-    items.push({ id: 'hinge', label: '在此处添加铰链', icon: 'hinge' })
+    items.push({ id: 'v0', label: tl('初速度清零'), icon: 'zero', disabled: !moving })
+    items.push({ id: 'force', label: tl('在此处添加外力'), icon: 'force', sep: true })
+    items.push({ id: 'hinge', label: tl('在此处添加铰链'), icon: 'hinge' })
   }
   return items
 })
@@ -910,7 +922,7 @@ function runMenu(id: string) {
       if (!cp) return
       let cid: string | null = null
       edit(scene => { cid = id === 'force' ? createForce(scene, cp.sys, cp.poses, m.world) : createHinge(scene, cp.sys, cp.poses, m.world) })
-      if (cid) { state.selection = { kind: 'connector', id: cid }; state.rightTab = 'inspect' } else notify('此处不在可运动的物体上')
+      if (cid) { state.selection = { kind: 'connector', id: cid }; state.rightTab = 'inspect' } else notify(tl('此处不在可运动的物体上'))
       return
     }
   }
@@ -1029,24 +1041,24 @@ const timeText = computed(() => {
 
 const toolHint = computed(() => {
   if (!studio.value) return ''
-  const snap = settings.editor.snap ? '；按住 Alt 暂停吸附' : ''
+  const snap = settings.editor.snap ? tl('；按住 Alt 暂停吸附') : ''
   switch (state.tool) {
-    case 'connect-rope': return state.pendingConnector ? '点击滑轮让绳绕过，再点击另一物体或空白处（固定点）完成' : '点击物体（靠近中心吸附到质心）或空白处作为绳的一端'
-    case 'connect-rod': return state.pendingConnector ? '点击另一端' : '点击轻杆的一端'
-    case 'connect-spring': return state.pendingConnector ? '点击弹簧另一端（物体或固定点）' : '点击弹簧的一端'
-    case 'connect-hinge': return '点击物体上的转轴位置（与重叠的物体铰接，否则固定在世界中）'
-    case 'add-force': return '点击物体上的作用点添加恒力'
-    case 'pan': return '拖动平移视图'
+    case 'connect-rope': return state.pendingConnector ? tl('点击滑轮让绳绕过，再点击另一物体或空白处（固定点）完成') : tl('点击物体（靠近中心吸附到质心）或空白处作为绳的一端')
+    case 'connect-rod': return state.pendingConnector ? tl('点击另一端') : tl('点击轻杆的一端')
+    case 'connect-spring': return state.pendingConnector ? tl('点击弹簧另一端（物体或固定点）') : tl('点击弹簧的一端')
+    case 'connect-hinge': return tl('点击物体上的转轴位置（与重叠的物体铰接，否则固定在世界中）')
+    case 'add-force': return tl('点击物体上的作用点添加恒力')
+    case 'pan': return tl('拖动平移视图')
     case 'select': return ''
-    case 'add-polygon': return editor.polyDraft.length >= 3 ? `已放 ${editor.polyDraft.length} 个顶点：点击第一个顶点、双击或按 Enter 完成；Backspace 撤回一点；Esc 取消` : '依次点击放置顶点（结果取凸包）' + snap
-    case 'measure-ruler': return '按住并拖动测量长度与倾角（自动吸附到顶点和质心）' + snap
-    case 'measure-angle': return editor.angleDraft.length === 0 ? '点击角的顶点' : editor.angleDraft.length === 1 ? '点击第一条边上的一点' : '点击第二条边上的一点'
-    case 'annotate-text': return '点击放置文字标注'
-    case 'annotate-arrow': return '按住并拖动画箭头' + snap
-    case 'add-ball': case 'add-disc': case 'add-pulley': return '点击放置；按住拖动设定半径；按住 Shift 连续放置' + snap
-    case 'add-ground': case 'add-conveyor': return '点击放置；按住水平拖动设定长度；按住 Shift 连续放置' + snap
-    case 'add-incline': case 'add-wedge': return '点击放置；从直角处拖出底边和高；按住 Shift 连续放置' + snap
-    default: return '点击放置（靠近表面时自动贴合）；按住拖动设定大小；按住 Shift 连续放置' + snap
+    case 'add-polygon': return editor.polyDraft.length >= 3 ? tl('已放 {0} 个顶点：点击第一个顶点、双击或按 Enter 完成；Backspace 撤回一点；Esc 取消', [editor.polyDraft.length]) : tl('依次点击放置顶点（结果取凸包）') + snap
+    case 'measure-ruler': return tl('按住并拖动测量长度与倾角（自动吸附到顶点和质心）') + snap
+    case 'measure-angle': return editor.angleDraft.length === 0 ? tl('点击角的顶点') : editor.angleDraft.length === 1 ? tl('点击第一条边上的一点') : tl('点击第二条边上的一点')
+    case 'annotate-text': return tl('点击放置文字标注')
+    case 'annotate-arrow': return tl('按住并拖动画箭头') + snap
+    case 'add-ball': case 'add-disc': case 'add-pulley': return tl('点击放置；按住拖动设定半径；按住 Shift 连续放置') + snap
+    case 'add-ground': case 'add-conveyor': return tl('点击放置；按住水平拖动设定长度；按住 Shift 连续放置') + snap
+    case 'add-incline': case 'add-wedge': return tl('点击放置；从直角处拖出底边和高；按住 Shift 连续放置') + snap
+    default: return tl('点击放置（靠近表面时自动贴合）；按住拖动设定大小；按住 Shift 连续放置') + snap
   }
 })
 
@@ -1056,10 +1068,10 @@ const selectionHint = computed(() => {
   if (sel?.kind !== 'body') return ''
   const b = state.scene.bodies.find(x => x.id === sel.id)
   if (!b) return ''
-  const rot = settings.editor.angleSnap > 0 ? `（按 ${settings.editor.angleSnap}° 吸附，Shift 自由旋转）` : ''
-  if (b.shape.type === 'polygon') return `拖动顶点改形状，双击边添加顶点，Alt+单击顶点删除；圆形手柄旋转${rot}`
-  if (b.shape.type === 'box') return `拖动方形手柄改大小（Shift 等比），圆形手柄旋转${rot}；右键可转为多边形`
-  return '拖动手柄改半径'
+  const rot = settings.editor.angleSnap > 0 ? tl('（按 {0}° 吸附，Shift 自由旋转）', [settings.editor.angleSnap]) : ''
+  if (b.shape.type === 'polygon') return tl('拖动顶点改形状，双击边添加顶点，Alt+单击顶点删除；圆形手柄旋转{0}', [rot])
+  if (b.shape.type === 'box') return tl('拖动方形手柄改大小（Shift 等比），圆形手柄旋转{0}；右键可转为多边形', [rot])
+  return tl('拖动手柄改半径')
 })
 </script>
 
@@ -1068,9 +1080,9 @@ const selectionHint = computed(() => {
     <canvas ref="canvas" :style="{ cursor }" @wheel="onWheel" @mousedown="onDown" @mousemove="onMove" @mouseup="onUp" @mouseleave="onLeave" @dblclick="onDblClick" @contextmenu.prevent />
     <div class="overlay top-left">
       <span v-if="timeText && studio" class="time mono">{{ timeText }}</span>
-      <span v-if="editing" class="badge warn">{{ studio ? '编辑中' : '未运行' }}{{ state.recording ? ' · 结果已过期' : '' }}</span>
-      <span v-if="state.computing" class="badge info">计算中…</span>
-      <span v-if="state.simError" class="badge bad" :title="state.simError">{{ state.simError }}</span>
+      <span v-if="editing" class="badge warn">{{ studio ? tl('编辑中') : tl('未运行') }}{{ state.recording ? tl(' · 结果已过期') : '' }}</span>
+      <span v-if="state.computing && !state.run.paused" class="badge info">{{ tl('计算中…') }}</span>
+      <span v-if="state.simError" class="badge bad" :title="msgText(state.simError)">{{ msgText(state.simError) }}</span>
     </div>
     <div v-if="!studio && timeText" class="overlay hud mono">{{ timeText }}<span v-if="state.speed !== 1" class="speed">{{ state.speed }}×</span></div>
     <div v-if="toolHint || editor.notice || selectionHint" class="overlay hint-col">
@@ -1078,7 +1090,7 @@ const selectionHint = computed(() => {
       <div v-if="editor.notice" class="hint small notice">{{ editor.notice }}</div>
     </div>
     <div class="overlay bottom-right">
-      <button class="btn ghost small" title="缩放到运动范围" @click="fitView">适合视图</button>
+      <button class="btn ghost small" :title="tl('缩放到运动范围')" @click="fitView">{{ tl('适合视图') }}</button>
     </div>
     <AnnotationTextInput v-if="studio && editor.textInput && textInputPos" :key="`${editor.textInput.editId ?? 'new'}:${editor.textInput.at.x},${editor.textInput.at.y}`"
       :x="textInputPos.x" :y="textInputPos.y" :text="editor.textInput.text" :size="TEXT_SIZE * (settings.projector ? 1.4 : 1)" @commit="commitText" @cancel="cancelText" />

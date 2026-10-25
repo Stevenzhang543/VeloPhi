@@ -1,0 +1,81 @@
+    Finished `release` profile [optimized] target(s) in 0.02s
+Module checks
+  dmath sin    1000000 inputs identical (TS 68 ms, Rust 21 ms)
+  dmath cos    1000000 inputs identical (TS 76 ms, Rust 19 ms)
+  dmath tan    1000000 inputs identical (TS 96 ms, Rust 29 ms)
+  dmath atan   1000000 inputs identical (TS 34 ms, Rust 12 ms)
+  dmath asin   1000000 inputs identical (TS 42 ms, Rust 15 ms)
+  dmath acos   1000000 inputs identical (TS 45 ms, Rust 16 ms)
+  dmath exp    1000000 inputs identical (TS 47 ms, Rust 12 ms)
+  dmath log    1000000 inputs identical (TS 41 ms, Rust 8 ms)
+  dmath atan2  1000000 inputs identical (TS 84 ms, Rust 22 ms)
+  dmath pow    1000000 inputs identical (TS 102 ms, Rust 31 ms)
+  dmath hypot  1000000 inputs identical (TS 16 ms, Rust 5 ms)
+  expressions 4000 cases identical (1062 valid, 2938 rejected by both)
+Templates (bounded, legacy duration)
+  ✓ template/incline                            721 frames  TS    127.3 ms  Rust      2.9 ms
+  ✓ template/board-block                       1501 frames  TS    153.3 ms  Rust     21.6 ms
+  ✓ template/conveyor                           901 frames  TS     95.7 ms  Rust      4.1 ms
+  ✓ template/conveyor-incline                   901 frames  TS     19.4 ms  Rust     10.1 ms
+  ✓ template/collision-1d                       901 frames  TS     36.4 ms  Rust      1.7 ms
+  ✓ template/collision-2d                       901 frames  TS     33.0 ms  Rust      1.7 ms
+  ✓ template/projectile                        1321 frames  TS     63.8 ms  Rust      2.7 ms
+  ✓ template/pendulum                          3601 frames  TS    136.9 ms  Rust      6.8 ms
+  ✓ template/spring                            1801 frames  TS    147.6 ms  Rust      7.8 ms
+  ✓ template/hinged-rod                        1201 frames  TS     50.4 ms  Rust      2.7 ms
+  ✓ template/rolling                            721 frames  TS     18.1 ms  Rust      2.1 ms
+  ✓ template/ball-rod                           361 frames  TS      4.7 ms  Rust      1.0 ms
+  ✓ template/atwood                             601 frames  TS     38.3 ms  Rust      2.1 ms
+  ✓ template/table-pulley                       601 frames  TS     41.3 ms  Rust      4.0 ms
+  ✓ template/vertical-circle-rope              1201 frames  TS     42.7 ms  Rust      2.3 ms
+  ✓ template/vertical-circle-rod               1201 frames  TS     24.8 ms  Rust      2.3 ms
+  ✓ template/movable-pulley                     481 frames  TS     55.7 ms  Rust      2.8 ms
+  ✓ template/movable-wedge                      361 frames  TS     26.3 ms  Rust      2.5 ms
+  ✓ template/spring-blocks                     1201 frames  TS     54.1 ms  Rust      9.1 ms
+  ✓ template/rolling-slip                       901 frames  TS     12.1 ms  Rust      2.9 ms
+  ✓ template/variable-force                    2401 frames  TS    149.5 ms  Rust     10.0 ms
+Templates (unbounded, 60 s)
+  ✓ unbounded/incline                         36001 frames  TS    388.8 ms  Rust     45.8 ms
+  ✓ unbounded/board-block                     36001 frames  TS   1817.2 ms  Rust    306.3 ms
+  ✓ unbounded/conveyor                        36001 frames  TS    552.3 ms  Rust     49.9 ms
+  ✓ unbounded/conveyor-incline                36001 frames  TS    492.4 ms  Rust     46.0 ms
+  ✓ unbounded/collision-1d                    36001 frames  TS    423.6 ms  Rust     44.2 ms
+  ✓ unbounded/collision-2d                    36001 frames  TS    408.8 ms  Rust     61.7 ms
+  ✓ unbounded/projectile                      36001 frames  TS    463.4 ms  Rust     35.8 ms
+  ✓ unbounded/pendulum                        36001 frames  TS    595.5 ms  Rust    114.1 ms
+  ✓ unbounded/spring                          36001 frames  TS    738.3 ms  Rust    120.9 ms
+  ✓ unbounded/hinged-rod                      36001 frames  TS    588.0 ms  Rust     62.2 ms
+  ✓ unbounded/rolling                         36001 frames  TS    583.2 ms  Rust     72.3 ms
+  ✓ unbounded/ball-rod                        36001 frames  TS    738.7 ms  Rust     87.8 ms
+  ✓ unbounded/atwood                           1413 frames  TS     92.5 ms  Rust      5.5 ms
+  ✓ unbounded/table-pulley                      784 frames  TS     69.1 ms  Rust      6.1 ms
+  ✓ unbounded/vertical-circle-rope            36001 frames  TS    639.5 ms  Rust     71.3 ms
+  ✓ unbounded/vertical-circle-rod             36001 frames  TS    456.5 ms  Rust     46.7 ms
+  ✓ unbounded/movable-pulley                  36001 frames  TS   7065.4 ms  Rust    896.2 ms
+  ✓ unbounded/movable-wedge                   36001 frames  TS    795.5 ms  Rust     78.2 ms
+  ✓ unbounded/spring-blocks                   36001 frames  TS    869.1 ms  Rust    128.5 ms
+  ✓ unbounded/rolling-slip                    36001 frames  TS    663.5 ms  Rust     72.1 ms
+  ✓ unbounded/variable-force                  36001 frames  TS    610.0 ms  Rust     86.7 ms
+Golden and special scenes
+  ✓ golden/stack                               1201 frames  TS    185.6 ms  Rust     40.7 ms
+  ✓ golden/bounce                              7201 frames  TS    142.6 ms  Rust     18.5 ms
+  ✓ golden/edge                                 901 frames  TS     40.4 ms  Rust      5.1 ms
+  ✓ golden/spring2                             2401 frames  TS    116.8 ms  Rust     23.0 ms
+  ✓ special/mixed                               961 frames  TS     93.0 ms  Rust      8.0 ms
+  ✓ special/pile                                361 frames  TS    331.7 ms  Rust     36.9 ms
+  ✓ special/board-block-stopAt                 1146 frames  TS    119.2 ms  Rust     10.2 ms
+  ✓ special/bounce-rest                        2379 frames  TS     44.3 ms  Rust      3.1 ms
+Random scenes (500, seed 2650)
+  … 100 random scenes identical
+  … 200 random scenes identical
+  … 300 random scenes identical
+  … 400 random scenes identical
+  … 500 random scenes identical
+
+Summary
+  scenes compared 550, frames compared 1276129, events 45836, checkpoints 2494
+  chunk rebuilds verified: Rust from its own checkpoints 1378, TypeScript from Rust checkpoints 256; worker deltas compared 1478
+  14 original templates (bounded, single run incl. compile): TS 966 ms, Rust 71 ms (×13.5)
+  all scenes: TS 124351 ms, Rust 14514 ms
+  random scenes exercised: Moreau–Jean fallback or mode ×101; change impact ×351; change reverse ×49; change separate ×146; change slack ×60; change slip ×39; change stick ×125; change switch ×42; change taut ×105; change timestep ×101; change touch ×20; end duration ×478; end error err.forceNotFinite ×1; end error err.stepTooSmall ×4; end error err.switchChatter ×3; end stopAt ×14; frictional impact (Stronge) ×193; integrator dopri5 ×401; integrator euler ×25; integrator moreau ×37; integrator rk4 ×37; variable-force switch event ×42; warn.ambiguousMode ×25; warn.initialDeepOverlap ×59; warn.initialOverlapRemoved ×59; warn.muSBelowMuK ×153; warn.multiImpactFriction ×135; warn.polygonCentred ×44; warn.reducedAccuracy/reason.eventStorm ×64; warn.reducedAccuracy/reason.moreauSelected ×37
+  0 mismatches: bit-identical

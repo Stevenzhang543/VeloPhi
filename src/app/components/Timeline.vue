@@ -1,49 +1,105 @@
 <script setup lang="ts">
 /**
  * Playback bar: transport, event jumps, speed, loop, the time readout (display time unit) and the track with
- * event markers. While a run is still computing, the track spans the full duration and shows how far the
- * recording reaches. `active` = false (hidden page) stops it from following playback.
+ * event markers. While a run is still computing, the track shows how far the recording reaches. An unbounded run
+ * (decision D26) grows: the track spans the computed range plus the look-ahead target, playback waits (buffering)
+ * when it catches up with the computation, clicking beyond the computed part asks the run to compute there, and
+ * the track can show everything or a recent window. `active` = false (hidden page) stops it from following
+ * playback.
  */
-import { computed } from 'vue'
-import { state, play, pause, seekFrame, seekTime, seekAfter } from '../store'
+import { tl, listSep } from '../../i18n'
+import { computed, ref, watch } from 'vue'
+import { state, play, pause, seekFrame, seekTime, seekAfter, computeTo, stopRun } from '../store'
 import { useGated } from '../live'
 import { fmtNum, fmtTime, unitLabel } from '../settings'
 import Icon from './Icon.vue'
 import { eventLabel } from '../../render/renderer'
+import { openEventDetail } from '../details'
 
 const props = withDefaults(defineProps<{ active?: boolean }>(), { active: true })
 
 const rec = computed(() => (state.stale ? null : state.recording))
-/** Full simulated duration (also while the recording is still growing). */
-const duration = computed(() => (rec.value ? Math.max((rec.value.frameCount - 1) * rec.value.dt, rec.value.scene.settings.duration) : 0))
+const unbounded = computed(() => !!rec.value?.unbounded)
 const lastFrame = computed(() => (rec.value ? rec.value.frameCount - 1 : 0))
-/** Frames of the complete recording (the track's range). */
-const totalFrames = computed(() => (rec.value ? Math.max(lastFrame.value, Math.round(duration.value / rec.value.dt)) : 0))
-const computedFraction = computed(() => (rec.value && duration.value > 0 ? (lastFrame.value * rec.value.dt) / duration.value : 1))
+/** Computed range (s). */
+const tComputed = computed(() => (rec.value ? lastFrame.value * rec.value.dt : 0))
+/** End of the track: the full duration of a bounded run; the computed range or look-ahead target of an unbounded one. */
+const duration = computed(() => {
+  const r = rec.value
+  if (!r) return 0
+  if (!r.unbounded) return Math.max(tComputed.value, r.scene.settings.duration ?? 0)
+  const target = state.computing && Number.isFinite(state.run.tTarget) ? state.run.tTarget : 0
+  return Math.max(tComputed.value, target, r.dt)
+})
 const tNow = useGated(() => props.active, () => (rec.value ? state.time : 0))
 const frameNow = useGated(() => props.active, () => state.frame)
 
+/** Track zoom of an unbounded run: everything, or a recent window around the playhead. */
+const zoom = ref<'all' | 'recent'>('all')
+/** Span of the recent window (s). */
+const WINDOW = 60
+/** Visible range of the track (s), moving in quarter-window steps. */
+const view = computed(() => {
+  const end = duration.value
+  if (zoom.value === 'all' || end <= WINDOW) return { t0: 0, t1: end }
+  const step = WINDOW / 4
+  const t0 = Math.max(0, Math.min(Math.floor((tNow.value - 0.75 * WINDOW) / step) * step, end - WINDOW))
+  return { t0, t1: t0 + WINDOW }
+})
+const span = computed(() => Math.max(1e-9, view.value.t1 - view.value.t0))
+/** Fraction of the visible track that is computed. */
+const computedFraction = computed(() => Math.max(0, Math.min(1, (tComputed.value - view.value.t0) / span.value)))
+const dtOf = computed(() => rec.value?.dt ?? 1)
+const kMin = computed(() => Math.round(view.value.t0 / dtOf.value))
+const kMax = computed(() => Math.max(kMin.value + 1, Math.round(view.value.t1 / dtOf.value)))
+
+/** Most markers drawn (long runs: the events in view, thinned evenly). */
+const MAX_MARKERS = 400
 const markers = computed(() => {
   const r = rec.value
   if (!r || duration.value <= 0) return []
-  return r.events.filter(e => e.changes.length > 0).map(e => ({ t: e.t, left: (e.t / duration.value) * 100, text: `${e.changes.map(eventLabel).filter((v, i, a) => a.indexOf(v) === i).join('、')} @ ${fmtNum(e.t, 's', Math.min(10, state.digits + 2))} ${unitLabel('s')}` }))
+  const { t0, t1 } = view.value
+  const list: Array<{ index: number; t: number }> = []
+  r.events.forEach((e, i) => { if (e.changes.length > 0 && e.t >= t0 - 1e-12 && e.t <= t1 + 1e-12) list.push({ index: i, t: e.t }) })
+  const every = Math.max(1, Math.ceil(list.length / MAX_MARKERS))
+  return list.filter((_, i) => i % every === 0).map(({ index, t }) => {
+    const e = r.events[index]
+    return { index, t, left: ((t - t0) / span.value) * 100, text: `${e.changes.map(eventLabel).filter((v, i, a) => a.indexOf(v) === i).join(listSep())} @ ${fmtNum(t, 's', Math.min(10, state.digits + 2))} ${unitLabel('s')}` }
+  })
 })
 
 function toggle() { if (state.playing) pause(); else play() }
 function step(d: number) { pause(); seekFrame(state.frame + d) }
 function jumpEvent(dir: 1 | -1) {
+  const r = rec.value
+  if (!r) return
   const now = state.time
-  const list = markers.value.map(m => m.t)
+  const list = r.events.filter(e => e.changes.length > 0).map(e => e.t)
   const target = dir > 0 ? list.find(x => x > now + 1e-9) : [...list].reverse().find(x => x < now - 1e-9)
   if (target === undefined) return
   if (dir > 0) seekAfter(target)
   else { pause(); seekTime(target) }
 }
+/** A seek beyond the computed range of an unbounded run waits for the computation. */
+const pendingSeek = ref<number | null>(null)
+watch(lastFrame, k => { if (pendingSeek.value !== null && k >= pendingSeek.value) { seekFrame(pendingSeek.value); pendingSeek.value = null } })
 function onTrack(e: Event) {
   pause()
   const r = rec.value
   if (!r) return
-  seekFrame(Math.min(lastFrame.value, Number((e.target as HTMLInputElement).value)))
+  const k = Number((e.target as HTMLInputElement).value)
+  if (k > lastFrame.value && unbounded.value && state.computing) {
+    computeTo(k * r.dt)
+    pendingSeek.value = k
+    seekFrame(lastFrame.value)
+    return
+  }
+  pendingSeek.value = null
+  seekFrame(Math.min(lastFrame.value, k))
+}
+function onMarker(m: { index: number; t: number }) {
+  seekAfter(m.t)
+  openEventDetail(m.index)
 }
 /** Fixed decimals (the readout must not jitter), fine enough for Δt, in the display time unit. */
 const fmtT = (t: number) => fmtTime(t, rec.value?.dt ?? 1e-3, false)
@@ -52,16 +108,16 @@ const fmtT = (t: number) => fmtTime(t, rec.value?.dt ?? 1e-3, false)
 <template>
   <div class="timeline">
     <div class="controls">
-      <button class="btn icon ghost" title="回到开始（Home）" :disabled="!rec" @click="pause(); seekFrame(0)"><Icon name="start" /></button>
-      <button class="btn icon ghost" title="上一帧（←）" :disabled="!rec" @click="step(-1)"><Icon name="stepb" /></button>
-      <button class="btn icon primary play" :title="state.playing ? '暂停（空格）' : '播放（空格）'" :disabled="!rec" @click="toggle"><Icon :name="state.playing ? 'pause' : 'play'" /></button>
-      <button class="btn icon ghost" title="下一帧（→）" :disabled="!rec" @click="step(1)"><Icon name="stepf" /></button>
-      <button class="btn icon ghost" title="到结尾（End）" :disabled="!rec" @click="pause(); seekFrame(lastFrame)"><Icon name="end" /></button>
+      <button class="btn icon ghost" :title="tl('回到开始（Home）')" :disabled="!rec" @click="pause(); seekFrame(0)"><Icon name="start" /></button>
+      <button class="btn icon ghost" :title="tl('上一帧（←）')" :disabled="!rec" @click="step(-1)"><Icon name="stepb" /></button>
+      <button class="btn icon primary play" :title="state.playing ? tl('暂停（空格）') : tl('播放（空格）')" :disabled="!rec" @click="toggle"><Icon :name="state.playing ? 'pause' : 'play'" /></button>
+      <button class="btn icon ghost" :title="tl('下一帧（→）')" :disabled="!rec" @click="step(1)"><Icon name="stepf" /></button>
+      <button class="btn icon ghost" :title="tl('到结尾（End）')" :disabled="!rec" @click="pause(); seekFrame(lastFrame)"><Icon name="end" /></button>
       <span class="sep" />
-      <button class="btn ghost small" title="上一个事件" :disabled="!markers.length" @click="jumpEvent(-1)">◀<span class="ev-lbl"> 事件</span></button>
-      <button class="btn ghost small" title="下一个事件（跳到事件后的第一帧）" :disabled="!markers.length" @click="jumpEvent(1)"><span class="ev-lbl">事件 </span>▶</button>
+      <button class="btn ghost small" :title="tl('上一个事件')" :disabled="!markers.length" @click="jumpEvent(-1)">◀<span class="ev-lbl"> {{ tl('事件') }}</span></button>
+      <button class="btn ghost small" :title="tl('下一个事件（跳到事件后的第一帧）')" :disabled="!markers.length" @click="jumpEvent(1)"><span class="ev-lbl">{{ tl('事件') }} </span>▶</button>
       <span class="sep" />
-      <select v-model.number="state.speed" class="field speed" title="播放速度（仿真时间 / 真实时间）">
+      <select v-model.number="state.speed" class="field speed" :title="tl('播放速度（仿真时间 / 真实时间）')">
         <option :value="0.05">0.05×</option>
         <option :value="0.1">0.1×</option>
         <option :value="0.25">0.25×</option>
@@ -70,17 +126,23 @@ const fmtT = (t: number) => fmtTime(t, rec.value?.dt ?? 1e-3, false)
         <option :value="2">2×</option>
         <option :value="4">4×</option>
       </select>
-      <button class="btn icon ghost" :class="{ active: state.loop }" title="循环播放" :aria-pressed="state.loop" @click="state.loop = !state.loop"><Icon name="loop" /></button>
+      <button class="btn icon ghost" :class="{ active: state.loop }" :title="tl('循环播放')" :aria-pressed="state.loop" @click="state.loop = !state.loop"><Icon name="loop" /></button>
       <span class="spacer" />
-      <span v-if="state.computing && rec" class="badge info computing" title="仍在计算；可以先播放已算出的部分">已算 {{ Math.round(computedFraction * 100) }}%</span>
-      <span class="mono time">{{ fmtT(tNow) }} / {{ fmtT(duration) }} {{ unitLabel('s') }}</span>
-      <span class="mono tiny muted frames">帧 {{ rec ? frameNow : 0 }} / {{ rec ? lastFrame : 0 }}</span>
+      <span v-if="state.buffering" class="badge warn computing" :title="tl('播放追上了计算，等待新的帧')">{{ tl('缓冲中…') }}</span>
+      <template v-if="unbounded">
+        <span v-if="state.computing" class="badge info computing" :title="state.run.paused ? tl('已领先播放位置足够远，计算暂停；播放前进时继续') : tl('持续计算中；可以先播放已算出的部分')">{{ tl('已算到 {0} {1}{2}', [fmtT(tComputed), unitLabel('s'), state.run.paused ? tl(' · 暂停') : '']) }}</span>
+        <button v-if="state.computing" class="btn ghost small stop-btn" :title="tl('停止计算（保留已算出的部分）')" @click="stopRun()">{{ tl('停止') }}</button>
+        <button class="btn ghost small zoom-btn" :title="zoom === 'all' ? tl('时间轴只显示播放位置附近 60 s') : tl('时间轴显示全部已算出的范围')" @click="zoom = zoom === 'all' ? 'recent' : 'all'">{{ zoom === 'all' ? tl('全程') : tl('近 60 s') }}</button>
+      </template>
+      <span v-else-if="state.computing && rec" class="badge info computing" :title="tl('仍在计算；可以先播放已算出的部分')">{{ tl('已算 {0}%', [Math.round(computedFraction * 100)]) }}</span>
+      <span class="mono time">{{ fmtT(tNow) }} / {{ fmtT(unbounded ? tComputed : duration) }} {{ unitLabel('s') }}</span>
+      <span class="mono tiny muted frames">{{ tl('帧 {0} / {1}', [rec ? frameNow : 0, rec ? lastFrame : 0]) }}</span>
     </div>
     <div class="track">
       <div class="computed" :style="{ transform: `scaleX(${computedFraction})` }" />
-      <input type="range" min="0" :max="totalFrames" step="1" :value="rec ? Math.round(tNow / rec.dt) : 0" :disabled="!rec" aria-label="时间" @input="onTrack" />
+      <input type="range" :min="kMin" :max="kMax" step="1" :value="rec ? Math.round(tNow / rec.dt) : 0" :disabled="!rec" :aria-label="tl('时间')" @input="onTrack" />
       <div class="markers">
-        <button v-for="(m, i) in markers" :key="i" class="marker" :style="{ left: `${m.left}%` }" :title="m.text" @click="seekAfter(m.t)" />
+        <button v-for="m in markers" :key="m.index" class="marker" :style="{ left: `${m.left}%` }" :title="tl('{0}（点击查看详情）', [m.text])" @click="onMarker(m)" />
       </div>
     </div>
   </div>
@@ -93,12 +155,12 @@ const fmtT = (t: number) => fmtTime(t, rec.value?.dt ?? 1e-3, false)
 .sep { width: 1px; height: 18px; background: var(--separator); margin: 0 4px; flex: 0 0 auto; }
 .speed { width: 76px; flex: 0 0 auto; }
 .controls > .btn { flex: 0 0 auto; }
+.computing { margin-right: 4px; flex: 0 1 auto; min-width: 6em; display: block; line-height: 20px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Narrow: drop the secondary texts before anything gets squeezed */
-@container (max-width: 700px) { .frames, .ev-lbl { display: none; } }
-@container (max-width: 560px) { .computing, .sep { display: none; } .speed { width: 62px; } }
+@container (max-width: 820px) { .frames, .ev-lbl, .zoom-btn { display: none; } }
+@container (max-width: 560px) { .computing, .sep, .stop-btn { display: none; } .speed { width: 62px; } }
 .time { font-size: var(--type-body); font-weight: 600; margin: 0 8px; white-space: nowrap; }
 .frames { white-space: nowrap; }
-.computing { margin-right: 4px; }
 .track { position: relative; height: 22px; margin-top: 2px; }
 .track input { width: 100%; margin: 0; position: absolute; top: 4px; accent-color: var(--accent); }
 .computed { position: absolute; left: 8px; right: 8px; top: 10px; height: 4px; border-radius: 999px; background: var(--accent-soft); transform-origin: left; transition: transform 200ms linear; pointer-events: none; }

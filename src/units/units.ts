@@ -8,6 +8,7 @@
  *
  * This module is pure (no DOM, no Vue) so the exporters and the tests can use it directly.
  */
+import { trDeep } from '../i18n'
 
 /** Physical kind of a quantity; it selects the display unit. */
 export type UnitKind =
@@ -38,7 +39,7 @@ const u = (id: string, factor: number, label = id): UnitOption => ({ id, label, 
 const per = (id: string, n: number, label = id): UnitOption => ({ id, label, factor: 1 / n, inv: n })
 
 /** Every kind with its SI unit first. */
-export const KINDS: KindInfo[] = [
+export const KINDS: KindInfo[] = trDeep([
   { kind: 'length', label: '长度 / 位移', si: 'm', options: [u('m', 1), per('cm', 100), per('mm', 1000), u('km', 1000)] },
   { kind: 'mass', label: '质量', si: 'kg', options: [u('kg', 1), per('g', 1000)] },
   { kind: 'time', label: '时间', si: 's', options: [u('s', 1), per('ms', 1000)] },
@@ -57,7 +58,7 @@ export const KINDS: KindInfo[] = [
   { kind: 'inertia', label: '转动惯量', si: 'kg·m²', options: [u('kg·m²', 1), per('g·cm²', 1e7)] },
   { kind: 'torque', label: '力矩', si: 'N·m', options: [u('N·m', 1)] },
   { kind: 'frequency', label: '频率', si: 'Hz', options: [u('Hz', 1)] }
-]
+])
 
 const BY_KIND = new Map(KINDS.map(k => [k.kind, k]))
 
@@ -78,11 +79,11 @@ export interface UnitPreset { id: string; label: string; choice: Partial<UnitCho
 const SI_CHOICE: UnitChoice = Object.fromEntries(KINDS.map(k => [k.kind, k.options[0].id])) as UnitChoice
 
 /** Unit presets offered in the settings. */
-export const PRESETS: UnitPreset[] = [
+export const PRESETS: UnitPreset[] = trDeep([
   { id: 'si', label: '国际单位制（m、kg、s，角度用 °）', choice: {} },
   { id: 'si-rad', label: '国际单位制（角度用 rad）', choice: { angle: 'rad' } },
   { id: 'lab', label: '实验室尺度（cm、g、cm/s）', choice: { length: 'cm', mass: 'g', velocity: 'cm/s', acceleration: 'cm/s²', energy: 'mJ', force: 'mN', momentum: 'g·cm/s', inertia: 'g·cm²' } }
-]
+])
 
 /** Full unit choice of a preset (unknown ids: the first preset). */
 export function presetChoice(id: string): UnitChoice {

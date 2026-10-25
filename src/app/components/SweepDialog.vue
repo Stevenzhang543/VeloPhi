@@ -8,6 +8,7 @@
  * Mounted by App.vue while `state.showSweep` is true; closes itself by setting the flag to false.
  * No props, no emits. The current scene is copied when a sweep starts; editing it meanwhile does not matter.
  */
+import { tl, paren, stripLabel } from '../../i18n'
 import { computed, nextTick, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import uPlot from 'uplot'
 import 'uplot/dist/uPlot.min.css'
@@ -26,7 +27,7 @@ import { EVENT_TYPES, eventTypeLabel } from '../../analysis/prediction'
 import { tableCsv } from '../../export/csv'
 import { CHART_DARK, CHART_LIGHT, chartPng } from '../../export/chartImage'
 import { safeName } from '../../export/courseware'
-import { ENGINE_VERSION } from '../../core/scene/types'
+import { ENGINE_VERSION, finiteDuration } from '../../core/scene/types'
 import { formatSig } from '../../units/units'
 import { saveFile } from '../../platform/files'
 import { logEvent } from '../trialLog'
@@ -79,7 +80,7 @@ const mKind = ref<SweepMeasure['kind']>(presentEvents.value.size ? 'eventTime' :
 const mEvent = ref<ChangeType>(EVENT_TYPES.find(e => presentEvents.value.has(e.type))?.type ?? 'stick')
 const mBody = ref('')
 const mQuantity = ref(state.scene.watch.find(id => qById.value.has(id)) ?? quantities.value[0]?.id ?? '')
-const tMax = computed(() => state.scene.settings.duration)
+const tMax = computed(() => finiteDuration(state.scene.settings))
 const mTime = ref(Math.min(tMax.value, Number((tMax.value / 2).toPrecision(3))))
 
 const measure = computed<SweepMeasure>(() => {
@@ -90,18 +91,18 @@ const measure = computed<SweepMeasure>(() => {
 const unitOfQ = (id: string) => qById.value.get(id)?.unit ?? ''
 const bodyName = (id: string) => state.scene.bodies.find(b => b.id === id)?.name ?? id
 function measureLabel(m: SweepMeasure): string {
-  if (m.kind === 'eventTime') return `首次${eventTypeLabel(m.event)}的时刻${m.body ? `（${bodyName(m.body)}）` : ''}`
+  if (m.kind === 'eventTime') return tl('首次{0}的时刻{1}', [eventTypeLabel(m.event), m.body ? paren(bodyName(m.body)) : ''])
   const q = qById.value.get(m.id)
   const name = q ? `${q.owner} ${q.label}` : m.id
-  if (m.kind === 'valueAt') return `t = ${fmt(m.t, 's', 6)} ${labelOf('s')} 时的${name}`
-  return `${name}的${m.kind === 'max' ? '最大值' : m.kind === 'min' ? '最小值' : '末值'}`
+  if (m.kind === 'valueAt') return tl('t = {0} {1} 时的{2}', [fmt(m.t, 's', 6), labelOf('s'), name])
+  return tl('{0}的{1}', [name, m.kind === 'max' ? tl('最大值') : m.kind === 'min' ? tl('最小值') : tl('末值')])
 }
 
 // ---- Run ----
 /** Display label of a parameter: object name plus field label; template parameters by their own label. */
 function paramLabel(p: SweepParam): string {
   if (p.id.startsWith('template:')) return p.label
-  return `${p.group.replace(/^.*?：/, '').replace(/（.*）/, '')} ${p.label}`
+  return `${stripLabel(p.group).replace(/（.*）| \(.*\)/, '')} ${p.label}`
 }
 /** Kind of parameter for the trial log, without object ids: "body:mass", "pair:mu", "template:mu1". */
 function paramKind(p: SweepParam): string {
@@ -139,7 +140,7 @@ async function run() {
     })
     logEvent('sweep.run', { ok: !cancelFlag, cancelled: cancelFlag, param: paramKind(p), n: values.value.length, done: points.value.length, results: points.value.filter(x => x.result !== null).length, measure: m.kind, seconds: Math.round((performance.now() - started) / 100) / 10 })
   } catch (e) {
-    showToast(`参数扫描失败：${(e as Error).message}`, true)
+    showToast(tl('参数扫描失败：{0}', [(e as Error).message]), true)
     logEvent('sweep.run', { ok: false, param: paramKind(p), n: values.value.length, done: points.value.length, measure: m.kind })
   } finally {
     clearInterval(timer)
@@ -153,9 +154,9 @@ const okCount = computed(() => points.value.filter(p => p.result !== null).lengt
 
 function status(p: SweepPoint): { text: string; cls: string } {
   if (p.error && p.result === null) return { text: p.error, cls: 'bad' }
-  if (p.result === null) return { text: frozen.value?.measure.startsWith('首次') ? '未发生' : '无数值', cls: 'warn' }
-  if (p.incomplete) return { text: '未算完（达到计算时间上限）', cls: 'warn' }
-  return { text: '完成', cls: 'ok' }
+  if (p.result === null) return { text: frozen.value?.measure.startsWith(tl('首次')) ? tl('未发生') : tl('无数值'), cls: 'warn' }
+  if (p.incomplete) return { text: tl('未算完（达到计算时间上限）'), cls: 'warn' }
+  return { text: tl('完成'), cls: 'ok' }
 }
 
 // ---- Plot ----
@@ -195,11 +196,11 @@ async function exportCsv() {
   const f = frozen.value
   if (!f) return
   const rows = points.value.map(p => [f.paramUnit ? toDisp(p.value, f.paramUnit) : p.value, p.result === null ? null : f.measureUnit ? toDisp(p.result, f.measureUnit) : p.result, status(p).text, p.hash ?? ''])
-  const text = tableCsv([`${f.param}${headerUnit(f.paramUnit)}`, `${f.measure}${headerUnit(f.measureUnit)}`, '状态', '结果指纹 SHA-256'], rows,
+  const text = tableCsv([`${f.param}${headerUnit(f.paramUnit)}`, `${f.measure}${headerUnit(f.measureUnit)}`, tl('状态'), tl('结果指纹 SHA-256')], rows,
     { separator: settings.export.csvSeparator, decimal: settings.export.csvDecimal },
-    [`Verity ${ENGINE_VERSION} 参数扫描`, `场景: ${state.scene.name}`, '数值为显示单位（见表头）；最大值、最小值按记录帧取（步长 Δt），事件时刻为精确定位值'])
-  const path = await saveFile(text, `${safeName(state.scene.name)}_参数扫描.csv`, [{ name: 'CSV 表格', extensions: ['csv'] }])
-  if (path) showToast(`已导出 ${path}`)
+    [tl('Verity {0} 参数扫描', [ENGINE_VERSION]), tl('场景: {0}', [state.scene.name]), tl('数值为显示单位（见表头）；最大值、最小值按记录帧取（步长 Δt），事件时刻为精确定位值')])
+  const path = await saveFile(text, tl('{0}_参数扫描.csv', [safeName(state.scene.name)]), [{ name: tl('CSV 表格'), extensions: ['csv'] }])
+  if (path) showToast(tl('已导出 {0}', [path]))
 }
 
 async function exportPng() {
@@ -210,9 +211,9 @@ async function exportPng() {
     label: f.measure, color: dark ? '#3b8bff' : '#0a6cff', points: true,
     x: points.value.map(p => (f.paramUnit ? toDisp(p.value, f.paramUnit) : p.value)),
     y: points.value.map(p => (p.result === null ? null : f.measureUnit ? toDisp(p.result, f.measureUnit) : p.result))
-  }], { width: 820, height: 480, title: `${state.scene.name}：${f.measure}随${f.param}的变化`, xLabel: `${f.param}${headerUnit(f.paramUnit)}`, yLabel: `${f.measure}${headerUnit(f.measureUnit)}`, colors: settings.export.imageBackground === 'theme' && dark ? CHART_DARK : CHART_LIGHT, transparent: settings.export.imageBackground === 'transparent' })
-  const path = await saveFile(png, `${safeName(state.scene.name)}_参数扫描.png`, [{ name: 'PNG 图片', extensions: ['png'] }])
-  if (path) showToast(`已导出 ${path}`)
+  }], { width: 820, height: 480, title: tl('{0}：{1}随{2}的变化', [state.scene.name, f.measure, f.param]), xLabel: `${f.param}${headerUnit(f.paramUnit)}`, yLabel: `${f.measure}${headerUnit(f.measureUnit)}`, colors: settings.export.imageBackground === 'theme' && dark ? CHART_DARK : CHART_LIGHT, transparent: settings.export.imageBackground === 'transparent' })
+  const path = await saveFile(png, tl('{0}_参数扫描.png', [safeName(state.scene.name)]), [{ name: tl('PNG 图片'), extensions: ['png'] }])
+  if (path) showToast(tl('已导出 {0}', [path]))
 }
 
 function close() { if (running.value) { cancelFlag = true } state.showSweep = false }
@@ -221,68 +222,68 @@ function close() { if (running.value) { cancelFlag = true } state.showSweep = fa
 <template>
   <div class="dialog-backdrop" @mousedown.self="!running && close()">
     <div class="dialog sweep">
-      <div class="dialog-header"><Icon name="chart" :size="18" />参数扫描<span class="spacer" /><button class="btn icon ghost" title="关闭" @click="close"><Icon name="close" /></button></div>
+      <div class="dialog-header"><Icon name="chart" :size="18" />{{ tl('参数扫描') }}<span class="spacer" /><button class="btn icon ghost" :title="tl('关闭')" @click="close"><Icon name="close" /></button></div>
       <div class="dialog-body">
         <div class="cols2">
           <section>
-            <div class="group-title">扫描参数</div>
+            <div class="group-title">{{ tl('扫描参数') }}</div>
             <div class="group">
-              <div class="row"><label>参数</label>
+              <div class="row"><label>{{ tl('参数') }}</label>
                 <select v-model="paramId" class="field grow" :disabled="running">
                   <optgroup v-for="[g, list] in groups" :key="g" :label="g">
                     <option v-for="p in list" :key="p.id" :value="p.id">{{ p.label }}</option>
                   </optgroup>
                 </select>
               </div>
-              <div v-if="param" class="row"><label>当前值</label><span class="mono small">{{ fmt(current, param.unit, 8) }} {{ labelOf(param.unit) }}</span></div>
-              <div v-if="param" class="row"><label>从</label><NumField class="grow" :model-value="from" :unit="labelOf(param.unit)" :scale="scaleOf(param.unit)" :min="param.min" :max="param.max" :disabled="running" @update:model-value="v => (from = v)" /></div>
-              <div v-if="param" class="row"><label>到</label><NumField class="grow" :model-value="to" :unit="labelOf(param.unit)" :scale="scaleOf(param.unit)" :min="param.min" :max="param.max" :disabled="running" @update:model-value="v => (to = v)" /></div>
-              <div class="row"><label>取值个数</label><NumField class="grow" :model-value="count" :min="1" :max="MAX_SWEEP_POINTS" :step="1" :disabled="running" @update:model-value="v => (count = Math.max(1, Math.min(MAX_SWEEP_POINTS, Math.round(v))))" /></div>
-              <div v-if="param?.id.startsWith('template:')" class="tiny muted note">模板参数：每次运行按模板重新搭建场景（场景未改动过时才提供）。</div>
+              <div v-if="param" class="row"><label>{{ tl('当前值') }}</label><span class="mono small">{{ fmt(current, param.unit, 8) }} {{ labelOf(param.unit) }}</span></div>
+              <div v-if="param" class="row"><label>{{ tl('从') }}</label><NumField class="grow" :model-value="from" :unit="labelOf(param.unit)" :scale="scaleOf(param.unit)" :min="param.min" :max="param.max" :disabled="running" @update:model-value="v => (from = v)" /></div>
+              <div v-if="param" class="row"><label>{{ tl('到') }}</label><NumField class="grow" :model-value="to" :unit="labelOf(param.unit)" :scale="scaleOf(param.unit)" :min="param.min" :max="param.max" :disabled="running" @update:model-value="v => (to = v)" /></div>
+              <div class="row"><label>{{ tl('取值个数') }}</label><NumField class="grow" :model-value="count" :min="1" :max="MAX_SWEEP_POINTS" :step="1" :disabled="running" @update:model-value="v => (count = Math.max(1, Math.min(MAX_SWEEP_POINTS, Math.round(v))))" /></div>
+              <div v-if="param?.id.startsWith('template:')" class="tiny muted note">{{ tl('模板参数：每次运行按模板重新搭建场景（场景未改动过时才提供）。') }}</div>
             </div>
           </section>
           <section>
-            <div class="group-title">每次运行的结果</div>
+            <div class="group-title">{{ tl('每次运行的结果') }}</div>
             <div class="group">
-              <div class="row"><label>结果</label>
+              <div class="row"><label>{{ tl('结果') }}</label>
                 <select v-model="mKind" class="field grow" :disabled="running">
-                  <option value="eventTime">首次事件的时刻</option>
-                  <option value="valueAt">某时刻的物理量</option>
-                  <option value="max">物理量的最大值</option>
-                  <option value="min">物理量的最小值</option>
-                  <option value="final">物理量的末值</option>
+                  <option value="eventTime">{{ tl('首次事件的时刻') }}</option>
+                  <option value="valueAt">{{ tl('某时刻的物理量') }}</option>
+                  <option value="max">{{ tl('物理量的最大值') }}</option>
+                  <option value="min">{{ tl('物理量的最小值') }}</option>
+                  <option value="final">{{ tl('物理量的末值') }}</option>
                 </select>
               </div>
               <template v-if="mKind === 'eventTime'">
-                <div class="row"><label>事件</label>
-                  <select v-model="mEvent" class="field grow" :disabled="running"><option v-for="e in EVENT_TYPES" :key="e.type" :value="e.type">{{ e.label }}{{ presentEvents.has(e.type) ? '' : '（本次未出现）' }}</option></select>
+                <div class="row"><label>{{ tl('事件') }}</label>
+                  <select v-model="mEvent" class="field grow" :disabled="running"><option v-for="e in EVENT_TYPES" :key="e.type" :value="e.type">{{ e.label }}{{ presentEvents.has(e.type) ? '' : tl('（本次未出现）') }}</option></select>
                 </div>
-                <div class="row"><label>涉及物体</label>
-                  <select v-model="mBody" class="field grow" :disabled="running"><option value="">任意</option><option v-for="b in dynamicBodies" :key="b.id" :value="b.id">{{ b.name }}</option></select>
+                <div class="row"><label>{{ tl('涉及物体') }}</label>
+                  <select v-model="mBody" class="field grow" :disabled="running"><option value="">{{ tl('任意') }}</option><option v-for="b in dynamicBodies" :key="b.id" :value="b.id">{{ b.name }}</option></select>
                 </div>
               </template>
               <template v-else>
-                <div class="row"><label>物理量</label>
+                <div class="row"><label>{{ tl('物理量') }}</label>
                   <select v-model="mQuantity" class="field grow" :disabled="running"><option v-for="q in quantities" :key="q.id" :value="q.id">{{ q.owner }} · {{ q.label }}</option></select>
                 </div>
-                <div v-if="mKind === 'valueAt'" class="row"><label>时刻</label><NumField class="grow" :model-value="mTime" :unit="labelOf('s')" :scale="scaleOf('s')" :min="0" :max="tMax" :disabled="running" @update:model-value="v => (mTime = v)" /></div>
+                <div v-if="mKind === 'valueAt'" class="row"><label>{{ tl('时刻') }}</label><NumField class="grow" :model-value="mTime" :unit="labelOf('s')" :scale="scaleOf('s')" :min="0" :max="tMax" :disabled="running" @update:model-value="v => (mTime = v)" /></div>
               </template>
-              <div class="tiny muted note">每个取值运行一次完整仿真（求解设置与当前场景相同）。最大值、最小值按记录帧取；事件时刻为精确定位值。</div>
+              <div class="tiny muted note">{{ tl('每个取值运行一次完整仿真（求解设置与当前场景相同）。最大值、最小值按记录帧取；事件时刻为精确定位值。') }}</div>
             </div>
           </section>
         </div>
 
         <div v-if="running || points.length" class="results">
           <div class="res-head small">
-            <b>{{ frozen?.measure }}</b><span class="muted"> 随 </span><b>{{ frozen?.param }}</b>
+            <b>{{ frozen?.measure }}</b><span class="muted"> {{ tl('随') }} </span><b>{{ frozen?.param }}</b>
             <span class="spacer" />
-            <span class="muted tiny">{{ points.length }}/{{ running ? values.length : points.length }} 次 · 有结果 {{ okCount }} · 用时 {{ elapsed.toFixed(1) }} s<template v-if="eta !== null"> · 约剩 {{ eta.toFixed(0) }} s</template></span>
+            <span class="muted tiny">{{ tl('{0}/{1} 次 · 有结果 {2} · 用时 {3} s', [points.length, running ? values.length : points.length, okCount, elapsed.toFixed(1)]) }}<template v-if="eta !== null"> {{ tl('· 约剩 {0} s', [eta.toFixed(0)]) }}</template></span>
           </div>
           <div v-if="running" class="progress"><div class="bar" :style="{ width: `${(progress * 100).toFixed(1)}%` }" /></div>
           <div ref="plotHost" class="plot" />
           <div class="table-wrap">
             <table>
-              <thead><tr><th>#</th><th>{{ frozen?.param }}{{ frozen && labelOf(frozen.paramUnit) ? ` / ${labelOf(frozen.paramUnit)}` : '' }}</th><th>{{ frozen?.measure }}{{ frozen && labelOf(frozen.measureUnit) ? ` / ${labelOf(frozen.measureUnit)}` : '' }}</th><th>状态</th></tr></thead>
+              <thead><tr><th>#</th><th>{{ frozen?.param }}{{ frozen && labelOf(frozen.paramUnit) ? ` / ${labelOf(frozen.paramUnit)}` : '' }}</th><th>{{ frozen?.measure }}{{ frozen && labelOf(frozen.measureUnit) ? ` / ${labelOf(frozen.measureUnit)}` : '' }}</th><th>{{ tl('状态') }}</th></tr></thead>
               <tbody>
                 <tr v-for="(p, i) in points" :key="i">
                   <td class="mono muted">{{ i + 1 }}</td>
@@ -296,12 +297,12 @@ function close() { if (running.value) { cancelFlag = true } state.showSweep = fa
         </div>
       </div>
       <div class="dialog-footer">
-        <button class="btn" :disabled="running || !points.length" @click="exportCsv">导出 CSV</button>
-        <button class="btn" :disabled="running || !points.length" @click="exportPng">导出图片</button>
+        <button class="btn" :disabled="running || !points.length" @click="exportCsv">{{ tl('导出 CSV') }}</button>
+        <button class="btn" :disabled="running || !points.length" @click="exportPng">{{ tl('导出图片') }}</button>
         <span class="spacer" />
-        <button v-if="running" class="btn" @click="cancelFlag = true">停止</button>
-        <button v-else class="btn" @click="close">关闭</button>
-        <button class="btn primary" :disabled="running || !canRun" @click="run">{{ running ? `计算中 ${(progress * 100).toFixed(0)}%` : `开始扫描（${values.length} 次）` }}</button>
+        <button v-if="running" class="btn" @click="cancelFlag = true">{{ tl('停止') }}</button>
+        <button v-else class="btn" @click="close">{{ tl('关闭') }}</button>
+        <button class="btn primary" :disabled="running || !canRun" @click="run">{{ running ? tl('计算中 {0}%', [(progress * 100).toFixed(0)]) : tl('开始扫描（{0} 次）', [values.length]) }}</button>
       </div>
     </div>
   </div>

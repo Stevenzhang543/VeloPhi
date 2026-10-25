@@ -6,3 +6,4 @@ src-tauri/gen/
 releases/
 *.log
 .verity-workspace
+engine/target/

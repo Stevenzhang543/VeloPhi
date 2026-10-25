@@ -6,6 +6,7 @@
  *
  * Pure (no DOM).
  */
+import { tl, semiSep } from '../i18n'
 import type { ChangeDetail, Recording } from '../core/solver/simulation'
 import { evaluateQuantity, listQuantities } from '../core/observe/quantities'
 import type { Sample, Situation } from '../formula/situations'
@@ -70,7 +71,7 @@ export function eventText(rec: Recording, eventIndex: number): string {
     const text = who ? `${who} ${eventLabel(c)}` : eventLabel(c)
     if (!parts.includes(text)) parts.push(text)
   }
-  return parts.join('；')
+  return parts.join(semiSep())
 }
 
 /** Notice for a recording computed (partly) with the Moreau–Jean fallback, or null. */
@@ -78,8 +79,8 @@ export function reducedNotice(rec: Recording, units: UnitChoice): string | null 
   const t = rec.reducedFrom
   if (t === null || t === undefined) return null
   return t > 0
-    ? `精度降级：事件过于密集，自 t = ${formatQuantity(t, 's', units, 6)} 起改用 Moreau–Jean 时间步进计算，此后的仿真值精度降低、事件时刻不精确定位，公式对照仅供参考。`
-    : '精度降级：本次全程使用 Moreau–Jean 时间步进计算，仿真值精度降低、事件时刻不精确定位，公式对照仅供参考。'
+    ? tl('精度降级：事件过于密集，自 t = {0} 起改用 Moreau–Jean 时间步进计算，此后的仿真值精度降低、事件时刻不精确定位，公式对照仅供参考。', [formatQuantity(t, 's', units, 6)])
+    : tl('精度降级：本次全程使用 Moreau–Jean 时间步进计算，仿真值精度降低、事件时刻不精确定位，公式对照仅供参考。')
 }
 
 /** Key moments in time order; moments closer than momentTolerance are merged. */
@@ -99,11 +100,11 @@ export function keyMoments(rec: Recording, o: MomentOptions): KeyMoment[] {
     }
     list.push({ t: tc, kinds: [kind], label, eventIndex })
   }
-  if (o.ends) add(0, 'start', '初始时刻')
+  if (o.ends) add(0, 'start', tl('初始时刻'))
   if (o.events) rec.events.forEach((e, i) => { if (e.changes.length > 0 && e.t <= tMax + tol) add(e.t, 'event', eventText(rec, i), i) })
-  if (o.segments) rec.segments.forEach((s, i) => { if (i > 0 && s.t0 <= tMax + tol) add(s.t0, 'segment', `第 ${i + 1} 运动阶段开始`) })
-  for (const t of o.user ?? []) add(t, 'user', '自选时刻')
-  if (o.ends) add(tMax, 'end', '记录结束')
+  if (o.segments) rec.segments.forEach((s, i) => { if (i > 0 && s.t0 <= tMax + tol) add(s.t0, 'segment', tl('第 {0} 运动阶段开始', [i + 1])) })
+  for (const t of o.user ?? []) add(t, 'user', tl('自选时刻'))
+  if (o.ends) add(tMax, 'end', tl('记录结束'))
   return list.sort((a, b) => a.t - b.t)
 }
 

@@ -6,6 +6,7 @@
  * consistent whatever units are chosen; the evaluation itself is always SI.
  * Follows `state.panelFrame` only while `active` (visible tab on the visible page).
  */
+import { tl, paren, semiSep } from '../../i18n'
 import { computed, ref } from 'vue'
 import { state, seekTime } from '../store'
 import { activeSituations, evaluateCard, THRESHOLDS } from '../../formula/match'
@@ -18,6 +19,7 @@ import type { Node } from '../../formula/expr'
 import { useGated } from '../live'
 import { fmtNum, fmtQ, texQ, unitLabel } from '../settings'
 import Tex from './Tex.vue'
+import { openFormulaDetail } from '../details'
 
 const props = withDefaults(defineProps<{ active?: boolean }>(), { active: true })
 
@@ -61,20 +63,26 @@ const groups = computed(() => {
   })
 })
 
+/** Open the detail view (derivation, step-by-step solution, conditions) of a card at the frame shown. */
+function openDetail(c: FormulaCard) {
+  const rec = state.recording
+  if (rec) openFormulaDetail(c.formula.id, c.situation.key, frame.value * rec.dt)
+}
+
 const VERDICT: Record<Verdict, { text: string; cls: string }> = {
-  match: { text: '一致', cls: 'ok' },
-  deviate: { text: '偏差超限', cls: 'bad' },
-  'approx-ok': { text: '近似成立', cls: 'ok' },
-  approx: { text: '近似', cls: 'warn' },
-  'approx-invalid': { text: '近似失效', cls: 'bad' },
-  'not-applicable': { text: '不适用', cls: '' },
-  'no-measure': { text: '无法比较', cls: '' }
+  match: { text: tl('一致'), cls: 'ok' },
+  deviate: { text: tl('偏差超限'), cls: 'bad' },
+  'approx-ok': { text: tl('近似成立'), cls: 'ok' },
+  approx: { text: tl('近似'), cls: 'warn' },
+  'approx-invalid': { text: tl('近似失效'), cls: 'bad' },
+  'not-applicable': { text: tl('不适用'), cls: '' },
+  'no-measure': { text: tl('无法比较'), cls: '' }
 }
 
 function err(c: FormulaCard): string {
   if (c.absError === null) return '—'
   const rel = c.relError !== null ? (c.relError * 100 < 1e-3 ? c.relError.toExponential(2) : (c.relError * 100).toPrecision(3) + '%') : '—'
-  return `${fmtQ(c.absError, c.formula.unit, 3)}（${rel}）`
+  return `${fmtQ(c.absError, c.formula.unit, 3)}${paren(rel)}`
 }
 const SUP: Record<string, string> = { '-': '⁻', '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹' }
 const sci = (v: number) => { const e = Math.round(Math.log10(v)); return `10${String(e).split('').map(c => SUP[c]).join('')}` }
@@ -82,26 +90,26 @@ const sci = (v: number) => { const e = Math.round(Math.log10(v)); return `10${St
 
 <template>
   <div class="formulas">
-    <div v-if="!state.recording || state.stale" class="empty">运行仿真后，这里会按当前时刻列出匹配的公式，<br />代入参数后与仿真结果逐项对照。</div>
+    <div v-if="!state.recording || state.stale" class="empty">{{ tl('运行仿真后，这里会按当前时刻列出匹配的公式，') }}<br />{{ tl('代入参数后与仿真结果逐项对照。') }}</div>
     <template v-else>
       <div class="legend tiny muted">
-        精确公式：相对误差 ≤ {{ sci(THRESHOLDS.exactRel) }} 判为一致（能量账本 ≤ {{ sci(THRESHOLDS.energyRel) }}）。近似公式按适用条件分级。代入值带单位，按“设置 › 单位与数值”显示；计算始终使用国际单位。
+        {{ tl('精确公式：相对误差 ≤ {0} 判为一致（能量账本 ≤ {1}）。近似公式按适用条件分级。代入值带单位，按“设置 › 单位与数值”显示；计算始终使用国际单位。', [sci(THRESHOLDS.exactRel), sci(THRESHOLDS.energyRel)]) }}
       </div>
       <div v-if="reducedFrom !== null" class="reduced small" :class="{ now: reducedNow }">
-        <span class="badge warn">精度降级</span>
-        <span>{{ reducedFrom > 0 ? `事件过于密集，自 t = ${fmtQ(reducedFrom, 's', 6)} 起改用` : '本次使用' }} Moreau–Jean 时间步进计算，{{ reducedFrom > 0 ? '此后的' : '' }}仿真值精度降低、事件时刻不精确定位，下面的对照仅供参考。</span>
+        <span class="badge warn">{{ tl('精度降级') }}</span>
+        <span>{{ tl('{0} Moreau–Jean 时间步进计算，{1}仿真值精度降低、事件时刻不精确定位，下面的对照仅供参考。', [reducedFrom > 0 ? tl('事件过于密集，自 t = {0} 起改用', [fmtQ(reducedFrom, 's', 6)]) : tl('本次使用'), reducedFrom > 0 ? tl('此后的') : '']) }}</span>
       </div>
-      <div v-if="state.computing && !state.situations.length" class="empty">正在计算，完成后识别典型情形并对照公式…</div>
-      <div v-else-if="groups.length === 0" class="empty">当前时刻没有识别到可匹配的典型情形。</div>
+      <div v-if="state.computing && !state.situations.length" class="empty">{{ tl('正在计算，完成后识别典型情形并对照公式…') }}</div>
+      <div v-else-if="groups.length === 0" class="empty">{{ tl('当前时刻没有识别到可匹配的典型情形。') }}</div>
       <section v-for="g in groups" :key="g.sit.key" class="situation">
         <header>
           <span class="title">{{ g.sit.title }}</span>
           <span class="spacer" />
-          <button v-if="g.sit.tEvent !== undefined" class="btn ghost small" @click="seekTime(g.sit.tEvent!)">跳到 t = {{ fmtQ(g.sit.tEvent!, 's', 6) }}</button>
+          <button v-if="g.sit.tEvent !== undefined" class="btn ghost small" @click="seekTime(g.sit.tEvent!)">{{ tl('跳到 t = {0}', [fmtQ(g.sit.tEvent!, 's', 6)]) }}</button>
           <span v-else class="tiny muted mono">{{ fmtNum(g.sit.t0, 's', 5) }}–{{ fmtNum(g.sit.t1, 's', 5) }} {{ unitLabel('s') }}</span>
         </header>
         <details class="vars">
-          <summary class="tiny muted">已知量（来自场景与本阶段初态）</summary>
+          <summary class="tiny muted">{{ tl('已知量（来自场景与本阶段初态）') }}</summary>
           <div v-for="(v, k) in g.sample.vars" :key="k" class="var small">
             <Tex :tex="v.symbol" /> <span class="muted">{{ v.label }}</span> <span class="spacer" />
             <span class="mono">{{ fmtQ(v.value, v.unit) }}</span>
@@ -113,15 +121,16 @@ const sci = (v: number) => { const e = Math.round(Math.log10(v)); return `10${St
             <span v-if="c.formula.method" class="badge info">{{ c.formula.method }}</span>
             <span class="spacer" />
             <span class="badge" :class="VERDICT[c.verdict].cls">{{ VERDICT[c.verdict].text }}</span>
+            <button class="btn ghost small detail-btn" :title="tl('推导、代入求解与适用条件')" @click="openDetail(c)">{{ tl('详情') }}</button>
           </div>
           <Tex :tex="c.symbolic" display />
           <div v-if="line" class="subst"><Tex :tex="line" /></div>
           <div class="compare small">
-            <span class="muted">理论值</span><span class="mono">{{ fmtQ(c.theory, c.formula.unit) }}</span>
-            <span class="muted">仿真值</span><span class="mono">{{ fmtQ(c.sim, c.formula.unit) }}</span>
-            <span class="muted">误差</span><span class="mono">{{ err(c) }}</span>
+            <span class="muted">{{ tl('理论值') }}</span><span class="mono">{{ fmtQ(c.theory, c.formula.unit) }}</span>
+            <span class="muted">{{ tl('仿真值') }}</span><span class="mono">{{ fmtQ(c.sim, c.formula.unit) }}</span>
+            <span class="muted">{{ tl('误差') }}</span><span class="mono">{{ err(c) }}</span>
           </div>
-          <div class="tiny muted">仿真量：{{ c.measureLabel }}<template v-if="c.formula.note">；{{ c.formula.note }}</template></div>
+          <div class="tiny muted">{{ tl('仿真量：{0}', [c.measureLabel]) }}<template v-if="c.formula.note">{{ semiSep() }}{{ c.formula.note }}</template></div>
           <div v-if="c.conditions.length" class="conds">
             <span v-for="cd in c.conditions" :key="cd.id" class="badge" :class="cd.status === 'ok' ? 'ok' : cd.status === 'approx' ? 'warn' : 'bad'" :title="cd.detail">{{ cd.label }}<template v-if="cd.detail">：{{ cd.detail }}</template></span>
           </div>
@@ -133,7 +142,7 @@ const sci = (v: number) => { const e = Math.round(Math.log10(v)); return `10${St
           </div>
         </div>
       </section>
-      <label class="check small na-toggle"><input v-model="showNA" type="checkbox" />显示本时刻不适用的公式及原因</label>
+      <label class="check small na-toggle"><input v-model="showNA" type="checkbox" />{{ tl('显示本时刻不适用的公式及原因') }}</label>
     </template>
   </div>
 </template>
@@ -154,8 +163,10 @@ const sci = (v: number) => { const e = Math.round(Math.log10(v)); return `10${St
 .card.ok { border-left-color: var(--success); }
 .card.warn { border-left-color: var(--warning); }
 .card.bad { border-left-color: var(--danger); }
-.card-head { display: flex; align-items: center; gap: 6px; }
-.card-title { font-weight: 600; font-size: var(--type-small); }
+.card-head { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; }
+.card-title { flex: 1 1 9em; min-width: 0; font-weight: 600; font-size: var(--type-small); overflow-wrap: anywhere; hyphens: auto; }
+.card-head .badge, .card-head .detail-btn { flex: 0 0 auto; }
+.detail-btn { height: calc(22px * var(--zoom)); padding: 0 6px; margin-right: -4px; color: var(--accent); }
 .subst { color: var(--text-2); font-size: 0.95em; line-height: 1.9; padding: 2px 0 4px; text-align: center; overflow-x: auto; overflow-y: hidden; }
 .compare { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; margin: 4px 0; }
 .compare .mono { text-align: right; }

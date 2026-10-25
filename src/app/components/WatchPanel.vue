@@ -3,6 +3,7 @@
  * Watch panel: all readings of the selected body at the current frame, and the scene's watch list (values in
  * display units). Values follow `state.panelFrame` only while the panel is visible (`active`).
  */
+import { tl, paren } from '../../i18n'
 import { computed, ref } from 'vue'
 import { state, edit } from '../store'
 import { canonicalQuantityId, evaluateQuantity, listQuantities, makeContext } from '../../core/observe/quantities'
@@ -60,7 +61,7 @@ const readings = computed(() => {
   // Angular momentum about the centre of mass
   if (body.invInertia > 0) {
     const w = c.X[3 * rec.system.n + 3 * body.index + 2]
-    items.push({ q: { id: `${body.id}.Lc`, label: '对质心角动量 Iω', symbol: 'L_C', unit: 'kg·m²/s', group: '物体', owner: body.name }, v: body.inertia * w })
+    items.push({ q: { id: `${body.id}.Lc`, label: tl('对质心角动量 Iω'), symbol: 'L_C', unit: 'kg·m²/s', group: '物体', owner: body.name }, v: body.inertia * w })
   }
   return { name: body.name, items }
 })
@@ -81,41 +82,41 @@ function toggleChart(id: string) {
   state.chart = state.chart.includes(id) ? state.chart.filter(c => c !== id) : [...state.chart, id]
   state.bottomTab = 'chart'
 }
-const unitText = (u: string) => unitLabel(u) || '无量纲'
+const unitText = (u: string) => unitLabel(u) || tl('无量纲')
 </script>
 
 <template>
   <div class="watch">
-    <div v-if="!state.recording" class="empty">运行仿真后可添加监视量。</div>
+    <div v-if="!state.recording" class="empty">{{ tl('运行仿真后可添加监视量。') }}</div>
     <template v-else>
       <div v-if="readings" class="readings">
-        <div class="group-title">{{ readings.name }} · 当前时刻读数</div>
+        <div class="group-title">{{ tl('{0} · 当前时刻读数', [readings.name]) }}</div>
         <div class="grid">
           <template v-for="r in readings.items" :key="r.q.id">
-            <span class="small muted" :title="r.q.id">{{ r.q.label }}<template v-if="r.q.id.startsWith('contact.')">（{{ r.q.owner }}）</template></span>
+            <span class="small muted" :title="r.q.id">{{ r.q.label }}<template v-if="r.q.id.startsWith('contact.')">{{ paren(r.q.owner) }}</template></span>
             <span class="mono small val">{{ fmtNum(r.v, r.q.unit) }} <span class="unit">{{ unitLabel(r.q.unit) }}</span></span>
-            <button class="btn icon ghost tiny-btn" title="加入监视" :disabled="watched.has(r.q.id) || r.q.id.endsWith('.Lc')" @click="picking = r.q.id; add()"><Icon name="plus" :size="13" /></button>
+            <button class="btn icon ghost tiny-btn" :title="tl('加入监视')" :disabled="watched.has(r.q.id) || r.q.id.endsWith('.Lc')" @click="picking = r.q.id; add()"><Icon name="plus" :size="13" /></button>
           </template>
         </div>
       </div>
-      <div v-else class="tiny muted pick-hint">在画布上点选一个运动物体，这里会列出它在当前时刻的全部读数。</div>
-      <div class="group-title">监视列表</div>
+      <div v-else class="tiny muted pick-hint">{{ tl('在画布上点选一个运动物体，这里会列出它在当前时刻的全部读数。') }}</div>
+      <div class="group-title">{{ tl('监视列表') }}</div>
       <div class="row add">
         <select v-model="picking" class="field grow">
-          <option value="" disabled>添加监视量…</option>
+          <option value="" disabled>{{ tl('添加监视量…') }}</option>
           <optgroup v-for="[g, list] in groups" :key="g" :label="g">
-            <option v-for="q in list" :key="q.id" :value="q.id" :disabled="watched.has(q.id)">{{ q.label }}（{{ unitText(q.unit) }}）</option>
+            <option v-for="q in list" :key="q.id" :value="q.id" :disabled="watched.has(q.id)">{{ q.label }}{{ paren(unitText(q.unit)) }}</option>
           </optgroup>
         </select>
-        <button class="btn primary" :disabled="!picking" @click="add">添加</button>
+        <button class="btn primary" :disabled="!picking" @click="add">{{ tl('添加') }}</button>
       </div>
-      <div v-if="state.scene.watch.length === 0" class="empty">还没有监视量。可在物体属性页快速添加，或从上方列表选择。</div>
+      <div v-if="state.scene.watch.length === 0" class="empty">{{ tl('还没有监视量。可在物体属性页快速添加，或从上方列表选择。') }}</div>
       <div class="list">
         <div v-for="id in state.scene.watch" :key="id" class="item">
           <div class="name">
             <Tex v-if="qOf(id)" :tex="qOf(id)!.symbol" />
             <span class="small" :title="id">{{ qOf(id)?.label ?? id }}</span>
-            <span class="tiny muted">{{ qOf(id)?.owner ?? '（本场景中没有这个量）' }}</span>
+            <span class="tiny muted">{{ qOf(id)?.owner ?? tl('（本场景中没有这个量）') }}</span>
           </div>
           <div class="value mono">
             <template v-if="state.stale">—</template>
@@ -123,12 +124,12 @@ const unitText = (u: string) => unitLabel(u) || '无量纲'
             <span class="unit">{{ unitLabel(qOf(id)?.unit ?? '') }}</span>
           </div>
           <div class="ops">
-            <button class="btn icon ghost" :class="{ active: state.chart.includes(id) }" title="在图表中显示" @click="toggleChart(id)"><Icon name="chart" /></button>
-            <button class="btn icon ghost" title="移除" @click="remove(id)"><Icon name="close" /></button>
+            <button class="btn icon ghost" :class="{ active: state.chart.includes(id) }" :title="tl('在图表中显示')" @click="toggleChart(id)"><Icon name="chart" /></button>
+            <button class="btn icon ghost" :title="tl('移除')" @click="remove(id)"><Icon name="close" /></button>
           </div>
         </div>
       </div>
-      <div class="tiny muted hint">数值为当前帧的仿真结果，单位与有效数字可在“设置 › 单位与数值”中调整。暂停后可逐帧查看。</div>
+      <div class="tiny muted hint">{{ tl('数值为当前帧的仿真结果，单位与有效数字可在“设置 › 单位与数值”中调整。暂停后可逐帧查看。') }}</div>
     </template>
   </div>
 </template>

@@ -35,13 +35,13 @@ def npm_packages():
     walk(data.get('dependencies'))
     return list(seen.values())
 
-def cargo_packages():
-    out = subprocess.run(['cargo', 'metadata', '--format-version', '1', '--locked', '--filter-platform', 'x86_64-pc-windows-msvc'],
-                         cwd=os.path.join(root, 'src-tauri'), capture_output=True, text=True, check=True).stdout
+def cargo_packages(folder='src-tauri', platform='x86_64-pc-windows-msvc', root_name=None):
+    out = subprocess.run(['cargo', 'metadata', '--format-version', '1', '--locked', '--filter-platform', platform],
+                         cwd=os.path.join(root, folder), capture_output=True, text=True, check=True).stdout
     m = json.loads(out)
     nodes = {n['id']: n for n in m['resolve']['nodes']}
     pk = {p['id']: p for p in m['packages']}
-    rootid = m['resolve']['root']
+    rootid = m['resolve']['root'] if root_name is None else next(i for i, p in pk.items() if p['name'] == root_name)
     keep, stack = set(), [rootid]
     while stack:
         i = stack.pop()
@@ -53,7 +53,7 @@ def cargo_packages():
     res = []
     for i in keep:
         p = pk[i]
-        if i == rootid: continue
+        if i == rootid or p.get('source') is None: continue
         d = os.path.dirname(p['manifest_path'])
         res.append({'name': p['name'], 'version': p['version'], 'license': p.get('license') or (p.get('license_file') and 'see file') or 'UNKNOWN', 'repo': p.get('repository') or '', 'files': license_files(d)})
     return sorted(res, key=lambda x: (x['name'], x['version']))
@@ -61,6 +61,7 @@ def cargo_packages():
 def main():
     npm = npm_packages()
     crates = cargo_packages()
+    engine = cargo_packages('engine', 'wasm32-unknown-unknown', 'verity-wasm')
     texts = {}
     def ref(files):
         ids = []
@@ -72,19 +73,22 @@ def main():
             ids.append(h)
         return ids
     lines = ['# Third-party notices / 第三方组件声明', '',
-             'Verity 26.49 bundles the following open-source components. Each is used unmodified under its own license.',
-             'Verity 26.49 使用了下列开源组件，均未修改，按各自许可证使用。许可证全文见文末（相同文本只列一次）。', '',
+             'Verity 26.50 bundles the following open-source components. Each is used unmodified under its own license.',
+             'Verity 26.50 使用了下列开源组件，均未修改，按各自许可证使用。许可证全文见文末（相同文本只列一次）。', '',
              f'## npm packages in the application ({len(npm)})', '', '| Package | Version | License | License text |', '|---|---|---|---|']
     for p in sorted(npm, key=lambda x: x['name']):
         lines.append(f"| {p['name']} | {p['version']} | {p['license']} | {', '.join('§' + h for h in ref(p['files'])) or '—'} |")
     lines += ['', f'## Rust crates in the Windows executable ({len(crates)})', '', '| Crate | Version | License | License text |', '|---|---|---|---|']
     for p in crates:
         lines.append(f"| {p['name']} | {p['version']} | {p['license']} | {', '.join('§' + h for h in ref(p['files'])) or '(SPDX: ' + p['license'] + ')'} |")
+    lines += ['', f'## Rust crates in the WebAssembly engine ({len(engine)})', '', '| Crate | Version | License | License text |', '|---|---|---|---|']
+    for p in engine:
+        lines.append(f"| {p['name']} | {p['version']} | {p['license']} | {', '.join('§' + h for h in ref(p['files'])) or '(SPDX: ' + p['license'] + ')'} |")
     lines += ['', '## License texts', '']
     for h, (t, names) in texts.items():
         lines += [f'### §{h}', '', '```', t, '```', '']
     out = os.path.join(root, 'docs', 'THIRD_PARTY_NOTICES.md')
     open(out, 'w', encoding='utf-8').write('\n'.join(lines) + '\n')
-    print(f'{out}: {len(npm)} npm packages, {len(crates)} crates, {len(texts)} distinct license texts')
+    print(f'{out}: {len(npm)} npm packages, {len(crates)} crates, {len(engine)} engine crates, {len(texts)} distinct license texts')
 
 main()

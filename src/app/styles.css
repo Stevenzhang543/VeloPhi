@@ -193,7 +193,7 @@ textarea.field { height: auto; padding: 6px 8px; resize: vertical; line-height: 
 .group-title { font-size: var(--type-small); color: var(--text-3); font-weight: 600; margin: 10px 2px 4px; text-transform: none; display: flex; align-items: center; gap: 6px; }
 .row { display: flex; align-items: center; gap: var(--space-2); min-height: calc(32px * var(--zoom)); }
 .row + .row { border-top: 1px solid var(--separator); }
-.row > label { flex: 0 0 auto; width: calc(104px * var(--zoom)); color: var(--text-2); font-size: var(--type-small); }
+.row > label { flex: 0 0 auto; width: calc(104px * var(--zoom)); color: var(--text-2); font-size: var(--type-small); overflow-wrap: anywhere; hyphens: auto; }
 .row > .grow { flex: 1; min-width: 0; }
 
 .tabs { display: flex; gap: 2px; padding: 2px; background: var(--fill); border-radius: var(--radius-row); }

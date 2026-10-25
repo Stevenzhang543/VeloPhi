@@ -10,6 +10,7 @@
  *     names, file names or paths, typed notes, anything with spaces, slashes or non-ASCII characters — is
  *     dropped before it is stored.
  */
+import { tl } from '../i18n'
 import { settings } from './settings'
 import { saveFile } from '../platform/files'
 import { ENGINE_VERSION } from '../core/scene/types'
@@ -127,7 +128,7 @@ export function trialLogJson(): string {
   flushTrialLog()
   return JSON.stringify({
     format: 'verity-trial-log', version: 1, engine: ENGINE_VERSION, exportedAt: new Date().toISOString(),
-    note: '本地操作日志：不含姓名、文件名或场景内容，仅在本机保存，由试用者手动导出。',
+    note: tl('本地操作日志：不含姓名、文件名或场景内容，仅在本机保存，由试用者手动导出。'),
     entries: load()
   }, null, 1) + '\n'
 }

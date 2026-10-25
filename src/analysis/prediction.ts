@@ -9,6 +9,7 @@
  *
  * Pure (no DOM, no Vue).
  */
+import { tl, trDeep, paren, colonSep } from '../i18n'
 import type { Scene } from '../core/scene/types'
 import type { ChangeType, Recording, SimEvent } from '../core/solver/simulation'
 import type { QuantityDef } from '../core/observe/quantities'
@@ -20,7 +21,7 @@ import { evaluateCard } from '../formula/match'
 import { cardsForMoment } from '../export/moments'
 
 /** Event kinds a prediction (or a sweep) can target, in teaching order. */
-export const EVENT_TYPES: Array<{ type: ChangeType; label: string }> = [
+export const EVENT_TYPES: Array<{ type: ChangeType; label: string }> = trDeep([
   { type: 'stick', label: '共速（相对静止）' },
   { type: 'impact', label: '碰撞' },
   { type: 'slack', label: '绳松弛' },
@@ -31,7 +32,7 @@ export const EVENT_TYPES: Array<{ type: ChangeType; label: string }> = [
   { type: 'slip', label: '开始相对滑动' },
   { type: 'reverse', label: '相对滑动反向' },
   { type: 'switch', label: '变力切换（折点）' }
-]
+])
 
 /** Display label of an event kind. */
 export function eventTypeLabel(t: ChangeType): string {
@@ -39,11 +40,11 @@ export function eventTypeLabel(t: ChangeType): string {
 }
 
 /** Display names of the recognised situation types. */
-export const SITUATION_NAMES: Record<string, string> = {
+export const SITUATION_NAMES: Record<string, string> = trDeep({
   incline: '斜面上的物块', flat: '水平面上的物块', 'board-block': '板块模型（相对滑动）', 'board-together': '板块模型（共同运动）',
   rolling: '斜面上的滚动', collision: '碰撞', bounce: '反弹', projectile: '抛体运动', pendulum: '单摆', spring: '弹簧振子',
   rotation: '定轴转动', 'hinged-impact': '小球碰撞细杆', pulley: '滑轮连接体', atwood: '阿特伍德机', energy: '能量守恒', momentum: '动量守恒'
-}
+})
 
 /** What a prediction is about. */
 export type PredictionTarget =
@@ -71,7 +72,7 @@ export type Grade = 'ok' | 'warn' | 'bad' | 'none'
 export const PREDICTION_TOLERANCE = { ok: 0.01, warn: 0.05 }
 
 /** Display text of each grade. */
-export const GRADE_TEXT: Record<Grade, string> = { ok: '准确', warn: '接近', bad: '偏差较大', none: '无法比较' }
+export const GRADE_TEXT: Record<Grade, string> = trDeep({ ok: '准确', warn: '接近', bad: '偏差较大', none: '无法比较' })
 
 // ---- Persistence ----
 
@@ -145,14 +146,14 @@ export function targetUnit(target: PredictionTarget, quantities: Map<string, Qua
 
 /** Human-readable description of a target. */
 export function targetLabel(target: PredictionTarget, ctx: { quantities: Map<string, QuantityDef>; bodyName: (id: string) => string; time: (t: number) => string }): string {
-  if (target.kind === 'event') return `首次${eventTypeLabel(target.event)}的时刻${target.body ? `（${ctx.bodyName(target.body)}）` : ''}`
+  if (target.kind === 'event') return tl('首次{0}的时刻{1}', [eventTypeLabel(target.event), target.body ? paren(ctx.bodyName(target.body)) : ''])
   if (target.kind === 'quantity') {
     const q = ctx.quantities.get(target.id)
-    return `${ctx.time(target.t)} 时 ${q ? `${q.owner} ${q.label}` : target.id}`
+    return tl('{0} 时 {1}', [ctx.time(target.t), q ? `${q.owner} ${q.label}` : target.id])
   }
   const f = FORMULAS.find(x => x.id === target.formula)
-  const occ = (target.occurrence ?? 0) > 0 ? `（第 ${(target.occurrence ?? 0) + 1} 段）` : ''
-  return `${SITUATION_NAMES[target.situation] ?? target.situation}${occ}：${f?.title ?? target.formula}`
+  const occ = (target.occurrence ?? 0) > 0 ? tl('（第 {0} 段）', [(target.occurrence ?? 0) + 1]) : ''
+  return `${SITUATION_NAMES[target.situation] ?? target.situation}${occ}${colonSep()}${f?.title ?? target.formula}`
 }
 
 /**
@@ -164,15 +165,15 @@ export function evaluateTarget(rec: Recording, sits: Situation[], target: Predic
   const tMax = (rec.frameCount - 1) * rec.dt
   if (target.kind === 'event') {
     const e = firstEvent(rec, target.event, target.body)
-    if (!e) return { sim: null, formula: null, unit: 's', simNote: rec.completed ? '本次仿真中没有发生该事件' : '仿真未算完，记录内没有该事件' }
+    if (!e) return { sim: null, formula: null, unit: 's', simNote: rec.completed ? tl('本次仿真中没有发生该事件') : tl('仿真未算完，记录内没有该事件') }
     let formula: number | null = null
-    let formulaNote: string | undefined = '没有识别到可计算该时刻的公式'
+    let formulaNote: string | undefined = tl('没有识别到可计算该时刻的公式')
     for (const c of cardsForMoment(sits, e.t, 8)) {
       if ((c.formula.measure !== 'tEnd' && c.formula.measure !== 'T') || c.theory === null || c.sim === null) continue
       if (c.verdict === 'not-applicable') continue
       if (Math.abs(c.situation.t0 + c.sim - e.t) > 1e-6 * Math.max(1, e.t)) continue
       formula = c.situation.t0 + c.theory
-      formulaNote = `按公式“${c.formula.title}”${c.situation.t0 > 0 ? '（加上本阶段的开始时刻）' : ''}`
+      formulaNote = tl('按公式“{0}”{1}', [c.formula.title, c.situation.t0 > 0 ? tl('（加上本阶段的开始时刻）') : ''])
       break
     }
     return { sim: e.t, formula, unit: 's', formulaNote }
@@ -180,21 +181,21 @@ export function evaluateTarget(rec: Recording, sits: Situation[], target: Predic
   if (target.kind === 'quantity') {
     const defs = new Map(listQuantities(rec.system).map(q => [q.id, q]))
     const q = defs.get(target.id)
-    if (!q) return { sim: null, formula: null, unit: '', simNote: '场景中没有这个量（物体或连接件可能已删除）' }
-    if (target.t < 0 || target.t > tMax + 1e-12) return { sim: null, formula: null, unit: q.unit, simNote: '该时刻超出了仿真时长' }
+    if (!q) return { sim: null, formula: null, unit: '', simNote: tl('场景中没有这个量（物体或连接件可能已删除）') }
+    if (target.t < 0 || target.t > tMax + 1e-12) return { sim: null, formula: null, unit: q.unit, simNote: tl('该时刻超出了仿真时长') }
     const v = evaluateQuantity(observeAt(rec, target.t), target.id)
-    return { sim: Number.isFinite(v) ? v : null, formula: null, unit: q.unit, formulaNote: '此类预测只与仿真比较' }
+    return { sim: Number.isFinite(v) ? v : null, formula: null, unit: q.unit, formulaNote: tl('此类预测只与仿真比较') }
   }
   const f = FORMULAS.find(x => x.id === target.formula)
-  if (!f) return { sim: null, formula: null, unit: '', simNote: '公式库中没有这条公式' }
+  if (!f) return { sim: null, formula: null, unit: '', simNote: tl('公式库中没有这条公式') }
   const list = situationsOfType(sits, target.situation)
   const s = list[target.occurrence ?? 0]
-  if (!s) return { sim: null, formula: null, unit: f.unit, simNote: '本次仿真中没有识别到该情形' }
+  if (!s) return { sim: null, formula: null, unit: f.unit, simNote: tl('本次仿真中没有识别到该情形') }
   const t = target.t ?? s.tEvent ?? (s.t0 + s.t1) / 2
   const card = evaluateCard(f, s, s.sample(Math.min(Math.max(t, s.t0), s.t1)), { digits: 8 })
   return {
     sim: card.sim, formula: card.theory, unit: f.unit,
-    simNote: card.sim === null ? (card.reason || '仿真中没有可比较的测量值') : undefined,
+    simNote: card.sim === null ? (card.reason || tl('仿真中没有可比较的测量值')) : undefined,
     formulaNote: card.verdict === 'not-applicable' ? card.reason : undefined
   }
 }

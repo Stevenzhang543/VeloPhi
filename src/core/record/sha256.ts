@@ -24,6 +24,8 @@ export class Sha256 {
     let i = 0
     this.total += data.length
     while (i < data.length) {
+      // Whole blocks straight from the input when nothing is buffered
+      if (this.bufLen === 0 && data.length - i >= 64) { this.block(data.subarray(i, i + 64)); i += 64; continue }
       const take = Math.min(64 - this.bufLen, data.length - i)
       this.buf.set(data.subarray(i, i + take), this.bufLen)
       this.bufLen += take; i += take
@@ -41,8 +43,8 @@ export class Sha256 {
     return this.update(bytes)
   }
 
-  /** Finish and return the digest as lowercase hex; the hasher cannot be updated afterwards. */
-  digestHex(): string {
+  /** Finish and return the 32-byte digest; the hasher cannot be updated afterwards. */
+  digest(): Uint8Array {
     const bits = this.total * 8
     const pad = new Uint8Array(((this.bufLen < 56 ? 56 : 120) - this.bufLen) + 8)
     pad[0] = 0x80
@@ -50,13 +52,17 @@ export class Sha256 {
     view.setUint32(pad.length - 8, Math.floor(bits / 0x100000000), false)
     view.setUint32(pad.length - 4, bits >>> 0, false)
     this.update(pad)
-    let out = ''
-    for (const v of this.h) out += v.toString(16).padStart(8, '0')
+    const out = new Uint8Array(32)
+    const ov = new DataView(out.buffer)
+    for (let i = 0; i < 8; i++) ov.setUint32(4 * i, this.h[i], false)
     return out
   }
 
+  /** Finish and return the digest as lowercase hex; the hasher cannot be updated afterwards. */
+  digestHex(): string { return toHex(this.digest()) }
+
   private block(b: Uint8Array) {
-    const w = this.w
+    const w = this.w, H = this.h
     for (let i = 0; i < 16; i++) w[i] = (b[4 * i] << 24) | (b[4 * i + 1] << 16) | (b[4 * i + 2] << 8) | b[4 * i + 3]
     for (let i = 16; i < 64; i++) {
       const x = w[i - 15], y = w[i - 2]
@@ -64,7 +70,7 @@ export class Sha256 {
       const s1 = ((y >>> 17) | (y << 15)) ^ ((y >>> 19) | (y << 13)) ^ (y >>> 10)
       w[i] = (w[i - 16] + s0 + w[i - 7] + s1) | 0
     }
-    let [a, bb, c, d, e, f, g, h] = this.h
+    let a = H[0] | 0, bb = H[1] | 0, c = H[2] | 0, d = H[3] | 0, e = H[4] | 0, f = H[5] | 0, g = H[6] | 0, h = H[7] | 0
     for (let i = 0; i < 64; i++) {
       const S1 = ((e >>> 6) | (e << 26)) ^ ((e >>> 11) | (e << 21)) ^ ((e >>> 25) | (e << 7))
       const ch = (e & f) ^ (~e & g)
@@ -74,9 +80,16 @@ export class Sha256 {
       const t2 = (S0 + maj) | 0
       h = g; g = f; f = e; e = (d + t1) | 0; d = c; c = bb; bb = a; a = (t1 + t2) | 0
     }
-    this.h[0] += a; this.h[1] += bb; this.h[2] += c; this.h[3] += d
-    this.h[4] += e; this.h[5] += f; this.h[6] += g; this.h[7] += h
+    H[0] += a; H[1] += bb; H[2] += c; H[3] += d
+    H[4] += e; H[5] += f; H[6] += g; H[7] += h
   }
+}
+
+/** Lowercase hex of bytes. */
+export function toHex(bytes: Uint8Array): string {
+  let out = ''
+  for (const b of bytes) out += b.toString(16).padStart(2, '0')
+  return out
 }
 
 /** SHA-256 of the bytes as lowercase hex. */

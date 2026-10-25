@@ -14,6 +14,7 @@ import { solveDense } from '../math/linalg'
 import type { BodyModel, Model } from './model'
 import { pairKey, pairMaterial } from './model'
 import { ENV_SIZE, ForceExprError, branchOf, fillEnv } from './forceExpr'
+import { msg } from '../../i18n/message'
 import type { ContactFeature, ContactKin, Pose, Probe, RowJ, RowTerm } from './kinematics'
 import { anchorState, computePoses, contactKin, distanceKin, hingeKin, pairFeatures, pairProbes, ropeKin, ropePath } from './kinematics'
 
@@ -312,7 +313,7 @@ export function forceValue(sys: System, k: number, X: Float64Array, sw: ArrayLik
   const fx = f.expr.x.fn(envScratch, s), fy = f.expr.y.fn(envScratch, s)
   if (!Number.isFinite(fx) || !Number.isFinite(fy)) {
     const t = sys.timeSlot >= 0 ? X[sys.timeSlot] : 0
-    throw new ForceExprError(`${f.name}：变力表达式在 t = ${t.toPrecision(6)} s 时没有有限值（Fx = ${fx}，Fy = ${fy}），仿真停止`)
+    throw new ForceExprError(msg('err.forceNotFinite', { force: f.name, t, fx, fy }))
   }
   return { x: fx, y: fy }
 }

@@ -10,11 +10,12 @@ import { exactStateAt } from '../core/solver/simulation'
 import { solveMode } from '../core/solver/dynamics'
 import type { AnnotationDef } from '../core/scene/types'
 import type { UnitChoice } from '../units/units'
-import type { Camera, DrawLayers, DrawOptions, Palette } from './renderer'
-import { computeTrajectories, drawScene } from './renderer'
+import type { Camera, DrawLayers, DrawOptions, Palette, Trajectories } from './renderer'
+import { drawScene } from './renderer'
 import { displayStateAt } from './interp'
 import type { FrameEffects } from './effects'
 import { drawMotionBlur, drawParticles, drawTrails } from './effects'
+import { STROBE_DEFAULTS, drawStrobe } from './strobe'
 import type { RenderStyle } from './style'
 
 export type { FrameEffects } from './effects'
@@ -32,7 +33,7 @@ export interface FrameInput {
   digits: number
   /** Arrow scales: pixels per m/s, per m/s², per N. */
   scales: { v: number; a: number; f: number }
-  trajectories: Map<string, Float64Array> | null
+  trajectories: Trajectories | null
   selectedId?: string | null
   hoverId?: string | null
   /** Exact states (one integration step from the nearest frame) instead of interpolated ones: use for exports. */
@@ -66,14 +67,21 @@ export function renderFrame(ctx: CanvasRenderingContext2D, cam: Camera, input: F
   const frame = Math.min(rec.frameCount - 1, Math.floor(t / rec.dt + 1e-9))
   const fx = input.effects
   let layers: DrawLayers | null = null
+  const op = input.options
+  if (op.strobe) {
+    const so = { interval: op.strobeInterval ?? STROBE_DEFAULTS.interval, count: op.strobeCount ?? STROBE_DEFAULTS.count, opacity: op.strobeOpacity ?? STROBE_DEFAULTS.opacity, labels: op.strobeLabels ?? STROBE_DEFAULTS.labels }
+    layers = { underBodies: c => { drawStrobe(c, cam, rec, t, so, input.palette) } }
+  }
   if (fx) {
     const blur = fx.motionBlur && fx.shutterSeconds > 0
     const trails = fx.trails && fx.trailSeconds > 0
     if (blur || trails || fx.particles) {
-      layers = {}
+      layers ??= {}
       if (blur || trails) {
+        const strobe = layers.underBodies
         layers.underBodies = (c, poses) => {
-          if (trails) drawTrails(c, cam, rec, t, fx.trailSeconds, input.trajectories ?? computeTrajectories(rec), poses)
+          if (strobe) { strobe(c, poses); c.globalAlpha = 1 }
+          if (trails) drawTrails(c, cam, rec, t, fx.trailSeconds, poses)
           if (blur) drawMotionBlur(c, cam, rec, t, fx.shutterSeconds, X)
         }
       }

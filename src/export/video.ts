@@ -7,6 +7,7 @@
  * Overlay values are shown in the display units of `units` (SI when absent); the numbers themselves are
  * read from the exact state, never from the effects.
  */
+import { tl } from '../i18n'
 import { BufferTarget, CanvasSource, Mp4OutputFormat, Output, WebMOutputFormat, getFirstEncodableVideoCodec } from 'mediabunny'
 import type { Recording } from '../core/solver/simulation'
 import type { AnnotationDef } from '../core/scene/types'
@@ -19,6 +20,7 @@ import { ENGINE_VERSION } from '../core/scene/types'
 import type { UnitChoice } from '../units/units'
 import { defaultChoice, displayLabel, formatQuantity, toDisplay } from '../units/units'
 import { drawStill } from './still'
+import { fingerprintShort } from './fingerprint'
 
 /** Options of exportVideo. */
 export interface VideoOptions {
@@ -70,7 +72,7 @@ export function videoFrameCount(t0: number, t1: number, speed: number, fps: numb
 export async function exportVideo(rec: Recording, o: VideoOptions, progress: (p: number) => void, cancelled: () => boolean): Promise<VideoResult> {
   const width = o.width - (o.width % 2), height = o.height - (o.height % 2)
   const codec = await getFirstEncodableVideoCodec(['avc', 'vp9', 'vp8'], { width, height })
-  if (!codec) throw new Error('此系统没有可用的视频编码器（需要 WebCodecs 支持 H.264 或 VP9）')
+  if (!codec) throw new Error(tl('此系统没有可用的视频编码器（需要 WebCodecs 支持 H.264 或 VP9）'))
   const mp4 = codec === 'avc'
   const output = new Output({ format: mp4 ? new Mp4OutputFormat({ fastStart: 'in-memory' }) : new WebMOutputFormat(), target: new BufferTarget() })
   const canvas = document.createElement('canvas')
@@ -89,13 +91,13 @@ export async function exportVideo(rec: Recording, o: VideoOptions, progress: (p:
   const defs = new Map(listQuantities(rec.system).map(q => [q.id, q]))
   const tEnd = Math.min(o.t1, (rec.frameCount - 1) * rec.dt)
   const count = videoFrameCount(o.t0, tEnd, o.speed, o.fps)
-  const footer = `Verity ${ENGINE_VERSION} · 仿真结果可复现 · ${rec.hash.slice(0, 12)}`
+  const footer = tl('Verity {0} · 仿真结果可复现 · {1}', [ENGINE_VERSION, fingerprintShort(rec)])
   const overlayIds = o.overlayIds.filter(id => defs.has(id)).slice(0, 6)
   try {
     for (let i = 0; i < count; i++) {
-      if (cancelled()) throw new Error('已取消')
+      if (cancelled()) throw new Error(tl('已取消'))
       const t = Math.min(tEnd, o.t0 + (i / o.fps) * o.speed)
-      const lines = [`${timeLabel(t, units)}${o.speed !== 1 ? `   (${o.speed}× 速度)` : ''}`]
+      const lines = [`${timeLabel(t, units)}${o.speed !== 1 ? tl('   ({0}× 速度)', [o.speed]) : ''}`]
       if (overlayIds.length) {
         const c = observeAt(rec, t)
         for (const id of overlayIds) {
@@ -117,7 +119,7 @@ export async function exportVideo(rec: Recording, o: VideoOptions, progress: (p:
     throw e
   }
   const buf = (output.target as BufferTarget).buffer
-  if (!buf) throw new Error('视频编码失败')
+  if (!buf) throw new Error(tl('视频编码失败'))
   progress(1)
   return { data: new Uint8Array(buf), extension: mp4 ? 'mp4' : 'webm', mime: mp4 ? 'video/mp4' : 'video/webm', frames: count }
 }

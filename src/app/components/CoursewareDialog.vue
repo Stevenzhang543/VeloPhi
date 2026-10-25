@@ -7,6 +7,8 @@
  * Mounted by App.vue while `state.showCourseware` is true (and a recording exists); closes itself by setting
  * the flag to false. No props, no emits.
  */
+import { tl, listSep, paren, stripLabel } from '../../i18n'
+import { locale } from '../../i18n/locale'
 import { computed, reactive, ref } from 'vue'
 import { state, showToast, viewCamera } from '../store'
 import { settings, toDisp, unitLabel } from '../settings'
@@ -51,7 +53,7 @@ function addTime(t: number) {
   excluded.value = excluded.value.filter(x => Math.abs(x - tc) > tol.value)
 }
 function removeUser(m: KeyMoment) { userTimes.value = userTimes.value.filter(x => Math.abs(x - m.t) > tol.value) }
-const KIND_TEXT: Record<string, string> = { start: '起点', event: '事件', segment: '阶段', user: '自选', end: '终点' }
+const KIND_TEXT: Record<string, string> = { start: tl('起点'), event: tl('事件'), segment: tl('阶段'), user: tl('自选'), end: tl('终点') }
 
 // ---- Contents ----
 const opt = reactive({
@@ -60,6 +62,7 @@ const opt = reactive({
   cardsPng: true, cardsSvg: false, cardBg: settings.export.imageBackground as ImageBackground,
   csv: true, csvUnits: 'si' as 'si' | 'display',
   pptx: true,
+  derivations: true,
   output: 'zip' as 'zip' | 'files'
 })
 const readoutChoices = computed(() => {
@@ -85,15 +88,15 @@ const cardCount = computed(() => {
 })
 const summary = computed(() => {
   const parts: string[] = []
-  if (opt.video) parts.push('视频 1 个')
-  if (opt.shots) parts.push(`截图 ${moments.value.length} 张`)
-  if (opt.cardsPng || opt.cardsSvg) parts.push(`公式卡片 ${cardCount.value} 张${opt.cardsPng && opt.cardsSvg ? '（PNG + SVG）' : opt.cardsSvg ? '（SVG）' : '（PNG）'}`)
-  if (opt.csv) parts.push('CSV 数据')
-  if (opt.pptx) parts.push(`PPTX（${moments.value.length + 1 + (opt.video ? 1 : 0)} 页起）`)
-  return parts.join('、')
+  if (opt.video) parts.push(tl('视频 1 个'))
+  if (opt.shots) parts.push(tl('截图 {0} 张', [moments.value.length]))
+  if (opt.cardsPng || opt.cardsSvg) parts.push(tl('公式卡片 {0} 张{1}', [cardCount.value, opt.cardsPng && opt.cardsSvg ? '（PNG + SVG）' : opt.cardsSvg ? '（SVG）' : '（PNG）']))
+  if (opt.csv) parts.push(tl('CSV 数据'))
+  if (opt.pptx) parts.push(tl('PPTX（{0} 页起）', [moments.value.length + 1 + (opt.video ? 1 : 0)]))
+  return parts.join(listSep())
 })
 const notice = computed(() => (rec.value ? reducedNotice(rec.value, settings.units) : null))
-const nothing = computed(() => !(opt.video || opt.shots || opt.cardsPng || opt.cardsSvg || opt.csv || opt.pptx))
+const nothing = computed(() => !(opt.video || opt.shots || opt.cardsPng || opt.cardsSvg || opt.csv || opt.pptx || opt.derivations))
 
 // ---- Export ----
 const busy = ref(false)
@@ -112,12 +115,12 @@ function logExport(ok: boolean, extra: Record<string, unknown> = {}) {
 }
 
 const MIME_FILTERS: Record<string, FileFilter> = {
-  zip: { name: 'ZIP 压缩包', extensions: ['zip'] }, pptx: { name: 'PowerPoint 演示文稿', extensions: ['pptx'] },
-  mp4: { name: 'MP4 视频', extensions: ['mp4'] }, webm: { name: 'WebM 视频', extensions: ['webm'] },
-  png: { name: 'PNG 图片', extensions: ['png'] }, svg: { name: 'SVG 图片', extensions: ['svg'] },
-  csv: { name: 'CSV 表格', extensions: ['csv'] }, txt: { name: '文本', extensions: ['txt'] }
+  zip: { name: tl('ZIP 压缩包'), extensions: ['zip'] }, pptx: { name: tl('PowerPoint 演示文稿'), extensions: ['pptx'] },
+  mp4: { name: tl('MP4 视频'), extensions: ['mp4'] }, webm: { name: tl('WebM 视频'), extensions: ['webm'] },
+  png: { name: tl('PNG 图片'), extensions: ['png'] }, svg: { name: tl('SVG 图片'), extensions: ['svg'] },
+  csv: { name: tl('CSV 表格'), extensions: ['csv'] }, txt: { name: tl('文本'), extensions: ['txt'] }
 }
-const filterFor = (name: string) => { const ext = name.split('.').pop()!.toLowerCase(); return [MIME_FILTERS[ext] ?? { name: '文件', extensions: [ext] }] }
+const filterFor = (name: string) => { const ext = name.split('.').pop()!.toLowerCase(); return [MIME_FILTERS[ext] ?? { name: tl('文件'), extensions: [ext] }] }
 
 async function saveIndividually(files: CoursewareFile[], prefix: string): Promise<number> {
   let saved = 0
@@ -137,7 +140,7 @@ async function run() {
   busy.value = true
   cancel = false
   progress.value = 0
-  stepText.value = '准备中'
+  stepText.value = tl('准备中')
   const started = performance.now()
   try {
     const palette = state.theme === 'dark' ? DARK : LIGHT
@@ -158,27 +161,28 @@ async function run() {
         units: settings.units, effects: null, annotations: state.scene.annotations, style, bitrate: settings.export.bitrate
       } : null,
       pptx: opt.pptx,
+      derivations: opt.derivations ? { lang: locale.lang } : null,
       readoutIds: readouts.value
     }, (p, s) => { progress.value = p; stepText.value = s }, () => cancel)
     let where: string | null = null
     if (opt.output === 'zip') {
-      stepText.value = '正在打包'
-      const zip = coursewareZip(result.files, `${name}_课件包`)
-      where = await saveFile(zip, `${name}_课件包.zip`, filterFor('a.zip'))
+      stepText.value = tl('正在打包')
+      const zip = coursewareZip(result.files, tl('{0}_课件包', [name]))
+      where = await saveFile(zip, tl('{0}_课件包.zip', [name]), filterFor('a.zip'))
     } else {
       const n = await saveIndividually(result.files, name)
-      where = n ? `${n} 个文件` : null
+      where = n ? tl('{0} 个文件', [n]) : null
     }
     if (where) {
-      showToast(`课件已导出：${where}${result.warnings.length ? `（${result.warnings[0]}）` : ''}`, false)
+      showToast(tl('课件已导出：{0}{1}', [where, result.warnings.length ? paren(result.warnings[0]) : '']), false)
       logExport(true, { files: result.files.length, format: result.video?.extension ?? 'none', seconds: Math.round((performance.now() - started) / 100) / 10 })
       state.showCourseware = false
     }
   } catch (e) {
     const msg = (e as Error).message
-    if (msg !== '已取消') showToast(`课件导出失败：${msg}`, true)
-    else showToast('已取消课件导出')
-    logExport(false, { cancelled: msg === '已取消' })
+    if (msg !== tl('已取消')) showToast(tl('课件导出失败：{0}', [msg]), true)
+    else showToast(tl('已取消课件导出'))
+    logExport(false, { cancelled: msg === tl('已取消') })
   } finally {
     busy.value = false
   }
@@ -188,77 +192,78 @@ async function run() {
 <template>
   <div class="dialog-backdrop" @mousedown.self="close">
     <div class="dialog courseware">
-      <div class="dialog-header"><Icon name="template" :size="18" />导出课件包<span class="spacer" /><button class="btn icon ghost" :disabled="busy" title="关闭" @click="close"><Icon name="close" /></button></div>
-      <div v-if="!rec" class="dialog-body"><div class="empty">请先运行仿真（结果需与当前场景一致）。</div></div>
+      <div class="dialog-header"><Icon name="template" :size="18" />{{ tl('导出课件包') }}<span class="spacer" /><button class="btn icon ghost" :disabled="busy" :title="tl('关闭')" @click="close"><Icon name="close" /></button></div>
+      <div v-if="!rec" class="dialog-body"><div class="empty">{{ tl('请先运行仿真（结果需与当前场景一致）。') }}</div></div>
       <div v-else class="dialog-body">
         <div class="cols2">
           <section>
-            <div class="group-title">关键时刻</div>
+            <div class="group-title">{{ tl('关键时刻') }}</div>
             <div class="group">
-              <label class="check small"><input v-model="pick.events" type="checkbox" />事件（碰撞、共速、松弛…）</label>
-              <label class="check small"><input v-model="pick.segments" type="checkbox" />每个运动阶段的开始</label>
-              <label class="check small"><input v-model="pick.ends" type="checkbox" />起点与终点</label>
+              <label class="check small"><input v-model="pick.events" type="checkbox" />{{ tl('事件（碰撞、共速、松弛…）') }}</label>
+              <label class="check small"><input v-model="pick.segments" type="checkbox" />{{ tl('每个运动阶段的开始') }}</label>
+              <label class="check small"><input v-model="pick.ends" type="checkbox" />{{ tl('起点与终点') }}</label>
               <div class="row add">
                 <NumField :model-value="newTime" :unit="unitLabel('s')" :scale="tScale" :min="0" :max="tMax" width="130px" @update:model-value="v => (newTime = v)" />
-                <button class="btn small" @click="addTime(newTime)"><Icon name="plus" />添加时刻</button>
-                <button class="btn small ghost" title="当前播放位置" @click="addTime(state.time)">当前时刻</button>
+                <button class="btn small" @click="addTime(newTime)"><Icon name="plus" />{{ tl('添加时刻') }}</button>
+                <button class="btn small ghost" :title="tl('当前播放位置')" @click="addTime(state.time)">{{ tl('当前时刻') }}</button>
               </div>
             </div>
             <div class="moments">
-              <div v-if="!allMoments.length" class="tiny muted pad">没有关键时刻：勾选上面的选项或添加时刻。</div>
+              <div v-if="!allMoments.length" class="tiny muted pad">{{ tl('没有关键时刻：勾选上面的选项或添加时刻。') }}</div>
               <label v-for="m in allMoments" :key="m.t" class="moment small" :class="{ off: isExcluded(m.t) }">
                 <input type="checkbox" :checked="!isExcluded(m.t)" @change="toggleMoment(m)" />
                 <span class="mono t">{{ tLabel(m.t).replace('t = ', '') }}</span>
                 <span class="lbl" :title="m.label">{{ m.label }}</span>
                 <span class="badge">{{ m.kinds.map(k => KIND_TEXT[k]).join('·') }}</span>
-                <button v-if="m.kinds.includes('user')" class="btn icon ghost tiny-btn" title="移除自选时刻" @click.prevent="removeUser(m)"><Icon name="close" :size="12" /></button>
+                <button v-if="m.kinds.includes('user')" class="btn icon ghost tiny-btn" :title="tl('移除自选时刻')" @click.prevent="removeUser(m)"><Icon name="close" :size="12" /></button>
               </label>
             </div>
           </section>
           <section>
-            <div class="group-title">内容</div>
+            <div class="group-title">{{ tl('内容') }}</div>
             <div class="group">
-              <div class="row"><label class="check"><input v-model="opt.video" type="checkbox" />视频</label>
+              <div class="row"><label class="check"><input v-model="opt.video" type="checkbox" />{{ tl('视频') }}</label>
                 <select v-model="opt.res" class="field grow" :disabled="!opt.video"><option value="1080">1920 × 1080</option><option value="720">1280 × 720</option></select>
-                <select v-model.number="opt.fps" class="field" :disabled="!opt.video"><option :value="30">30 帧/秒</option><option :value="60">60 帧/秒</option></select>
+                <select v-model.number="opt.fps" class="field" :disabled="!opt.video"><option :value="30">{{ tl('30 帧/秒') }}</option><option :value="60">{{ tl('60 帧/秒') }}</option></select>
                 <select v-model.number="opt.speed" class="field" :disabled="!opt.video"><option :value="0.25">0.25×</option><option :value="0.5">0.5×</option><option :value="1">1×</option><option :value="2">2×</option></select>
               </div>
-              <div class="row"><label class="check"><input v-model="opt.shots" type="checkbox" />截图 PNG</label>
-                <select v-model="opt.shotSize" class="field grow" :disabled="!opt.shots"><option value="view">与视图相同 × {{ settings.export.scale }}</option><option value="1080">1920 × 1080</option><option value="720">1280 × 720</option></select>
-                <select v-model="opt.shotBg" class="field" :disabled="!opt.shots" title="背景"><option value="theme">主题背景</option><option value="white">白底</option><option value="transparent">透明</option></select>
+              <div class="row"><label class="check"><input v-model="opt.shots" type="checkbox" />{{ tl('截图 PNG') }}</label>
+                <select v-model="opt.shotSize" class="field grow" :disabled="!opt.shots"><option value="view">{{ tl('与视图相同 × {0}', [settings.export.scale]) }}</option><option value="1080">1920 × 1080</option><option value="720">1280 × 720</option></select>
+                <select v-model="opt.shotBg" class="field" :disabled="!opt.shots" :title="tl('背景')"><option value="theme">{{ tl('主题背景') }}</option><option value="white">{{ tl('白底') }}</option><option value="transparent">{{ tl('透明') }}</option></select>
               </div>
-              <div class="row"><label class="check"><input v-model="opt.cardsPng" type="checkbox" />公式卡片 PNG</label>
-                <label class="check small"><input v-model="opt.cardsSvg" type="checkbox" />另存 SVG</label>
+              <div class="row"><label class="check"><input v-model="opt.cardsPng" type="checkbox" />{{ tl('公式卡片 PNG') }}</label>
+                <label class="check small"><input v-model="opt.cardsSvg" type="checkbox" />{{ tl('另存 SVG') }}</label>
                 <span class="spacer" />
-                <select v-model="opt.cardBg" class="field" :disabled="!opt.cardsPng && !opt.cardsSvg" title="背景"><option value="theme">主题背景</option><option value="white">白底</option><option value="transparent">透明</option></select>
+                <select v-model="opt.cardBg" class="field" :disabled="!opt.cardsPng && !opt.cardsSvg" :title="tl('背景')"><option value="theme">{{ tl('主题背景') }}</option><option value="white">{{ tl('白底') }}</option><option value="transparent">{{ tl('透明') }}</option></select>
               </div>
-              <div class="row"><label class="check"><input v-model="opt.csv" type="checkbox" />CSV 数据</label>
-                <select v-model="opt.csvUnits" class="field grow" :disabled="!opt.csv"><option value="si">国际单位（逐位一致）</option><option value="display">显示单位</option></select>
+              <div class="row"><label class="check"><input v-model="opt.csv" type="checkbox" />{{ tl('CSV 数据') }}</label>
+                <select v-model="opt.csvUnits" class="field grow" :disabled="!opt.csv"><option value="si">{{ tl('国际单位（逐位一致）') }}</option><option value="display">{{ tl('显示单位') }}</option></select>
               </div>
-              <div class="row"><label class="check"><input v-model="opt.pptx" type="checkbox" />PPTX 演示文稿</label><span class="tiny muted">每个关键时刻一页：截图 + 读数 + 公式{{ opt.video ? '；末页嵌入视频' : '' }}</span></div>
+              <div class="row"><label class="check"><input v-model="opt.derivations" type="checkbox" />{{ tl('附带推导与解题过程') }}</label><span class="tiny muted">{{ tl('关键时刻用到的每条公式一页（推导、代入求解、适用条件、与仿真对照），关键事件各一页') }}</span></div>
+              <div class="row"><label class="check"><input v-model="opt.pptx" type="checkbox" />{{ tl('PPTX 演示文稿') }}</label><span class="tiny muted">{{ tl('每个关键时刻一页：截图 + 读数 + 公式{0}', [opt.video ? tl('；末页嵌入视频') : '']) }}</span></div>
             </div>
-            <div class="group-title">幻灯片读数</div>
+            <div class="group-title">{{ tl('幻灯片读数') }}</div>
             <div class="chips">
               <label v-for="q in readoutChoices" :key="q.id" class="check small chip"><input type="checkbox" :checked="readouts.includes(q.id)" @change="toggle(readouts, q.id)" />{{ q.owner }} · {{ q.label }}</label>
             </div>
-            <div class="group-title">保存方式</div>
+            <div class="group-title">{{ tl('保存方式') }}</div>
             <div class="group">
-              <label class="check small"><input v-model="opt.output" type="radio" value="zip" />一个 ZIP 课件包（推荐）</label>
-              <label class="check small"><input v-model="opt.output" type="radio" value="files" />逐个保存文件<span class="muted">（桌面版每个文件弹出一次保存对话框）</span></label>
+              <label class="check small"><input v-model="opt.output" type="radio" value="zip" />{{ tl('一个 ZIP 课件包（推荐）') }}</label>
+              <label class="check small"><input v-model="opt.output" type="radio" value="files" />{{ tl('逐个保存文件') }}<span class="muted">{{ tl('（桌面版每个文件弹出一次保存对话框）') }}</span></label>
             </div>
           </section>
         </div>
-        <div v-if="notice" class="notice small"><span class="badge warn">精度降级</span>{{ notice.replace(/^精度降级：/, '') }} 导出的说明、截图、公式卡片与幻灯片会标注这一点。</div>
-        <div class="tiny muted note">将生成：{{ summary || '（未选择任何内容）' }}。数值按当前显示单位（{{ unitLabel('m/s') }}、{{ unitLabel('m') }} …）；公式卡片 SVG 内含 HTML，只能在浏览器中正确显示，插入 PPT / WPS 请用 PNG。</div>
+        <div v-if="notice" class="notice small"><span class="badge warn">{{ tl('精度降级') }}</span>{{ tl('{0} 导出的说明、截图、公式卡片与幻灯片会标注这一点。', [stripLabel(notice)]) }}</div>
+        <div class="tiny muted note">{{ tl('将生成：{0}。数值按当前显示单位（{1}、{2} …）；公式卡片 SVG 内含 HTML，只能在浏览器中正确显示，插入 PPT / WPS 请用 PNG。', [summary || tl('（未选择任何内容）'), unitLabel('m/s'), unitLabel('m')]) }}</div>
         <div v-if="busy" class="progress-wrap">
           <div class="progress"><div class="bar" :style="{ width: `${(progress * 100).toFixed(1)}%` }" /></div>
           <div class="tiny muted">{{ stepText }} · {{ (progress * 100).toFixed(0) }}%</div>
         </div>
       </div>
       <div class="dialog-footer">
-        <button v-if="busy" class="btn" @click="cancel = true">取消</button>
-        <button v-else class="btn" @click="close">关闭</button>
-        <button class="btn primary" :disabled="busy || !rec || nothing || !moments.length && (opt.shots || opt.pptx)" @click="run">{{ busy ? '正在生成…' : '导出课件' }}</button>
+        <button v-if="busy" class="btn" @click="cancel = true">{{ tl('取消') }}</button>
+        <button v-else class="btn" @click="close">{{ tl('关闭') }}</button>
+        <button class="btn primary" :disabled="busy || !rec || nothing || !moments.length && (opt.shots || opt.pptx)" @click="run">{{ busy ? tl('正在生成…') : tl('导出课件') }}</button>
       </div>
     </div>
   </div>

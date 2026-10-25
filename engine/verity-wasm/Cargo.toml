@@ -1,0 +1,13 @@
+[package]
+name = "verity-wasm"
+description = "WebAssembly C ABI of the Verity core (no wasm-bindgen); see engine/ABI.md"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+verity-core = { path = "../verity-core" }
+serde_json = { version = "1", features = ["float_roundtrip"] }

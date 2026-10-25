@@ -5,6 +5,7 @@
  * parsed once into an AST that can be evaluated (with the deterministic math library), checked for physical
  * dimensions, and printed as LaTeX with the variable values substituted.
  */
+import { tl } from '../i18n'
 import * as dm from '../core/math/dmath'
 import { ellipticF, ellipticK } from './elliptic'
 import type { Dim } from './units'
@@ -70,7 +71,7 @@ export function parse(src: string, opts: ParseOptions = {}): Node {
   const constants = opts.constants ?? DEFAULT_CONSTANTS
   let pos = 0
   const peek = () => { while (src[pos] === ' ' || src[pos] === '\t') pos++; return src[pos] }
-  const expect = (ch: string) => { if (peek() !== ch) throw new ExprError(`应为 “${ch}”（位置 ${pos + 1}）：${src}`); pos++ }
+  const expect = (ch: string) => { if (peek() !== ch) throw new ExprError(tl('应为 “{0}”（位置 {1}）：{2}', [ch, pos + 1, src])); pos++ }
   function primary(): Node {
     const ch = peek()
     if (ch === '(') { pos++; const e = sum(); expect(')'); return e }
@@ -78,7 +79,7 @@ export function parse(src: string, opts: ParseOptions = {}): Node {
     if (ch === '+') { pos++; return power() }
     if (ch !== undefined && /[0-9.]/.test(ch)) {
       const m = /^[0-9]*\.?[0-9]+(?:[eE][-+]?[0-9]+)?/.exec(src.slice(pos)) ?? /^[0-9]+\.(?:[eE][-+]?[0-9]+)?/.exec(src.slice(pos))
-      if (!m) throw new ExprError(`数字格式错误（位置 ${pos + 1}）：${src}`)
+      if (!m) throw new ExprError(tl('数字格式错误（位置 {0}）：{1}', [pos + 1, src]))
       pos += m[0].length
       return { type: 'num', value: Number(m[0]), text: m[0] }
     }
@@ -89,23 +90,23 @@ export function parse(src: string, opts: ParseOptions = {}): Node {
       if (peek() === '(') {
         pos++
         const f = FUNCS[name]
-        if (!f) throw new ExprError(`未知函数 ${name}`)
+        if (!f) throw new ExprError(tl('未知函数 {0}', [name]))
         const args: Node[] = []
         if (name === 'if') {
           args.push(comparison())
           while (peek() === ',') { pos++; args.push(sum()) }
         } else if (peek() !== ')') { args.push(sum()); while (peek() === ',') { pos++; args.push(sum()) } }
         expect(')')
-        if (f.arity !== args.length) throw new ExprError(`${name} 需要 ${f.arity} 个参数，实为 ${args.length} 个`)
+        if (f.arity !== args.length) throw new ExprError(tl('{0} 需要 {1} 个参数，实为 {2} 个', [name, f.arity, args.length]))
         return { type: 'call', fn: name, args }
       }
-      if (FUNCS[name] && !(name in constants)) throw new ExprError(`函数 ${name} 后面应有括号，如 ${name}(t)`)
+      if (FUNCS[name] && !(name in constants)) throw new ExprError(tl('函数 {0} 后面应有括号，如 {1}(t)', [name, name]))
       if (name in constants) return { type: 'num', value: constants[name], text: name }
       return { type: 'var', name }
     }
-    if (ch === '<' || ch === '>') throw new ExprError(`比较运算只能用作 if(条件, 值1, 值2) 的条件（位置 ${pos + 1}）`)
-    if (ch === undefined) throw new ExprError(`表达式不完整：${src}`)
-    throw new ExprError(`无法识别的字符 “${ch}”（位置 ${pos + 1}）：${src}`)
+    if (ch === '<' || ch === '>') throw new ExprError(tl('比较运算只能用作 if(条件, 值1, 值2) 的条件（位置 {0}）', [pos + 1]))
+    if (ch === undefined) throw new ExprError(tl('表达式不完整：{0}', [src]))
+    throw new ExprError(tl('无法识别的字符 “{0}”（位置 {1}）：{2}', [ch, pos + 1, src]))
   }
   function power(): Node {
     const base = primary()
@@ -130,20 +131,20 @@ export function parse(src: string, opts: ParseOptions = {}): Node {
   function comparison(): Node {
     const left = sum()
     const ch = peek()
-    if (ch !== '<' && ch !== '>') throw new ExprError('if 的第一个参数应为比较式，例如 if(t < 1, 10, 0)')
+    if (ch !== '<' && ch !== '>') throw new ExprError(tl('if 的第一个参数应为比较式，例如 if(t < 1, 10, 0)'))
     pos++
     let op: CmpOp = ch
     if (src[pos] === '=') { pos++; op = ch === '<' ? '<=' : '>=' }
     const right = sum()
     return { type: 'cmp', op, left, right }
   }
-  if (!src.trim()) throw new ExprError('表达式为空')
+  if (!src.trim()) throw new ExprError(tl('表达式为空'))
   const node = sum()
   if (peek() !== undefined) {
     const ch = peek()
-    if (ch === '<' || ch === '>') throw new ExprError(`比较运算只能用作 if(条件, 值1, 值2) 的条件（位置 ${pos + 1}）`)
-    if (ch === ')') throw new ExprError(`括号不匹配（位置 ${pos + 1}）：${src}`)
-    throw new ExprError(`多余字符 “${ch}”（位置 ${pos + 1}）：${src}`)
+    if (ch === '<' || ch === '>') throw new ExprError(tl('比较运算只能用作 if(条件, 值1, 值2) 的条件（位置 {0}）', [pos + 1]))
+    if (ch === ')') throw new ExprError(tl('括号不匹配（位置 {0}）：{1}', [pos + 1, src]))
+    throw new ExprError(tl('多余字符 “{0}”（位置 {1}）：{2}', [ch, pos + 1, src]))
   }
   return node
 }
@@ -163,7 +164,7 @@ export function evaluate(node: Node, vars: Record<string, number>): number {
     case 'num': return node.value
     case 'var': {
       const v = vars[node.name]
-      if (v === undefined) throw new ExprError(`变量 ${node.name} 没有取值`)
+      if (v === undefined) throw new ExprError(tl('变量 {0} 没有取值', [node.name]))
       return v
     }
     case 'neg': return -evaluate(node.arg, vars)
@@ -196,7 +197,7 @@ export function variables(node: Node, out = new Set<string>()): Set<string> {
 }
 
 /** Unit name of a dimension for messages ('N', 'm/s', …, or m·kg·s^-2). */
-export function dimName(d: Dim): string { return dimEqual(d, DIMLESS) ? '无量纲' : unitFor(d) }
+export function dimName(d: Dim): string { return dimEqual(d, DIMLESS) ? tl('无量纲') : unitFor(d) }
 
 function exponentOf(node: Node): number | null {
   if (node.type === 'num') return node.value
@@ -207,31 +208,31 @@ function exponentOf(node: Node): number | null {
 /** Physical dimension of an expression; throws on inconsistent sums or dimensioned function arguments. */
 export function dimension(node: Node, dims: Record<string, Dim>): Dim {
   const same = (args: Dim[], what: string): Dim => {
-    for (const a of args) if (!dimEqual(a, args[0])) throw new ExprError(`${what} 的参数量纲不同：${dimName(args[0])} 与 ${dimName(a)}`)
+    for (const a of args) if (!dimEqual(a, args[0])) throw new ExprError(tl('{0} 的参数量纲不同：{1} 与 {2}', [what, dimName(args[0]), dimName(a)]))
     return args[0]
   }
   switch (node.type) {
     case 'num': return DIMLESS
     case 'var': {
       const d = dims[node.name]
-      if (!d) throw new ExprError(`变量 ${node.name} 没有量纲`)
+      if (!d) throw new ExprError(tl('变量 {0} 没有量纲', [node.name]))
       return d
     }
     case 'neg': return dimension(node.arg, dims)
-    case 'cmp': same([dimension(node.left, dims), dimension(node.right, dims)], `比较 ${node.op}`); return DIMLESS
+    case 'cmp': same([dimension(node.left, dims), dimension(node.right, dims)], tl('比较 {0}', [node.op])); return DIMLESS
     case 'bin': {
       const a = dimension(node.left, dims)
       if (node.op === '^') {
         const p = exponentOf(node.right)
         if (p === null) {
-          if (!dimEqual(a, DIMLESS)) throw new ExprError('有量纲的量只能取数字次幂')
+          if (!dimEqual(a, DIMLESS)) throw new ExprError(tl('有量纲的量只能取数字次幂'))
           return DIMLESS
         }
         return dimPow(a, p)
       }
       const b = dimension(node.right, dims)
       if (node.op === '+' || node.op === '-') {
-        if (!dimEqual(a, b)) throw new ExprError(`量纲不一致：${formatDim(a)} ${node.op} ${formatDim(b)}`)
+        if (!dimEqual(a, b)) throw new ExprError(tl('量纲不一致：{0} {1} {2}', [formatDim(a), node.op, formatDim(b)]))
         return a
       }
       return node.op === '*' ? dimMul(a, b) : dimMul(a, dimPow(b, -1))
@@ -247,7 +248,7 @@ export function dimension(node: Node, dims: Record<string, Dim>): Dim {
       if (node.fn === 'sign' || node.fn === 'step') return DIMLESS
       if (node.fn === 'min' || node.fn === 'max' || node.fn === 'clamp') return same(args, node.fn)
       if (node.fn === 'atan2') { same(args, node.fn); return DIMLESS }
-      for (const a of args) if (!dimEqual(a, DIMLESS)) throw new ExprError(`${node.fn} 的参数必须无量纲，实为 ${formatDim(a)}`)
+      for (const a of args) if (!dimEqual(a, DIMLESS)) throw new ExprError(tl('{0} 的参数必须无量纲，实为 {1}', [node.fn, formatDim(a)]))
       return DIMLESS
     }
   }
@@ -266,48 +267,48 @@ export function inferDimension(node: Node, dims: Record<string, Dim>): Dim | nul
     for (const d of list) {
       if (!d) continue
       if (!fixed) fixed = d
-      else if (!dimEqual(fixed, d)) throw new ExprError(`${what}两边量纲不同：${dimName(fixed)} 与 ${dimName(d)}`)
+      else if (!dimEqual(fixed, d)) throw new ExprError(tl('{0}两边量纲不同：{1} 与 {2}', [what, dimName(fixed), dimName(d)]))
     }
     return fixed
   }
   const dimless = (d: Dim | null, fn: string) => {
-    if (d && !dimEqual(d, DIMLESS)) throw new ExprError(`${fn}( ) 的参数必须无量纲，实为 ${dimName(d)}（可写成系数乘变量，如 ${fn}(2*t)）`)
+    if (d && !dimEqual(d, DIMLESS)) throw new ExprError(tl('{0}( ) 的参数必须无量纲，实为 {1}（可写成系数乘变量，如 {2}(2*t)）', [fn, dimName(d), fn]))
   }
   switch (node.type) {
     case 'num': return null
     case 'var': {
       const d = dims[node.name]
-      if (!d) throw new ExprError(`未知变量 ${node.name}`)
+      if (!d) throw new ExprError(tl('未知变量 {0}', [node.name]))
       return d
     }
     case 'neg': return inferDimension(node.arg, dims)
-    case 'cmp': unify([inferDimension(node.left, dims), inferDimension(node.right, dims)], `比较 ${node.op} `); return DIMLESS
+    case 'cmp': unify([inferDimension(node.left, dims), inferDimension(node.right, dims)], tl('比较 {0} ', [node.op])); return DIMLESS
     case 'bin': {
       const a = inferDimension(node.left, dims)
       if (node.op === '^') {
         const p = exponentOf(node.right)
         if (p !== null) return a ? dimPow(a, p) : null
-        dimless(inferDimension(node.right, dims), '指数')
-        if (a && !dimEqual(a, DIMLESS)) throw new ExprError(`有量纲的量（${dimName(a)}）只能取数字次幂`)
+        dimless(inferDimension(node.right, dims), tl('指数'))
+        if (a && !dimEqual(a, DIMLESS)) throw new ExprError(tl('有量纲的量（{0}）只能取数字次幂', [dimName(a)]))
         return DIMLESS
       }
       const b = inferDimension(node.right, dims)
-      if (node.op === '+' || node.op === '-') return unify([a, b], node.op === '+' ? '加法' : '减法')
+      if (node.op === '+' || node.op === '-') return unify([a, b], node.op === '+' ? tl('加法') : tl('减法'))
       if (!a || !b) return null
       return node.op === '*' ? dimMul(a, b) : dimMul(a, dimPow(b, -1))
     }
     case 'call': {
       if (node.fn === 'if') {
         inferDimension(node.args[0], dims)
-        return unify([inferDimension(node.args[1], dims), inferDimension(node.args[2], dims)], 'if 的两个取值')
+        return unify([inferDimension(node.args[1], dims), inferDimension(node.args[2], dims)], tl('if 的两个取值'))
       }
       const args = node.args.map(a => inferDimension(a, dims))
       switch (node.fn) {
         case 'sqrt': return args[0] ? dimPow(args[0], 0.5) : null
         case 'abs': return args[0]
         case 'sign': case 'step': return DIMLESS
-        case 'min': case 'max': case 'clamp': return unify(args, `${node.fn} 的参数`)
-        case 'atan2': unify(args, 'atan2 的参数'); return DIMLESS
+        case 'min': case 'max': case 'clamp': return unify(args, tl('{0} 的参数', [node.fn]))
+        case 'atan2': unify(args, tl('atan2 的参数')); return DIMLESS
       }
       for (const a of args) dimless(a, node.fn)
       return DIMLESS
@@ -362,7 +363,7 @@ export function toLatex(node: Node, opts: LatexOptions = {}, parentPrec = 0): st
       if (node.fn === 'abs') return `\\left|${toLatex(node.args[0], opts, 0)}\\right|`
       if (node.fn === 'if') {
         const [c, a, b] = node.args.map(x => toLatex(x, opts, 0))
-        return `\\begin{cases} ${a}, & ${c} \\\\ ${b}, & \\text{否则} \\end{cases}`
+        return `\\begin{cases} ${a}, & ${c} \\\\ ${b}, & \\text{${tl('否则')}} \\end{cases}`
       }
       return `${f.latex}\\left(${node.args.map(a => toLatex(a, opts, 0)).join(', ')}\\right)`
     }

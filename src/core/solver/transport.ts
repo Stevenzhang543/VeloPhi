@@ -1,34 +1,50 @@
 /**
- * Transport of recordings between threads (decision D13). A recording holds object graphs (the compiled
- * system, modes that point at contact features, impacts that point at pairs) that cannot be posted. The
- * worker sends plain data — typed arrays for the states, indices for pairs, features, segments and events —
- * and the receiving thread recompiles `system` from the same scene, so that every mode decodes to the very
- * feature objects its own solver would use: frame states, mode solutions and the hash are bit-identical.
+ * Transport of recordings between threads (decisions D13, D20, D26). A recording holds object graphs (the
+ * compiled system, modes that point at contact features, impacts that point at pairs) that cannot be posted. The
+ * worker sends plain data — typed arrays for the frames and checkpoints, indices for pairs, features, segments
+ * and events — and the receiving thread recompiles `system` from the same scene, so that every mode decodes to
+ * the very feature objects its own solver would use: frame states, mode solutions and fingerprints are
+ * bit-identical.
  *
- * Progressive runs post deltas (only what is new since the last post); RecordingAssembler rebuilds
- * consistent prefixes from them.
+ * A streaming run posts one delta per closed chunk of frames (its frames, checkpoint, summary and digest, the
+ * segments and events up to its end), plus a delta with the frames computed so far when a chunk takes long. The
+ * receiving side is a StreamRecording (stream.ts). Byte layouts: docs/dev/STREAMING.md.
  */
+import type { Message } from '../../i18n/message'
 import type { Scene } from '../scene/types'
-import type { Mode, System, UnitMode } from './dynamics'
-import { buildSystem } from './dynamics'
-import { compileModel } from './model'
+import type { System } from './dynamics'
 import type { ImpactPoint, ImpactResult } from './impact'
-import type { ChangeDetail, Recording, Segment, SimEvent, SimStats, SimulationRun } from './simulation'
-import { recordingHash } from './simulation'
+import type { ChangeDetail, ClosedChunk, Recording, Segment, SimEvent, SimStats, SimulationRun, StopReason } from './simulation'
+import { frameImpactLoss, frameSegment, frameState } from './simulation'
 import type { EventType } from './events'
+import type { EncodedMode } from './codec'
+import { decodeMode, encodeMode, featureIndex } from './codec'
+import { StreamRecording } from './stream'
 
-/** UnitMode with the pair and features as indices; `friction` indexes ['none', 'stick', 'slide']. */
-export interface EncodedUnit { pair: number; ref: number; points: number[]; open: number[]; friction: 0 | 1 | 2; s: number }
-/** Mode as plain data. */
-export interface EncodedMode { units: EncodedUnit[]; taut: boolean[]; sw?: number[] }
+export type { EncodedMode, EncodedUnit } from './codec'
+export { decodeMode, encodeMode } from './codec'
+
 /** Segment as plain data. */
 export interface EncodedSegment { index: number; t0: number; t1: number; mode: EncodedMode; X0: Float64Array; label: string; impactLoss: number; reduced?: boolean }
 /** ImpactPoint with pair and feature indices (−1: none). */
 export type EncodedImpactPoint = Omit<ImpactPoint, 'pair' | 'feature'> & { pair: number; feature: number }
 /** ImpactResult as plain data. */
-export interface EncodedImpact { X: Float64Array; points: EncodedImpactPoint[]; energyBefore: number; energyAfter: number; loss: number; warning?: string }
+export interface EncodedImpact { X: Float64Array; points: EncodedImpactPoint[]; energyBefore: number; energyAfter: number; loss: number; warning?: Message }
 /** SimEvent as plain data. */
 export interface EncodedEvent { index: number; t: number; triggers: EventType[]; changes: ChangeDetail[]; before: Float64Array; after: Float64Array; impact: EncodedImpact | null; segment: number }
+
+/** A closed chunk as posted (see ClosedChunk). */
+export interface ChunkInfo {
+  chunk: number
+  first: number
+  frames: number
+  eventsFrom: number
+  eventsTo: number
+  digest: Uint8Array
+  rolling: Uint8Array
+  summary: Float64Array
+  t: number
+}
 
 /** New data of a run since the previous delta. */
 export interface RecordingDelta {
@@ -45,58 +61,34 @@ export interface RecordingDelta {
   /** Events from this index on are new. */
   eventsFrom: number
   events: EncodedEvent[]
-  warnings: string[]
+  warnings: Message[]
   stats: SimStats
-  /** Simulated time reached (s). */
+  /** Simulated time the delta reaches (s). */
   t: number
-  /** Simulated duration (s). */
+  /** Simulated duration (s); +∞ for an unbounded run. */
   T: number
   /** Start of the Moreau–Jean fallback (reduced accuracy), null while event-driven. */
   reducedFrom: number | null
+  /** Checkpoints taken since the previous delta. */
+  checkpoints?: Array<{ chunk: number; data: Float64Array }>
+  /** Chunks closed by this delta (their frames are complete with it). */
+  chunks?: ChunkInfo[]
 }
 
 /** End of a run. */
-export interface RecordingEnd { completed: boolean; error: string | null; hash: string }
+export interface RecordingEnd { completed: boolean; error: Message | null; hash: string; stopReason?: StopReason }
 
 /** A whole recording as plain data. */
-export interface EncodedRecording { delta: RecordingDelta; end: RecordingEnd }
+export interface EncodedRecording { delta: RecordingDelta; end: RecordingEnd; chunkFrames?: number; duration?: number | null }
 
-const FRICTION = ['none', 'stick', 'slide'] as const
-
-function featureIndex(sys: System, pair: number, f: unknown): number {
-  const i = sys.pairs[pair].features.indexOf(f as never)
-  if (i < 0) throw new Error('transport: contact feature not found in its pair')
-  return i
-}
-
-/** Mode as plain data (features as indices into their pair). */
-export function encodeMode(sys: System, mode: Mode): EncodedMode {
-  const units = mode.units.map(u => {
-    const pi = u.pair.index
-    return {
-      pair: pi, ref: featureIndex(sys, pi, u.ref), points: u.points.map(p => featureIndex(sys, pi, p)), open: u.open.map(p => featureIndex(sys, pi, p)),
-      friction: FRICTION.indexOf(u.friction) as 0 | 1 | 2, s: u.s
-    }
-  })
-  return mode.sw ? { units, taut: mode.taut.slice(), sw: mode.sw.slice() } : { units, taut: mode.taut.slice() }
-}
-
-/** Mode from plain data, pointing at this system's feature objects. */
-export function decodeMode(sys: System, m: EncodedMode): Mode {
-  const units: UnitMode[] = m.units.map(u => {
-    const pair = sys.pairs[u.pair]
-    return { pair, ref: pair.features[u.ref], points: u.points.map(i => pair.features[i]), open: u.open.map(i => pair.features[i]), friction: FRICTION[u.friction], s: u.s }
-  })
-  return m.sw ? { units, taut: m.taut.slice(), sw: m.sw.slice() } : { units, taut: m.taut.slice() }
-}
-
-function encodeSegment(sys: System, s: Segment): EncodedSegment {
-  const out: EncodedSegment = { index: s.index, t0: s.t0, t1: s.t1, mode: encodeMode(sys, s.mode), X0: Float64Array.from(s.X0), label: s.label, impactLoss: s.impactLoss }
+function encodeSegment(sys: System, s: Segment, t1Max = Infinity): EncodedSegment {
+  const out: EncodedSegment = { index: s.index, t0: s.t0, t1: Math.min(s.t1, t1Max), mode: encodeMode(sys, s.mode), X0: Float64Array.from(s.X0), label: s.label, impactLoss: s.impactLoss }
   if (s.reduced) out.reduced = true
   return out
 }
 
-function decodeSegment(sys: System, s: EncodedSegment): Segment {
+/** Segment from plain data. */
+export function decodeSegment(sys: System, s: EncodedSegment): Segment {
   const out: Segment = { index: s.index, t0: s.t0, t1: s.t1, mode: decodeMode(sys, s.mode), X0: s.X0, label: s.label, impactLoss: s.impactLoss }
   if (s.reduced) out.reduced = true
   return out
@@ -129,7 +121,8 @@ function encodeEvent(sys: System, e: SimEvent): EncodedEvent {
   }
 }
 
-function decodeEvent(sys: System, e: EncodedEvent): SimEvent {
+/** Event from plain data. */
+export function decodeEvent(sys: System, e: EncodedEvent): SimEvent {
   return { index: e.index, t: e.t, triggers: e.triggers, changes: e.changes, before: e.before, after: e.after, impact: e.impact ? decodeImpact(sys, e.impact) : null, segment: e.segment }
 }
 
@@ -141,143 +134,112 @@ export function deltaTransfer(d: RecordingDelta): ArrayBuffer[] {
     out.add(e.before.buffer as ArrayBuffer); out.add(e.after.buffer as ArrayBuffer)
     if (e.impact) out.add(e.impact.X.buffer as ArrayBuffer)
   }
+  for (const c of d.checkpoints ?? []) out.add(c.data.buffer as ArrayBuffer)
+  for (const c of d.chunks ?? []) { out.add(c.summary.buffer as ArrayBuffer); out.add(c.digest.buffer as ArrayBuffer); out.add(c.rolling.buffer as ArrayBuffer) }
   return [...out]
 }
 
-/** Encode a finished (or partial) recording as one delta from frame 0. */
+/** Encode a finished (or partial) recording as one delta from frame 0 (no checkpoints: not evictable). */
 export function encodeRecording(rec: Recording): EncodedRecording {
-  const sys = rec.system
+  const sys = rec.system, n = rec.frameCount, size = rec.size
+  const states = new Float64Array(n * size), seg = new Int32Array(n), loss = new Float64Array(n)
+  for (let k = 0; k < n; k++) { states.set(frameState(rec, k), k * size); seg[k] = frameSegment(rec, k); loss[k] = frameImpactLoss(rec, k) }
   const delta: RecordingDelta = {
-    fromFrame: 0, frameCount: rec.frameCount,
-    states: rec.states.slice(0, rec.frameCount * rec.size), frameSegment: rec.frameSegment.slice(0, rec.frameCount), impactLoss: rec.impactLoss.slice(0, rec.frameCount),
+    fromFrame: 0, frameCount: n, states, frameSegment: seg, impactLoss: loss,
     segmentsFrom: 0, segments: rec.segments.map(s => encodeSegment(sys, s)),
     eventsFrom: 0, events: rec.events.map(e => encodeEvent(sys, e)),
     warnings: rec.warnings.slice(), stats: { ...rec.stats },
-    t: rec.segments.length ? rec.segments[rec.segments.length - 1].t1 : 0, T: (rec.frameCount - 1) * rec.dt,
+    t: rec.segments.length ? rec.segments[rec.segments.length - 1].t1 : 0, T: (n - 1) * rec.dt,
     reducedFrom: rec.reducedFrom ?? null
   }
-  return { delta, end: { completed: rec.completed, error: rec.error, hash: rec.hash } }
+  return { delta, end: { completed: rec.completed, error: rec.error, hash: rec.hash, stopReason: rec.stopReason }, duration: rec.unbounded ? null : (n - 1) * rec.dt }
 }
 
 /** Decode a recording on a thread that has the same scene (the system is recompiled when not given). */
 export function decodeRecording(scene: Scene, enc: EncodedRecording, system?: System): Recording {
-  const asm = new RecordingAssembler(scene, enc.delta.frameCount, system)
-  asm.apply(enc.delta)
-  return asm.final(enc.end)
+  const stream = new StreamRecording({ scene, system, chunkFrames: enc.chunkFrames, duration: enc.duration === undefined ? (enc.delta.frameCount - 1) * scene.settings.outputStep : enc.duration })
+  stream.apply(enc.delta)
+  return stream.final(enc.end)
 }
 
-/** Collects the deltas of a run (worker side): `next()` returns what is new since the previous call. */
+/**
+ * Collects the deltas of a run (worker side). `next(tail)` returns one delta per chunk closed since the previous
+ * call, then — when `tail` is set or the run has ended — one more with everything else computed so far. With
+ * `release`, the chunks whose arrays went into a delta are dropped from the run (they are transferred).
+ */
 export class DeltaWriter {
   private frames = 0
   private segments = 0
   private events = 0
-  constructor(private readonly run: SimulationRun) {}
+  private checkpoints = 0
+  private closed = 0
+  constructor(private readonly run: SimulationRun, private readonly release = false) {}
 
-  next(): RecordingDelta {
-    const run = this.run, sys = run.system, size = run.size
-    const rec = run.finished ? run.result() : null
-    const frameCount = rec ? rec.frameCount : run.frames
-    const from = this.frames
+  next(tail = false): RecordingDelta[] {
+    const run = this.run
+    const out: RecordingDelta[] = []
+    while (this.closed < run.closed.length) out.push(this.chunkDelta(run.closed[this.closed++]))
+    if (tail || run.finished) {
+      const d = this.restDelta()
+      if (d) out.push(d)
+    }
+    // What has been posted need not stay in the worker (the last segment is sent again while it grows)
+    if (this.release && !run.finished) run.forget(this.segments - 1, this.events)
+    return out
+  }
+
+  private common(framesTo: number, segmentsTo: number, eventsTo: number, cpTo: number, tEnd: number) {
+    const run = this.run, sys = run.system
+    segmentsTo = Math.max(segmentsTo, this.segments)
+    eventsTo = Math.max(eventsTo, this.events)
     const segFrom = Math.max(0, this.segments - 1)
-    const segs = run.segments.slice(segFrom).map(s => encodeSegment(sys, s))
-    if (!run.finished && segs.length) segs[segs.length - 1].t1 = Math.min(run.T, run.t)
-    const delta: RecordingDelta = {
-      fromFrame: from, frameCount,
-      states: run.states.slice(from * size, frameCount * size), frameSegment: run.frameSegment.slice(from, frameCount), impactLoss: run.impactLossArr.slice(from, frameCount),
-      segmentsFrom: segFrom, segments: segs,
-      eventsFrom: this.events, events: run.events.slice(this.events).map(e => encodeEvent(sys, e)),
-      warnings: run.warnings.slice(), stats: { ...run.stats }, t: run.t, T: run.T, reducedFrom: run.reducedFrom
+    const segs = run.segmentsFrom(segFrom).slice(0, segmentsTo - segFrom).map(s => encodeSegment(sys, s, tEnd))
+    const events = run.eventsFrom(this.events).slice(0, eventsTo - this.events).map(e => encodeEvent(sys, e))
+    const checkpoints: Array<{ chunk: number; data: Float64Array }> = []
+    for (; this.checkpoints < cpTo; this.checkpoints++) {
+      const data = run.checkpoints[this.checkpoints]
+      if (!data) continue
+      // Posted (and transferred) by a worker: it keeps no copy
+      checkpoints.push({ chunk: this.checkpoints, data: this.release ? data : Float64Array.from(data) })
+      if (this.release) run.checkpoints[this.checkpoints] = undefined
     }
-    this.frames = frameCount
-    this.segments = run.segments.length
-    this.events = run.events.length
-    return delta
-  }
-}
-
-/**
- * Rebuilds a recording from deltas (receiving side). `partial()` is a consistent prefix that shares the
- * assembler's buffers (only appended to); `final(end)` is the finished recording.
- */
-export class RecordingAssembler {
-  readonly scene: Scene
-  readonly system: System
-  readonly size: number
-  readonly dt: number
-  private readonly states: Float64Array
-  private readonly frameSegment: Int32Array
-  private readonly impactLoss: Float64Array
-  private segments: Segment[] = []
-  private events: SimEvent[] = []
-  private warnings: string[] = []
-  private stats: SimStats = { steps: 0, rejected: 0, events: 0, locateIterations: 0, maxPositionCorrection: 0, maxVelocityCorrection: 0, ambiguousModes: 0, wallMs: 0 }
-  private frames = 0
-  private reducedFrom: number | null = null
-  /** Simulated time reached (s), for progress. */
-  t = 0
-  /** Simulated duration (s). */
-  T = 0
-
-  /** `maxFrames`: frames of the complete run (K + 1). */
-  constructor(scene: Scene, maxFrames: number, system?: System) {
-    this.scene = scene
-    this.system = system ?? buildSystem(compileModel(scene))
-    this.size = this.system.size
-    this.dt = scene.settings.outputStep
-    this.states = new Float64Array(Math.max(1, maxFrames) * this.size)
-    this.frameSegment = new Int32Array(Math.max(1, maxFrames))
-    this.impactLoss = new Float64Array(Math.max(1, maxFrames))
+    const base = { segmentsFrom: segFrom, segments: segs, eventsFrom: this.events, events, checkpoints, warnings: run.warnings.slice(), stats: { ...run.stats }, t: tEnd, T: run.T, reducedFrom: run.reducedFrom }
+    this.segments = segmentsTo
+    this.events = eventsTo
+    this.frames = Math.max(this.frames, framesTo)
+    return base
   }
 
-  get frameCount(): number { return this.frames }
-
-  /** Apply a delta; it may overlap frames already received but must not skip any. */
-  apply(d: RecordingDelta) {
-    const sys = this.system
-    if (d.fromFrame !== this.frames && !(d.fromFrame < this.frames)) throw new Error('transport: missing frames')
-    this.states.set(d.states, d.fromFrame * this.size)
-    this.frameSegment.set(d.frameSegment, d.fromFrame)
-    this.impactLoss.set(d.impactLoss, d.fromFrame)
-    this.frames = d.frameCount
-    const segs = this.segments.slice(0, d.segmentsFrom)
-    for (const s of d.segments) segs.push(decodeSegment(sys, s))
-    this.segments = segs
-    const evs = this.events.slice(0, d.eventsFrom)
-    for (const e of d.events) evs.push(decodeEvent(sys, e))
-    this.events = evs
-    this.warnings = d.warnings.slice()
-    this.stats = { ...d.stats }
-    this.t = d.t
-    this.T = d.T
-    this.reducedFrom = d.reducedFrom
+  /** The delta of one closed chunk (its frames, possibly without those already sent in a tail delta). */
+  private chunkDelta(c: ClosedChunk): RecordingDelta {
+    const run = this.run, size = run.size
+    const chunk = run.frames.chunks[c.chunk]
+    if (!chunk) throw new Error(`transport: chunk ${c.chunk} is gone`)
+    const from = this.frames, to = c.first + c.frames
+    const whole = from === c.first && chunk.count * size === chunk.states.length
+    const j0 = from - c.first, j1 = to - c.first
+    const states = whole ? chunk.states : chunk.states.slice(j0 * size, j1 * size)
+    const seg = whole ? chunk.segment : chunk.segment.slice(j0, j1)
+    const loss = whole ? chunk.impactLoss : chunk.impactLoss.slice(j0, j1)
+    // A chunk closed at a checkpoint ends at the next chunk start (whose checkpoint goes with it); the final one at
+    // the end of the run
+    const final = run.finished && c === run.closed[run.closed.length - 1]
+    const tEnd = final ? run.t : (c.first + c.frames) * run.dt
+    const base = this.common(to, c.segmentsTo, c.eventsTo, c.chunk + 2, Math.min(run.T, tEnd))
+    const info: ChunkInfo = { chunk: c.chunk, first: c.first, frames: c.frames, eventsFrom: c.eventsFrom, eventsTo: c.eventsTo, digest: c.digest.slice(), rolling: c.rolling.slice(), summary: c.summary.slice(), t: c.t }
+    if (this.release) run.releaseChunk(c.chunk)
+    return { fromFrame: from, frameCount: to, states, frameSegment: seg, impactLoss: loss, ...base, chunks: [info] }
   }
 
-  /** A consistent prefix of the recording (see the class doc). */
-  partial(): Recording {
-    const n = this.frames
-    const rec: Recording = {
-      scene: this.scene, system: this.system, dt: this.dt, frameCount: n, size: this.size,
-      states: this.states.subarray(0, n * this.size), frameSegment: this.frameSegment.subarray(0, n), impactLoss: this.impactLoss.subarray(0, n),
-      segments: this.segments.slice(), events: this.events.slice(), warnings: this.warnings.slice(), stats: { ...this.stats },
-      completed: false, error: null, hash: ''
-    }
-    if (this.reducedFrom !== null) rec.reducedFrom = this.reducedFrom
-    return rec
-  }
-
-  /** The finished recording; the hash is recomputed from the data and must equal the sender's. */
-  final(end: RecordingEnd): Recording {
-    const n = this.frames
-    const states = n * this.size === this.states.length ? this.states : this.states.slice(0, n * this.size)
-    const hash = recordingHash(states, this.events)
-    if (end.hash && hash !== end.hash) throw new Error('transport: recording fingerprint mismatch')
-    const rec: Recording = {
-      scene: this.scene, system: this.system, dt: this.dt, frameCount: n, size: this.size,
-      states, frameSegment: this.frameSegment.slice(0, n), impactLoss: this.impactLoss.slice(0, n),
-      segments: this.segments, events: this.events, warnings: this.warnings, stats: this.stats,
-      completed: end.completed, error: end.error, hash
-    }
-    if (this.reducedFrom !== null) rec.reducedFrom = this.reducedFrom
-    return rec
+  /** Everything not yet sent (frames of the open chunk, segments, events, checkpoints); null when nothing is new. */
+  private restDelta(): RecordingDelta | null {
+    const run = this.run, size = run.size
+    const to = run.frameCount
+    if (to <= this.frames && run.segmentCount <= this.segments && run.eventCount <= this.events && !run.finished) return null
+    const from = Math.min(this.frames, to)
+    const states = new Float64Array((to - from) * size), seg = new Int32Array(to - from), loss = new Float64Array(to - from)
+    for (let k = from; k < to; k++) { states.set(run.frames.state(k), (k - from) * size); seg[k - from] = run.frames.segment(k); loss[k - from] = run.frames.impactLoss(k) }
+    const base = this.common(to, run.segmentCount, run.eventCount, run.checkpoints.length, Math.min(run.T, run.t))
+    return { fromFrame: from, frameCount: to, states, frameSegment: seg, impactLoss: loss, ...base, chunks: [] }
   }
 }

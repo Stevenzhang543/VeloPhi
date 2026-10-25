@@ -8,11 +8,13 @@
  * Separator and decimal mark follow the export settings. When both would be ',' the separator becomes ';'
  * (the convention of spreadsheets in comma-decimal locales) so that no number has to be quoted.
  */
+import { tl } from '../i18n'
 import type { ChangeDetail, Recording } from '../core/solver/simulation'
 import { listQuantities, quantitySeries } from '../core/observe/quantities'
 import { ENGINE_VERSION } from '../core/scene/types'
 import type { UnitChoice } from '../units/units'
 import { displayLabel, toDisplay } from '../units/units'
+import { fingerprintText } from './fingerprint'
 
 /** Field separator of CSV exports. */
 export type CsvSeparator = ',' | ';' | '\t'
@@ -82,11 +84,11 @@ export function recordingCsv(rec: Recording, opts: CsvOptions): string {
   const sep = effectiveSeparator(opts)
   const comments = [
     `Verity ${ENGINE_VERSION}`,
-    `场景: ${rec.scene.name}`,
-    `记录步长 Δt = ${rec.dt} s; 积分方法 ${s.integrator}; 相对容差 ${s.relTol}; 绝对容差 ${s.absTol}; g = (${s.gravity.x}, ${s.gravity.y}) m/s²`,
-    `结果指纹 SHA-256 ${rec.hash}`,
-    display ? '数值单位: 显示单位（由国际单位换算，见各列表头）' : '数值单位: 国际单位（SI，见各列表头）；数值为双精度完整写出，与仿真结果逐位一致',
-    `分隔符 ${sep === '\t' ? '制表符' : `“${sep}”`}，小数点 “${opts.decimal ?? '.'}”`
+    tl('场景: {0}', [rec.scene.name]),
+    tl('记录步长 Δt = {0} s; 积分方法 {1}; 相对容差 {2}; 绝对容差 {3}; g = ({4}, {5}) m/s²', [rec.dt, s.integrator, s.relTol, s.absTol, s.gravity.x, s.gravity.y]),
+    tl('结果指纹 {0}', [fingerprintText(rec)]),
+    display ? tl('数值单位: 显示单位（由国际单位换算，见各列表头）') : tl('数值单位: 国际单位（SI，见各列表头）；数值为双精度完整写出，与仿真结果逐位一致'),
+    tl('分隔符 {0}，小数点 “{1}”', [sep === '\t' ? tl('制表符') : `“${sep}”`, opts.decimal ?? '.'])
   ]
   const header = [`t [${label('s')}]`, ...ids.map(id => { const q = defs.get(id)!; return `${q.owner} ${q.label} [${label(q.unit)}] (${id})` })]
   const units = ids.map(id => defs.get(id)!.unit)
@@ -113,7 +115,7 @@ export function eventsCsv(rec: Recording, opts: CsvFormat & { units?: 'si' | 'di
   const display = opts.units === 'display' && !!opts.unitChoice
   const conv = (v: number | undefined, unit: string) => (v === undefined ? null : display ? toDisplay(v, unit, opts.unitChoice!) : v)
   const label = (unit: string) => (display ? displayLabel(unit, opts.unitChoice!) : unit)
-  const header = [`t [${label('s')}]`, '事件', '对象', `碰前法向速度 [${label('m/s')}]`, `碰后法向速度 [${label('m/s')}]`, `冲量 [${label('N·s')}]`, `摩擦冲量 [${label('N·s')}]`, '恢复系数', `本次损失动能 [${label('J')}]`]
+  const header = [`t [${label('s')}]`, tl('事件'), tl('对象'), tl('碰前法向速度 [{0}]', [label('m/s')]), tl('碰后法向速度 [{0}]', [label('m/s')]), tl('冲量 [{0}]', [label('N·s')]), tl('摩擦冲量 [{0}]', [label('N·s')]), tl('恢复系数'), tl('本次损失动能 [{0}]', [label('J')])]
   const rows: Array<Array<number | string | null>> = []
   for (const e of rec.events) {
     e.changes.forEach((c, i) => rows.push([
@@ -122,7 +124,7 @@ export function eventsCsv(rec: Recording, opts: CsvFormat & { units?: 'si' | 'di
       i === 0 && e.impact ? conv(e.impact.loss, 'J') : null
     ]))
   }
-  const comments = [`Verity ${ENGINE_VERSION}`, `场景: ${rec.scene.name}`, `结果指纹 SHA-256 ${rec.hash}`, '事件时刻由求解器精确定位（约 1e-12 s）']
-  if (rec.reducedFrom !== null && rec.reducedFrom !== undefined) comments.push(`精度降级: 自 t = ${rec.reducedFrom} s 起改用 Moreau–Jean 时间步进，此后的事件时刻不精确定位`)
+  const comments = [`Verity ${ENGINE_VERSION}`, tl('场景: {0}', [rec.scene.name]), tl('结果指纹 {0}', [fingerprintText(rec)]), tl('事件时刻由求解器精确定位（约 1e-12 s）')]
+  if (rec.reducedFrom !== null && rec.reducedFrom !== undefined) comments.push(tl('精度降级: 自 t = {0} s 起改用 Moreau–Jean 时间步进，此后的事件时刻不精确定位', [rec.reducedFrom]))
   return tableCsv(header, rows, opts, comments)
 }

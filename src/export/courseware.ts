@@ -5,6 +5,7 @@
  *
  * The orchestration needs a DOM (canvas, video encoder); the parts it combines are tested on their own.
  */
+import { tl } from '../i18n'
 import type { Recording } from '../core/solver/simulation'
 import type { Situation } from '../formula/situations'
 import type { FormulaCard } from '../formula/match'
@@ -25,6 +26,10 @@ import type { DeckImage, DeckMoment } from './pptx'
 import { buildPptx } from './pptx'
 import type { ZipEntry } from './zip'
 import { zipStore } from './zip'
+import { fingerprintShort, fingerprintText } from './fingerprint'
+import type { Lang } from '../i18n/tri'
+import type { DerivationPage } from './derivationPages'
+import { derivationPages } from './derivationPages'
 
 /** What to put into the package. */
 export interface CoursewareOptions {
@@ -41,6 +46,8 @@ export interface CoursewareOptions {
   csv: { ids: string[]; stride: number; units: 'si' | 'display'; separator: CsvSeparator; decimal: CsvDecimal } | null
   video: VideoOptions | null
   pptx: boolean
+  /** Derivation and solution pages of the formulas and events (D28), in this language; null: none. */
+  derivations: { lang: Lang } | null
   /** Quantities read out on the slides at each moment. */
   readoutIds: string[]
 }
@@ -70,6 +77,7 @@ function weights(o: CoursewareOptions) {
     shots: o.screenshots || o.pptx ? 1 : 0,
     cards: o.formulas || o.pptx ? 2 : 0,
     csv: o.csv ? 0.3 : 0,
+    derivations: o.derivations ? 2 : 0,
     pptx: o.pptx ? 0.7 : 0
   }
 }
@@ -77,23 +85,23 @@ function weights(o: CoursewareOptions) {
 /** Contents note written next to the files. */
 export function readmeText(rec: Recording, o: CoursewareOptions, files: string[], warnings: string[]): string {
   const lines = [
-    `${o.title} — 课件包`,
+    tl('{0} — 课件包', [o.title]),
     '',
-    `由 Verity ${ENGINE_VERSION} 离线生成于 ${new Date().toLocaleString('zh-CN')}。`,
-    `仿真结果指纹 SHA-256：${rec.hash}`,
-    '同一场景文件在任何电脑上重新计算，指纹相同、数值逐位一致。',
+    tl('由 Verity {0} 离线生成于 {1}。', [ENGINE_VERSION, new Date().toLocaleString('zh-CN')]),
+    tl('仿真结果指纹：{0}', [fingerprintText(rec)]),
+    tl('同一场景文件在任何电脑上重新计算，指纹相同、数值逐位一致。'),
     ...(reducedNotice(rec, o.units) ? ['', `【${reducedNotice(rec, o.units)}】`] : []),
     '',
-    '内容：',
+    tl('内容：'),
     ...files.map(f => `  ${f}`),
     '',
-    '说明：',
-    '  · 截图与视频由软件的同一渲染器逐帧生成，与界面画面一致。',
-    '  · 公式卡片的 PNG 可直接插入 PowerPoint / WPS；SVG 版本内含 HTML（foreignObject），只能在浏览器中正确显示。',
-    '  · 公式卡片中的代入值、理论值、仿真值与误差均按导出时的显示单位给出（计算本身按国际单位进行）。'
+    tl('说明：'),
+    tl('  · 截图与视频由软件的同一渲染器逐帧生成，与界面画面一致。'),
+    tl('  · 公式卡片的 PNG 可直接插入 PowerPoint / WPS；SVG 版本内含 HTML（foreignObject），只能在浏览器中正确显示。'),
+    tl('  · 公式卡片中的代入值、理论值、仿真值与误差均按导出时的显示单位给出（计算本身按国际单位进行）。')
   ]
-  if (o.csv) lines.push(o.csv.units === 'si' ? '  · CSV 为国际单位（表头注明单位），数值与仿真结果逐位一致。' : '  · CSV 为显示单位（表头注明单位），由国际单位换算得到。')
-  for (const w of warnings) lines.push(`  · 注意：${w}`)
+  if (o.csv) lines.push(o.csv.units === 'si' ? tl('  · CSV 为国际单位（表头注明单位），数值与仿真结果逐位一致。') : tl('  · CSV 为显示单位（表头注明单位），由国际单位换算得到。'))
+  for (const w of warnings) lines.push(tl('  · 注意：{0}', [w]))
   return lines.join('\r\n') + '\r\n'
 }
 
@@ -105,7 +113,7 @@ export async function buildCourseware(rec: Recording, sits: Situation[], o: Cour
   const total = Object.values(w).reduce((a, b) => a + b, 0) || 1
   let done = 0
   const step = (weight: number, frac: number, label: string) => progress(Math.min(1, (done + weight * frac) / total), label)
-  const check = () => { if (cancelled()) throw new Error('已取消') }
+  const check = () => { if (cancelled()) throw new Error(tl('已取消')) }
   const base = safeName(o.title)
   const nMoments = o.moments.length
   const notice = reducedNotice(rec, o.units)
@@ -115,10 +123,10 @@ export async function buildCourseware(rec: Recording, sits: Situation[], o: Cour
   // Video
   let video: VideoResult | null = null
   if (o.video) {
-    step(w.video, 0, '正在编码视频')
-    video = await exportVideo(rec, o.video, p => step(w.video, p, '正在编码视频'), cancelled)
-    if (video.extension !== 'mp4') warnings.push('本机没有 H.264 编码器，视频为 WebM 格式；PowerPoint 可能无法播放，可用其他播放器或转换为 MP4。')
-    files.push({ path: `视频/${base}.${video.extension}`, data: video.data })
+    step(w.video, 0, tl('正在编码视频'))
+    video = await exportVideo(rec, o.video, p => step(w.video, p, tl('正在编码视频')), cancelled)
+    if (video.extension !== 'mp4') warnings.push(tl('本机没有 H.264 编码器，视频为 WebM 格式；PowerPoint 可能无法播放，可用其他播放器或转换为 MP4。'))
+    files.push({ path: tl('视频/{0}.{1}', [base, video.extension]), data: video.data })
     done += w.video
   }
 
@@ -129,13 +137,13 @@ export async function buildCourseware(rec: Recording, sits: Situation[], o: Cour
     for (let i = 0; i < nMoments; i++) {
       check()
       const m = o.moments[i]
-      step(w.shots, i / Math.max(1, nMoments), `正在生成截图 ${i + 1}/${nMoments}`)
+      step(w.shots, i / Math.max(1, nMoments), tl('正在生成截图 {0}/{1}', [i + 1, nMoments]))
       const img = await stillPng(rec, m.t, {
         ...o.still, width: size.width, height: size.height, background: size.background,
-        overlay: { title: o.title, lines: [`${timeLabel(m.t, o.units)}  ${m.label}`, ...(reducedAt(m.t) ? ['精度降级（时间步进），数值仅供参考'] : [])], footer: `Verity ${ENGINE_VERSION} · ${rec.hash.slice(0, 12)}` }
+        overlay: { title: o.title, lines: [`${timeLabel(m.t, o.units)}  ${m.label}`, ...(reducedAt(m.t) ? [tl('精度降级（时间步进），数值仅供参考')] : [])], footer: `Verity ${ENGINE_VERSION} · ${fingerprintShort(rec)}` }
       })
       shots.push(img)
-      if (o.screenshots) files.push({ path: `截图/${momentFileStem(i, m)}.png`, data: img.png })
+      if (o.screenshots) files.push({ path: tl('截图/{0}.png', [momentFileStem(i, m)]), data: img.png })
     }
     done += w.shots
   }
@@ -154,10 +162,10 @@ export async function buildCourseware(rec: Recording, sits: Situation[], o: Cour
       const out: Array<CardImage & { card: FormulaCard }> = []
       for (const card of lists[i]) {
         check()
-        step(w.cards, k / Math.max(1, count), `正在生成公式卡片 ${k + 1}/${count}`)
-        const img = await cardImage(card, { digits: o.digits, units: o.units, theme: o.theme, background: f.background, caption: `${timeLabel(o.moments[i].t, o.units)}${reducedAt(o.moments[i].t) ? ' · 精度降级，仅供参考' : ''}` }, { png: f.png || o.pptx, svgFonts: 'math' })
+        step(w.cards, k / Math.max(1, count), tl('正在生成公式卡片 {0}/{1}', [k + 1, count]))
+        const img = await cardImage(card, { digits: o.digits, units: o.units, theme: o.theme, background: f.background, caption: `${timeLabel(o.moments[i].t, o.units)}${reducedAt(o.moments[i].t) ? tl(' · 精度降级，仅供参考') : ''}` }, { png: f.png || o.pptx, svgFonts: 'math' })
         out.push({ ...img, card })
-        const stem = `公式卡片/${momentFileStem(i, o.moments[i])}/${String(out.length).padStart(2, '0')}_${safeName(card.formula.title)}`
+        const stem = tl('公式卡片/{0}/{1}_{2}', [momentFileStem(i, o.moments[i]), String(out.length).padStart(2, '0'), safeName(card.formula.title)])
         if (f.png && img.png) files.push({ path: `${stem}.png`, data: img.png })
         if (f.svg) files.push({ path: `${stem}.svg`, data: img.svg })
         k++
@@ -170,21 +178,32 @@ export async function buildCourseware(rec: Recording, sits: Situation[], o: Cour
   // Data
   if (o.csv) {
     check()
-    step(w.csv, 0, '正在写出 CSV')
+    step(w.csv, 0, tl('正在写出 CSV'))
     const c = o.csv
     const fmt = { separator: c.separator, decimal: c.decimal, units: c.units, unitChoice: o.units }
-    files.push({ path: `数据/${base}.csv`, data: recordingCsv(rec, { ...fmt, ids: c.ids, stride: c.stride, from: 0, to: rec.frameCount - 1 }) })
-    if (rec.events.some(e => e.changes.length > 0)) files.push({ path: '数据/事件.csv', data: eventsCsv(rec, { ...fmt, labelOf: c => eventLabel(c), whoOf: c => changeWho(rec, c) }) })
+    files.push({ path: tl('数据/{0}.csv', [base]), data: recordingCsv(rec, { ...fmt, ids: c.ids, stride: c.stride, from: 0, to: rec.frameCount - 1 }) })
+    if (rec.events.some(e => e.changes.length > 0)) files.push({ path: tl('数据/事件.csv'), data: eventsCsv(rec, { ...fmt, labelOf: c => eventLabel(c), whoOf: c => changeWho(rec, c) }) })
     done += w.csv
+  }
+
+  // Derivations and step-by-step solutions (one page per formula and per key event)
+  let derivations: DerivationPage[] = []
+  if (o.derivations) {
+    derivations = await derivationPages(rec, sits, o.moments, { digits: o.digits, units: o.units, lang: o.derivations.lang, theme: 'light', background: 'white', caption: o.title }, check, p => step(w.derivations, p, tl('正在生成推导与解题过程')))
+    derivations.forEach((d, i) => {
+      const stem = tl('推导与解题过程/{0}_{1}{2}', [String(i + 1).padStart(2, '0'), d.kind === 'event' ? tl('事件_') : '', safeName(d.title)])
+      if (d.png) files.push({ path: `${stem}.png`, data: d.png })
+    })
+    done += w.derivations
   }
 
   // Slides
   if (o.pptx) {
     check()
-    step(w.pptx, 0, '正在生成 PPTX')
+    step(w.pptx, 0, tl('正在生成 PPTX'))
     const moments: DeckMoment[] = o.moments.map((m, i) => ({
-      title: `关键时刻 ${i + 1} · ${timeLabel(m.t, o.units)}`,
-      subtitle: reducedAt(m.t) ? `${m.label}（精度降级区段，仅供参考）` : m.label,
+      title: tl('关键时刻 {0} · {1}', [i + 1, timeLabel(m.t, o.units)]),
+      subtitle: reducedAt(m.t) ? tl('{0}（精度降级区段，仅供参考）', [m.label]) : m.label,
       screenshot: shots[i] ?? null,
       formulas: (cardsByMoment[i] ?? []).filter(c => c.png).map(c => ({ png: c.png!, width: c.width * c.scale, height: c.height * c.scale, title: c.card.formula.title })),
       readouts: readoutsAt(rec, m.t, o.readoutIds, o.units, o.digits).map(r => ({ label: r.label, value: r.value }))
@@ -197,16 +216,17 @@ export async function buildCourseware(rec: Recording, sits: Situation[], o: Cour
       title: o.title,
       description: o.description,
       notice,
-      meta: [`Verity ${ENGINE_VERSION} · 仿真结果指纹 ${rec.hash.slice(0, 16)}…`, `生成时间 ${new Date().toLocaleString('zh-CN')}`, `记录 ${rec.frameCount} 帧，Δt = ${Number(rec.dt.toPrecision(6))} s`],
+      meta: [tl('Verity {0} · 仿真结果指纹 {1}…', [ENGINE_VERSION, fingerprintShort(rec, 16)]), tl('生成时间 {0}', [new Date().toLocaleString('zh-CN')]), tl('记录 {0} 帧，Δt = {1} s', [rec.frameCount, Number(rec.dt.toPrecision(6))])],
       moments,
+      derivations: derivations.filter(d => d.png).map(d => ({ png: d.png!, width: d.width * d.scale, height: d.height * d.scale, title: d.title })),
       video: video ? { data: video.data, extension: video.extension, cover } : null
     })
     files.push({ path: `${base}.pptx`, data: bytes })
     done += w.pptx
   }
 
-  files.push({ path: '说明.txt', data: readmeText(rec, o, files.map(f => f.path), warnings) })
-  progress(1, '完成')
+  files.push({ path: tl('说明.txt'), data: readmeText(rec, o, files.map(f => f.path), warnings) })
+  progress(1, tl('完成'))
   return { files, warnings, video, notice }
 }
 

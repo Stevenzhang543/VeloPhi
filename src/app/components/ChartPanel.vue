@@ -5,7 +5,15 @@
  * growing partial recording only adds frames), and the charts are rebuilt only when the selection, the run,
  * the units or the theme change. During playback only a DOM cursor moves (no canvas redraw per frame).
  * `active` = false (hidden tab or page) defers all work until the panel is shown again.
+ *
+ * Long runs (decision D32): an unbounded run shows the recent seconds around the playhead (default) or the whole
+ * run; the whole run, and any bounded run longer than LONG_FRAMES frames, is drawn as a per-pixel-column min/max
+ * envelope (render/chartLod.ts) built from chunk summaries and cached chunk scans, so a redraw never iterates all
+ * frames. Dragging across a chart zooms into that time span (the envelope is recomputed at the finer level, down to
+ * single frames); double-click returns to the whole run. Chunks that are not in memory are filled in afterwards,
+ * one per pass, without blocking the interface.
  */
+import { tl } from '../../i18n'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import uPlot from 'uplot'
 import 'uplot/dist/uPlot.min.css'
@@ -14,7 +22,8 @@ import { canonicalQuantityId, listQuantities } from '../../core/observe/quantiti
 import type { QuantityDef } from '../../core/observe/quantities'
 import { formatSig } from '../../units/units'
 import { fromDisp, toDisp, unitLabel } from '../settings'
-import { seriesFor, useGated } from '../live'
+import { RECENT_SPAN, recentWindow, seriesFor, seriesWindow, useGated } from '../live'
+import { chartEnvelope, envelopePlot } from '../../render/chartLod'
 import type { SeriesView } from '../live'
 
 const props = withDefaults(defineProps<{ active?: boolean; limit?: number; variant?: 'studio' | 'monitor' }>(), { active: true, limit: 8, variant: 'studio' })
@@ -22,7 +31,47 @@ const props = withDefaults(defineProps<{ active?: boolean; limit?: number; varia
 const host = ref<HTMLDivElement | null>(null)
 interface Plot { plot: uPlot; ids: string[]; unit: string; cursor: HTMLDivElement }
 let plots: Plot[] = []
-let built = { key: '', runId: -1, n: -1, w: 0, h: 0 }
+let built = { key: '', runId: -1, n: '', w: 0, h: 0 }
+/** The last pointer gesture was a drag (zoom), not a click (seek). */
+let dragged = false
+
+/** What an unbounded run's charts show: the recent window around the playhead, or the whole run (overview). */
+const longMode = ref<'recent' | 'all'>('recent')
+/** Identity of the data of a series (length, time range, envelope version): new data means setData. */
+const dataSig = (s: SeriesView) => `${s.t.length}|${s.t[0]}|${s.t[s.t.length - 1]}|${(s as EnvSeries).version ?? ''}`
+
+/** A bounded run longer than this many frames is drawn as an envelope too. */
+const LONG_FRAMES = 20000
+/** Zoomed time span of the envelope view (s); null: the whole run. */
+const zoom = ref<{ t0: number; t1: number } | null>(null)
+/** An envelope as a series: four points per pixel column (first, extremes, last); `pending`: parts still unknown. */
+interface EnvSeries extends SeriesView { pending: boolean; version: number }
+let envVersion = 0
+let envPasses = 0
+
+/** Envelope series of `ids` over [t0, t1] (whole run when no zoom) for a plot `columns` pixels wide. */
+function envelopeSeries(r: NonNullable<typeof rec.value>, ids: string[], columns: number): EnvSeries {
+  const last = r.frameCount - 1
+  const k0 = zoom.value ? Math.max(0, Math.floor(zoom.value.t0 / r.dt)) : 0
+  const k1 = zoom.value ? Math.min(last, Math.ceil(zoom.value.t1 / r.dt)) : last
+  // Every few passes also recompute one chunk that is not in memory (the stream verifies it)
+  const env = chartEnvelope(r, { ids, k0, k1, columns: Math.max(32, columns), rebuild: envPasses++ % 2 === 1, budgetMs: 40 })
+  const plot = envelopePlot(env)
+  const values = new Map<string, Float64Array>()
+  for (const id of ids) {
+    const v = plot.values.get(id) ?? []
+    const a = new Float64Array(plot.t.length)
+    for (let i = 0; i < a.length; i++) { const x = v[i]; a[i] = typeof x === 'number' ? x : NaN }
+    values.set(id, a)
+  }
+  envVersion++
+  return { t: plot.t, get: id => values.get(id) ?? new Float64Array(plot.t.length), stride: env.unit, total: plot.t.length, from: k0, pending: env.pending, version: envVersion }
+}
+
+/** Does this recording use the envelope view? */
+function envelopeMode(r: NonNullable<typeof rec.value>): boolean {
+  return r.unbounded ? longMode.value === 'all' : r.frameCount > LONG_FRAMES || zoom.value !== null
+}
 
 const rec = computed(() => (state.stale ? null : state.recording))
 const system = computed(() => rec.value?.system ?? null)
@@ -54,7 +103,7 @@ function destroy() {
   for (const p of plots) p.plot.destroy()
   plots = []
   host.value?.replaceChildren()
-  built = { key: '', runId: -1, n: -1, w: 0, h: 0 }
+  built = { key: '', runId: -1, n: '', w: 0, h: 0 }
 }
 
 /** Plot size per chart for the host size. */
@@ -104,7 +153,7 @@ function build(s: SeriesView) {
         y: { range: (_u, min, max) => { const mag = Math.max(Math.abs(min), Math.abs(max)); const span = Math.max(max - min, mag * 1e-6, 1e-12); const mid = (min + max) / 2; const half = span / 2 * 1.08 + (max - min < mag * 1e-6 ? Math.max(mag * 0.05, 1e-9) : 0); return [mid - half, mid + half] } }
       },
       legend: { show: true, live: true },
-      cursor: { drag: { x: false, y: false } },
+      cursor: { drag: { x: true, y: false, setScale: false } },
       axes: [
         { stroke: axisColor, grid: { stroke: gridColor, width: 1 }, ticks: { stroke: gridColor }, label: tLabel, labelSize: 14, size: 34, font: '11px sans-serif', labelFont: '11px sans-serif' },
         { stroke: axisColor, grid: { stroke: gridColor, width: 1 }, ticks: { stroke: gridColor }, label: unitLabel(unit) || '1', labelSize: 14, size: 56, font: '11px sans-serif', labelFont: '11px sans-serif' }
@@ -114,6 +163,14 @@ function build(s: SeriesView) {
         ...list.map(q => ({ label: `${q.owner} ${q.label}`, stroke: palette[colorIndex++ % palette.length], width: 1.6, value: (_u: uPlot, v: number | null) => (v == null ? '—' : formatSig(v, digits)) }))
       ],
       hooks: {
+        setSelect: [u => {
+          // A drag across the chart zooms into that span (all charts); the envelope is recomputed for it
+          if (u.select.width < 4) return
+          const a = fromDisp(u.posToVal(u.select.left, 'x'), 's'), b = fromDisp(u.posToVal(u.select.left + u.select.width, 'x'), 's')
+          u.setSelect({ left: 0, top: 0, width: 0, height: 0 }, false)
+          dragged = true
+          if (b - a > 2 * (rec.value?.dt ?? 0)) { zoom.value = { t0: a, t1: b }; schedule() }
+        }],
         draw: [u => {
           // Event times as dashed lines (static; drawn only when the chart itself redraws)
           const ctx = u.ctx
@@ -121,7 +178,9 @@ function build(s: SeriesView) {
           ctx.strokeStyle = warn
           ctx.setLineDash([3 * devicePixelRatio, 3 * devicePixelRatio])
           ctx.lineWidth = devicePixelRatio
+          const xmin = u.scales.x.min ?? -Infinity, xmax = u.scales.x.max ?? Infinity
           for (const et of eventTimes) {
+            if (et < xmin || et > xmax) continue
             const ex = u.valToPos(et, 'x', true)
             ctx.beginPath(); ctx.moveTo(ex, u.bbox.top); ctx.lineTo(ex, u.bbox.top + u.bbox.height); ctx.stroke()
           }
@@ -135,7 +194,9 @@ function build(s: SeriesView) {
     const cursor = document.createElement('div')
     cursor.className = 'time-cursor'
     plot.over.appendChild(cursor)
+    plot.over.addEventListener('dblclick', () => { if (zoom.value) { zoom.value = null; schedule() } })
     plot.over.addEventListener('click', () => {
+      if (dragged) { dragged = false; return }
       const x = plot.cursor.left
       if (x === undefined || x < 0) return
       pause()
@@ -143,7 +204,7 @@ function build(s: SeriesView) {
     })
     plots.push({ plot, ids, unit, cursor })
   }
-  built = { key: buildKey.value, runId: state.runId, n: s.t.length, w, h }
+  built = { key: buildKey.value, runId: state.runId, n: dataSig(s), w, h }
   placeCursor()
 }
 
@@ -154,11 +215,14 @@ function sync() {
   if (!r || groups.value.length === 0) { if (plots.length) destroy(); return }
   if (el.clientWidth === 0 || el.clientHeight === 0) return
   const ids = groups.value.flatMap(([, list]) => list.map(q => q.id))
-  const s = seriesFor(r, state.runId, ids)
+  const columns = Math.floor(layout(el, groups.value.length).w - 60)
+  const s = envelopeMode(r) ? envelopeSeries(r, ids, columns) : !r.unbounded ? seriesFor(r, state.runId, ids) : seriesWindow(r, state.runId, ids, recentWindow(r, state.time))
+  // Envelope parts still unknown (chunks being scanned or recomputed): another pass soon
+  if ((s as EnvSeries).pending) setTimeout(schedule, 60)
   if (plots.length && built.key === buildKey.value && built.runId === state.runId) {
-    if (s.t.length !== built.n) {
+    if (dataSig(s) !== built.n) {
       for (const p of plots) p.plot.setData(dataFor(s, p.ids, p.unit))
-      built.n = s.t.length
+      built.n = dataSig(s)
     }
     const { w, h } = layout(el, plots.length)
     if (w !== built.w || h !== built.h) { for (const p of plots) p.plot.setSize({ width: w, height: h }); built.w = w; built.h = h }
@@ -198,7 +262,16 @@ onMounted(() => {
   if (host.value) ro.observe(host.value)
   schedule()
 })
-watch([rec, buildKey, () => state.runId, () => props.active], () => nextTick(schedule))
+/** The recent window of an unbounded run moves in steps: new data when it does. */
+const windowKey = computed(() => {
+  const r = rec.value
+  if (!r || !r.unbounded || longMode.value !== 'recent') return ''
+  const w = recentWindow(r, tCursor.value)
+  return `${w.t0}|${w.t1}`
+})
+watch(() => state.runId, () => { zoom.value = null })
+watch(longMode, () => { zoom.value = null })
+watch([rec, buildKey, () => state.runId, () => props.active, windowKey, longMode], () => nextTick(schedule))
 onBeforeUnmount(() => { ro?.disconnect(); if (timer) clearTimeout(timer); destroy() })
 
 function preset(kind: 'kin' | 'energy' | 'force') {
@@ -215,16 +288,18 @@ function preset(kind: 'kin' | 'energy' | 'force') {
 <template>
   <div class="charts-wrap" :class="`variant-${variant}`">
     <div class="chart-bar">
-      <span class="small muted">曲线：</span>
+      <span class="small muted">{{ tl('曲线：') }}</span>
       <button class="btn small" :disabled="!rec" @click="preset('kin')">x‑t / v‑t / a‑t</button>
-      <button class="btn small" :disabled="!rec" @click="preset('energy')">能量</button>
-      <button class="btn small" :disabled="!rec" @click="preset('force')">受力</button>
-      <button class="btn small ghost" :disabled="!state.chart.length" @click="state.chart = []">清空</button>
-      <span v-if="variant === 'studio'" class="tiny muted hint">（在“监视”页点图表按钮可加入任意量；点击曲线跳到该时刻；虚线为事件时刻）</span>
-      <span v-else-if="groups.length >= limit" class="tiny muted hint">最多显示 {{ limit }} 张图</span>
+      <button class="btn small" :disabled="!rec" @click="preset('energy')">{{ tl('能量') }}</button>
+      <button class="btn small" :disabled="!rec" @click="preset('force')">{{ tl('受力') }}</button>
+      <button class="btn small ghost" :disabled="!state.chart.length" @click="state.chart = []">{{ tl('清空') }}</button>
+      <button v-if="rec?.unbounded" class="btn small" :title="longMode === 'recent' ? tl('显示全程（每个像素列的最小/最大包络）') : tl('只显示播放位置附近的 {0} s（逐帧）', [RECENT_SPAN])" @click="longMode = longMode === 'recent' ? 'all' : 'recent'">{{ longMode === 'recent' ? tl('最近 {0} s', [RECENT_SPAN]) : tl('全程') }}</button>
+      <button v-if="zoom" class="btn small" :title="tl('双击曲线也可恢复')" @click="zoom = null; schedule()">{{ `${toDisp(zoom.t0, 's').toPrecision(4)}–${toDisp(zoom.t1, 's').toPrecision(4)} ${unitLabel('s')}` }} ✕</button>
+      <span v-if="variant === 'studio'" class="tiny muted hint">{{ tl('（在“监视”页点图表按钮可加入任意量；点击曲线跳到该时刻，拖动选择区间放大，双击还原；虚线为事件时刻）') }}</span>
+      <span v-else-if="groups.length >= limit" class="tiny muted hint">{{ tl('最多显示 {0} 张图', [limit]) }}</span>
     </div>
-    <div v-if="!rec" class="empty">运行仿真后显示曲线。</div>
-    <div v-else-if="!groups.length" class="empty">选择上方的预设或在“监视”页添加曲线。</div>
+    <div v-if="!rec" class="empty">{{ tl('运行仿真后显示曲线。') }}</div>
+    <div v-else-if="!groups.length" class="empty">{{ tl('选择上方的预设或在“监视”页添加曲线。') }}</div>
     <div ref="host" class="charts" />
   </div>
 </template>

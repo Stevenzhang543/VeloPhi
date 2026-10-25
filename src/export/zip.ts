@@ -6,6 +6,7 @@
  *
  * Pure (no DOM), so the tests can read the archive back.
  */
+import { tl } from '../i18n'
 
 /** A file to store in the archive. */
 export interface ZipEntry {
@@ -52,13 +53,13 @@ function dosTime(d: Date): { time: number; date: number } {
 /** Normalise an archive path: forward slashes, no leading slash, no '.' or '..' segments, no empty names. */
 export function safeZipPath(name: string): string {
   const parts = name.replace(/\\/g, '/').split('/').filter(p => p !== '' && p !== '.' && p !== '..')
-  if (parts.length === 0) throw new Error('压缩包内的文件名为空')
+  if (parts.length === 0) throw new Error(tl('压缩包内的文件名为空'))
   return parts.join('/')
 }
 
 /** Build a stored (uncompressed) ZIP archive. */
 export function zipStore(entries: ZipEntry[], now: Date = new Date()): Uint8Array {
-  if (entries.length > 0xffff) throw new Error('文件数量过多，无法打包为 ZIP')
+  if (entries.length > 0xffff) throw new Error(tl('文件数量过多，无法打包为 ZIP'))
   const items = entries.map(e => {
     const name = utf8.encode(safeZipPath(e.name))
     const data = toBytes(e.data)
@@ -67,13 +68,13 @@ export function zipStore(entries: ZipEntry[], now: Date = new Date()): Uint8Arra
   const seen = new Set<string>()
   for (const e of entries) {
     const key = safeZipPath(e.name)
-    if (seen.has(key)) throw new Error(`压缩包内文件名重复：${key}`)
+    if (seen.has(key)) throw new Error(tl('压缩包内文件名重复：{0}', [key]))
     seen.add(key)
   }
   let localSize = 0, centralSize = 0
   for (const it of items) { localSize += 30 + it.name.length + it.data.length; centralSize += 46 + it.name.length }
   const total = localSize + centralSize + 22
-  if (localSize > 0xffffffff || total > 0xffffffff) throw new Error('课件包超过 4 GB，无法打包为 ZIP；请改为逐个保存文件')
+  if (localSize > 0xffffffff || total > 0xffffffff) throw new Error(tl('课件包超过 4 GB，无法打包为 ZIP；请改为逐个保存文件'))
   const out = new Uint8Array(total)
   const view = new DataView(out.buffer)
   let p = 0

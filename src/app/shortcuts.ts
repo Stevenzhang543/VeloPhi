@@ -2,6 +2,7 @@
  * Keyboard and mouse shortcuts, collected from App.vue (global keys) and the viewport / editor (canvas input).
  * Shown on the settings page and in the about dialog; keep in step with the handlers.
  */
+import { trDeep } from '../i18n'
 /** One shortcut: alternative key combinations and what they do. */
 export interface Shortcut { keys: string[][]; text: string }
 /** A titled group of shortcuts. */
@@ -12,7 +13,7 @@ const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigat
 export const MOD = isMac ? '⌘' : 'Ctrl'
 
 /** Every shortcut, grouped as on the settings page. */
-export const SHORTCUTS: ShortcutGroup[] = [
+export const SHORTCUTS: ShortcutGroup[] = trDeep([
   { title: '文件', items: [
     { keys: [[MOD, 'N']], text: '新建场景' },
     { keys: [[MOD, 'O']], text: '打开场景' },
@@ -58,4 +59,4 @@ export const SHORTCUTS: ShortcutGroup[] = [
     { keys: [['Alt', '2']], text: '渲染与监视' },
     { keys: [['Alt', '3'], [MOD, ',']], text: '设置' }
   ] }
-]
+])

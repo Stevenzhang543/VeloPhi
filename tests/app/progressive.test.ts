@@ -1,11 +1,13 @@
 /**
  * Progressive runs in the app store (simulation client mocked): partial recordings are shown and playable while
- * the run continues, the frame shown is kept, situations are recognised only at the end, a new edit cancels the
- * run in flight and late partials of a cancelled run are ignored.
+ * the run continues, the frame shown is kept, situations are recognised incrementally while the run grows and over
+ * the whole recording at the end, a new edit cancels the run in flight and late partials of a cancelled run are
+ * ignored.
  */
 import { describe, expect, it, vi } from 'vitest'
 import type { Recording } from '../../src/core/solver/simulation'
 import type { Scene } from '../../src/core/scene/types'
+import { recognize } from '../../src/formula/situations'
 
 interface FakeRun {
   cancelled: boolean
@@ -24,14 +26,16 @@ vi.mock('../../src/app/simClient', async () => {
       const done = new Promise<Recording | null>(r => { resolve = r })
       const run: FakeRun = { cancelled: false, full: simulate(scene, {}), resolve, partial: r => cb.onPartial?.(r), progress: (t, T) => cb.onProgress?.(t, T) }
       runs.push(run)
-      return { cancel() { run.cancelled = true; resolve(null) }, done }
+      return { cancel() { run.cancelled = true; resolve(null) }, stop() {}, setPlayhead() {}, computeTo() {}, setLookAhead() {}, stream: () => null, done }
     }
   }
 })
 
-/** The first `frames` frames of a recording, as a partial delivery. */
+/** The first `frames` frames of a recording, as a partial delivery (sharing the frame store). */
 function prefix(rec: Recording, frames: number): Recording {
-  return { ...rec, frameCount: frames, states: rec.states.slice(0, frames * rec.size), frameSegment: rec.frameSegment.slice(0, frames), impactLoss: rec.impactLoss.slice(0, frames), completed: false }
+  const tEnd = (frames - 1) * rec.dt
+  const segments = rec.segments.filter(s => s.t0 <= tEnd).map(s => ({ ...s, t1: Math.min(s.t1, tEnd) }))
+  return { ...rec, frameCount: frames, segments, events: rec.events.filter(e => e.t <= tEnd), completed: false, hash: '' }
 }
 
 describe('progressive simulation in the store', () => {
@@ -52,7 +56,6 @@ describe('progressive simulation in the store', () => {
     expect(state.recording?.frameCount).toBe(100)
     expect(state.stale).toBe(false)
     expect(state.frame).toBe(0)
-    expect(state.situations.length).toBe(0)
     const runId = state.runId
 
     seekFrame(80)
@@ -68,7 +71,7 @@ describe('progressive simulation in the store', () => {
     await p1
     expect(state.computing).toBe(false)
     expect(state.recording?.frameCount).toBe(r1.full.frameCount)
-    expect(state.situations.length).toBeGreaterThan(0)
+    expect(state.situations.map(x => x.key)).toEqual(recognize(r1.full).map(x => x.key))
     expect(state.runId).toBe(runId)
     state.playing = false
 

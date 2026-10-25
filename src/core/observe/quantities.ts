@@ -13,12 +13,13 @@
  *   - `system.ek .ep .es .e .px .py .Lz@pivot`: system totals;
  *   - `ledger.frictionHeat .appliedWork .damping .beltWork .impactLoss .balance`: energy ledger.
  */
+import { tl } from '../../i18n'
 import type { Pose } from '../solver/kinematics'
 import { anchorState, computePoses, distanceKin, ropeKin } from '../solver/kinematics'
 import type { Mode, ModeSolution, System } from '../solver/dynamics'
 import { AUX_FIXED, energy, forceValue, solveMode } from '../solver/dynamics'
 import type { Recording } from '../solver/simulation'
-import { frameState, ledgerAt } from '../solver/simulation'
+import { frameImpactLoss, frameSegment, frameState, ledgerAt } from '../solver/simulation'
 import { pairKey } from '../solver/model'
 import { atan2 } from '../math/dmath'
 
@@ -70,59 +71,59 @@ export function listQuantities(sys: System): QuantityDef[] {
   for (const b of model.dynamic) {
     for (const [k, label, sym, unit] of bodyQ) {
       if ((k === 'angle' || k === 'omega' || k === 'alpha') && b.invInertia === 0) continue
-      out.push({ id: `${b.id}.${k}`, label, symbol: sym, unit, group: '物体', owner: b.name })
+      out.push({ id: `${b.id}.${k}`, label: tl(label), symbol: sym, unit, group: '物体', owner: b.name })
     }
-    if (pivot) out.push({ id: `${b.id}.angle@pivot`, label: '摆角（相对竖直）', symbol: '\\varphi', unit: 'rad', group: '物体', owner: b.name })
+    if (pivot) out.push({ id: `${b.id}.angle@pivot`, label: tl('摆角（相对竖直）'), symbol: '\\varphi', unit: 'rad', group: '物体', owner: b.name })
   }
   for (const pair of sys.pairs) {
     for (const [on, by] of [[pair.X, pair.Y], [pair.Y, pair.X]]) {
       if (!on.dynamic) continue
       const id = `contact.${on.id}|${by.id}`
       const owner = `${by.name}→${on.name}`
-      out.push({ id: `${id}.N`, label: '支持力（压力）N', symbol: 'N', unit: 'N', group: '接触', owner })
-      out.push({ id: `${id}.f`, label: '摩擦力大小 f', symbol: 'f', unit: 'N', group: '接触', owner })
-      out.push({ id: `${id}.fx`, label: '摩擦力 fₓ', symbol: 'f_x', unit: 'N', group: '接触', owner })
-      out.push({ id: `${id}.fy`, label: '摩擦力 f_y', symbol: 'f_y', unit: 'N', group: '接触', owner })
-      out.push({ id: `${id}.vt`, label: '相对滑动速度', symbol: 'v_{\\text{rel}}', unit: 'm/s', group: '接触', owner })
+      out.push({ id: `${id}.N`, label: tl('支持力（压力）N'), symbol: 'N', unit: 'N', group: '接触', owner })
+      out.push({ id: `${id}.f`, label: tl('摩擦力大小 f'), symbol: 'f', unit: 'N', group: '接触', owner })
+      out.push({ id: `${id}.fx`, label: tl('摩擦力 fₓ'), symbol: 'f_x', unit: 'N', group: '接触', owner })
+      out.push({ id: `${id}.fy`, label: tl('摩擦力 f_y'), symbol: 'f_y', unit: 'N', group: '接触', owner })
+      out.push({ id: `${id}.vt`, label: tl('相对滑动速度'), symbol: 'v_{\\text{rel}}', unit: 'm/s', group: '接触', owner })
     }
     // Canonical order (pairKey), the same as canonicalQuantityId: ids written as pair.b|a are found too
     const pk = `pair.${pairKey(pair.X.id, pair.Y.id)}`
-    out.push({ id: `${pk}.slide`, label: '相对滑动路程 Δs', symbol: '\\Delta s', unit: 'm', group: '接触', owner: `${pair.X.name}–${pair.Y.name}` })
-    out.push({ id: `${pk}.heat`, label: '摩擦生热 Q', symbol: 'Q', unit: 'J', group: '接触', owner: `${pair.X.name}–${pair.Y.name}` })
+    out.push({ id: `${pk}.slide`, label: tl('相对滑动路程 Δs'), symbol: '\\Delta s', unit: 'm', group: '接触', owner: `${pair.X.name}–${pair.Y.name}` })
+    out.push({ id: `${pk}.heat`, label: tl('摩擦生热 Q'), symbol: 'Q', unit: 'J', group: '接触', owner: `${pair.X.name}–${pair.Y.name}` })
   }
   for (const r of model.ropes) {
-    out.push({ id: `${r.id}.T`, label: '绳张力 T', symbol: 'T', unit: 'N', group: '连接件', owner: r.name })
-    out.push({ id: `${r.id}.len`, label: '绳路径长度', symbol: '\\ell', unit: 'm', group: '连接件', owner: r.name })
+    out.push({ id: `${r.id}.T`, label: tl('绳张力 T'), symbol: 'T', unit: 'N', group: '连接件', owner: r.name })
+    out.push({ id: `${r.id}.len`, label: tl('绳路径长度'), symbol: '\\ell', unit: 'm', group: '连接件', owner: r.name })
   }
   for (const s of model.springs) {
-    out.push({ id: `${s.id}.F`, label: '弹力（拉为正）F', symbol: 'F', unit: 'N', group: '连接件', owner: s.name })
-    out.push({ id: `${s.id}.x`, label: '形变量 x', symbol: 'x', unit: 'm', group: '连接件', owner: s.name })
+    out.push({ id: `${s.id}.F`, label: tl('弹力（拉为正）F'), symbol: 'F', unit: 'N', group: '连接件', owner: s.name })
+    out.push({ id: `${s.id}.x`, label: tl('形变量 x'), symbol: 'x', unit: 'm', group: '连接件', owner: s.name })
   }
   for (const h of model.hinges) {
-    out.push({ id: `${h.id}.F`, label: '铰链力大小', symbol: 'F', unit: 'N', group: '连接件', owner: h.name })
-    out.push({ id: `${h.id}.Fx`, label: '铰链力 Fₓ', symbol: 'F_x', unit: 'N', group: '连接件', owner: h.name })
-    out.push({ id: `${h.id}.Fy`, label: '铰链力 F_y', symbol: 'F_y', unit: 'N', group: '连接件', owner: h.name })
+    out.push({ id: `${h.id}.F`, label: tl('铰链力大小'), symbol: 'F', unit: 'N', group: '连接件', owner: h.name })
+    out.push({ id: `${h.id}.Fx`, label: tl('铰链力 Fₓ'), symbol: 'F_x', unit: 'N', group: '连接件', owner: h.name })
+    out.push({ id: `${h.id}.Fy`, label: tl('铰链力 F_y'), symbol: 'F_y', unit: 'N', group: '连接件', owner: h.name })
   }
-  for (const r of model.rods) out.push({ id: `${r.id}.F`, label: '杆的拉力（拉为正）', symbol: 'F', unit: 'N', group: '连接件', owner: r.name })
+  for (const r of model.rods) out.push({ id: `${r.id}.F`, label: tl('杆的拉力（拉为正）'), symbol: 'F', unit: 'N', group: '连接件', owner: r.name })
   for (const f of model.forces) {
     if (!f.a.body?.dynamic) continue
-    out.push({ id: `${f.id}.Fx`, label: '外力 Fₓ', symbol: 'F_x', unit: 'N', group: '连接件', owner: f.name })
-    out.push({ id: `${f.id}.Fy`, label: '外力 F_y', symbol: 'F_y', unit: 'N', group: '连接件', owner: f.name })
-    out.push({ id: `${f.id}.F`, label: '外力大小 |F|', symbol: '|F|', unit: 'N', group: '连接件', owner: f.name })
-    out.push({ id: `${f.id}.P`, label: '外力的功率 P', symbol: 'P', unit: 'W', group: '连接件', owner: f.name })
+    out.push({ id: `${f.id}.Fx`, label: tl('外力 Fₓ'), symbol: 'F_x', unit: 'N', group: '连接件', owner: f.name })
+    out.push({ id: `${f.id}.Fy`, label: tl('外力 F_y'), symbol: 'F_y', unit: 'N', group: '连接件', owner: f.name })
+    out.push({ id: `${f.id}.F`, label: tl('外力大小 |F|'), symbol: '|F|', unit: 'N', group: '连接件', owner: f.name })
+    out.push({ id: `${f.id}.P`, label: tl('外力的功率 P'), symbol: 'P', unit: 'W', group: '连接件', owner: f.name })
   }
   const sysQ: Array<[string, string, string, string]> = [
-    ['system.ek', '总动能', 'E_k', 'J'], ['system.ep', '总重力势能', 'E_p', 'J'], ['system.es', '弹性势能', 'E_s', 'J'],
-    ['system.e', '机械能', 'E', 'J'], ['system.px', '总动量 pₓ', 'p_x', 'kg·m/s'], ['system.py', '总动量 p_y', 'p_y', 'kg·m/s']
+    ['system.ek', tl('总动能'), 'E_k', 'J'], ['system.ep', tl('总重力势能'), 'E_p', 'J'], ['system.es', tl('弹性势能'), 'E_s', 'J'],
+    ['system.e', tl('机械能'), 'E', 'J'], ['system.px', tl('总动量 pₓ'), 'p_x', 'kg·m/s'], ['system.py', tl('总动量 p_y'), 'p_y', 'kg·m/s']
   ]
-  for (const [id, label, sym, unit] of sysQ) out.push({ id, label, symbol: sym, unit, group: '系统', owner: '系统' })
-  if (pivot) out.push({ id: 'system.Lz@pivot', label: '对转轴角动量', symbol: 'L', unit: 'kg·m²/s', group: '系统', owner: '系统' })
+  for (const [id, label, sym, unit] of sysQ) out.push({ id, label, symbol: sym, unit, group: '系统', owner: tl('系统') })
+  if (pivot) out.push({ id: 'system.Lz@pivot', label: tl('对转轴角动量'), symbol: 'L', unit: 'kg·m²/s', group: '系统', owner: tl('系统') })
   const led: Array<[string, string, string]> = [
-    ['ledger.frictionHeat', '摩擦生热（累计）', 'Q_f'], ['ledger.appliedWork', '外力做功（累计）', 'W_F'],
-    ['ledger.damping', '阻尼耗散（累计）', 'Q_d'], ['ledger.beltWork', '传送带电机做功（累计）', 'W_{\\text{带}}'],
-    ['ledger.impactLoss', '碰撞损失动能（累计）', '\\Delta E_{\\text{碰}}'], ['ledger.balance', '能量账本合计（应守恒）', 'E_{\\Sigma}']
+    ['ledger.frictionHeat', tl('摩擦生热（累计）'), 'Q_f'], ['ledger.appliedWork', tl('外力做功（累计）'), 'W_F'],
+    ['ledger.damping', tl('阻尼耗散（累计）'), 'Q_d'], ['ledger.beltWork', tl('传送带电机做功（累计）'), 'W_{\\mathrm{belt}}'],
+    ['ledger.impactLoss', tl('碰撞损失动能（累计）'), '\\Delta E_{\\mathrm{coll}}'], ['ledger.balance', tl('能量账本合计（应守恒）'), 'E_{\\Sigma}']
   ]
-  for (const [id, label, sym] of led) out.push({ id, label, symbol: sym, unit: 'J', group: '能量账本', owner: '系统' })
+  for (const [id, label, sym] of led) out.push({ id, label, symbol: sym, unit: 'J', group: '能量账本', owner: tl('系统') })
   return out
 }
 
@@ -164,17 +165,17 @@ export function contactForces(ctx: ObservationContext, onId: string, byId: strin
     })
     const refSign = u.ref.A.body.id === onId ? 1 : -1
     const fx = refSign * st.tangent * st.refKin.tx, fy = refSign * st.tangent * st.refKin.ty
-    const status = u.friction === 'slide' ? '滑动' : u.friction === 'stick' ? '相对静止' : '光滑接触'
+    const status = u.friction === 'slide' ? tl('滑动') : u.friction === 'stick' ? tl('相对静止') : tl('光滑接触')
     return { Nx, Ny, N: st.normal, fx, fy, f: Math.abs(st.tangent), vt: refSign * st.vt, inContact: true, status }
   }
-  return { Nx: 0, Ny: 0, N: 0, fx: 0, fy: 0, f: 0, vt: Number.NaN, inContact: false, status: '未接触' }
+  return { Nx: 0, Ny: 0, N: 0, fx: 0, fy: 0, f: 0, vt: Number.NaN, inContact: false, status: tl('未接触') }
 }
 
 /** Observation context of recorded frame k. */
 export function makeContext(rec: Recording, k: number): ObservationContext {
   const X = frameState(rec, k)
-  const seg = rec.segments[rec.frameSegment[k]]
-  return makeContextFor(rec, X, seg.mode, rec.impactLoss[k])
+  const seg = rec.segments[frameSegment(rec, k)]
+  return makeContextFor(rec, X, seg.mode, frameImpactLoss(rec, k))
 }
 
 /** Observation context of any state in a given mode (event pre/post states, exactStateAt). */

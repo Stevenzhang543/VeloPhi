@@ -1,0 +1,21 @@
+[workspace]
+resolver = "2"
+members = ["verity-core", "verity-cli", "verity-wasm"]
+
+[workspace.package]
+version = "26.50.0"
+edition = "2021"
+publish = false
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+
+# Tests and the dev build run whole simulations: optimise the core even there (no effect on results)
+[profile.dev.package.verity-core]
+opt-level = 2
+
+[profile.test.package.verity-core]
+opt-level = 2

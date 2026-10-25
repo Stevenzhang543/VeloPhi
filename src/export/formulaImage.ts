@@ -14,6 +14,7 @@
  *
  * `cardHtml` and the font-selection helpers are pure and run in Node for the tests.
  */
+import { tl, trDeep, paren } from '../i18n'
 import katex from 'katex'
 import type { FormulaCard, Verdict } from '../formula/match'
 import { ENGINE_VERSION } from '../core/scene/types'
@@ -23,7 +24,7 @@ import type { ImageBackground } from './still'
 import { bytesToBase64 } from './zip'
 
 /** Badge text and colour class of each verdict. */
-export const VERDICT_TEXT: Record<Verdict, { text: string; cls: 'ok' | 'warn' | 'bad' | '' }> = {
+export const VERDICT_TEXT: Record<Verdict, { text: string; cls: 'ok' | 'warn' | 'bad' | '' }> = trDeep({
   match: { text: '一致', cls: 'ok' },
   deviate: { text: '偏差超限', cls: 'bad' },
   'approx-ok': { text: '近似成立', cls: 'ok' },
@@ -31,7 +32,7 @@ export const VERDICT_TEXT: Record<Verdict, { text: string; cls: 'ok' | 'warn' | 
   'approx-invalid': { text: '近似失效', cls: 'bad' },
   'not-applicable': { text: '不适用', cls: '' },
   'no-measure': { text: '无法比较', cls: '' }
-}
+})
 
 /** Options of the card images. */
 export interface CardImageOptions {
@@ -114,9 +115,9 @@ export function cardHtml(card: FormulaCard, o: CardImageOptions): string {
   const q = (x: number | null) => formatQuantity(x, unit, o.units, o.digits)
   const abs = card.absError === null ? '—' : formatQuantity(card.absError, unit, o.units, 3)
   const rows = [
-    ['理论值（公式）', q(card.theory)],
-    [`仿真值（${card.measureLabel}）`, q(card.sim)],
-    ['误差', card.absError === null ? '—' : `${abs}（${relErrorText(card.relError)}）`]
+    [tl('理论值（公式）'), q(card.theory)],
+    [tl('仿真值（{0}）', [card.measureLabel]), q(card.sim)],
+    [tl('误差'), card.absError === null ? '—' : `${abs}${paren(relErrorText(card.relError))}`]
   ]
   return [
     `<div class="vcard ${v.cls}">`,
@@ -125,7 +126,7 @@ export function cardHtml(card: FormulaCard, o: CardImageOptions): string {
     `<div class="vcard-formula">${tex(card.symbolic, true)}</div>`,
     card.substituted ? `<div class="vcard-subst">${tex(card.substituted, false)}</div>` : '',
     `<table class="vcard-cmp"><tbody>${rows.map(([k, val]) => `<tr><td class="k">${esc(k)}</td><td class="v">${esc(val)}</td></tr>`).join('')}</tbody></table>`,
-    `<div class="vcard-foot">Verity ${ENGINE_VERSION} · 数值按显示单位${card.formula.note ? ` · ${esc(card.formula.note)}` : ''}</div>`,
+    tl('<div class="vcard-foot">Verity {0} · 数值按显示单位{1}</div>', [ENGINE_VERSION, card.formula.note ? ` · ${esc(card.formula.note)}` : '']),
     '</div>'
   ].join('')
 }
@@ -292,7 +293,7 @@ function fontDataUrl(f: FaceRule): Promise<string> {
   let p = fontCache.get(f.url)
   if (!p) {
     p = fetch(f.url).then(async r => {
-      if (!r.ok) throw new Error(`字体加载失败：${r.status}`)
+      if (!r.ok) throw new Error(tl('字体加载失败：{0}', [r.status]))
       return `data:${mimeOfFont(f)};base64,${bytesToBase64(new Uint8Array(await r.arrayBuffer()))}`
     })
     fontCache.set(f.url, p)
@@ -411,7 +412,7 @@ export async function svgToPng(svg: string, width: number, height: number, scale
   const W = canvas.width = Math.max(1, Math.round(width * scale))
   const H = canvas.height = Math.max(1, Math.round(height * scale))
   const ctx = canvas.getContext('2d', { willReadFrequently: true })
-  if (!ctx) throw new Error('无法创建画布')
+  if (!ctx) throw new Error(tl('无法创建画布'))
   let last = -1, stable = 0
   const start = performance.now()
   for (;;) {
@@ -425,7 +426,7 @@ export async function svgToPng(svg: string, width: number, height: number, scale
     await sleep(50)
   }
   const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'))
-  if (!blob) throw new Error('PNG 编码失败')
+  if (!blob) throw new Error(tl('PNG 编码失败'))
   return new Uint8Array(await blob.arrayBuffer())
 }
 

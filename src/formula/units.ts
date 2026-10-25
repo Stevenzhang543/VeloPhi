@@ -1,4 +1,5 @@
 /** Physical dimensions as exponents of (length, mass, time). Angles are dimensionless (rad). */
+import { tl } from '../i18n'
 export type Dim = readonly [number, number, number]
 
 /** Dimension of a pure number. */
@@ -41,7 +42,7 @@ export const UNITS: Record<string, Dim> = {
 /** Dimension of a unit of UNITS; throws for unknown units. */
 export function unitDim(unit: string): Dim {
   const d = UNITS[unit]
-  if (!d) throw new Error(`未知单位 ${unit}`)
+  if (!d) throw new Error(tl('未知单位 {0}', [unit]))
   return d
 }
 
