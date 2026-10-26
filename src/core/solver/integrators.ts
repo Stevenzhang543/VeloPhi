@@ -119,3 +119,45 @@ export function eulerStep(f: Rhs, X0: Float64Array, h: number, nq: number, k1In?
   if (clock >= 0) X1[clock] = X0[clock] + h
   return { X: X1, err: 0 }
 }
+
+/** Two-stage Gauss–Legendre coefficients (order 4): nodes c, matrix A, weights ½, ½. */
+const S3 = Math.sqrt(3)
+const GL = { c1: 0.5 - S3 / 6, c2: 0.5 + S3 / 6, a11: 0.25, a12: 0.25 - S3 / 6, a21: 0.25 + S3 / 6, a22: 0.25 }
+/** Fixed-point iterations of the Gauss–Legendre stage equations at most. */
+export const GAUSS_ITERATIONS = 50
+/** Convergence of a stage component: |change| ≤ GAUSS_TOL·max(1, |value|). */
+export const GAUSS_TOL = 4 * Number.EPSILON
+
+/**
+ * Two-stage Gauss–Legendre (26.52, D61): implicit, fourth order, symplectic — the energy of a conservative system stays
+ * bounded over long runs instead of drifting. The stage equations Kᵢ = f(X₀ + h·Σⱼ aᵢⱼKⱼ) are solved by fixed-point
+ * iteration from Kᵢ = f(X₀): every component must change by at most GAUSS_TOL·max(1, |Kᵢ|) in an iteration, or
+ * GAUSS_ITERATIONS are done. Every loop runs in a fixed order, so the step is a pure function of (X₀, h).
+ */
+export function gauss4Step(f: Rhs, X0: Float64Array, h: number, k1In?: Float64Array, clock = -1): StepResult {
+  const N = X0.length
+  const k0 = k1In ?? new Float64Array(N)
+  if (!k1In) f(X0, k0)
+  const K1 = Float64Array.from(k0), K2 = Float64Array.from(k0)
+  const N1 = new Float64Array(N), N2 = new Float64Array(N), Y = new Float64Array(N)
+  const t0 = clock >= 0 ? X0[clock] : 0
+  for (let it = 0; it < GAUSS_ITERATIONS; it++) {
+    for (let i = 0; i < N; i++) Y[i] = X0[i] + h * (GL.a11 * K1[i] + GL.a12 * K2[i])
+    if (clock >= 0) Y[clock] = t0 + GL.c1 * h
+    f(Y, N1)
+    for (let i = 0; i < N; i++) Y[i] = X0[i] + h * (GL.a21 * K1[i] + GL.a22 * K2[i])
+    if (clock >= 0) Y[clock] = t0 + GL.c2 * h
+    f(Y, N2)
+    let done = true
+    for (let i = 0; i < N; i++) {
+      if (!(Math.abs(N1[i] - K1[i]) <= GAUSS_TOL * Math.max(1, Math.abs(N1[i])))) done = false
+      if (!(Math.abs(N2[i] - K2[i]) <= GAUSS_TOL * Math.max(1, Math.abs(N2[i])))) done = false
+    }
+    K1.set(N1); K2.set(N2)
+    if (done) break
+  }
+  const X1 = new Float64Array(N)
+  for (let i = 0; i < N; i++) X1[i] = X0[i] + h * (0.5 * K1[i] + 0.5 * K2[i])
+  if (clock >= 0) X1[clock] = t0 + h
+  return { X: X1, err: 0 }
+}

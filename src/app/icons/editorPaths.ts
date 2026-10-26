@@ -1,4 +1,4 @@
-/** Editor and measuring tool icon paths (24 × 24 grid, stroked with currentColor). Drawn for Verity. */
+/** Editor and measuring tool icon paths (24 × 24 grid, stroked with currentColor). Drawn for VeloPhi. */
 
 /** SVG path data by icon name. */
 export const EDITOR_ICONS: Record<string, string> = {

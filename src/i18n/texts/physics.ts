@@ -84,7 +84,7 @@ export const TEXTS_PHYSICS: Record<string, readonly [string, string]> = {
   'settings.stopAt.on 未知': ['settings.stopAt.on is unknown', 'settings.stopAt.on ist unbekannt'],
   '不是有效的 JSON：{0}': ['Not valid JSON: {0}', 'Kein gültiges JSON: {0}'],
   '文件内容不是场景': ['The file does not contain a scene', 'Die Datei enthält keine Szene'],
-  '不是 Verity 场景文件（format 字段不符）': ['Not a Verity scene file (format field does not match)', 'Keine Verity-Szenendatei (Feld format passt nicht)'],
+  '不是 VeloPhi 场景文件（format 字段不符）': ['Not a VeloPhi scene file (format field does not match)', 'Keine VeloPhi-Szenendatei (Feld format passt nicht)'],
   '文件来自更新的版本（格式 {0}），未知字段已保留但可能不生效': ['The file comes from a newer version (format {0}); unknown fields are kept but may have no effect', 'Die Datei stammt aus einer neueren Version (Format {0}); unbekannte Felder bleiben erhalten, wirken aber eventuell nicht'],
   '无法从格式 {0} 升级': ['Cannot upgrade from format {0}', 'Format {0} kann nicht aktualisiert werden'],
   '{0}.shape 缺失': ['{0}.shape is missing', '{0}.shape fehlt'],

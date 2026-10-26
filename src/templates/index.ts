@@ -14,7 +14,7 @@ import { tl, trDeep } from '../i18n'
 import type { Scene } from '../core/scene/types'
 import { DEG, cos, sin, tan } from '../core/math/dmath'
 import { addBody, addConnector, addGround, addIncline, addPulley, anchor, defaultGravity, emptyScene, onIncline, setDefaultGravity } from '../core/scene/build'
-import type { ForceDef, RodDef, RopeDef, SpringDef, HingeDef, WeldDef, MotorDef, GearDef } from '../core/scene/types'
+import type { ForceDef, RodDef, RopeDef, SpringDef, HingeDef, WeldDef, MotorDef, GearDef, CentralDef, SliderDef } from '../core/scene/types'
 
 /** A template parameter: key, label, display unit ('°' for angles), default value and limits. */
 export interface TemplateParam { key: string; label: string; unit: string; value: number; min?: number; max?: number; step?: number }
@@ -341,6 +341,65 @@ function rollingSlip(v: Record<string, number>): Scene {
 /** Shortest decimal text of a number for expressions. */
 const num = (x: number) => String(x)
 
+// ---- 26.52 models (D58–D61, D35) ----
+
+/** A ball in an elastic central field F = −k·r (top view): an ellipse about the centre, period 2π√(m/k). */
+function centralSpring(v: Record<string, number>): Scene {
+  const s = emptyScene(tl('弹性中心力'))
+  s.description = tl('光滑水平面上（俯视），小球受指向中心 O 的力 F = k·r（与到 O 的距离成正比）。从距 O 为 A 处以垂直于连线的速度 v₀ 出发：轨道是以 O 为中心的椭圆，周期 T = 2π√(m/k) 与 A、v₀ 无关。')
+  addBody(s, { id: 'ball', name: tl('小球'), kind: 'particle', role: 'ball', shape: { type: 'circle', radius: 0.05 }, position: { x: v.A, y: 0 }, velocity: { x: 0, y: v.v0 }, mass: v.m })
+  addConnector<CentralDef>(s, { id: 'field', name: tl('力心'), type: 'central', a: anchor(null, { x: 0, y: 0 }), k: v.k, n: 1, targets: ['ball'] })
+  s.settings.gravity = { x: 0, y: 0 }
+  s.settings.legacyDuration = Math.min(600, 2.5 * 2 * Math.PI * Math.sqrt(v.m / Math.max(v.k, 1e-6)))
+  s.view = { center: { x: 0, y: 0 }, pixelsPerMeter: Math.max(20, Math.min(400, 160 / Math.max(v.A, v.v0 * Math.sqrt(v.m / Math.max(v.k, 1e-6)), 0.05))) }
+  s.watch = ['ball.x', 'ball.y', 'ball.v', 'system.e']
+  return s
+}
+
+/** A carriage sliding down a frictionless inclined rail onto an end stop with restitution e. */
+function sliderStop(v: Record<string, number>): Scene {
+  const s = emptyScene(tl('滑轨限位'))
+  s.description = tl('滑块沿倾角 θ 的光滑滑轨由静止下滑，滑行 L 后撞上滑轨下端的限位：反弹速度为碰前的 e 倍，之后在限位上反复弹跳直到停下。')
+  const th = v.theta * DEG
+  const top = { x: 0, y: v.L * sin(th) + 0.3 }
+  const blk = addBody(s, { id: 'block', name: tl('滑块'), role: 'block', shape: { type: 'box', width: 0.24, height: 0.14 }, position: top, angle: -th, mass: v.m })
+  addConnector<SliderDef>(s, { id: 'rail', name: tl('滑轨'), type: 'slider', a: anchor(null, top), b: anchor(blk), axis: { x: cos(th), y: -sin(th) }, limits: { min: -0.2, max: v.L, restitution: v.e } })
+  s.settings.gravity = { x: 0, y: -v.g }
+  s.settings.legacyDuration = 3
+  s.view = { center: { x: v.L * cos(th) / 2, y: top.y - v.L * sin(th) / 2 }, pixelsPerMeter: Math.max(40, Math.min(300, 420 / Math.max(v.L, 0.2))) }
+  s.watch = ['block.v', 'system.e', 'ledger.impactLoss']
+  return s
+}
+
+/** A rolling disc slowed by rolling resistance (C_rr) until it stops. */
+function rollingResistance(v: Record<string, number>): Scene {
+  const s = emptyScene(tl('滚动阻力'))
+  s.description = tl('匀质圆柱在水平地面上以 v₀ 纯滚动，受滚动阻力偶 M = C_rr·N·r：速度均匀减小直到停下，机械能转化为热。')
+  addGround(s, { id: 'ground', top: 0, left: -1, right: 30, material: { muS: v.mu, muK: v.mu } })
+  addBody(s, { id: 'disc', name: tl('圆柱'), role: 'wheel', shape: { type: 'circle', radius: v.r }, position: { x: 0, y: v.r }, velocity: { x: v.v0, y: 0 }, angularVelocity: -v.v0 / v.r, mass: v.m, material: { muS: v.mu, muK: v.mu, restitution: 0, rolling: v.crr } })
+  s.settings.gravity = { x: 0, y: -v.g }
+  // Stops after v₀ / (⅔·C_rr·g) for a disc (I = ½mr²)
+  s.settings.legacyDuration = Math.min(600, 1.2 * v.v0 / Math.max(2 / 3 * v.crr * v.g, 1e-3))
+  s.view = { center: { x: 2.5, y: 0.6 }, pixelsPerMeter: 110 }
+  s.watch = ['disc.vx', 'disc.omega', 'contact.disc|ground.f', 'ledger.frictionHeat']
+  return s
+}
+
+/** A ball rolling to and fro in a V-groove cut into a fixed block (a concave body, D35). */
+function vGroove(v: Record<string, number>): Scene {
+  const s = emptyScene(tl('V 形槽中的小球'))
+  s.description = tl('固定物块上开有 V 形槽（凹多边形），小球从左侧槽面高 h 处由静止释放：在两个槽面之间来回滚动，每次经过槽底都与另一面相碰而损失能量。')
+  const th = v.theta * DEG, H = 0.8, w = H / tan(th)
+  addBody(s, { id: 'groove', name: tl('V 形槽'), kind: 'static', role: 'ground', shape: { type: 'polygon', points: [{ x: -w - 0.4, y: -0.3 }, { x: w + 0.4, y: -0.3 }, { x: w + 0.4, y: H }, { x: w, y: H }, { x: 0, y: 0 }, { x: -w, y: H }, { x: -w - 0.4, y: H }] }, position: { x: 0, y: 0 }, material: { muS: v.mu, muK: v.mu, restitution: 0 } })
+  const y0 = Math.min(v.h, H - v.r), x0 = -y0 / tan(th)
+  addBody(s, { id: 'ball', name: tl('小球'), role: 'ball', shape: { type: 'circle', radius: v.r }, position: { x: x0 + v.r * sin(th), y: y0 + v.r * cos(th) }, mass: v.m, material: { muS: v.mu, muK: v.mu, restitution: 0 } })
+  s.settings.gravity = { x: 0, y: -v.g }
+  s.settings.legacyDuration = 4
+  s.view = { center: { x: 0, y: H / 2 }, pixelsPerMeter: Math.max(60, Math.min(400, 300 / Math.max(w + 0.4, 0.3))) }
+  s.watch = ['ball.v', 'system.e', 'ledger.impactLoss']
+  return s
+}
+
 /** Block on a smooth floor pushed by F = F₀·sin(ωt). */
 function variableForce(v: Record<string, number>): Scene {
   const s = emptyScene(tl('变力作用'))
@@ -389,7 +448,12 @@ export const TEMPLATES: TemplateInfo[] = trDeep([
   { id: 'drag-fall', group: '空气阻力', name: '有空气阻力的下落', description: '终端速度；线性阻力 v = v_t(1 − e^(−bt/m))', params: [p('m', '质量 m', 'kg', 0.5, 0.001), p('b', '线性阻力系数 b', 'N·s/m', 0.5, 0), p('c', '平方阻力系数 c', 'N·s²/m²', 0, 0), p('h', '下落高度 h', 'm', 100, 1, 10000), gp()], build: dragFall },
   { id: 'damped-spring', group: '振动', name: '阻尼振动', description: '振幅按指数衰减，周期比无阻尼时略长', params: [p('k', '劲度系数 k', 'N/m', 50, 0.01), p('m', '质量 m', 'kg', 0.5, 0.001), p('c', '阻尼系数 c', 'N·s/m', 0.5, 0), p('A', '振幅 A', 'm', 0.1, 0.001, 0.6), gp()], build: dampedSpring },
   { id: 'motor-disc', group: '刚体转动', name: '恒力矩转盘', description: '转动定律 β = M/I', params: [p('M', '力矩 M', 'N·m', 0.5), p('m', '圆盘质量 m', 'kg', 2, 0.001), p('r', '半径 r', 'm', 0.3, 0.01), gp()], build: motorDisc },
-  { id: 'gears', group: '刚体转动', name: '齿轮传动', description: '啮合点线速度相等；等效转动惯量', params: [p('rA', '主动轮半径 r_A', 'm', 0.2, 0.01), p('rB', '从动轮半径 r_B', 'm', 0.4, 0.01), p('mA', '主动轮质量 m_A', 'kg', 1, 0.001), p('mB', '从动轮质量 m_B', 'kg', 2, 0.001), p('M', '马达力矩 M', 'N·m', 0.5), gp()], build: gears }
+  { id: 'gears', group: '刚体转动', name: '齿轮传动', description: '啮合点线速度相等；等效转动惯量', params: [p('rA', '主动轮半径 r_A', 'm', 0.2, 0.01), p('rB', '从动轮半径 r_B', 'm', 0.4, 0.01), p('mA', '主动轮质量 m_A', 'kg', 1, 0.001), p('mB', '从动轮质量 m_B', 'kg', 2, 0.001), p('M', '马达力矩 M', 'N·m', 0.5), gp()], build: gears },
+  // 26.52 models
+  { id: 'central-spring', group: '有心力', name: '弹性中心力', description: '有心力 F = k·r：以力心为中心的椭圆，周期与振幅无关', params: [p('k', '强度 k', 'N/m', 20, 0.01), p('m', '质量 m', 'kg', 0.5, 0.001), p('A', '初始距离 A', 'm', 0.5, 0.05, 5), p('v0', '初速度 v₀', 'm/s', 2, 0)], build: centralSpring },
+  { id: 'slider-stop', group: '连接体', name: '滑轨限位', description: '滑块撞上滑轨限位后按恢复系数 e 反弹', params: [p('theta', '倾角 θ', '°', 30, 5, 80), p('L', '到限位的距离 L', 'm', 1, 0.1, 5), p('m', '质量 m', 'kg', 1, 0.01), p('e', '限位恢复系数 e', '', 0.5, 0, 1, 0.05), gp()], build: sliderStop },
+  { id: 'rolling-resistance', group: '刚体转动', name: '滚动阻力', description: '滚动阻力偶 M = C_rr·N·r 使滚动的圆柱停下', params: [p('r', '半径 r', 'm', 0.15, 0.01), p('m', '质量 m', 'kg', 1, 0.001), p('v0', '初速度 v₀', 'm/s', 2), p('crr', '滚动阻力系数 C_rr', '', 0.05, 0.001, 0.5, 0.005), p('mu', '摩擦因数 μ', '', 0.5, 0.05, 2, 0.01), gp()], build: rollingResistance },
+  { id: 'v-groove', group: '凹形与复合体', name: 'V 形槽中的小球', description: '凹形物体：小球在两个槽面间来回滚动，经过槽底时碰撞', params: [p('theta', '槽面倾角 θ', '°', 35, 10, 70), p('h', '释放高度 h', 'm', 0.5, 0.05, 0.7), p('r', '小球半径 r', 'm', 0.08, 0.02, 0.2), p('m', '质量 m', 'kg', 0.5, 0.001), p('mu', '摩擦因数 μ', '', 0.5, 0, 2, 0.01), gp()], build: vGroove }
 ])
 
 // ---- 26.51 models (graded formula library, D44; fields and connectors, D50/D51) ----

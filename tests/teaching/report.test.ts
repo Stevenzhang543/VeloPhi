@@ -39,7 +39,7 @@ describe('report', () => {
     expect(html).toContain('class="badge ok"')
     expect(html).toContain('class="badge warn"')
     expect(html).toContain('ab'.repeat(32))
-    expect(html).toContain('Verity 26.49.0')
+    expect(html).toContain('VeloPhi 26.49.0')
     expect(html).toContain('物块 &amp; 木板')
     expect((html.match(/<img /g) ?? []).length).toBe(2)
     expect(html).toContain('@media print')

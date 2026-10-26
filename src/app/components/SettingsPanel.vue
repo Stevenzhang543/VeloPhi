@@ -12,6 +12,7 @@ import { state, edit, runSimulation, stopRun, showToast } from '../store'
 import { fmtQ, settings } from '../settings'
 import NumField from './NumField.vue'
 import Icon from './Icon.vue'
+import Section from './Section.vue'
 import type { IntegratorKind, StopKind } from '../../core/scene/types'
 import { MAX_DURATION, STOP_KINDS, finiteDuration } from '../../core/scene/types'
 
@@ -72,66 +73,71 @@ const reducedFrom = computed(() => rec.value?.reducedFrom ?? null)
 
 <template>
   <div class="settings">
-    <div class="group-title">{{ tl('场景') }}</div>
-    <div class="group">
-      <div class="row"><label>{{ tl('名称') }}</label><input class="field grow" :value="state.scene.name" @change="edit(sc => { sc.name = ($event.target as HTMLInputElement).value || sc.name })" /></div>
-      <div class="row desc"><label>{{ tl('说明') }}</label><textarea class="field grow" rows="3" :value="state.scene.description" @change="edit(sc => { sc.description = ($event.target as HTMLTextAreaElement).value })" /></div>
-    </div>
-
-    <div class="group-title">{{ tl('物理参数') }}</div>
-    <div class="group">
-      <div class="row"><label>{{ tl('重力加速度 g') }}</label><NumField class="grow" :model-value="gMag" unit="m/s²" :min="0" @update:model-value="setG" /></div>
-      <div class="row"><label>{{ tl('方向') }}</label><NumField class="grow" :model-value="gDir" unit="rad" @update:model-value="setGDir" /><button class="btn small ghost" :disabled="s.gravity.x === 0 && s.gravity.y <= 0" :title="tl('恢复为竖直向下')" @click="setGDir(-Math.PI / 2)">{{ tl('向下') }}</button></div>
-      <div class="row"><label>{{ tl('万有引力') }}</label><label class="check grow"><input type="checkbox" :checked="!!s.gravitation" @change="setGravitation(($event.target as HTMLInputElement).checked)" />{{ tl('物体之间相互吸引 F = Gm₁m₂/r²') }}</label></div>
-      <template v-if="s.gravitation">
-        <div class="row"><label>{{ tl('引力常量 G') }}</label><NumField class="grow" :model-value="s.gravitation.G" unit="N·m²/kg²" :min="1e-30" @update:model-value="setGConst" /></div>
-        <div class="row"><label /><span class="grow"><button class="btn small" @click="setGConst(G_REAL)">{{ tl('真实值') }}</button> <button class="btn small" @click="setGConst(1)">{{ tl('教学用 G = 1') }}</button></span></div>
-        <div class="tiny muted note">{{ tl('每一对有质量的物体之间都有引力（固定物体也吸引，但自己不动）；引力势能 −Gm₁m₂/r 计入能量账本。研究行星运动时通常把上面的重力设为 0。') }}</div>
-      </template>
-      <div class="row"><label>{{ tl('势能零点 y₀') }}</label><NumField class="grow" :model-value="s.energyZeroY" unit="m" @update:model-value="v => edit(sc => { sc.settings.energyZeroY = v })" /></div>
-    </div>
-
-    <div class="group-title">{{ tl('求解与记录') }}</div>
-    <div class="group">
-      <div class="row"><label>{{ tl('仿真时长') }}</label>
-        <select class="field grow" :value="mode" @change="setMode(($event.target as HTMLSelectElement).value as DurationMode)">
-          <option value="unbounded">{{ tl('不限时长（持续计算，可随时停止）') }}</option>
-          <option value="time">{{ tl('到某时刻停止') }}</option>
-          <option value="event">{{ tl('某事件后 x 秒停止') }}</option>
-        </select>
+    <Section id="scene.info" :title="tl('场景')">
+      <div class="group">
+        <div class="row"><label>{{ tl('名称') }}</label><input class="field grow" :value="state.scene.name" @change="edit(sc => { sc.name = ($event.target as HTMLInputElement).value || sc.name })" /></div>
+        <div class="row desc"><label>{{ tl('说明') }}</label><textarea class="field grow" rows="3" :value="state.scene.description" @change="edit(sc => { sc.description = ($event.target as HTMLTextAreaElement).value })" /></div>
       </div>
-      <div v-if="s.duration !== null" class="row"><label>{{ tl('停止时刻') }}</label><NumField class="grow" :model-value="s.duration" unit="s" :min="0.001" :max="MAX_DURATION" @update:model-value="v => edit(sc => { sc.settings.duration = v })" /></div>
-      <template v-if="mode === 'event' && s.stopAt">
-        <div class="row"><label>{{ tl('停止事件') }}</label>
-          <select class="field grow" :value="s.stopAt.on" @change="edit(sc => { if (sc.settings.stopAt) sc.settings.stopAt.on = ($event.target as HTMLSelectElement).value as StopKind })">
-            <option v-for="k in STOP_KINDS" :key="k" :value="k">{{ tl('首次{0}', [STOP_LABELS[k]]) }}</option>
+    </Section>
+
+    <Section id="scene.physics" :title="tl('物理参数')">
+      <div class="group">
+        <div class="row"><label>{{ tl('重力加速度 g') }}</label><NumField class="grow" :model-value="gMag" unit="m/s²" :min="0" @update:model-value="setG" /></div>
+        <div class="row"><label>{{ tl('方向') }}</label><NumField class="grow" :model-value="gDir" unit="rad" @update:model-value="setGDir" /><button class="btn small ghost" :disabled="s.gravity.x === 0 && s.gravity.y <= 0" :title="tl('恢复为竖直向下')" @click="setGDir(-Math.PI / 2)">{{ tl('向下') }}</button></div>
+        <div class="row"><label>{{ tl('万有引力') }}</label><label class="check grow"><input type="checkbox" :checked="!!s.gravitation" @change="setGravitation(($event.target as HTMLInputElement).checked)" />{{ tl('物体之间相互吸引 F = Gm₁m₂/r²') }}</label></div>
+        <template v-if="s.gravitation">
+          <div class="row"><label>{{ tl('引力常量 G') }}</label><NumField class="grow" :model-value="s.gravitation.G" unit="N·m²/kg²" :min="1e-30" @update:model-value="setGConst" /></div>
+          <div class="row"><label /><span class="grow"><button class="btn small" @click="setGConst(G_REAL)">{{ tl('真实值') }}</button> <button class="btn small" @click="setGConst(1)">{{ tl('教学用 G = 1') }}</button></span></div>
+          <div class="tiny muted note">{{ tl('每一对有质量的物体之间都有引力（固定物体也吸引，但自己不动）；引力势能 −Gm₁m₂/r 计入能量账本。研究行星运动时通常把上面的重力设为 0。') }}</div>
+        </template>
+        <div class="row"><label>{{ tl('势能零点 y₀') }}</label><NumField class="grow" :model-value="s.energyZeroY" unit="m" @update:model-value="v => edit(sc => { sc.settings.energyZeroY = v })" /></div>
+      </div>
+    </Section>
+
+    <Section id="scene.solver" :title="tl('求解与记录')" :open="false">
+      <div class="group">
+        <div class="row"><label>{{ tl('仿真时长') }}</label>
+          <select class="field grow" :value="mode" @change="setMode(($event.target as HTMLSelectElement).value as DurationMode)">
+            <option value="unbounded">{{ tl('不限时长（持续计算，可随时停止）') }}</option>
+            <option value="time">{{ tl('到某时刻停止') }}</option>
+            <option value="event">{{ tl('某事件后 x 秒停止') }}</option>
           </select>
         </div>
-        <div class="row"><label>{{ tl('之后再算') }}</label><NumField class="grow" :model-value="s.stopAt.after" unit="s" :min="0" :max="MAX_DURATION" @update:model-value="v => edit(sc => { if (sc.settings.stopAt) sc.settings.stopAt.after = v })" /></div>
-      </template>
-      <div class="row"><label>{{ tl('记录步长 Δt') }}</label><NumField class="grow" :model-value="s.outputStep" unit="s" :min="1e-5" :max="0.1" :step="0.001" @update:model-value="v => edit(sc => { sc.settings.outputStep = v })" /></div>
-      <div class="row"><label>{{ tl('积分方法') }}</label>
-        <select class="field grow" :value="s.integrator" @change="edit(sc => { sc.settings.integrator = ($event.target as HTMLSelectElement).value as IntegratorKind })">
-          <option value="dopri5">{{ tl('Dormand–Prince 5(4) 自适应（推荐）') }}</option>
-          <option value="rk4">{{ tl('经典四阶 Runge–Kutta（定步长 Δt）') }}</option>
-          <option value="euler">{{ tl('半隐式欧拉（定步长，教学对比用）') }}</option>
-          <option value="moreau">{{ tl('时间步进（Moreau–Jean，精度降级）') }}</option>
-        </select>
+        <div v-if="s.duration !== null" class="row"><label>{{ tl('停止时刻') }}</label><NumField class="grow" :model-value="s.duration" unit="s" :min="0.001" :max="MAX_DURATION" @update:model-value="v => edit(sc => { sc.settings.duration = v })" /></div>
+        <template v-if="mode === 'event' && s.stopAt">
+          <div class="row"><label>{{ tl('停止事件') }}</label>
+            <select class="field grow" :value="s.stopAt.on" @change="edit(sc => { if (sc.settings.stopAt) sc.settings.stopAt.on = ($event.target as HTMLSelectElement).value as StopKind })">
+              <option v-for="k in STOP_KINDS" :key="k" :value="k">{{ tl('首次{0}', [STOP_LABELS[k]]) }}</option>
+            </select>
+          </div>
+          <div class="row"><label>{{ tl('之后再算') }}</label><NumField class="grow" :model-value="s.stopAt.after" unit="s" :min="0" :max="MAX_DURATION" @update:model-value="v => edit(sc => { if (sc.settings.stopAt) sc.settings.stopAt.after = v })" /></div>
+        </template>
+        <div class="row"><label>{{ tl('记录步长 Δt') }}</label><NumField class="grow" :model-value="s.outputStep" unit="s" :min="1e-5" :max="0.1" :step="0.001" @update:model-value="v => edit(sc => { sc.settings.outputStep = v })" /></div>
+        <div class="row"><label>{{ tl('积分方法') }}</label>
+          <select class="field grow" :value="s.integrator" @change="edit(sc => { sc.settings.integrator = ($event.target as HTMLSelectElement).value as IntegratorKind })">
+            <option value="dopri5">{{ tl('Dormand–Prince 5(4) 自适应（推荐）') }}</option>
+            <option value="rk4">{{ tl('经典四阶 Runge–Kutta（定步长 Δt）') }}</option>
+            <option value="euler">{{ tl('半隐式欧拉（定步长，教学对比用）') }}</option>
+            <option value="gauss4">{{ tl('Gauss–Legendre 四阶辛方法（定步长，长时间保能量）') }}</option>
+            <option value="moreau">{{ tl('时间步进（Moreau–Jean，精度降级）') }}</option>
+          </select>
+        </div>
+        <div v-if="s.integrator === 'gauss4'" class="tiny muted note">{{ tl('隐式辛方法：守恒系统（行星轨道、单摆、弹簧振子）长时间计算时能量只在很小范围内起伏，不会逐渐漂移；有摩擦或阻尼时照常计算，但不再有这一优点。') }}</div>
+        <div v-if="s.integrator === 'moreau'" class="reduced-note small">
+          <span class="badge warn">{{ tl('精度降级') }}</span>
+          <span>{{ tl('按 Δt 逐步推进，碰撞与摩擦在每一步内近似处理；事件时刻不再精确定位，公式对照仅供参考。适合接触很多、事件驱动算不动的场景。') }}</span>
+        </div>
+        <template v-if="s.integrator === 'dopri5'">
+          <div class="row"><label>{{ tl('相对容差') }}</label><NumField class="grow" :model-value="s.relTol" :min="1e-14" :max="1e-2" @update:model-value="v => edit(sc => { sc.settings.relTol = v })" /></div>
+          <div class="row"><label>{{ tl('绝对容差') }}</label><NumField class="grow" :model-value="s.absTol" :min="1e-16" :max="1e-2" @update:model-value="v => edit(sc => { sc.settings.absTol = v })" /></div>
+        </template>
+        <div class="tiny muted note">
+          <template v-if="s.duration !== null">{{ tl('共 {0} 帧。', [frames]) }}</template>
+          <template v-else>{{ tl('按需计算：始终领先播放位置一段时间（设置页可调），所有物体永久静止时自动停止。') }}</template>
+          {{ tl('每个 Δt 记录一帧完整状态；自适应积分的步长不超过 Δt，也不跨越记录时刻。碰撞、开始滑动、共速等事件的时刻单独精确定位（约 10⁻¹² s），不受 Δt 限制。') }}
+        </div>
       </div>
-      <div v-if="s.integrator === 'moreau'" class="reduced-note small">
-        <span class="badge warn">{{ tl('精度降级') }}</span>
-        <span>{{ tl('按 Δt 逐步推进，碰撞与摩擦在每一步内近似处理；事件时刻不再精确定位，公式对照仅供参考。适合接触很多、事件驱动算不动的场景。') }}</span>
-      </div>
-      <template v-if="s.integrator === 'dopri5'">
-        <div class="row"><label>{{ tl('相对容差') }}</label><NumField class="grow" :model-value="s.relTol" :min="1e-14" :max="1e-2" @update:model-value="v => edit(sc => { sc.settings.relTol = v })" /></div>
-        <div class="row"><label>{{ tl('绝对容差') }}</label><NumField class="grow" :model-value="s.absTol" :min="1e-16" :max="1e-2" @update:model-value="v => edit(sc => { sc.settings.absTol = v })" /></div>
-      </template>
-      <div class="tiny muted note">
-        <template v-if="s.duration !== null">{{ tl('共 {0} 帧。', [frames]) }}</template>
-        <template v-else>{{ tl('按需计算：始终领先播放位置一段时间（设置页可调），所有物体永久静止时自动停止。') }}</template>
-        {{ tl('每个 Δt 记录一帧完整状态；自适应积分的步长不超过 Δt，也不跨越记录时刻。碰撞、开始滑动、共速等事件的时刻单独精确定位（约 10⁻¹² s），不受 Δt 限制。') }}
-      </div>
-    </div>
+    </Section>
 
     <div class="row link-row">
       <span class="tiny muted grow">{{ tl('单位、有效数字、外观与视觉效果在设置页中调整。') }}</span>
@@ -139,32 +145,34 @@ const reducedFrom = computed(() => rec.value?.reducedFrom ?? null)
     </div>
 
     <template v-if="rec">
-      <div class="group-title">{{ tl('本次计算') }}<span v-if="!rec.completed && !(rec.unbounded && state.computing)" class="badge warn">{{ tl('未完成') }}</span><span v-if="rec.unbounded && state.computing" class="badge info">{{ tl('持续计算') }}</span><span v-if="reducedFrom !== null" class="badge warn">{{ tl('精度降级') }}</span></div>
       <div v-if="reducedFrom !== null" class="reduced-note small">
         <span class="badge warn">{{ tl('精度降级') }}</span>
         <span v-if="s.integrator === 'moreau'">{{ tl('整个过程使用 Moreau–Jean 时间步进计算。') }}</span>
         <span v-else>{{ tl('事件过于密集，自 t = {0} 起改用 Moreau–Jean 时间步进；此后的数值精度降级，事件时刻不精确定位，公式对照仅供参考。', [fmtQ(reducedFrom, 's', 6)]) }}</span>
       </div>
-      <div class="group stats small">
-        <div class="row"><label>{{ tl('计算引擎') }}</label><span>{{ engineText }}</span></div>
-        <div class="row"><label>{{ tl('已算到') }}</label><span class="mono">t = {{ fmtQ(state.run.tComputed || (rec.frameCount - 1) * rec.dt, 's', 5) }}<template v-if="state.run.paused">{{ tl('（领先播放位置，暂停中）') }}</template></span></div>
-        <div v-if="state.run.speed > 0" class="row"><label>{{ tl('计算速度') }}</label><span class="mono">{{ tl('{0} × 实时', [state.run.speed >= 100 ? state.run.speed.toFixed(0) : state.run.speed.toPrecision(3)]) }}</span></div>
-        <div v-if="rec.unbounded" class="row"><label>{{ tl('记录内存') }}</label><span class="mono">{{ MB(state.run.memoryBytes) }} / {{ settings.sim.memoryMB }} MB</span></div>
-        <div v-if="rec.unbounded" class="row"><label>{{ tl('计算块') }}</label><span class="mono">{{ tl('在内存 {0} / 共 {1}，检查点 {2}，已重算 {3}', [state.run.residentChunks, state.run.chunks, state.run.checkpoints, state.run.rebuilds]) }}</span></div>
-        <div class="row"><label>{{ tl('记录帧数') }}</label><span class="mono">{{ rec.frameCount }}</span></div>
-        <div v-if="rec.stopReason" class="row"><label>{{ tl('结束原因') }}</label><span>{{ STOP_REASONS[rec.stopReason] ?? rec.stopReason }}</span></div>
-        <div class="row"><label>{{ tl('积分步 / 拒绝') }}</label><span class="mono">{{ rec.stats.steps }} / {{ rec.stats.rejected }}</span></div>
-        <div class="row"><label>{{ tl('事件数') }}</label><span class="mono">{{ rec.stats.events }}</span></div>
-        <div class="row"><label>{{ tl('约束投影') }}</label><span class="mono">{{ tl('位置 ≤ {0}，速度 ≤ {1}', [fmtQ(rec.stats.maxPositionCorrection, 'm', 2), fmtQ(rec.stats.maxVelocityCorrection, 'm/s', 2)]) }}</span></div>
-        <div class="row"><label>{{ tl('计算耗时') }}</label><span class="mono">{{ rec.stats.wallMs }} ms</span></div>
-        <div v-if="fingerprint" class="row"><label>{{ tl('结果指纹') }}</label><span class="mono fp" :title="fingerprint.hash">{{ fingerprint.upTo !== null ? tl('截至 {0} · ', [fmtQ(fingerprint.upTo, 's', 4)]) : '' }}SHA-256 {{ fingerprint.hash.slice(0, 16) }}…</span><button class="btn small ghost" :title="tl('复制完整指纹')" @click="copyFingerprint(fingerprint.hash)">{{ tl('复制') }}</button></div>
-        <div v-for="(w, i) in rec.warnings" :key="i" class="row warn-row"><span class="badge warn">{{ tl('提示') }}</span><span class="grow">{{ msgText(w) }}</span></div>
-        <div class="row">
-          <button v-if="rec.unbounded && state.computing" class="btn" @click="stopRun()">{{ tl('停止计算') }}</button>
-          <button v-else class="btn" :disabled="state.computing" @click="runSimulation()">{{ tl('重新计算') }}</button>
-          <span class="tiny muted">{{ tl('同一场景每次计算结果逐位一致（指纹相同）。') }}</span>
+      <Section id="scene.run" :title="tl('本次计算')" :open="false">
+        <template #badge><span v-if="!rec.completed && !(rec.unbounded && state.computing)" class="badge warn">{{ tl('未完成') }}</span><span v-if="rec.unbounded && state.computing" class="badge info">{{ tl('持续计算') }}</span><span v-if="reducedFrom !== null" class="badge warn">{{ tl('精度降级') }}</span></template>
+        <div class="group stats small">
+          <div class="row"><label>{{ tl('计算引擎') }}</label><span>{{ engineText }}</span></div>
+          <div class="row"><label>{{ tl('已算到') }}</label><span class="mono">t = {{ fmtQ(state.run.tComputed || (rec.frameCount - 1) * rec.dt, 's', 5) }}<template v-if="state.run.paused">{{ tl('（领先播放位置，暂停中）') }}</template></span></div>
+          <div v-if="state.run.speed > 0" class="row"><label>{{ tl('计算速度') }}</label><span class="mono">{{ tl('{0} × 实时', [state.run.speed >= 100 ? state.run.speed.toFixed(0) : state.run.speed.toPrecision(3)]) }}</span></div>
+          <div v-if="rec.unbounded" class="row"><label>{{ tl('记录内存') }}</label><span class="mono">{{ MB(state.run.memoryBytes) }} / {{ settings.sim.memoryMB }} MB</span></div>
+          <div v-if="rec.unbounded" class="row"><label>{{ tl('计算块') }}</label><span class="mono">{{ tl('在内存 {0} / 共 {1}，检查点 {2}，已重算 {3}', [state.run.residentChunks, state.run.chunks, state.run.checkpoints, state.run.rebuilds]) }}</span></div>
+          <div class="row"><label>{{ tl('记录帧数') }}</label><span class="mono">{{ rec.frameCount }}</span></div>
+          <div v-if="rec.stopReason" class="row"><label>{{ tl('结束原因') }}</label><span>{{ STOP_REASONS[rec.stopReason] ?? rec.stopReason }}</span></div>
+          <div class="row"><label>{{ tl('积分步 / 拒绝') }}</label><span class="mono">{{ rec.stats.steps }} / {{ rec.stats.rejected }}</span></div>
+          <div class="row"><label>{{ tl('事件数') }}</label><span class="mono">{{ rec.stats.events }}</span></div>
+          <div class="row"><label>{{ tl('约束投影') }}</label><span class="mono">{{ tl('位置 ≤ {0}，速度 ≤ {1}', [fmtQ(rec.stats.maxPositionCorrection, 'm', 2), fmtQ(rec.stats.maxVelocityCorrection, 'm/s', 2)]) }}</span></div>
+          <div class="row"><label>{{ tl('计算耗时') }}</label><span class="mono">{{ rec.stats.wallMs }} ms</span></div>
+          <div v-if="fingerprint" class="row"><label>{{ tl('结果指纹') }}</label><span class="mono fp" :title="fingerprint.hash">{{ fingerprint.upTo !== null ? tl('截至 {0} · ', [fmtQ(fingerprint.upTo, 's', 4)]) : '' }}SHA-256 {{ fingerprint.hash.slice(0, 16) }}…</span><button class="btn small ghost" :title="tl('复制完整指纹')" @click="copyFingerprint(fingerprint.hash)">{{ tl('复制') }}</button></div>
+          <div v-for="(w, i) in rec.warnings" :key="i" class="row warn-row"><span class="badge warn">{{ tl('提示') }}</span><span class="grow">{{ msgText(w) }}</span></div>
+          <div class="row">
+            <button v-if="rec.unbounded && state.computing" class="btn" @click="stopRun()">{{ tl('停止计算') }}</button>
+            <button v-else class="btn" :disabled="state.computing" @click="runSimulation()">{{ tl('重新计算') }}</button>
+            <span class="tiny muted">{{ tl('同一场景每次计算结果逐位一致（指纹相同）。') }}</span>
+          </div>
         </div>
-      </div>
+      </Section>
     </template>
     <div v-else-if="state.computing" class="tiny muted note">{{ tl('正在计算… {0}%', [Math.round(state.progress * 100)]) }}</div>
   </div>

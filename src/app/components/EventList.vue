@@ -7,7 +7,8 @@
  */
 import { tl, commaSep, colonSep } from '../../i18n'
 import { computed } from 'vue'
-import { state, seekAfter } from '../store'
+import { state, seekAfter, problemLocked } from '../store'
+import ProblemLock from './ProblemLock.vue'
 import { shownTime } from '../../units/clock'
 import { eventLabel } from '../../render/renderer'
 import { useGated } from '../live'
@@ -17,7 +18,8 @@ import { openEventDetail } from '../details'
 
 const props = withDefaults(defineProps<{ active?: boolean; compact?: boolean }>(), { active: true, compact: false })
 
-const rec = computed(() => (state.stale ? null : state.recording))
+const locked = computed(() => problemLocked())
+const rec = computed(() => (state.stale || locked.value ? null : state.recording))
 const name = (id: string) => {
   const m = rec.value?.system.model
   return m?.byId.get(id)?.name ?? m?.ropes.find(r => r.id === id)?.name ?? m?.forces.find(f => f.id === id)?.name ?? id
@@ -69,7 +71,8 @@ const currentIndex = computed(() => {
 
 <template>
   <div class="events" :class="{ compact }">
-    <div v-if="!rec" class="empty">{{ tl('运行仿真后列出事件。') }}</div>
+    <ProblemLock v-if="locked" />
+    <div v-else-if="!rec" class="empty">{{ tl('运行仿真后列出事件。') }}</div>
     <div v-else-if="rows.length === 0" class="empty">{{ tl('本次仿真没有碰撞、开始滑动、共速、分离等状态切换。') }}</div>
     <table v-else>
       <thead><tr><th>{{ tl('时刻 / {0}', [unitLabel('s')]) }}</th><th>{{ tl('事件') }}</th><th>{{ tl('对象') }}</th><th v-if="!compact">{{ tl('说明') }}</th></tr></thead>

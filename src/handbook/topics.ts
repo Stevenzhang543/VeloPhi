@@ -69,9 +69,9 @@ export const TOPICS: Topic[] = [
       tri('动能 Eₖ = ½mv²，重力势能 Eₚ = mgh，弹性势能 ½kx²。动能定理：合力做的功等于动能的变化。只有重力和弹力做功时，机械能守恒。',
         "Kinetic energy is Eₖ = ½mv², gravitational potential energy Eₚ = mgh, elastic energy ½kx². Work–energy theorem: the work of the net force equals the change in kinetic energy. When only gravity and spring forces do work, mechanical energy is conserved.",
         'Kinetische Energie Eₖ = ½mv², Lageenergie Eₚ = m·g·h, Spannenergie ½kx². Arbeitssatz: Die Arbeit der resultierenden Kraft ist gleich der Änderung der kinetischen Energie. Verrichten nur Gewichts- und Federkräfte Arbeit, bleibt die mechanische Energie erhalten.'),
-      tri('能量不会凭空产生或消失：摩擦生热 Q = fΔs（Δs 为相对滑动路程），碰撞、阻尼和空气阻力把机械能变成内能，外力、马达和传送带对系统做功。Verity 的能量账本把这些项逐一记下，总和应保持不变。',
-        'Energy is neither created nor destroyed: friction turns Q = fΔs into heat (Δs the relative sliding distance), collisions, damping and air drag turn mechanical energy into internal energy, and applied forces, motors and belts do work on the system. Verity’s energy ledger books each of these; the total stays constant.',
-        'Energie entsteht nicht aus dem Nichts und verschwindet nicht: Reibung erzeugt die Wärme Q = f·Δs (Δs der relative Gleitweg), Stöße, Dämpfung und Luftwiderstand wandeln mechanische in innere Energie um, äußere Kräfte, Motoren und Bänder verrichten Arbeit am System. Die Energiebilanz von Verity verbucht jeden Posten; die Summe bleibt konstant.')
+      tri('能量不会凭空产生或消失：摩擦生热 Q = fΔs（Δs 为相对滑动路程），碰撞、阻尼和空气阻力把机械能变成内能，外力、马达和传送带对系统做功。VeloPhi 的能量账本把这些项逐一记下，总和应保持不变。',
+        'Energy is neither created nor destroyed: friction turns Q = fΔs into heat (Δs the relative sliding distance), collisions, damping and air drag turn mechanical energy into internal energy, and applied forces, motors and belts do work on the system. VeloPhi’s energy ledger books each of these; the total stays constant.',
+        'Energie entsteht nicht aus dem Nichts und verschwindet nicht: Reibung erzeugt die Wärme Q = f·Δs (Δs der relative Gleitweg), Stöße, Dämpfung und Luftwiderstand wandeln mechanische in innere Energie um, äußere Kräfte, Motoren und Bänder verrichten Arbeit am System. Die Energiebilanz von VeloPhi verbucht jeden Posten; die Summe bleibt konstant.')
     ],
     laws: ['W = Fs\\cos\\alpha', 'P = Fv', 'W_{\\text{net}} = \\Delta E_k', 'E_k + E_p = \\text{const}'],
     situations: ['energy']
@@ -171,9 +171,9 @@ export const TOPICS: Topic[] = [
       tri('下落的物体越来越快，阻力越来越大，直到阻力等于重力，此后匀速下落，这个速度叫终端速度：线性阻力 v_t = mg/b，平方阻力 v_t = √(mg/c)。',
         'A falling body speeds up and the drag grows until it equals the weight; from then on it falls at a constant speed, the terminal speed: v_t = mg/b for linear drag, v_t = √(mg/c) for quadratic drag.',
         'Ein fallender Körper wird schneller, der Widerstand wächst, bis er der Gewichtskraft gleicht; danach fällt der Körper mit konstanter Geschwindigkeit, der Endgeschwindigkeit: v_t = m·g/b bei linearer Reibung, v_t = √(m·g/c) bei quadratischem Widerstand.'),
-      tri('阻力做负功，机械能转化为内能；在 Verity 中这部分记在能量账本的“阻尼耗散”里。',
-        'Drag does negative work and turns mechanical energy into internal energy; in Verity it is booked as damping in the energy ledger.',
-        'Der Widerstand verrichtet negative Arbeit und wandelt mechanische in innere Energie um; in Verity wird sie in der Energiebilanz als Dämpfung verbucht.')
+      tri('阻力做负功，机械能转化为内能；在 VeloPhi 中这部分记在能量账本的“阻尼耗散”里。',
+        'Drag does negative work and turns mechanical energy into internal energy; in VeloPhi it is booked as damping in the energy ledger.',
+        'Der Widerstand verrichtet negative Arbeit und wandelt mechanische in innere Energie um; in VeloPhi wird sie in der Energiebilanz als Dämpfung verbucht.')
     ],
     laws: ['f = bv + cv^2', 'v_t = \\dfrac{mg}{b}', 'v_t = \\sqrt{\\dfrac{mg}{c}}'],
     situations: ['drag']

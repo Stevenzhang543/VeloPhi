@@ -5,7 +5,8 @@
  */
 import { tl, paren } from '../../i18n'
 import { computed, ref } from 'vue'
-import { state, edit } from '../store'
+import { state, edit, problemLocked } from '../store'
+import ProblemLock from './ProblemLock.vue'
 import { canonicalQuantityId, customQuantities, customScope, evaluateQuantity, groupLabel, listQuantities, makeContext } from '../../core/observe/quantities'
 import type { QuantityDef } from '../../core/observe/quantities'
 import { compileCustom, nextCustomId } from '../../core/observe/custom'
@@ -13,6 +14,7 @@ import { useGated } from '../live'
 import { fmtNum, unitLabel } from '../settings'
 import Tex from './Tex.vue'
 import Icon from './Icon.vue'
+import Section from './Section.vue'
 
 const props = withDefaults(defineProps<{ active?: boolean }>(), { active: true })
 
@@ -141,10 +143,10 @@ function removeCustom(id: string) {
 
 <template>
   <div class="watch">
-    <div v-if="!state.recording" class="empty">{{ tl('运行仿真后可添加监视量。') }}</div>
+    <ProblemLock v-if="problemLocked()" />
+    <div v-else-if="!state.recording" class="empty">{{ tl('运行仿真后可添加监视量。') }}</div>
     <template v-else>
-      <div v-if="readings" class="readings">
-        <div class="group-title">{{ tl('{0} · 当前时刻读数', [readings.name]) }}</div>
+      <Section v-if="readings" id="watch.readings" class="readings" :title="tl('{0} · 当前时刻读数', [readings.name])">
         <div class="grid">
           <template v-for="r in readings.items" :key="r.q.id">
             <span class="small muted" :title="r.q.id">{{ r.q.label }}<template v-if="r.q.id.startsWith('contact.')">{{ paren(r.q.owner) }}</template></span>
@@ -152,9 +154,9 @@ function removeCustom(id: string) {
             <button class="btn icon ghost tiny-btn" :title="tl('加入监视')" :disabled="watched.has(r.q.id) || r.q.id.endsWith('.Lc')" @click="picking = r.q.id; add()"><Icon name="plus" :size="13" /></button>
           </template>
         </div>
-      </div>
+      </Section>
       <div v-else class="tiny muted pick-hint">{{ tl('在画布上点选一个运动物体，这里会列出它在当前时刻的全部读数。') }}</div>
-      <div class="group-title">{{ tl('监视列表') }}</div>
+      <Section id="watch.list" :title="tl('监视列表')" :count="state.scene.watch.length">
       <div class="row add">
         <select v-model="picking" class="field grow">
           <option value="" disabled>{{ tl('添加监视量…') }}</option>
@@ -183,10 +185,9 @@ function removeCustom(id: string) {
           </div>
         </div>
       </div>
-      <div class="group-title custom-title">
-        <span>{{ tl('自定义量') }}</span>
-        <button class="btn ghost small" :disabled="!!form" @click="newCustom"><Icon name="plus" :size="13" /> {{ tl('新建') }}</button>
-      </div>
+      </Section>
+      <Section id="watch.custom" :title="tl('自定义量')" :count="customs.length || null">
+        <template #actions><button class="btn ghost small" :disabled="!!form" @click="newCustom"><Icon name="plus" :size="13" /> {{ tl('新建') }}</button></template>
       <div v-if="customs.length === 0 && !form" class="tiny muted">{{ tl('用表达式定义新的量，如 {0}，可像其他量一样监视、作图和导出。', [example]) }}</div>
       <div class="list">
         <div v-for="c in customs" :key="c.id" class="item custom">
@@ -216,6 +217,7 @@ function removeCustom(id: string) {
           <button class="btn primary" :disabled="!formCheck || 'error' in formCheck" @click="saveCustom">{{ form.editing ? tl('保存') : tl('添加并监视') }}</button>
         </div>
       </div>
+      </Section>
       <div class="tiny muted hint">{{ tl('数值为当前帧的仿真结果，单位与有效数字可在“设置 › 单位与数值”中调整。暂停后可逐帧查看。') }}</div>
     </template>
   </div>
@@ -234,7 +236,6 @@ function removeCustom(id: string) {
 .unit { font-size: var(--type-tiny); color: var(--text-3); margin-left: 4px; font-weight: 400; }
 .ops { display: flex; gap: 2px; }
 .hint { margin-top: 10px; }
-.custom-title { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; }
 .custom .expr { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .err { color: var(--danger); }
 .custom-form { display: flex; flex-direction: column; gap: 4px; background: var(--group); border-radius: var(--radius-group); padding: 8px 10px; margin-top: 6px; }

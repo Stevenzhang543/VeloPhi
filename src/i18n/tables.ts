@@ -11,10 +11,11 @@ import { TEXTS_DIALOGS } from './texts/dialogs'
 import { TEXTS_PHYSICS } from './texts/physics'
 import { TEXTS_FORMULA } from './texts/formula'
 import { TEXTS_TEMPLATES } from './texts/templates'
+import { TEXTS_2652 } from './texts/v2652'
 
 /** The hand-written parts (tests check them for unused and duplicate entries). */
 export const TEXT_PARTS: Record<string, Record<string, readonly [string, string]>> = {
-  app: TEXTS_APP, settings: TEXTS_SETTINGS, dialogs: TEXTS_DIALOGS, physics: TEXTS_PHYSICS, formula: TEXTS_FORMULA, templates: TEXTS_TEMPLATES
+  app: TEXTS_APP, settings: TEXTS_SETTINGS, dialogs: TEXTS_DIALOGS, physics: TEXTS_PHYSICS, formula: TEXTS_FORMULA, templates: TEXTS_TEMPLATES, v2652: TEXTS_2652
 }
 
 /** English and German tables. */

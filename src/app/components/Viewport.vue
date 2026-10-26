@@ -17,10 +17,10 @@ import { tl } from '../../i18n'
 import { msgText } from '../../i18n/locale'
 import { shownTime } from '../../units/clock'
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
-import { state, edit, markStale, viewCamera } from '../store'
+import { state, edit, markStale, viewCamera, problemLocked } from '../store'
 import { usePageActive } from '../live'
 import type { Selection } from '../store'
-import { settings, effectiveEffects, fmtQ, toDisp, unitLabel } from '../settings'
+import { calmMotion, settings, effectiveEffects, fmtQ, toDisp, unitLabel } from '../settings'
 import { compileModel } from '../../core/solver/model'
 import { buildSystem, initialState } from '../../core/solver/dynamics'
 import type { System } from '../../core/solver/dynamics'
@@ -28,6 +28,7 @@ import type { Pose } from '../../core/solver/kinematics'
 import { computePoses, pulleyCenter } from '../../core/solver/kinematics'
 import { frameIsCheap, frameState } from '../../core/solver/simulation'
 import type { AnnotationDef, BodyDef } from '../../core/scene/types'
+import { connectorAnchors } from '../../core/scene/types'
 import { cloneScene, parseScene, serializeScene } from '../../core/scene/io'
 import type { Camera } from '../../render/renderer'
 import { DARK, LIGHT, computeTrajectories, drawScene, eventLabelAt, toScreen, toWorld, vectorScales } from '../../render/renderer'
@@ -37,14 +38,15 @@ import { DEFAULT_STYLE, PROJECTOR_STYLE, renderFrame } from '../../render/frame'
 import type { EditorOverlay, HandleKind } from '../../render/overlay'
 import { drawEditorOverlay, emptyOverlay } from '../../render/overlay'
 import { TEXT_SIZE, annotationPoints, rulerLabel } from '../../render/annotations'
-import { anchorFor, createConnector, createForce, createHinge, createPin, hitTest, moveObject, placeObject, wrapAt } from '../editing'
+import { anchorFor, createCentral, createConnector, createForce, createHinge, createPin, hitTest, moveObject, placeObject, wrapAt } from '../editing'
+import { combineBodies, cutBodies } from '../editor/shapeOps'
 import { editor, clearDrafts, notify } from '../editor/editorState'
 import type { MenuTarget } from '../editor/editorState'
 import type { Pt } from '../editor/geometry'
-import { bodyBounds, bodyCenter, pulleyWorld } from '../editor/geometry'
+import { bodyBounds, bodyCenter, outlineWorld, pulleyWorld } from '../editor/geometry'
 import { featurePoints, featureSnap, snapOn, snapPoint, snapStep } from '../editor/snap'
 import type { ContactSnap, SnapMemory } from '../editor/objectSnap'
-import { outlineOf, sceneFeatures, shifted, snapAngles, snapBodyMove, snapPointToObjects, snapRotation } from '../editor/objectSnap'
+import { outlinesOf, sceneFeatures, shifted, snapAngles, snapBodyMove, snapPointToObjects, snapRotation } from '../editor/objectSnap'
 import type { OverlayShape } from '../../render/overlay'
 import type { DragFeedback, Handle, HandleDrag, HandleId } from '../editor/handles'
 import { applyHandleDrag, bodyHandles, deleteVertex, edgeAt, handleKey, hitHandle, insertVertex, pulleyHandles, rotateStemFrom, startHandleDrag } from '../editor/handles'
@@ -161,7 +163,8 @@ function paint(ctx: CanvasRenderingContext2D) {
       trailSeconds: e.trailSeconds
     }
     renderFrame(ctx, cam.value, {
-      rec, time: state.time, options: state.display, palette, digits: state.digits, scales: currentScales(), trajectories: trajectories.value,
+      // While a problem is answered, forces, accelerations, trajectories and key moments are not drawn (26.52)
+      rec, time: state.time, options: problemLocked() ? { ...state.display, forces: false, forcesAll: false, acceleration: false, trajectory: false, labels: false, strobe: false } : state.display, palette, digits: state.digits, scales: currentScales(), trajectories: trajectories.value,
       selectedId: state.selection?.id ?? null, hoverId: hover.value, effects: fx, annotations, selectedAnnotation: editor.annotationId, units, style
     })
   } else {
@@ -227,7 +230,7 @@ function fitView() {
       for (let k = 0; k <= lastK; k += stride) if (frameIsCheap(rec!, k)) { const X = frameState(rec!, k); grow(X[3 * carrier.index], X[3 * carrier.index + 1], reach) }
     } else { const c = pulleyWorld(state.scene, p); grow(c.x, c.y, p.radius) }
   }
-  for (const c of state.scene.connectors) for (const a of c.type === 'force' ? [c.a] : [c.a, c.b]) if (!a.body) grow(a.local.x, a.local.y)
+  for (const c of state.scene.connectors) for (const a of connectorAnchors(c)) if (!a.body) grow(a.local.x, a.local.y)
   if (!Number.isFinite(minX)) {
     const v = state.scene.view
     cam.value = { ...cam.value, cx: v.center.x, cy: v.center.y, ppm: v.pixelsPerMeter }
@@ -267,7 +270,7 @@ watch(pageActive, on => { if (on) { resize(); requestDraw() } })
 watch(() => state.recording, () => { effectsBroken = false })
 watch(() => state.cameraRequest, fitView)
 watch(() => [state.recording, state.stale], () => { if (state.fitPending && state.recording && !state.stale && visible()) { state.fitPending = false; fitView() } })
-watch(() => [state.frame, state.time, state.recording, state.stale, state.playing, state.speed, state.selection, state.theme, state.digits, state.pendingConnector, state.tool, hover.value, hotHandle.value, { ...state.display }], requestDraw, { deep: true })
+watch(() => [state.frame, state.time, state.recording, state.stale, state.playing, state.speed, state.selection, state.theme, state.digits, state.pendingConnector, state.tool, hover.value, hotHandle.value, { ...state.display }, problemLocked()], requestDraw, { deep: true })
 watch(() => state.scene, requestDraw, { deep: true })
 watch(settings, requestDraw, { deep: true })
 watch(editor, requestDraw, { deep: true })
@@ -321,6 +324,19 @@ function buildOverlay(): EditorOverlay {
     ov.shapes.push(...pv.shapes)
     ov.labels.push(...pv.labels)
   }
+  if (d?.kind === 'cut' && d.moved) {
+    // The cut line runs on past both ends of the drag (the whole body is cut along it)
+    const dx = d.b.x - d.a.x, dy = d.b.y - d.a.y, L = Math.hypot(dx, dy) || 1, ext = 400 / ppm
+    ov.shapes.push({ kind: 'line', a: { x: d.a.x - dx / L * ext, y: d.a.y - dy / L * ext }, b: { x: d.b.x + dx / L * ext, y: d.b.y + dy / L * ext }, dashed: true, invalid: true })
+    ov.shapes.push({ kind: 'line', a: d.a, b: d.b })
+  }
+  if (state.tool === 'shape-combine' && editor.combineDraft.length) {
+    for (const id of editor.combineDraft) {
+      const def = state.scene.bodies.find(b => b.id === id)
+      if (!def) continue
+      for (const part of outlineWorld(def)) ov.shapes.push(part.kind === 'circle' ? { kind: 'circle', c: part.c, r: part.r, dashed: true, fill: true } : { kind: 'poly', pts: part.pts, closed: true, dashed: true, fill: true })
+    }
+  }
   if (d?.kind === 'annot-create' && d.moved) {
     ov.shapes.push({ kind: 'line', a: d.a, b: d.b, dashed: d.tool === 'annotate-arrow' })
     if (d.tool === 'measure-ruler') ov.labels.push({ at: { x: (d.a.x + d.b.x) / 2, y: (d.a.y + d.b.y) / 2 }, text: rulerLabel(d.a, d.b, state.digits), center: true, dy: -14 })
@@ -349,6 +365,12 @@ function buildOverlay(): EditorOverlay {
   }
   ov.snap = snapMark.value
   ov.shapes.push(...snapGuides.value)
+  const age = performance.now() - pulseStart
+  if (pulsePts.length && age < PULSE_MS && snapGuides.value.length) {
+    const u = age / PULSE_MS
+    for (const p of pulsePts) ov.shapes.push({ kind: 'circle', c: p, r: (3 + 13 * u) / ppm, alpha: 1 - u })
+    requestDraw()
+  }
   return ov
 }
 
@@ -380,8 +402,17 @@ function pulleyNow(id: string): Pt | null {
   return def ? pulleyWorld(state.scene, def) : null
 }
 
+// Snap feedback (26.52, D57): when a contact engages, its contact points send out a short ring
+let pulseKeys = ''
+let pulseStart = 0
+let pulsePts: Pt[] = []
+const PULSE_MS = 280
+
 /** Guide shapes of contact snaps: the target surface and the contact point. */
 function contactGuides(contacts: ContactSnap[]): OverlayShape[] {
+  const keys = contacts.map(c => c.key).join('|')
+  if (keys && keys !== pulseKeys && !calmMotion()) { pulseStart = performance.now(); pulsePts = contacts.map(c => c.at) }
+  pulseKeys = keys
   const out: OverlayShape[] = []
   for (const c of contacts) {
     if ('a' in c.surface) out.push({ kind: 'line', a: c.surface.a, b: c.surface.b, dashed: true })
@@ -452,6 +483,7 @@ type Drag =
   | { kind: 'create'; tool: DragTool; a: Pt; b: Pt; step: number; moved: boolean; sx: number; sy: number }
   | { kind: 'annot-create'; tool: 'measure-ruler' | 'annotate-arrow'; a: Pt; b: Pt; moved: boolean; sx: number; sy: number }
   | { kind: 'annot-move'; id: string; orig: AnnotationDef; point: number; start: Pt; snapshot: string; moved: boolean; sx: number; sy: number }
+  | { kind: 'cut'; a: Pt; b: Pt; moved: boolean; sx: number; sy: number }
 
 let drag: Drag | null = null
 
@@ -509,6 +541,26 @@ function onDown(e: MouseEvent) {
   }
   if (isDragTool(tool)) {
     drag = { kind: 'create', tool, a: sp, b: sp, step: snapOn(e.altKey) ? snapStep(ppm) : 0, moved: false, sx: e.clientX, sy: e.clientY }
+    return
+  }
+  // 26.52: central fields, cutting, combining
+  if (tool === 'add-central') {
+    let id: string | null = null
+    edit(scene => { id = createCentral(scene, cp.sys, cp.poses, sp) })
+    if (id) { state.selection = { kind: 'connector', id }; state.rightTab = 'inspect' }
+    if (!e.shiftKey) state.tool = 'select'
+    return
+  }
+  if (tool === 'shape-cut') {
+    drag = { kind: 'cut', a: p, b: p, moved: false, sx: e.clientX, sy: e.clientY }
+    return
+  }
+  if (tool === 'shape-combine') {
+    const hit = hitTest(cp.sys, cp.poses, p, tol)
+    if (hit?.kind !== 'body') { notify(tl('请点击要组合的物体')); return }
+    const i = editor.combineDraft.indexOf(hit.id)
+    if (i >= 0) editor.combineDraft.splice(i, 1); else editor.combineDraft.push(hit.id)
+    requestDraw()
     return
   }
   if (tool === 'add-force') {
@@ -615,7 +667,7 @@ function closePolygon() {
   if ('error' in r) { notify(r.error); return }
   state.selection = { kind: 'body', id: r.id }
   state.rightTab = 'inspect'
-  if (r.dropped > 0) notify(tl('多边形须为凸多边形：已去掉 {0} 个凹进的顶点', [r.dropped]))
+  if (r.dropped > 0) notify(tl('多边形的边相交，已改用这些点的凸包（去掉 {0} 个顶点）', [r.dropped]))
   state.tool = 'select'
 }
 
@@ -669,7 +721,7 @@ function onMove(e: MouseEvent) {
         const sel = d.sel
         const def = state.scene.bodies.find(b => b.id === sel.id)
         if (def) {
-          const raw = shifted(outlineOf(def), { x: tot.x - d.applied.x, y: tot.y - d.applied.y })
+          const raw = outlinesOf(def).map(o => shifted(o, { x: tot.x - d.applied.x, y: tot.y - d.applied.y }))
           const r = snapBodyMove(state.scene, def.id, raw, ppm, d.mem)
           want = { x: tot.x + r.delta.x, y: tot.y + r.delta.y }
           snapGuides.value = contactGuides(r.contacts)
@@ -728,6 +780,13 @@ function onMove(e: MouseEvent) {
       d.moved = true
       d.b = d.tool === 'measure-ruler' ? measureSnap(p, e.altKey) : snapPoint(p, ppm, e.altKey)
       snapMark.value = d.b
+      requestDraw()
+      return
+    }
+    if (d.kind === 'cut') {
+      if (!d.moved && dist < 4) return
+      d.moved = true
+      d.b = p
       requestDraw()
       return
     }
@@ -858,6 +917,37 @@ function onUp(e: MouseEvent) {
     if (d.moved) pushHistory(d.snapshot)
     requestDraw()
   }
+  if (d.kind === 'cut') {
+    if (!d.moved || Math.hypot(d.b.x - d.a.x, d.b.y - d.a.y) * cam.value.ppm < 8) { notify(tl('按住并拖出一条穿过物体的直线')); requestDraw(); return }
+    let made: string[] = []
+    const before = serializeScene(state.scene)
+    edit(scene => { made = cutBodies(scene, d.a, d.b) })
+    if (!made.length) {
+      // Nothing cut: drop the no-op history entry
+      if (serializeScene(state.scene) === before && state.past.length) state.past.pop()
+      notify(tl('直线没有穿过矩形或多边形物体（圆和复合体不能切割）'))
+    } else {
+      state.selection = { kind: 'body', id: made[0] }
+      notify(tl('已切成 {0} 块；撤销可恢复', [made.length]))
+      if (!e.shiftKey) state.tool = 'select'
+    }
+    requestDraw()
+  }
+}
+
+/** Finish the combine tool: the picked bodies become one compound body. */
+function finishCombine() {
+  const ids = editor.combineDraft.slice()
+  if (ids.length < 2) { notify(tl('至少选两个物体才能组合')); return }
+  let r: ReturnType<typeof combineBodies> | null = null
+  edit(scene => { r = combineBodies(scene, ids) })
+  const res = r as ReturnType<typeof combineBodies> | null
+  clearDrafts()
+  if (!res) return
+  if ('error' in res) { if (state.past.length) state.past.pop(); notify(res.error); return }
+  state.selection = { kind: 'body', id: res.id }
+  state.rightTab = 'inspect'
+  state.tool = 'select'
 }
 
 function onLeave() {
@@ -878,6 +968,7 @@ function onDblClick(e: MouseEvent) {
   const p = worldOf(e)
   const [sx, sy] = screenOf(e)
   if (state.tool === 'add-polygon') { closePolygon(); return }
+  if (state.tool === 'shape-combine') { finishCombine(); return }
   if (state.tool !== 'select') return
   const ah = hitAnnotation(cam.value, state.scene.annotations, sx, sy)
   if (ah?.type === 'text') { editor.textInput = { at: { ...ah.at }, text: ah.text, editId: ah.id }; return }
@@ -1082,7 +1173,7 @@ function onKeyCapture(e: KeyboardEvent) {
   }
   if (k === 'Escape') {
     const d = drag
-    const busy = editor.polyDraft.length > 0 || editor.angleDraft.length > 0 || (d !== null && d.kind !== 'pan')
+    const busy = editor.polyDraft.length > 0 || editor.angleDraft.length > 0 || editor.combineDraft.length > 0 || (d !== null && d.kind !== 'pan')
     drag = null
     snapMark.value = null
     if (d && (d.kind === 'move' || d.kind === 'handle') && d.moved) restoreSnapshot(d.snapshot)
@@ -1092,6 +1183,7 @@ function onKeyCapture(e: KeyboardEvent) {
     return
   }
   if (k === 'Enter' && state.tool === 'add-polygon' && editor.polyDraft.length) { stop(); closePolygon(); return }
+  if (k === 'Enter' && state.tool === 'shape-combine' && editor.combineDraft.length) { stop(); finishCombine(); return }
   if (k === 'Backspace' && state.tool === 'add-polygon' && editor.polyDraft.length) { stop(); editor.polyDraft.pop(); return }
   if ((k === 'Delete' || k === 'Backspace') && editor.annotationId && !state.selection) { stop(); deleteSelection(); return }
   if (!e.altKey && !e.shiftKey && TOOL_KEYS[lower]) {
@@ -1129,9 +1221,12 @@ const toolHint = computed(() => {
     case 'connect-slider': return tl('点击物体：它只能沿自身 x 方向相对下面的物体或世界滑动')
     case 'connect-gear': return state.pendingConnector ? tl('点击另一个物体（两轮的角速度之比由半径决定）') : tl('点击第一个齿轮（物体）')
     case 'add-force': return tl('点击物体上的作用点添加恒力')
+    case 'add-central': return tl('点击放置力心：点在运动物体上时力心随它运动（如行星绕恒星），点在空白处时固定不动')
+    case 'shape-cut': return tl('按住并拖出一条直线，把它穿过的矩形和多边形切开（质量按面积分配）；撤销可恢复')
+    case 'shape-combine': return editor.combineDraft.length >= 2 ? tl('已选 {0} 个物体：双击或按 Enter 组合成一个复合体；再点一次取消选择；Esc 放弃', [editor.combineDraft.length]) : tl('依次点击要组合的物体（固定物体只能与固定物体组合）')
     case 'pan': return tl('拖动平移视图')
     case 'select': return ''
-    case 'add-polygon': return editor.polyDraft.length >= 3 ? tl('已放 {0} 个顶点：点击第一个顶点、双击或按 Enter 完成；Backspace 撤回一点；Esc 取消', [editor.polyDraft.length]) : tl('依次点击放置顶点（结果取凸包）') + snap
+    case 'add-polygon': return editor.polyDraft.length >= 3 ? tl('已放 {0} 个顶点：点击第一个顶点、双击或按 Enter 完成；Backspace 撤回一点；Esc 取消', [editor.polyDraft.length]) : tl('依次点击放置顶点（可以是凹多边形；边不能相交）') + snap
     case 'measure-ruler': return tl('按住并拖动测量长度与倾角（自动吸附到顶点和质心）') + snap
     case 'measure-angle': return editor.angleDraft.length === 0 ? tl('点击角的顶点') : editor.angleDraft.length === 1 ? tl('点击第一条边上的一点') : tl('点击第二条边上的一点')
     case 'annotate-text': return tl('点击放置文字标注')

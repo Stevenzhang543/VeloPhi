@@ -34,8 +34,8 @@ export function correction(sys: System, rows: Array<{ j: RowJ; err: number }>): 
 }
 
 function positionRows(rows: Row[]): Array<{ j: RowJ; err: number }> {
-  // Tangent rows and motor drives (26.51) have no position-level constraint
-  return rows.filter(r => r.kind !== 'tangent' && r.kind !== 'drive').map(r => ({ j: r.j, err: r.value }))
+  // Tangent rows, motor drives (26.51) and rolling rest (26.52) have no position-level constraint
+  return rows.filter(r => r.kind !== 'tangent' && r.kind !== 'drive' && r.kind !== 'roll').map(r => ({ j: r.j, err: r.value }))
 }
 
 /**

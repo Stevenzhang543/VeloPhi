@@ -3689,8 +3689,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "verity"
-version = "26.51.0"
+name = "velophi"
+version = "26.52.0"
 dependencies = [
  "serde",
  "serde_json",

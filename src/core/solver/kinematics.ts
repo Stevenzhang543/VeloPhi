@@ -13,7 +13,7 @@
  */
 import type { Vec2 } from '../math/vec'
 import { atan2 as atan2Det, cos, sin } from '../math/dmath'
-import type { AnchorModel, BodyModel, Model, PulleyModel, RopeModel, SliderModel } from './model'
+import type { AnchorModel, BodyModel, Model, PulleyModel, RopeModel, ShapePiece, SliderModel } from './model'
 
 /**
  * Pose and velocity of a body: position (m), c = cos θ, s = sin θ, velocity (m/s), ω (rad/s), and the angle θ itself
@@ -79,10 +79,13 @@ export function anchorState(poses: Pose[], anchor: AnchorModel): PointState {
 }
 
 // ---- Contact features ----
-/** A point feature: circle centre or polygon vertex (`vertex` −1 for a circle centre) with its radius. */
-export interface PointFeature { body: BodyModel; local: Vec2; radius: number; vertex: number }
-/** A polygon face from e0 to e1 (body coordinates) with its outward normal and length. */
-export interface FaceFeature { body: BodyModel; face: number; e0: Vec2; e1: Vec2; normal: Vec2; len: number }
+/**
+ * A point feature: circle centre or polygon vertex (`vertex` −1 for a circle centre) with its radius; `piece`: the convex
+ * piece of a complex body it lies on (26.52; absent otherwise).
+ */
+export interface PointFeature { body: BodyModel; local: Vec2; radius: number; vertex: number; piece?: number }
+/** A polygon face from e0 to e1 (body coordinates) with its outward normal and length, and its piece (complex bodies). */
+export interface FaceFeature { body: BodyModel; face: number; e0: Vec2; e1: Vec2; normal: Vec2; len: number; piece?: number }
 /** A possible contact: point against face ('pf'), or point against point ('pp', with the vertex cone of B). */
 export type ContactFeature =
   | { kind: 'pf'; key: string; A: PointFeature; B: FaceFeature }
@@ -193,8 +196,65 @@ export function contactKin(f: ContactFeature, poses: Pose[]): ContactKin {
   return { gap, nx, ny, tx, ty, cx, cy, vn, vt, jn, cn, jt, ct, m1, m2 }
 }
 
+/** A point of a body for contact features: index (−1: a circle body's centre), local position, radius, vertex cone, piece. */
+interface BodyPoint { vertex: number; local: Vec2; radius: number; cone: { n1: Vec2; n2: Vec2 } | null; piece?: number }
+
+/** The point features of a body: a circle's centre, a convex polygon's vertices, a complex shape's points (26.52). */
+function bodyPoints(B: BodyModel): BodyPoint[] {
+  const sh = B.shape
+  if (sh.kind === 'circle') return [{ vertex: -1, local: { x: 0, y: 0 }, radius: sh.radius, cone: null }]
+  if (sh.kind === 'polygon') {
+    const m = sh.verts.length
+    return sh.verts.map((v, i) => ({ vertex: i, local: v, radius: 0, cone: { n1: sh.normals[(i + m - 1) % m], n2: sh.normals[i] } }))
+  }
+  return sh.points.map((p, i) => ({ vertex: i, local: p.local, radius: p.radius, cone: p.cone, piece: p.piece }))
+}
+
+/** The faces of a body (none for a circle). */
+function bodyFaces(B: BodyModel): Array<Omit<FaceFeature, 'body'>> {
+  const sh = B.shape
+  if (sh.kind === 'circle') return []
+  if (sh.kind === 'polygon') return sh.verts.map((v, f) => ({ face: f, e0: v, e1: sh.verts[(f + 1) % sh.verts.length], normal: sh.normals[f], len: sh.lengths[f] }))
+  return sh.faces.map((f, i) => ({ face: i, e0: f.e0, e1: f.e1, normal: f.normal, len: f.len, piece: f.piece }))
+}
+
+const pointTag = (p: BodyPoint) => (p.vertex < 0 ? 'c' : 'v' + p.vertex)
+
+/**
+ * Contact features of a pair with a complex shape (26.52, D35): every point of one body against every face of the
+ * other (both ways), and every round point against every point of the other body. Two round points pair once, with A
+ * on the side whose probes watch them (a plain circle's, otherwise X).
+ */
+function complexPairFeatures(X: BodyModel, Y: BodyModel): ContactFeature[] {
+  const out: ContactFeature[] = []
+  const px = bodyPoints(X), py = bodyPoints(Y), fx = bodyFaces(X), fy = bodyFaces(Y)
+  const pf = (A: BodyModel, p: BodyPoint, B: BodyModel, f: Omit<FaceFeature, 'body'>) =>
+    out.push({ kind: 'pf', key: `${A.id}#${pointTag(p)}>${B.id}#f${f.face}`, A: { body: A, local: p.local, radius: p.radius, vertex: p.vertex }, B: { body: B, ...f } })
+  const pp = (A: BodyModel, p: BodyPoint, B: BodyModel, q: BodyPoint) => {
+    const bp: PointFeature = { body: B, local: q.local, radius: q.radius, vertex: q.vertex }
+    if (q.piece !== undefined) bp.piece = q.piece
+    out.push({ kind: 'pp', key: `${A.id}#${pointTag(p)}>${B.id}#${pointTag(q)}`, A: { body: A, local: p.local, radius: p.radius, vertex: p.vertex }, B: bp, cone: q.radius > 0 ? null : q.cone })
+  }
+  for (const p of px) for (const f of fy) pf(X, p, Y, f)
+  for (const p of py) for (const f of fx) pf(Y, p, X, f)
+  const yFirst = Y.shape.kind === 'circle'
+  for (const p of px) {
+    if (!(p.radius > 0)) continue
+    for (const q of py) {
+      if (q.radius > 0 && yFirst) pp(Y, q, X, p)
+      else pp(X, p, Y, q)
+    }
+  }
+  for (const p of py) {
+    if (!(p.radius > 0)) continue
+    for (const q of px) if (!(q.radius > 0)) pp(Y, p, X, q)
+  }
+  return out
+}
+
 /** All contact features between two bodies (the point side is always A; circles are always points). */
 export function pairFeatures(X: BodyModel, Y: BodyModel): ContactFeature[] {
+  if (X.shape.kind === 'complex' || Y.shape.kind === 'complex') return complexPairFeatures(X, Y)
   const out: ContactFeature[] = []
   const sx = X.shape, sy = Y.shape
   const pf = (A: BodyModel, vi: number, local: Vec2, radius: number, B: BodyModel) => {
@@ -225,7 +285,7 @@ export function pairFeatures(X: BodyModel, Y: BodyModel): ContactFeature[] {
     pf(X, -1, { x: 0, y: 0 }, sx.radius, Y); pv(X, { x: 0, y: 0 }, sx.radius, Y)
   } else if (sy.kind === 'circle') {
     pf(Y, -1, { x: 0, y: 0 }, sy.radius, X); pv(Y, { x: 0, y: 0 }, sy.radius, X)
-  } else {
+  } else if (sx.kind === 'polygon' && sy.kind === 'polygon') {
     sx.verts.forEach((v, i) => pf(X, i, v, 0, Y))
     sy.verts.forEach((v, i) => pf(Y, i, v, 0, X))
   }
@@ -294,6 +354,18 @@ export function relAngleKin(poses: Pose[], a: BodyModel | null, b: BodyModel | n
   return { value: B.th - A.th - offset, vel: B.w - A.w, j: angleRow(a, -1, b, 1), c: 0 }
 }
 
+/**
+ * Relative rolling of a contact (26.52, D59): ω_A − ω_B of the round body A against B, J = (+1 on θ_A, −1 on θ_B); a
+ * velocity-level row (value 0, no velocity-product term).
+ */
+export function rollKin(poses: Pose[], A: BodyModel, B: BodyModel): ConstraintKin {
+  const wa = poses[A.global].w, wb = poses[B.global].w
+  const row = emptyRow()
+  row.ai = A.index; row.aw = A.index >= 0 ? 1 : 0
+  row.bi = B.index; row.bw = B.index >= 0 ? -1 : 0
+  return { value: 0, vel: wa - wb, j: row, c: 0 }
+}
+
 /** Gear or belt: value = θ_a + r·θ_b − offset, J = (1 on θ_a, r on θ_b). */
 export function gearKin(poses: Pose[], a: BodyModel | null, b: BodyModel | null, r: number, offset: number): ConstraintKin {
   const A = angular(poses, a), B = angular(poses, b)
@@ -311,13 +383,22 @@ export function driveKin(poses: Pose[], a: BodyModel | null, b: BodyModel | null
  * turning with a's body. With d = P_b − P_a, r = P_b − x_a and k×n = (−n_y, n_x):
  *   J_a = (−n, (k×n)·r), J_b = (n, n·(k×r_b)), c = −ω_a²·n·d + 2ω_a·(k×n)·ḋ + n·(q_b − q_a).
  */
-export function sliderKin(poses: Pose[], s: SliderModel): ConstraintKin {
+export function sliderKin(poses: Pose[], s: SliderModel): ConstraintKin { return sliderLine(poses, s, true) }
+
+/**
+ * Displacement of a slider along its axis (26.52, D58): s = u·(P_b − P_a) with the axis u turning with a's body. The
+ * same expressions as sliderKin with the normal n replaced by u.
+ */
+export function sliderAxisKin(poses: Pose[], s: SliderModel): ConstraintKin { return sliderLine(poses, s, false) }
+
+/** g = d·(P_b − P_a) for the slider's normal (normal = true) or axis direction d, turning with a's body. */
+function sliderLine(poses: Pose[], s: SliderModel, normal: boolean): ConstraintKin {
   const pa = anchorState(poses, s.a), pb = anchorState(poses, s.b)
   const A = s.a.body && s.a.body.index >= 0 ? poses[s.a.body.global] : null
   const ax = A ? A.c * s.axis.x - A.s * s.axis.y : s.axis.x
   const ay = A ? A.s * s.axis.x + A.c * s.axis.y : s.axis.y
-  // Normal n = (−a_y, a_x) and k×n = (−n_y, n_x) = −axis
-  const nx = -ay, ny = ax
+  // Normal n = (−a_y, a_x) (or the axis itself) and k×n = (−n_y, n_x)
+  const nx = normal ? -ay : ax, ny = normal ? ax : ay
   const knx = -ny, kny = nx
   const dx = pb.px - pa.px, dy = pb.py - pa.py
   const dvx = pb.vx - pa.vx, dvy = pb.vy - pa.vy
@@ -564,22 +645,44 @@ export function ropeKin(poses: Pose[], rope: RopeModel): ConstraintKin & { path:
  * exactly when the point (disc) overlaps B. Crossing zero is a new contact; which feature touches is found
  * afterwards. (For convex shapes some vertex, or the circle, must enter the other body first.)
  */
-export interface Probe { key: string; A: BodyModel; local: Vec2; radius: number; vertex: number; B: BodyModel }
+export interface Probe { key: string; A: BodyModel; local: Vec2; radius: number; vertex: number; B: BodyModel; piece?: number }
 
 /** Key of the probe of vertex `vertex` of A (−1: the circle centre) against B. */
 export function probeKey(A: BodyModel, vertex: number, B: BodyModel): string { return `${A.id}#${vertex}>${B.id}` }
 
-/** Key of the probe that watches the point of a feature. */
+/** Key of the probe that watches the point of a feature (against the piece of B it touches, for a complex B). */
 export function featureProbeKey(f: ContactFeature): string {
-  return probeKey(f.A.body, f.A.vertex, f.B.body)
+  const k = probeKey(f.A.body, f.A.vertex, f.B.body)
+  return f.B.piece === undefined ? k : `${k}@${f.B.piece}`
+}
+
+/**
+ * Probes of a body pair with a complex shape (26.52, D35): each point of one body against each convex piece of the
+ * other (or against the whole of a convex body). First contact is always at one of these points, and a point touching
+ * one piece still watches the others (a ball rolling down into a V-notch meets the second face).
+ */
+function complexPairProbes(X: BodyModel, Y: BodyModel): Probe[] {
+  const out: Probe[] = []
+  const add = (A: BodyModel, B: BodyModel) => {
+    for (const p of bodyPoints(A)) {
+      const key = probeKey(A, p.vertex, B)
+      if (B.shape.kind === 'complex') B.shape.pieces.forEach((_, k) => out.push({ key: `${key}@${k}`, A, local: p.local, radius: p.radius, vertex: p.vertex, B, piece: k }))
+      else out.push({ key, A, local: p.local, radius: p.radius, vertex: p.vertex, B })
+    }
+  }
+  if (Y.shape.kind === 'circle') add(Y, X)
+  else if (X.shape.kind === 'circle') add(X, Y)
+  else { add(X, Y); add(Y, X) }
+  return out
 }
 
 /** Probes of a body pair: a circle against the other body, or each polygon's vertices against the other polygon. */
 export function pairProbes(X: BodyModel, Y: BodyModel): Probe[] {
+  if (X.shape.kind === 'complex' || Y.shape.kind === 'complex') return complexPairProbes(X, Y)
   const out: Probe[] = []
   const add = (A: BodyModel, B: BodyModel) => {
     if (A.shape.kind === 'circle') out.push({ key: probeKey(A, -1, B), A, local: { x: 0, y: 0 }, radius: A.shape.radius, vertex: -1, B })
-    else A.shape.verts.forEach((v, i) => out.push({ key: probeKey(A, i, B), A, local: v, radius: 0, vertex: i, B }))
+    else if (A.shape.kind === 'polygon') A.shape.verts.forEach((v, i) => out.push({ key: probeKey(A, i, B), A, local: v, radius: 0, vertex: i, B }))
   }
   if (X.shape.kind === 'circle' && Y.shape.kind === 'circle') add(X, Y)
   else if (X.shape.kind === 'circle') add(X, Y)
@@ -593,7 +696,23 @@ export function signedDistance(B: BodyModel, pose: Pose, px: number, py: number)
   const dx = px - pose.x, dy = py - pose.y
   const lx = pose.c * dx + pose.s * dy, ly = -pose.s * dx + pose.c * dy
   if (B.shape.kind === 'circle') return Math.sqrt(lx * lx + ly * ly) - B.shape.radius
-  const { verts, normals } = B.shape
+  if (B.shape.kind === 'complex') {
+    // 26.52 (D35): the smallest signed distance over the convex pieces
+    let best = Infinity
+    for (const p of B.shape.pieces) { const d = pieceDistance(p, lx, ly); if (d < best) best = d }
+    return best
+  }
+  return convexDistance(B.shape.verts, B.shape.normals, lx, ly)
+}
+
+/** Signed distance from a local point to a convex piece of a complex shape. */
+function pieceDistance(p: ShapePiece, lx: number, ly: number): number {
+  if (p.kind === 'circle') { const dx = lx - p.center.x, dy = ly - p.center.y; return Math.sqrt(dx * dx + dy * dy) - p.radius }
+  return convexDistance(p.verts, p.normals, lx, ly)
+}
+
+/** Signed distance from a local point to a convex polygon (negative inside: minus the distance to the nearest face). */
+function convexDistance(verts: Vec2[], normals: Vec2[], lx: number, ly: number): number {
   let maxGap = -Infinity
   for (let f = 0; f < verts.length; f++) {
     const g = normals[f].x * (lx - verts[f].x) + normals[f].y * (ly - verts[f].y)
@@ -614,10 +733,17 @@ export function signedDistance(B: BodyModel, pose: Pose, px: number, py: number)
   return Math.sqrt(best)
 }
 
-/** Value of a probe: signed distance from its point to B minus its radius (m). */
+
+/** Value of a probe: signed distance from its point to B (or to its piece) minus its radius (m). */
 export function probeValue(p: Probe, poses: Pose[]): number {
   const pa = poses[p.A.global]
   const px = pa.x + pa.c * p.local.x - pa.s * p.local.y
   const py = pa.y + pa.s * p.local.x + pa.c * p.local.y
+  if (p.piece !== undefined && p.B.shape.kind === 'complex') {
+    const pose = poses[p.B.global]
+    const dx = px - pose.x, dy = py - pose.y
+    const lx = pose.c * dx + pose.s * dy, ly = -pose.s * dx + pose.c * dy
+    return pieceDistance(p.B.shape.pieces[p.piece], lx, ly) - p.radius
+  }
   return signedDistance(p.B, poses[p.B.global], px, py) - p.radius
 }

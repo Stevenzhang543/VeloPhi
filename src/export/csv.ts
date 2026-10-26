@@ -83,7 +83,7 @@ export function recordingCsv(rec: Recording, opts: CsvOptions): string {
   const s = rec.scene.settings
   const sep = effectiveSeparator(opts)
   const comments = [
-    `Verity ${ENGINE_VERSION}`,
+    `VeloPhi ${ENGINE_VERSION}`,
     tl('场景: {0}', [rec.scene.name]),
     tl('记录步长 Δt = {0} s; 积分方法 {1}; 相对容差 {2}; 绝对容差 {3}; g = ({4}, {5}) m/s²', [rec.dt, s.integrator, s.relTol, s.absTol, s.gravity.x, s.gravity.y]),
     tl('结果指纹 {0}', [fingerprintText(rec)]),
@@ -125,7 +125,7 @@ export function eventsCsv(rec: Recording, opts: CsvFormat & { units?: 'si' | 'di
       i === 0 && e.impact ? conv(e.impact.loss, 'J') : null
     ]))
   }
-  const comments = [`Verity ${ENGINE_VERSION}`, tl('场景: {0}', [rec.scene.name]), tl('结果指纹 {0}', [fingerprintText(rec)]), tl('事件时刻由求解器精确定位（约 1e-12 s）')]
+  const comments = [`VeloPhi ${ENGINE_VERSION}`, tl('场景: {0}', [rec.scene.name]), tl('结果指纹 {0}', [fingerprintText(rec)]), tl('事件时刻由求解器精确定位（约 1e-12 s）')]
   if (rec.reducedFrom !== null && rec.reducedFrom !== undefined) comments.push(tl('精度降级: 自 t = {0} s 起改用 Moreau–Jean 时间步进，此后的事件时刻不精确定位', [rec.reducedFrom]))
   return tableCsv(header, rows, opts, comments)
 }

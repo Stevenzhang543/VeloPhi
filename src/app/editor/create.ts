@@ -18,7 +18,7 @@ import { fmtQ } from '../settings'
 import { DYN_MATERIAL, STATIC_MATERIAL, nextName } from '../editing'
 import type { OverlayLabel, OverlayShape } from '../../render/overlay'
 import type { Pt } from './geometry'
-import { MIN_SIZE, centroid, clean, convexHull, isValidConvex, signedArea } from './geometry'
+import { MIN_SIZE, centroid, clean, convexHull, isValidConvex, isValidSimple, signedArea } from './geometry'
 
 /** Tools that create an object by press-drag. */
 export type DragTool = 'add-ball' | 'add-block' | 'add-disc' | 'add-wedge' | 'add-ground' | 'add-incline' | 'add-wall' | 'add-conveyor' | 'add-pulley'
@@ -141,16 +141,26 @@ export function createFromDrag(scene: Scene, tool: DragTool, a: Pt, b: Pt, step 
 // ---- Polygon tool ----
 
 /**
- * Create a dynamic convex polygon from clicked world points. Returns the id and the number of points dropped
- * to keep it convex, or an error text.
+ * The polygon the tool makes of clicked points (26.52, D35): the points themselves, counter-clockwise, when they form a
+ * simple polygon (concave allowed); otherwise (crossing edges) their convex hull. `hull` tells which.
+ */
+export function polygonFromClicks(pts: Pt[]): { pts: Pt[]; hull: boolean } {
+  const ccw = signedArea(pts) < 0 ? pts.slice().reverse() : pts.slice()
+  if (isValidSimple(ccw)) return { pts: ccw, hull: false }
+  return { pts: convexHull(pts), hull: true }
+}
+
+/**
+ * Create a dynamic polygon (concave allowed) from clicked world points. Returns the id and the number of points dropped
+ * when the clicks crossed themselves and the convex hull was used, or an error text.
  */
 export function createPolygon(scene: Scene, pts: Pt[]): { id: string; dropped: number } | { error: string } {
-  const hull = convexHull(pts)
-  if (hull.length < 3 || Math.abs(signedArea(hull)) < 1e-6 || !isValidConvex(hull)) return { error: tl('顶点太少或几乎共线，无法构成多边形') }
-  const c = centroid(hull)
-  const local = hull.map(p => ({ x: p.x - c.x, y: p.y - c.y }))
+  const poly = polygonFromClicks(pts)
+  if (poly.pts.length < 3 || Math.abs(signedArea(poly.pts)) < 1e-6 || !(poly.hull ? isValidConvex(poly.pts) : isValidSimple(poly.pts))) return { error: tl('顶点太少或几乎共线，无法构成多边形') }
+  const c = centroid(poly.pts)
+  const local = poly.pts.map(p => ({ x: p.x - c.x, y: p.y - c.y }))
   const id = addBody(scene, { name: nextName(scene, tl('多边形')), role: 'generic', shape: { type: 'polygon', points: local }, position: c, mass: 1, material: DYN_MATERIAL, color: '#0d9488' }).id
-  return { id, dropped: pts.length - hull.length }
+  return { id, dropped: poly.hull ? pts.length - poly.pts.length : 0 }
 }
 
 /** Preview of the polygon being drawn: placed points, the edge to the cursor and the convex result. */
@@ -159,8 +169,8 @@ export function polygonPreview(pts: Pt[], cursor: Pt | null, closeHot: boolean):
   if (pts.length === 0) return { shapes, labels }
   const all = cursor && !closeHot ? [...pts, cursor] : pts
   if (all.length >= 3) {
-    const hull = convexHull(all)
-    if (hull.length >= 3) shapes.push({ kind: 'poly', pts: hull, closed: true, fill: true, dashed: true })
+    const poly = polygonFromClicks(all).pts
+    if (poly.length >= 3) shapes.push({ kind: 'poly', pts: poly, closed: true, fill: true, dashed: true })
   }
   shapes.push({ kind: 'poly', pts: cursor ? [...pts, closeHot ? pts[0] : cursor] : pts, closed: false })
   if (cursor && !closeHot) {

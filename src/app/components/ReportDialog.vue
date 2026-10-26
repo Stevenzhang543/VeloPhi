@@ -37,6 +37,7 @@ import { dataUrl } from '../../export/zip'
 import { GRADE_TEXT, comparePrediction, readPredictions, targetLabel } from '../../analysis/prediction'
 import { templateById } from '../../templates'
 import { saveFile } from '../../platform/files'
+import { FBD_DEFAULTS, fbdData, fbdSvg } from '../../teaching/fbd'
 import { logEvent } from '../trialLog'
 import Icon from './Icon.vue'
 
@@ -46,10 +47,17 @@ const levelFilter = () => (opt.levelOnly ? { curriculum: effectiveCurriculum(), 
 const opt = reactive({
   title: state.scene.name,
   notes: '',
-  params: true, shots: true, curves: true, formulas: true, formulaImages: false, derivations: false, events: true, predictions: true, levelOnly: true,
+  params: true, shots: true, fbd: false, curves: true, formulas: true, formulaImages: false, derivations: false, events: true, predictions: true, levelOnly: true,
   shotBg: (settings.export.imageBackground === 'theme' ? 'white' : settings.export.imageBackground) as ImageBackground
 })
 const hasPredictions = computed(() => readPredictions(state.scene).length > 0)
+/** Body of the free-body diagram: the selected moving body, else the first one. */
+const fbdTarget = computed(() => {
+  const r = rec.value
+  if (!r) return null
+  const sel = state.selection?.kind === 'body' ? r.system.model.byId.get(state.selection.id) : null
+  return sel && sel.dynamic ? sel : r.system.model.dynamic[0] ?? null
+})
 const curveIds = computed(() => {
   const r = rec.value
   if (!r) return []
@@ -111,6 +119,7 @@ function parameterTables(r: Recording): ReportTable[] {
     if (c.type === 'rope') return [c.name, tl('轻绳'), `L = ${c.length === null ? tl('初始长度（拉直）') : fmtQ(c.length, 'm', d())}${c.pulleys.length ? tl('，经过 {0} 个滑轮', [c.pulleys.length]) : ''}`]
     if (c.type === 'rod') return [c.name, tl('轻杆'), `L = ${c.length === null ? tl('初始长度') : fmtQ(c.length, 'm', d())}`]
     if (c.type === 'hinge') return [c.name, tl('铰链'), '']
+    if (c.type === 'central') return [c.name, tl('有心力'), `F = ${fmtQ(c.k, '', d())}·r^${fmtQ(c.n, '', d())}`]
     return [c.name, tl('外力'), c.expr ? tl('Fₓ = {0}，F_y = {1}（国际单位）', [c.expr.x, c.expr.y]) : `F = ${pair(c.force.x, c.force.y, 'N')}`]
   }) })
   return out
@@ -166,6 +175,16 @@ async function generate(): Promise<string> {
       const m = shots[i]
       const img = await stillPng(r, m.t, { width, height, view, options: { ...state.display }, palette, background: opt.shotBg, digits: state.digits, selectedId: state.selection?.id ?? null, annotations: state.scene.annotations, units: settings.units, style: settings.projector ? PROJECTOR_STYLE : null, trajectories, scales, overlay: { lines: [`${timeLabel(m.t, units)}  ${m.label}`] } })
       input.screenshots.push({ src: dataUrl('image/png', img.png), caption: `${timeLabel(m.t, units)} · ${m.label}` })
+    }
+  }
+  // 26.52 (D62): the free-body diagram of the selected (or first moving) body at the playhead
+  const fbdBody = fbdTarget.value
+  if (opt.fbd && fbdBody) {
+    stepText.value = tl('受力分析图')
+    const d = fbdData(r, state.time, fbdBody.id, 'light')
+    if (d) {
+      const g = fbdSvg(d, { ...FBD_DEFAULTS, ...settings.teaching.fbd, theme: 'light', digits: state.digits })
+      input.fbd = [{ src: dataUrl('image/svg+xml', new TextEncoder().encode(g.svg)), caption: `${d.name} · ${timeLabel(d.time, units)}`, width: g.width }]
     }
   }
   if (opt.curves && curveIds.value.length) { stepText.value = tl('曲线'); input.curves = await curveFigures(r) }
@@ -278,6 +297,7 @@ function close() { if (!busy.value) state.showReport = false }
               <label class="check small"><input v-model="opt.shots" type="checkbox" />{{ tl('关键时刻截图（{0} 张）', [Math.min(moments.length, MAX_SHOTS)]) }}
                 <select v-model="opt.shotBg" class="field mini" :disabled="!opt.shots"><option value="white">{{ tl('白底') }}</option><option value="theme">{{ tl('主题背景') }}</option><option value="transparent">{{ tl('透明') }}</option></select>
               </label>
+              <label class="check small"><input v-model="opt.fbd" type="checkbox" :disabled="!fbdTarget" />{{ tl('受力分析图（{0}，当前时刻）', [fbdTarget?.name ?? '—']) }}</label>
               <label class="check small"><input v-model="opt.curves" type="checkbox" :disabled="!curveIds.length" />{{ tl('曲线（{0}）', [curveIds.length ? tl('{0} 条，取自“曲线”面板', [curveIds.length]) : tl('曲线面板为空')]) }}</label>
               <label class="check small"><input v-model="opt.formulas" type="checkbox" />{{ tl('公式对照与误差表') }}</label>
               <label class="check small"><input v-model="opt.formulaImages" type="checkbox" />{{ tl('附公式卡片图片') }}</label>

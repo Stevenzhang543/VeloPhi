@@ -1,6 +1,6 @@
 /**
  * Engine benchmark (manual 26.50, §5 "Rust 速度"): the TypeScript solver vs the Rust core as WebAssembly
- * (src/engine/verity_core.wasm) in this Node process — the 14 original templates at their former duration
+ * (src/engine/velophi_core.wasm) in this Node process — the 14 original templates at their former duration
  * (median of N runs after two warm-up runs) and long unbounded runs (× real time). Also checks that both engines
  * give the same fingerprints.
  *
@@ -34,7 +34,7 @@ await build({
   bundle: true, format: 'esm', platform: 'node', target: 'node20', outfile: bundle, logLevel: 'error'
 })
 const V = await import(pathToFileURL(bundle).href)
-const engine = await V.instantiateEngine(readFileSync(join(repo, 'src', 'engine', 'verity_core.wasm')))
+const engine = await V.instantiateEngine(readFileSync(join(repo, 'src', 'engine', 'velophi_core.wasm')))
 
 const ORIGINAL = ['incline', 'board-block', 'conveyor', 'conveyor-incline', 'collision-1d', 'collision-2d', 'projectile', 'pendulum', 'spring', 'hinged-rod', 'rolling', 'ball-rod', 'atwood', 'table-pulley']
 const median = a => { const s = [...a].sort((x, y) => x - y); return s[Math.floor(s.length / 2)] }

@@ -68,7 +68,7 @@ export interface CoursewareResult {
 }
 
 /** File-name-safe text: characters Windows does not allow become '_'; trailing dots and spaces are dropped. */
-export function safeName(s: string, fallback = 'verity'): string {
+export function safeName(s: string, fallback = 'velophi'): string {
   const t = s.replace(/[\\/:*?"<>|\u0000-\u001f]+/g, '_').trim().replace(/[. ]+$/, '')
   return t || fallback
 }
@@ -90,7 +90,7 @@ export function readmeText(rec: Recording, o: CoursewareOptions, files: string[]
   const lines = [
     tl('{0} — 课件包', [o.title]),
     '',
-    tl('由 Verity {0} 离线生成于 {1}。', [ENGINE_VERSION, new Date().toLocaleString('zh-CN')]),
+    tl('由 VeloPhi {0} 离线生成于 {1}。', [ENGINE_VERSION, new Date().toLocaleString('zh-CN')]),
     tl('仿真结果指纹：{0}', [fingerprintText(rec)]),
     tl('同一场景文件在任何电脑上重新计算，指纹相同、数值逐位一致。'),
     ...(reducedNotice(rec, o.units) ? ['', `【${reducedNotice(rec, o.units)}】`] : []),
@@ -143,7 +143,7 @@ export async function buildCourseware(rec: Recording, sits: Situation[], o: Cour
       step(w.shots, i / Math.max(1, nMoments), tl('正在生成截图 {0}/{1}', [i + 1, nMoments]))
       const img = await stillPng(rec, m.t, {
         ...o.still, width: size.width, height: size.height, background: size.background,
-        overlay: { title: o.title, lines: [`${timeLabel(m.t, o.units)}  ${m.label}`, ...(reducedAt(m.t) ? [tl('精度降级（时间步进），数值仅供参考')] : [])], footer: `Verity ${ENGINE_VERSION} · ${fingerprintShort(rec)}` }
+        overlay: { title: o.title, lines: [`${timeLabel(m.t, o.units)}  ${m.label}`, ...(reducedAt(m.t) ? [tl('精度降级（时间步进），数值仅供参考')] : [])], footer: `VeloPhi ${ENGINE_VERSION} · ${fingerprintShort(rec)}` }
       })
       shots.push(img)
       if (o.screenshots) files.push({ path: tl('截图/{0}.png', [momentFileStem(i, m)]), data: img.png })
@@ -219,7 +219,7 @@ export async function buildCourseware(rec: Recording, sits: Situation[], o: Cour
       title: o.title,
       description: o.description,
       notice,
-      meta: [tl('Verity {0} · 仿真结果指纹 {1}…', [ENGINE_VERSION, fingerprintShort(rec, 16)]), tl('生成时间 {0}', [new Date().toLocaleString('zh-CN')]), tl('记录 {0} 帧，Δt = {1} s', [rec.frameCount, Number(rec.dt.toPrecision(6))])],
+      meta: [tl('VeloPhi {0} · 仿真结果指纹 {1}…', [ENGINE_VERSION, fingerprintShort(rec, 16)]), tl('生成时间 {0}', [new Date().toLocaleString('zh-CN')]), tl('记录 {0} 帧，Δt = {1} s', [rec.frameCount, Number(rec.dt.toPrecision(6))])],
       moments,
       derivations: derivations.filter(d => d.png).map(d => ({ png: d.png!, width: d.width * d.scale, height: d.height * d.scale, title: d.title })),
       video: video ? { data: video.data, extension: video.extension, cover } : null

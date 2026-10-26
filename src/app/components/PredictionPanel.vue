@@ -9,6 +9,7 @@
  * Props: `closable` (show a close button). Emits: `close`.
  */
 import { tl, paren } from '../../i18n'
+import { vSlideIndicator } from '../slideIndicator'
 import { computed, reactive, ref, watch } from 'vue'
 import { state, edit } from '../store'
 import { fmtQ, settings, toDisp, unitLabel } from '../settings'
@@ -130,7 +131,7 @@ const pct = (x: number) => `${Number((x * 100).toPrecision(3))}%`
 
     <div class="group-title">{{ tl('新的预测') }}</div>
     <div class="group">
-      <div class="tabs kinds">
+      <div v-slide-indicator class="tabs kinds">
         <button :class="{ on: draft.kind === 'event' }" @click="draft.kind = 'event'">{{ tl('事件时刻') }}</button>
         <button :class="{ on: draft.kind === 'quantity' }" @click="draft.kind = 'quantity'">{{ tl('物理量') }}</button>
         <button :class="{ on: draft.kind === 'formula' }" @click="draft.kind = 'formula'">{{ tl('公式结果') }}</button>

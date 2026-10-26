@@ -23,7 +23,7 @@ async function uiCheck() {
   const browser = await chromium.launch()
   const page = await browser.newPage({ viewport: { width: 1600, height: 900 }, locale: 'zh-CN' })
   page.on('dialog', d => d.accept())
-  await page.goto(process.env.VERITY_URL || 'http://localhost:5179/')
+  await page.goto(process.env.VELOPHI_URL || 'http://localhost:5179/')
   await page.waitForTimeout(1500)
   let failed = 0
   for (const [name, hash] of Object.entries(expected)) {

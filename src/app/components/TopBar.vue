@@ -5,15 +5,17 @@
  * Overlay toggles are inline on wide windows and collapse into the "显示" menu on narrower ones (CSS only).
  */
 import AppLogo from './AppLogo.vue'
+import Wordmark from './Wordmark.vue'
 import { tl, paren } from '../../i18n'
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { state, undo, redo, runSimulation, cancelSimulation } from '../store'
+import { state, undo, redo, runSimulation, cancelSimulation, problemLocked, showToast } from '../store'
 import type { Page } from '../store'
 import type { DisplayToggle } from '../settings'
 import { settings } from '../settings'
 import { newScene, openScene, saveScene } from '../files'
 import { MOD } from '../shortcuts'
 import Icon from './Icon.vue'
+import { vSlideIndicator } from '../slideIndicator'
 
 const PAGES: Array<{ id: Page; label: string; icon: string; key: string }> = [
   { id: 'studio', label: tl('工作台'), icon: 'studio', key: 'Alt+1' },
@@ -52,7 +54,7 @@ const moreToggles: Array<{ key: DisplayToggle; label: string }> = [
   { key: 'names', label: tl('物体名称') }
 ]
 
-type MenuId = 'display' | 'output' | null
+type MenuId = 'file' | 'display' | 'output' | 'teach' | null
 const open = ref<MenuId>(null)
 const root = ref<HTMLElement | null>(null)
 function toggleMenu(id: MenuId) { open.value = open.value === id ? null : id }
@@ -80,6 +82,21 @@ watch(() => [state.page, state.computing, state.stale, settings.projector, setti
 function act(fn: () => void) { open.value = null; fn() }
 const hasResult = () => !!state.recording && !state.stale
 
+/** Teaching tools need a current result, and stay closed while a problem is answered (26.52). */
+const teachReady = () => hasResult() && !problemLocked()
+/** v–t area (D64): show the velocity of the selected (or first moving) body in the chart and explain Shift-drag. */
+function vtArea() {
+  const rec = state.recording
+  if (!rec) return
+  const sel = state.selection?.kind === 'body' ? rec.system.model.byId.get(state.selection.id) : null
+  const body = sel && sel.dynamic ? sel : rec.system.model.dynamic[0]
+  if (!body) return
+  state.page = 'studio'
+  state.bottomTab = 'chart'
+  state.chart = [`${body.id}.vx`, `${body.id}.vy`]
+  showToast(tl('在速度曲线上按住 Shift 拖动，选出时间段即可求面积（位移）'))
+}
+
 function toggleTheme() {
   settings.themeMode = state.theme === 'dark' ? 'light' : 'dark'
 }
@@ -89,20 +106,38 @@ function toggleTheme() {
   <header ref="root" class="topbar" :class="`fit-${level}`">
     <div class="brand">
       <AppLogo :size="22" />
-      <span class="name">Verity</span>
+      <Wordmark class="name" :size="16" />
       <span class="doc small" :title="state.filePath ?? state.fileName ?? state.scene.name"><span class="doc-text">{{ state.fileName ?? state.scene.name }}</span><span class="dot" :class="{ on: state.dirty }" :title="tl('有未保存的修改')">●</span></span>
     </div>
 
-    <nav class="segmented page-switch" :aria-label="tl('页面')">
+    <!-- File commands in one menu; Ctrl+S / Ctrl+O / Ctrl+N keep working (D56) -->
+    <div class="menu-anchor">
+      <button class="btn ghost" :class="{ active: open === 'file' }" :title="tl('新建、打开、保存场景')" @click="toggleMenu('file')"><Icon name="file" /><span class="lbl">{{ tl('文件') }}</span><Icon name="chevron" :size="12" /></button>
+      <div v-if="open === 'file'" class="menu" role="menu">
+        <button role="menuitem" @click="act(newScene)"><Icon name="file" />{{ tl('新建') }}<span class="spacer" /><kbd>{{ MOD }}+N</kbd></button>
+        <button role="menuitem" @click="act(openScene)"><Icon name="open" />{{ tl('打开…') }}<span class="spacer" /><kbd>{{ MOD }}+O</kbd></button>
+        <div class="sep" />
+        <button role="menuitem" @click="act(() => saveScene(false))"><Icon name="save" />{{ tl('保存') }}<span class="spacer" /><kbd>{{ MOD }}+S</kbd></button>
+        <button role="menuitem" @click="act(() => saveScene(true))"><Icon name="saveas" />{{ tl('另存为…') }}<span class="spacer" /><kbd>{{ MOD }}+Shift+S</kbd></button>
+      </div>
+    </div>
+
+    <nav v-slide-indicator class="segmented page-switch" :aria-label="tl('页面')">
       <button v-for="p in PAGES" :key="p.id" :class="{ on: state.page === p.id }" :aria-current="state.page === p.id ? 'page' : undefined" :title="`${p.label}${paren(p.key)}`" @click="state.page = p.id"><Icon :name="p.icon" :size="15" /><span class="lbl page-lbl">{{ p.label }}</span></button>
     </nav>
 
     <div class="group-btns">
-      <button class="btn icon ghost" :title="tl('新建（{0}+N）', [MOD])" @click="newScene"><Icon name="file" /></button>
-      <button class="btn icon ghost" :title="tl('打开（{0}+O）', [MOD])" @click="openScene"><Icon name="open" /></button>
-      <button class="btn icon ghost" :title="tl('保存（{0}+S）', [MOD])" @click="saveScene(false)"><Icon name="save" /></button>
-      <button class="btn icon ghost" :title="tl('另存为（{0}+Shift+S）', [MOD])" @click="saveScene(true)"><Icon name="saveas" /></button>
       <button class="btn ghost" :title="tl('经典模型模板')" @click="state.showTemplates = true"><Icon name="template" /><span class="lbl">{{ tl('模板') }}</span></button>
+      <button class="btn ghost" :class="{ active: !!state.problem }" :title="tl('按教材章节的内置题目、导入题目包、用当前场景出题')" @click="state.showProblems = true"><Icon name="problem" /><span class="lbl">{{ tl('题目') }}</span></button>
+      <div class="menu-anchor">
+        <button class="btn ghost" :class="{ active: open === 'teach' }" :title="tl('受力分析图、打点计时器纸带、v–t 图面积')" @click="toggleMenu('teach')"><Icon name="graduation" /><span class="lbl">{{ tl('教学') }}</span><Icon name="chevron" :size="12" /></button>
+        <div v-if="open === 'teach'" class="menu" role="menu">
+          <button role="menuitem" :disabled="!teachReady()" @click="act(() => { state.showFbd = true })"><Icon name="fbd" />{{ tl('受力分析图…') }}<span class="spacer" /><span class="tiny muted">SVG · PNG</span></button>
+          <button role="menuitem" :disabled="!teachReady()" @click="act(() => { state.showTape = true })"><Icon name="tape" />{{ tl('打点计时器纸带…') }}<span class="spacer" /><span class="tiny muted">PNG · CSV</span></button>
+          <button role="menuitem" :disabled="!teachReady()" @click="act(vtArea)"><Icon name="area" />{{ tl('v–t 图面积') }}<span class="spacer" /><span class="tiny muted">Shift+{{ tl('拖动') }}</span></button>
+          <div v-if="problemLocked()" class="menu-note tiny muted">{{ tl('作答期间不可用，揭晓答案后再打开。') }}</div>
+        </div>
+      </div>
     </div>
     <div class="group-btns">
       <button class="btn icon ghost" :title="tl('撤销（{0}+Z）', [MOD])" :disabled="!state.past.length" @click="undo"><Icon name="undo" /></button>
@@ -155,7 +190,7 @@ function toggleTheme() {
 .topbar { display: flex; align-items: center; gap: 8px; padding: 8px 4px; min-height: 52px; flex-wrap: nowrap; position: relative; z-index: 50; overflow: hidden; }
 .topbar:has(.menu) { overflow: visible; }
 .brand { display: flex; align-items: center; gap: 8px; margin-right: 2px; flex: 0 0 auto; }
-.name { font-weight: 700; font-size: calc(16px * var(--zoom)); letter-spacing: -0.01em; }
+.name { font-size: calc(16px * var(--zoom)) !important; }
 /* Fixed width: the buttons stay put when the file name changes */
 .doc { width: 168px; display: inline-flex; align-items: center; gap: 4px; color: var(--text-3); }
 .doc-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
@@ -173,6 +208,7 @@ function toggleTheme() {
 .menu { top: calc(100% + 6px); left: 0; }
 .menu.right { left: auto; right: 0; }
 .menu-check { justify-content: flex-start; }
+.menu-note { padding: 4px 10px 6px; max-width: 240px; line-height: 1.4; }
 .menu-check:hover { background: var(--hover) !important; color: inherit !important; }
 .display-menu { display: none; }
 /* Narrow windows: the overlay toggles live in the "显示" menu */

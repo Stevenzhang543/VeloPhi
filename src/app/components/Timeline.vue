@@ -87,6 +87,14 @@ function jumpEvent(dir: 1 | -1) {
 /** A seek beyond the computed range of an unbounded run waits for the computation. */
 const pendingSeek = ref<number | null>(null)
 watch(lastFrame, k => { if (pendingSeek.value !== null && k >= pendingSeek.value) { seekFrame(pendingSeek.value); pendingSeek.value = null } })
+// Scrubbing feedback (26.52, D57): the thumb grows and a bubble shows the time under it
+const scrubbing = ref(false)
+const playedFraction = computed(() => {
+  const r = rec.value
+  if (!r) return 0
+  const k = tNow.value / r.dt
+  return Math.min(1, Math.max(0, (k - kMin.value) / Math.max(1, kMax.value - kMin.value)))
+})
 function onTrack(e: Event) {
   pause()
   const r = rec.value
@@ -168,9 +176,12 @@ async function removeBranch() {
       <span class="mono time">{{ fmtT(tNow) }} / {{ fmtT(unbounded ? tComputed : duration) }} {{ unitLabel('s') }}</span>
       <span class="mono tiny muted frames">{{ tl('帧 {0} / {1}', [rec ? frameNow : 0, rec ? lastFrame : 0]) }}</span>
     </div>
-    <div class="track">
+    <div class="track" :class="{ scrub: scrubbing }">
+      <div class="rail" />
       <div class="computed" :style="{ transform: `scaleX(${computedFraction})` }" />
-      <input type="range" :min="kMin" :max="kMax" step="1" :value="rec ? Math.round(tNow / rec.dt) : 0" :disabled="!rec" :aria-label="tl('时间')" @input="onTrack" />
+      <div class="played" :style="{ transform: `scaleX(${playedFraction})` }" />
+      <input type="range" :min="kMin" :max="kMax" step="1" :value="rec ? Math.round(tNow / rec.dt) : 0" :disabled="!rec" :aria-label="tl('时间')" @input="onTrack" @pointerdown="scrubbing = true" @pointerup="scrubbing = false" @pointercancel="scrubbing = false" @blur="scrubbing = false" />
+      <div v-if="scrubbing && rec" class="bubble mono" :style="{ left: `calc(7px + (100% - 14px) * ${playedFraction})` }">{{ fmtT(tNow) }} {{ unitLabel('s') }}</div>
       <div class="markers">
         <button v-for="m in markers" :key="m.index" class="marker" :style="{ left: `${m.left}%` }" :title="tl('{0}（点击查看详情）', [m.text])" @click="onMarker(m)" />
         <button v-for="b in branchMarks" :key="`br-${b.id}`" class="marker branch" :style="{ left: `${b.left}%` }" :title="tl('分支“{0}”从这里开始（点击切换）', [b.name])" @click="showBranch(b.id)" />
@@ -195,9 +206,22 @@ async function removeBranch() {
 .time { font-size: var(--type-body); font-weight: 600; margin: 0 8px; white-space: nowrap; }
 .frames { white-space: nowrap; }
 .track { position: relative; height: 22px; margin-top: 2px; }
-.track input { width: 100%; margin: 0; position: absolute; top: 4px; accent-color: var(--accent); }
-.computed { position: absolute; left: 8px; right: 8px; top: 10px; height: 4px; border-radius: 999px; background: var(--accent-soft); transform-origin: left; transition: transform 200ms linear; pointer-events: none; }
-.markers { position: absolute; left: 8px; right: 8px; top: 0; height: 100%; pointer-events: none; }
+.rail, .computed, .played { position: absolute; left: 7px; right: 7px; top: 9px; height: 4px; border-radius: 999px; pointer-events: none; transform-origin: left; }
+.rail { background: var(--fill-strong); }
+.computed { background: var(--accent-soft); transition: transform 200ms linear; }
+.played { background: color-mix(in srgb, var(--accent) 70%, transparent); }
+.track input { width: 100%; margin: 0; position: absolute; top: 4px; height: 14px; -webkit-appearance: none; appearance: none; background: transparent; cursor: pointer; }
+.track input:disabled { cursor: default; }
+.track input::-webkit-slider-runnable-track { height: 14px; background: transparent; }
+.track input::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--accent); border: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 0 0 2.5px var(--pane); transition: transform var(--dur-2) var(--ease-spring);
+}
+.track input::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: var(--accent); border: 0; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 0 0 2.5px var(--pane); }
+.track input:hover::-webkit-slider-thumb { transform: scale(1.15); }
+.track.scrub input::-webkit-slider-thumb { transform: scale(1.4); }
+.bubble { position: absolute; bottom: calc(100% + 2px); transform: translateX(-50%); background: var(--text); color: var(--pane); font-size: var(--type-tiny); padding: 2px 7px; border-radius: 7px; pointer-events: none; white-space: nowrap; box-shadow: var(--shadow); animation: pop-in var(--dur-2) var(--ease-out); z-index: 2; }
+.markers { position: absolute; left: 7px; right: 7px; top: 0; height: 100%; pointer-events: none; }
 .marker { position: absolute; top: 0; width: 8px; height: 8px; margin-left: -4px; border-radius: 2px; transform: rotate(45deg); background: var(--warning); border: 0; padding: 0; cursor: pointer; pointer-events: auto; }
 .marker:hover { transform: rotate(45deg) scale(1.35); }
 .marker.branch { width: 4px; height: 18px; margin-left: -2px; top: 2px; border-radius: 2px; transform: none; background: var(--accent); }

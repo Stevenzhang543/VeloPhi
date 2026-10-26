@@ -61,7 +61,7 @@ def cargo_packages(folder='src-tauri', platform='x86_64-pc-windows-msvc', root_n
 def main():
     npm = npm_packages()
     crates = cargo_packages()
-    engine = cargo_packages('engine', 'wasm32-unknown-unknown', 'verity-wasm')
+    engine = cargo_packages('engine', 'wasm32-unknown-unknown', 'velophi-wasm')
     texts = {}
     def ref(files):
         ids = []
@@ -73,8 +73,8 @@ def main():
             ids.append(h)
         return ids
     lines = ['# Third-party notices / 第三方组件声明', '',
-             'Verity 26.50 bundles the following open-source components. Each is used unmodified under its own license.',
-             'Verity 26.50 使用了下列开源组件，均未修改，按各自许可证使用。许可证全文见文末（相同文本只列一次）。', '',
+             'VeloPhi 26.50 bundles the following open-source components. Each is used unmodified under its own license.',
+             'VeloPhi 26.50 使用了下列开源组件，均未修改，按各自许可证使用。许可证全文见文末（相同文本只列一次）。', '',
              f'## npm packages in the application ({len(npm)})', '', '| Package | Version | License | License text |', '|---|---|---|---|']
     for p in sorted(npm, key=lambda x: x['name']):
         lines.append(f"| {p['name']} | {p['version']} | {p['license']} | {', '.join('§' + h for h in ref(p['files'])) or '—'} |")

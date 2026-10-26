@@ -1,7 +1,7 @@
 /**
  * Unit system.
  *
- * Verity stores and computes every value in SI (m, kg, s, N, J, rad). Units are converted only at the display
+ * VeloPhi stores and computes every value in SI (m, kg, s, N, J, rad). Units are converted only at the display
  * boundary: inputs convert display -> SI when a value is committed, readouts convert SI -> display when a value
  * is shown. Every quantity carries its SI unit string (for example 'm/s²'); that string is the key into this
  * table, so one preference changes every panel, chart, formula card, export and CSV column consistently.

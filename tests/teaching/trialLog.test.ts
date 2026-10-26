@@ -39,7 +39,7 @@ describe('trial log', () => {
     const json = log.trialLogJson()
     expect(json).not.toMatch(/张|Users|home|名字/)
     const doc = JSON.parse(json)
-    expect(doc.format).toBe('verity-trial-log')
+    expect(doc.format).toBe('velophi-trial-log')
     expect(doc.entries.length).toBe(3)
   })
 

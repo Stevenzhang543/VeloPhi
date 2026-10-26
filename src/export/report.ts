@@ -61,6 +61,8 @@ export interface ReportInput {
   parameters: ReportTable[]
   screenshots: ReportFigure[]
   curves: ReportFigure[]
+  /** Free-body diagrams (26.52, D62; optional). */
+  fbd?: ReportFigure[]
   /** Formula cards as images (optional, in addition to the table). */
   formulaImages?: ReportFigure[]
   /** Derivation and solution pages of the formulas and key events (optional, D28). */
@@ -134,7 +136,7 @@ export function buildReportHtml(r: ReportInput): string {
   const parts: string[] = []
   parts.push(`<h1>${escapeHtml(r.title)}</h1>`)
   if (r.description) parts.push(`<p class="sub">${escapeHtml(r.description)}</p>`)
-  parts.push(tl('<p class="meta">实验报告 · 生成于 {0} · Verity {1}</p>', [escapeHtml(r.generatedAt), escapeHtml(r.engineVersion)]))
+  parts.push(tl('<p class="meta">实验报告 · 生成于 {0} · VeloPhi {1}</p>', [escapeHtml(r.generatedAt), escapeHtml(r.engineVersion)]))
   if (r.notice) parts.push(tl('<div class="notice"><span class="badge warn">精度降级</span> {0}</div>', [escapeHtml(stripLabel(r.notice))]))
   if (r.notes?.trim()) parts.push(`<div class="notes">${escapeHtml(r.notes.trim())}</div>`)
 
@@ -142,6 +144,7 @@ export function buildReportHtml(r: ReportInput): string {
   const h2 = (t: string) => `<h2>${++sec}. ${escapeHtml(t)}</h2>`
   if (r.parameters.length) parts.push(h2(tl('实验参数')), ...r.parameters.map(t => table(t)))
   if (r.screenshots.length) parts.push(h2(tl('关键时刻截图')), figures(r.screenshots, true))
+  if (r.fbd?.length) parts.push(h2(tl('受力分析图')), figures(r.fbd, true))
   if (r.curves.length) parts.push(h2(tl('曲线')), figures(r.curves, false))
   if (r.formulas.length || r.formulaImages?.length) {
     parts.push(h2(tl('公式对照与误差')))
@@ -165,8 +168,8 @@ export function buildReportHtml(r: ReportInput): string {
   if (r.derivations?.length) parts.push(h2(tl('推导与解题过程')), figures(r.derivations, false))
   if (r.warnings.length) parts.push(h2(tl('提示')), `<ul class="warn-list">${r.warnings.map(w => `<li>${escapeHtml(w)}</li>`).join('')}</ul>`)
   if (r.legend.length) parts.push(`<div class="legend">${r.legend.map(l => `<p>${escapeHtml(l)}</p>`).join('')}</div>`)
-  parts.push(tl('<footer>Verity {0} · 仿真结果指纹 SHA-256 <code>{1}</code><br/>用同一场景文件重新计算可得到相同的指纹与逐位相同的数值。本报告离线生成，不含任何外部链接。</footer>', [escapeHtml(r.engineVersion), escapeHtml(r.hash)]))
-  return tl('<!doctype html>\n<html lang="zh-CN"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><meta name="generator" content="Verity {0}"/><title>{1} — 实验报告</title><style>{2}</style></head><body><main>{3}</main></body></html>\n', [escapeHtml(r.engineVersion), escapeHtml(r.title), CSS, parts.join('\n')])
+  parts.push(tl('<footer>VeloPhi {0} · 仿真结果指纹 SHA-256 <code>{1}</code><br/>用同一场景文件重新计算可得到相同的指纹与逐位相同的数值。本报告离线生成，不含任何外部链接。</footer>', [escapeHtml(r.engineVersion), escapeHtml(r.hash)]))
+  return tl('<!doctype html>\n<html lang="zh-CN"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><meta name="generator" content="VeloPhi {0}"/><title>{1} — 实验报告</title><style>{2}</style></head><body><main>{3}</main></body></html>\n', [escapeHtml(r.engineVersion), escapeHtml(r.title), CSS, parts.join('\n')])
 }
 
 /**

@@ -5,6 +5,7 @@
  */
 import { tl } from '../../i18n'
 import type { AnnotationDef, BodyDef, ConnectorDef, ForceDef, PulleyDef, Scene } from '../../core/scene/types'
+import { connectorAnchors } from '../../core/scene/types'
 import { nextId } from '../../core/scene/build'
 import { edit, state } from '../store'
 import type { Selection } from '../store'
@@ -213,10 +214,11 @@ export function kindChangeBlocker(scene: Scene, b: BodyDef): string | null {
     if (b.beltSpeed !== 0) return tl('传送带只能是固定物体')
     return null
   }
-  const touches = (c: ConnectorDef) => c.a.body === b.id || (c.type !== 'force' && c.b.body === b.id)
+  const touches = (c: ConnectorDef) => connectorAnchors(c).some(a => a.body === b.id)
   for (const c of scene.connectors) {
     if (!touches(c)) continue
     if (c.type === 'force') return tl('物体上有外力，先删除外力再转为固定')
+    if (c.type === 'central') continue
     const other = c.a.body === b.id ? c.b.body : c.a.body
     const otherBody = other ? scene.bodies.find(x => x.id === other) : null
     if (!otherBody || otherBody.kind === 'static') return tl('{0} 的另一端也是固定的，转为固定后连接没有意义', [c.name])
@@ -241,7 +243,7 @@ export function toggleStatic(id: string) {
         b.shape = { type: 'polygon', points: lv.map(p => ({ x: p.x - c.x, y: p.y - c.y })) }
         b.position = cw
         // Anchors on the body keep their world points
-        for (const conn of scene.connectors) for (const a of conn.type === 'force' ? [conn.a] : [conn.a, conn.b]) if (a.body === b.id) { a.local = { x: a.local.x - c.x, y: a.local.y - c.y } }
+        for (const conn of scene.connectors) for (const a of connectorAnchors(conn)) if (a.body === b.id) { a.local = { x: a.local.x - c.x, y: a.local.y - c.y } }
       }
       b.kind = b.shape.type === 'circle' && b.role === 'ball' ? 'particle' : 'rigid'
       b.mass = 1

@@ -11,6 +11,7 @@ import type { System, Mode, ModeSolution } from '../core/solver/dynamics'
 import type { Pose } from '../core/solver/kinematics'
 import { anchorState, computePoses, pulleyCenter, ropeKin } from '../core/solver/kinematics'
 import type { BodyModel } from '../core/solver/model'
+import { centralForce } from '../core/solver/model'
 import type { Recording } from '../core/solver/simulation'
 import { frameIsCheap, frameState } from '../core/solver/simulation'
 import type { AnnotationDef } from '../core/scene/types'
@@ -181,14 +182,38 @@ export function bodyPath(ctx: CanvasRenderingContext2D, cam: Camera, b: BodyMode
     ctx.arc(sx, sy, b.shape.radius * cam.ppm, 0, Math.PI * 2)
     return
   }
-  const verts = b.shape.verts
-  for (let i = 0; i < verts.length; i++) {
-    const v = verts[i]
-    const wx = pose.x + pose.c * v.x - pose.s * v.y, wy = pose.y + pose.s * v.x + pose.c * v.y
-    const sx = cam.width / 2 + (wx - cam.cx) * cam.ppm, sy = cam.height / 2 - (wy - cam.cy) * cam.ppm
-    if (i === 0) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy)
+  // 26.52 (D35): a concave polygon or compound body is drawn part by part (the seams of a compound show)
+  const loops: Array<{ kind: 'circle'; center: { x: number; y: number }; radius: number } | { kind: 'polygon'; verts: Array<{ x: number; y: number }> }> =
+    b.shape.kind === 'polygon' ? [{ kind: 'polygon', verts: b.shape.verts }] : b.shape.outline
+  for (const loop of loops) {
+    if (loop.kind === 'circle') {
+      const wx = pose.x + pose.c * loop.center.x - pose.s * loop.center.y, wy = pose.y + pose.s * loop.center.x + pose.c * loop.center.y
+      const [sx, sy] = toScreen(cam, wx, wy)
+      ctx.moveTo(sx + loop.radius * cam.ppm, sy)
+      ctx.arc(sx, sy, loop.radius * cam.ppm, 0, Math.PI * 2)
+      continue
+    }
+    const verts = loop.verts
+    for (let i = 0; i < verts.length; i++) {
+      const v = verts[i]
+      const wx = pose.x + pose.c * v.x - pose.s * v.y, wy = pose.y + pose.s * v.x + pose.c * v.y
+      const sx = cam.width / 2 + (wx - cam.cx) * cam.ppm, sy = cam.height / 2 - (wy - cam.cy) * cam.ppm
+      if (i === 0) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy)
+    }
+    ctx.closePath()
   }
-  ctx.closePath()
+}
+
+/** Highest point of a body at a pose (world y). */
+function bodyTop(b: BodyModel, pose: Pose): number {
+  if (b.shape.kind === 'circle') return pose.y + b.shape.radius
+  let top = -Infinity
+  if (b.shape.kind === 'polygon') { for (const v of b.shape.verts) top = Math.max(top, pose.y + pose.s * v.x + pose.c * v.y); return top }
+  for (const p of b.shape.outline) {
+    if (p.kind === 'circle') top = Math.max(top, pose.y + pose.s * p.center.x + pose.c * p.center.y + p.radius)
+    else for (const v of p.verts) top = Math.max(top, pose.y + pose.s * v.x + pose.c * v.y)
+  }
+  return top
 }
 
 let hatchCache: { color: string; pattern: CanvasPattern | null } | null = null
@@ -298,7 +323,9 @@ function drawGearGlyph(ctx: CanvasRenderingContext2D, x: number, y: number, r: n
 }
 
 /** A force to draw: application point (m), components (N), colour and label. */
-export interface ForceArrow { x: number; y: number; fx: number; fy: number; color: string; label: string }
+/** Category of a force (the free-body diagram orders and names forces by it). */
+export type ForceKind = 'gravity' | 'normal' | 'limit' | 'friction' | 'tension' | 'pin' | 'spring' | 'damper' | 'drag' | 'attract' | 'central' | 'applied'
+export interface ForceArrow { x: number; y: number; fx: number; fy: number; color: string; label: string; kind: ForceKind }
 
 /** Forces acting on a body, from the mode solution (gravity, contacts, connectors, applied forces). */
 export function bodyForces(input: DrawInput, b: BodyModel, poses: Pose[]): ForceArrow[] {
@@ -307,7 +334,7 @@ export function bodyForces(input: DrawInput, b: BodyModel, poses: Pose[]): Force
   const P = input.palette
   const g = sys.model.settings.gravity
   const pose = poses[b.global]
-  if (g.x !== 0 || g.y !== 0) out.push({ x: pose.x, y: pose.y, fx: b.mass * g.x, fy: b.mass * g.y, color: P.gravity, label: 'G' })
+  if (g.x !== 0 || g.y !== 0) out.push({ x: pose.x, y: pose.y, fx: b.mass * g.x, fy: b.mass * g.y, color: P.gravity, label: 'G', kind: 'gravity' })
   if (sol && mode) {
     mode.units.forEach((u, ui) => {
       if (u.points.length === 0 || (u.pair.X !== b && u.pair.Y !== b)) return
@@ -317,12 +344,12 @@ export function bodyForces(input: DrawInput, b: BodyModel, poses: Pose[]): Force
         const k = st.pointKin[pi]
         const sign = p.A.body === b ? 1 : -1
         const l = st.pointLambda[pi]
-        out.push({ x: k.cx, y: k.cy, fx: sign * l * k.nx, fy: sign * l * k.ny, color: P.normal, label: u.points.length > 1 ? `N${pi + 1}` : 'N' })
+        out.push({ x: k.cx, y: k.cy, fx: sign * l * k.nx, fy: sign * l * k.ny, color: P.normal, label: u.points.length > 1 ? `N${pi + 1}` : 'N', kind: 'normal' })
         cx += k.cx / u.points.length; cy += k.cy / u.points.length
       })
       if (u.friction !== 'none' && Math.abs(st.tangent) > 1e-12) {
         const sign = u.ref.A.body === b ? 1 : -1
-        out.push({ x: cx, y: cy, fx: sign * st.tangent * st.refKin.tx, fy: sign * st.tangent * st.refKin.ty, color: P.friction, label: 'f' })
+        out.push({ x: cx, y: cy, fx: sign * st.tangent * st.refKin.tx, fy: sign * st.tangent * st.refKin.ty, color: P.friction, label: 'f', kind: 'friction' })
       }
     })
     sys.model.ropes.forEach((r, k) => {
@@ -330,8 +357,17 @@ export function bodyForces(input: DrawInput, b: BodyModel, poses: Pose[]): Force
       const T = sol.ropeTension[k]
       if (Math.abs(T) < 1e-12) return
       const rk = ropeKin(poses, r)
-      if (r.a.body === b) { const p = anchorState(poses, r.a); out.push({ x: p.px, y: p.py, fx: T * rk.path.u1.x, fy: T * rk.path.u1.y, color: P.tension, label: 'T' }) }
-      if (r.b.body === b) { const p = anchorState(poses, r.b); out.push({ x: p.px, y: p.py, fx: -T * rk.path.uLast.x, fy: -T * rk.path.uLast.y, color: P.tension, label: 'T' }) }
+      if (r.a.body === b) { const p = anchorState(poses, r.a); out.push({ x: p.px, y: p.py, fx: T * rk.path.u1.x, fy: T * rk.path.u1.y, color: P.tension, label: 'T', kind: 'tension' }) }
+      if (r.b.body === b) { const p = anchorState(poses, r.b); out.push({ x: p.px, y: p.py, fx: -T * rk.path.uLast.x, fy: -T * rk.path.uLast.y, color: P.tension, label: 'T', kind: 'tension' }) }
+    })
+    // 26.52: the force of a slider's end stop on its carriage (and the reaction on the rail's body)
+    sol.rows.forEach((row, k) => {
+      if (row.kind !== 'limit') return
+      const sl = sys.model.sliders[row.owner]
+      const l = sol.lambda[k]
+      if (Math.abs(l) < 1e-12) return
+      if (sl.b.body === b) { const p = anchorState(poses, sl.b); out.push({ x: p.px, y: p.py, fx: row.j.bx * l, fy: row.j.by * l, color: P.normal, label: tl('F限'), kind: 'limit' }) }
+      if (sl.a.body === b) { const p = anchorState(poses, sl.a); out.push({ x: p.px, y: p.py, fx: row.j.ax * l, fy: row.j.ay * l, color: P.normal, label: tl('F限'), kind: 'limit' }) }
     })
     sol.rows.forEach((row, k) => {
       if (row.kind !== 'hinge' && row.kind !== 'rod' && row.kind !== 'weld' && row.kind !== 'motor' && row.kind !== 'slider') return
@@ -347,13 +383,13 @@ export function bodyForces(input: DrawInput, b: BodyModel, poses: Pose[]): Force
         const side = c.a.body === b ? c.a : c.b
         const sign = c.a.body === b ? 1 : -1
         const p = anchorState(poses, side)
-        out.push({ x: p.px, y: p.py, fx: sign * Fx, fy: sign * Fy, color: P.tension, label: 'F' })
+        out.push({ x: p.px, y: p.py, fx: sign * Fx, fy: sign * Fy, color: P.tension, label: 'F', kind: 'pin' })
       } else {
         const side = c.a.body === b ? c.a : c.b
         const p = anchorState(poses, side)
         const l = sol.lambda[k]
         const fx = side === c.a ? row.j.ax * l : row.j.bx * l, fy = side === c.a ? row.j.ay * l : row.j.by * l
-        out.push({ x: p.px, y: p.py, fx, fy, color: P.tension, label: 'F' })
+        out.push({ x: p.px, y: p.py, fx, fy, color: P.tension, label: 'F', kind: 'pin' })
       }
 
     })
@@ -367,14 +403,14 @@ export function bodyForces(input: DrawInput, b: BodyModel, poses: Pose[]): Force
     const vrel = ux * (pa.vx - pb.vx) + uy * (pa.vy - pb.vy)
     const ext = L - s.restLength
     const mag = -s.stiffness * ext - s.cubic * ext * ext * ext - s.damping * vrel
-    const label = s.damper ? tl('F阻') : tl('F弹')
-    if (s.a.body === b) out.push({ x: pa.px, y: pa.py, fx: mag * ux, fy: mag * uy, color: P.spring, label })
-    else out.push({ x: pb.px, y: pb.py, fx: -mag * ux, fy: -mag * uy, color: P.spring, label })
+    const label = s.damper ? tl('F阻') : tl('F弹'), kind: ForceKind = s.damper ? 'damper' : 'spring'
+    if (s.a.body === b) out.push({ x: pa.px, y: pa.py, fx: mag * ux, fy: mag * uy, color: P.spring, label, kind })
+    else out.push({ x: pb.px, y: pb.py, fx: -mag * ux, fy: -mag * uy, color: P.spring, label, kind })
   }
   // 26.51: air drag at the centre of mass and gravitation from every other body with mass
   if (b.dragLin > 0 || b.dragQuad > 0) {
     const sp = Math.hypot(pose.vx, pose.vy), k = b.dragLin + b.dragQuad * sp
-    if (k * sp > 0) out.push({ x: pose.x, y: pose.y, fx: -k * pose.vx, fy: -k * pose.vy, color: P.friction, label: tl('f阻') })
+    if (k * sp > 0) out.push({ x: pose.x, y: pose.y, fx: -k * pose.vx, fy: -k * pose.vy, color: P.friction, label: tl('f阻'), kind: 'drag' })
   }
   if (sys.model.G > 0 && b.attract > 0) {
     let fx = 0, fy = 0
@@ -386,12 +422,27 @@ export function bodyForces(input: DrawInput, b: BodyModel, poses: Pose[]): Force
       const d = Math.sqrt(d2), R = b.bound + o.bound, f = d >= R ? sys.model.G * b.attract * o.attract / d2 : sys.model.G * b.attract * o.attract * d / (R * R * R)
       fx += f * dx / d; fy += f * dy / d
     }
-    if (fx !== 0 || fy !== 0) out.push({ x: pose.x, y: pose.y, fx, fy, color: P.gravity, label: tl('F引') })
+    if (fx !== 0 || fy !== 0) out.push({ x: pose.x, y: pose.y, fx, fy, color: P.gravity, label: tl('F引'), kind: 'attract' })
   }
   for (const f of sys.model.forces) {
     if (f.a.body !== b) continue
     const p = anchorState(poses, f.a)
-    out.push({ x: p.px, y: p.py, fx: f.force.x, fy: f.force.y, color: P.applied, label: 'F' })
+    out.push({ x: p.px, y: p.py, fx: f.force.x, fy: f.force.y, color: P.applied, label: 'F', kind: 'applied' })
+  }
+  // 26.52: central fields on their targets, and the reaction on the body carrying the centre
+  for (const c of sys.model.centrals) {
+    const P0 = anchorState(poses, c.a)
+    let rx = 0, ry = 0
+    for (const t of c.targets) {
+      const pt = poses[t.global]
+      const dx = pt.x - P0.px, dy = pt.y - P0.py, r = Math.hypot(dx, dy)
+      if (!(r > 0)) continue
+      const F = centralForce(c.k, c.n, r, t.bound)
+      const fx = -F * dx / r, fy = -F * dy / r
+      if (t === b) out.push({ x: pt.x, y: pt.y, fx, fy, color: P.gravity, label: tl('F心'), kind: 'central' })
+      rx -= fx; ry -= fy
+    }
+    if (c.a.body === b && (rx !== 0 || ry !== 0)) out.push({ x: P0.px, y: P0.py, fx: rx, fy: ry, color: P.gravity, label: tl('F心'), kind: 'central' })
   }
   return out
 }
@@ -491,11 +542,13 @@ export function drawScene(ctx: CanvasRenderingContext2D, cam: Camera, input: Dra
       ctx.beginPath(); ctx.arc(cx, cy, 2.2 * Math.sqrt(lw(1)), 0, Math.PI * 2); ctx.fill()
     }
     if (b.id === input.selectedId || b.id === input.hoverId) {
+      const sel = b.id === input.selectedId
       bodyPath(ctx, cam, b, pose)
       ctx.strokeStyle = P.accent
-      ctx.lineWidth = lw(b.id === input.selectedId ? 2.5 : 1.5)
-      ctx.setLineDash(b.id === input.selectedId ? [] : [4, 3])
-      ctx.stroke()
+      ctx.lineWidth = lw(sel ? 2.5 : 1.5)
+      ctx.setLineDash(sel ? [] : [4, 3])
+      // 26.52 (D57): a soft halo marks the selection
+      if (sel) { ctx.save(); ctx.shadowColor = P.accent; ctx.shadowBlur = 10; ctx.stroke(); ctx.restore() } else ctx.stroke()
       ctx.setLineDash([])
     }
   }
@@ -581,12 +634,41 @@ export function drawScene(ctx: CanvasRenderingContext2D, cam: Camera, input: Dra
     ctx.setLineDash([6, 4])
     ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke()
     ctx.setLineDash([])
+    // 26.52: end stops as bars across the rail at s_min and s_max
+    if (sl.limited) {
+      ctx.lineWidth = lw(3)
+      for (const s of [sl.lo, sl.hi]) {
+        if (!Number.isFinite(s)) continue
+        const [sx, sy] = toScreen(cam, pa.px + ax * s, pa.py + ay * s)
+        ctx.beginPath(); ctx.moveTo(sx - ay * 9, sy - ax * 9); ctx.lineTo(sx + ay * 9, sy + ax * 9); ctx.stroke()
+      }
+      ctx.lineWidth = lw(sel ? 2 : 1.4)
+    }
     const [bx, by] = toScreen(cam, pb.px, pb.py)
     const ang = Math.atan2(ay, ax)
     ctx.save(); ctx.translate(bx, by); ctx.rotate(-ang)
     ctx.fillStyle = P.bg; ctx.lineWidth = lw(2)
     ctx.beginPath(); ctx.roundRect(-9, -5, 18, 10, 2); ctx.fill(); ctx.stroke()
     ctx.restore()
+  }
+  // 26.52: central fields: the centre with four short arrows in (attraction) or out (repulsion)
+  for (const c of model.centrals) {
+    const p = anchorState(poses, c.a)
+    const [x, y] = toScreen(cam, p.px, p.py)
+    const sel = c.id === input.selectedId
+    const col = sel ? P.accent : P.gravity
+    ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = lw(1.6)
+    ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2); ctx.stroke()
+    ctx.beginPath(); ctx.arc(x, y, 2, 0, Math.PI * 2); ctx.fill()
+    const inward = c.k >= 0
+    for (let i = 0; i < 4; i++) {
+      const a = Math.PI / 4 + i * Math.PI / 2, ca = Math.cos(a), sa = Math.sin(a)
+      const r0 = inward ? 22 : 12, r1 = inward ? 12 : 22
+      const x0 = x + ca * r0, y0 = y + sa * r0, x1 = x + ca * r1, y1 = y + sa * r1
+      ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke()
+      const dx = (x1 - x0) / 10, dy = (y1 - y0) / 10
+      ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x1 - 4 * dx - 3 * dy, y1 - 4 * dy + 3 * dx); ctx.lineTo(x1 - 4 * dx + 3 * dy, y1 - 4 * dy - 3 * dx); ctx.closePath(); ctx.fill()
+    }
   }
   for (const w of model.welds) {
     const pa = anchorState(poses, w.a)
@@ -699,9 +781,7 @@ export function drawScene(ctx: CanvasRenderingContext2D, cam: Camera, input: Dra
     ctx.fillStyle = P.text2
     for (const b of model.dynamic) {
       const pose = poses[b.global]
-      let top = -Infinity
-      if (b.shape.kind === 'circle') top = pose.y + b.shape.radius
-      else for (const v of b.shape.verts) top = Math.max(top, pose.y + pose.s * v.x + pose.c * v.y)
+      const top = bodyTop(b, pose)
       const [sx] = toScreen(cam, pose.x, pose.y)
       const [, ty] = toScreen(cam, pose.x, top)
       const w = ctx.measureText(b.name).width

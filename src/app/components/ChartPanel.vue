@@ -16,21 +16,28 @@
  * Branches (26.51, D52): the time axis shows the clock of the scene on screen (a branch starts at its branch
  * point), and while a branch is shown its parent's curves of the same quantities can be overlaid (dashed), so
  * "what changed after the branch point" is visible at a glance.
+ *
+ * Area (26.52, D64): Shift-drag across a chart integrates its curves over that span (teaching/area.ts, composite
+ * Simpson on the recorded frames). The area is shaded (positive and negative parts in different colours) and its
+ * value is shown next to the change of the quantity it is the rate of (v → displacement, a → Δv …).
  */
-import { tl } from '../../i18n'
+import { tl, colonSep, paren } from '../../i18n'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import uPlot from 'uplot'
 import 'uplot/dist/uPlot.min.css'
-import { state, seekTime, pause } from '../store'
+import { state, seekTime, pause, showToast, problemLocked } from '../store'
+import ProblemLock from './ProblemLock.vue'
 import { canonicalQuantityId, evaluateQuantity, listQuantities, makeContext } from '../../core/observe/quantities'
 import type { Recording } from '../../core/solver/simulation'
 import { parentRecording } from '../branches'
 import type { QuantityDef } from '../../core/observe/quantities'
 import { formatSig } from '../../units/units'
-import { fromDisp, toDisp, unitLabel } from '../settings'
+import { fmtQ, fromDisp, toDisp, unitLabel } from '../settings'
 import { RECENT_SPAN, recentWindow, seriesFor, seriesWindow, useGated } from '../live'
 import { chartEnvelope, envelopePlot } from '../../render/chartLod'
 import type { SeriesView } from '../live'
+import type { AreaResult } from '../../teaching/area'
+import { areaUnder, integralUnit } from '../../teaching/area'
 
 const props = withDefaults(defineProps<{ active?: boolean; limit?: number; variant?: 'studio' | 'monitor' }>(), { active: true, limit: 8, variant: 'studio' })
 
@@ -40,6 +47,12 @@ let plots: Plot[] = []
 let built = { key: '', runId: -1, n: '', w: 0, h: 0 }
 /** The last pointer gesture was a drag (zoom), not a click (seek). */
 let dragged = false
+/** The drag started with Shift held: integrate instead of zooming (D64). */
+let shiftDrag = false
+/** The integrated span of one chart and the areas of its curves. */
+interface AreaRow extends AreaResult { label: string; unit: string; color: string }
+const area = ref<{ plot: number; t0: number; t1: number; rows: AreaRow[] } | null>(null)
+function clearArea() { area.value = null; for (const p of plots) p.plot.redraw(false) }
 
 /** What an unbounded run's charts show: the recent window around the playhead, or the whole run (overview). */
 const longMode = ref<'recent' | 'all'>('recent')
@@ -79,7 +92,9 @@ function envelopeMode(r: NonNullable<typeof rec.value>): boolean {
   return r.unbounded ? longMode.value === 'all' : r.frameCount > LONG_FRAMES || zoom.value !== null
 }
 
-const rec = computed(() => (state.stale ? null : state.recording))
+/** A problem is being answered: curves are hidden (26.52). */
+const locked = computed(() => problemLocked())
+const rec = computed(() => (state.stale || locked.value ? null : state.recording))
 const system = computed(() => rec.value?.system ?? null)
 const quantities = computed<Map<string, QuantityDef>>(() => new Map((system.value ? listQuantities(system.value) : []).map(q => [q.id, q])))
 
@@ -178,7 +193,11 @@ function build(s: SeriesView) {
   const eventTimes = r.events.filter(e => e.changes.length > 0).map(e => (e.t + o) * ft)
   const digits = Math.min(8, state.digits)
   let colorIndex = 0
+  const positiveFill = state.theme === 'dark' ? 'rgba(74,222,128,0.26)' : 'rgba(22,163,74,0.20)'
+  const negativeFill = state.theme === 'dark' ? 'rgba(248,113,113,0.28)' : 'rgba(220,38,38,0.20)'
   for (const [unit, list] of groups.value) {
+    const plotIndex = plots.length
+    const colors = list.map((_q, i) => palette[(colorIndex + i) % palette.length])
     const div = document.createElement('div')
     div.className = 'chart'
     el.appendChild(div)
@@ -210,11 +229,50 @@ function build(s: SeriesView) {
           const a = fromDisp(u.posToVal(u.select.left, 'x'), 's') - o, b = fromDisp(u.posToVal(u.select.left + u.select.width, 'x'), 's') - o
           u.setSelect({ left: 0, top: 0, width: 0, height: 0 }, false)
           dragged = true
+          if (shiftDrag) { integrate(plotIndex, list, colors, a, b); return }
           if (b - a > 2 * (rec.value?.dt ?? 0)) { zoom.value = { t0: a, t1: b }; schedule() }
         }],
         draw: [u => {
-          // Event times as dashed lines (static; drawn only when the chart itself redraws)
           const ctx = u.ctx
+          // The integrated span (D64): between each curve and the time axis, positive and negative parts apart
+          const sel = area.value
+          if (sel && sel.plot === plotIndex) {
+            const x0 = u.valToPos((sel.t0 + o) * ft, 'x', true), x1 = u.valToPos((sel.t1 + o) * ft, 'x', true)
+            const yZero = u.valToPos(0, 'y', true)
+            const top = u.bbox.top, bottom = u.bbox.top + u.bbox.height
+            const ts = u.data[0] as number[]
+            for (let si = 1; si <= list.length; si++) {
+              const ys = u.data[si] as Array<number | null>
+              const path = new Path2D()
+              let started = false, lastX = x0
+              for (let i = 0; i < ts.length; i++) {
+                const tv = ts[i]
+                if (tv < (sel.t0 + o) * ft - 1e-12 || tv > (sel.t1 + o) * ft + 1e-12) continue
+                const yv = ys[i]
+                if (yv == null) continue
+                const px = u.valToPos(tv, 'x', true), py = u.valToPos(yv, 'y', true)
+                if (!started) { path.moveTo(px, yZero); started = true }
+                path.lineTo(px, py)
+                lastX = px
+              }
+              if (!started) continue
+              path.lineTo(lastX, yZero)
+              path.closePath()
+              for (const [y0, y1, fill] of [[top, yZero, positiveFill], [yZero, bottom, negativeFill]] as Array<[number, number, string]>) {
+                ctx.save()
+                ctx.beginPath(); ctx.rect(Math.min(x0, x1), Math.min(y0, y1), Math.abs(x1 - x0), Math.abs(y1 - y0)); ctx.clip()
+                ctx.fillStyle = fill
+                ctx.fill(path)
+                ctx.restore()
+              }
+            }
+            ctx.save()
+            ctx.strokeStyle = cssVar('--text-3')
+            ctx.lineWidth = devicePixelRatio
+            ctx.beginPath(); ctx.moveTo(x0, top); ctx.lineTo(x0, bottom); ctx.moveTo(x1, top); ctx.lineTo(x1, bottom); ctx.stroke()
+            ctx.restore()
+          }
+          // Event times as dashed lines (static; drawn only when the chart itself redraws)
           ctx.save()
           ctx.strokeStyle = warn
           ctx.setLineDash([3 * devicePixelRatio, 3 * devicePixelRatio])
@@ -232,6 +290,8 @@ function build(s: SeriesView) {
       }
     }
     const plot = new uPlot(opts, dataFor(s, ids, unit), div)
+    // Capture phase: before uPlot's own mousedown starts the selection
+    plot.over.addEventListener('pointerdown', e => { shiftDrag = e.shiftKey }, true)
     const cursor = document.createElement('div')
     cursor.className = 'time-cursor'
     plot.over.appendChild(cursor)
@@ -247,6 +307,28 @@ function build(s: SeriesView) {
   }
   built = { key: buildKey.value, runId: state.runId, n: dataSig(s), w, h }
   placeCursor()
+}
+
+/** Integrate the curves of one chart over [a, b] (D64) and shade the span. */
+function integrate(plotIndex: number, list: QuantityDef[], colors: string[], a: number, b: number) {
+  const r = rec.value
+  if (!r) return
+  const rows: AreaRow[] = []
+  for (let i = 0; i < list.length; i++) {
+    const q = list[i]
+    const res = areaUnder(r, q.id, a, b)
+    if (!res) { showToast(tl('所选时间段太短或太长，无法计算面积'), true); return }
+    rows.push({ ...res, label: `${q.owner} ${q.label}`, unit: integralUnit(q.unit), color: colors[i] })
+  }
+  if (!rows.length) return
+  area.value = { plot: plotIndex, t0: rows[0].t0, t1: rows[0].t1, rows }
+  for (const p of plots) p.plot.redraw(false)
+}
+/** Text of the change compared with an area: Δx, Δv … */
+function compareText(row: AreaRow): string {
+  const key = row.compareId?.slice(row.compareId.lastIndexOf('.') + 1) ?? ''
+  const sym: Record<string, string> = { x: 'Δx', y: 'Δy', vx: 'Δvₓ', vy: 'Δv_y', angle: 'Δθ', omega: 'Δω' }
+  return sym[key] ?? 'Δ'
 }
 
 /** Bring the charts up to date (build, add new frames, or resize). */
@@ -310,7 +392,7 @@ const windowKey = computed(() => {
   const w = recentWindow(r, tCursor.value)
   return `${w.t0}|${w.t1}`
 })
-watch(() => state.runId, () => { zoom.value = null })
+watch(() => state.runId, () => { zoom.value = null; area.value = null })
 watch(longMode, () => { zoom.value = null })
 watch([rec, buildKey, () => state.runId, () => props.active, windowKey, longMode], () => nextTick(schedule))
 onBeforeUnmount(() => { ro?.disconnect(); if (timer) clearTimeout(timer); destroy() })
@@ -337,12 +419,22 @@ function preset(kind: 'kin' | 'energy' | 'force') {
       <button v-if="state.branch !== null" class="btn small" :class="{ active: overlay }" :aria-pressed="overlay" :title="tl('在曲线中用虚线叠加父分支的同一物理量')" @click="overlay = !overlay">{{ tl('叠加父分支') }}</button>
       <button v-if="rec?.unbounded" class="btn small" :title="longMode === 'recent' ? tl('显示全程（每个像素列的最小/最大包络）') : tl('只显示播放位置附近的 {0} s（逐帧）', [RECENT_SPAN])" @click="longMode = longMode === 'recent' ? 'all' : 'recent'">{{ longMode === 'recent' ? tl('最近 {0} s', [RECENT_SPAN]) : tl('全程') }}</button>
       <button v-if="zoom" class="btn small" :title="tl('双击曲线也可恢复')" @click="zoom = null; schedule()">{{ `${toDisp(zoom.t0 + origin, 's').toPrecision(4)}–${toDisp(zoom.t1 + origin, 's').toPrecision(4)} ${unitLabel('s')}` }} ✕</button>
-      <span v-if="variant === 'studio'" class="tiny muted hint">{{ tl('（在“监视”页点图表按钮可加入任意量；点击曲线跳到该时刻，拖动选择区间放大，双击还原；虚线为事件时刻）') }}</span>
+      <span v-if="variant === 'studio' && !area" class="tiny muted hint">{{ tl('（在“监视”页点图表按钮可加入任意量；点击曲线跳到该时刻，拖动选择区间放大，Shift+拖动求面积，双击还原；虚线为事件时刻）') }}</span>
       <span v-else-if="groups.length >= limit" class="tiny muted hint">{{ tl('最多显示 {0} 张图', [limit]) }}</span>
     </div>
-    <div v-if="!rec" class="empty">{{ tl('运行仿真后显示曲线。') }}</div>
+    <div v-if="area" class="area-bar small">
+      <span class="area-span">{{ tl('面积 {0}–{1}', [fmtQ(area.t0 + origin, 's', 4), fmtQ(area.t1 + origin, 's', 4)]) }}</span>
+      <span v-for="row in area.rows" :key="row.id" class="area-row" :title="tl('正面积 {0}，负面积 {1}', [fmtQ(row.positive, row.unit), fmtQ(row.negative, row.unit)])">
+        <i class="swatch" :style="{ background: row.color }" />{{ row.label }}{{ colonSep() }}<b class="mono">S = {{ fmtQ(row.area, row.unit) }}</b>
+        <span v-if="row.negative < 0 && row.positive > 0" class="muted">{{ paren(`+${fmtQ(row.positive, row.unit)} / ${fmtQ(row.negative, row.unit)}`) }}</span>
+        <span v-if="row.compare !== null" class="muted">· {{ compareText(row) }} = {{ fmtQ(row.compare, row.unit) }}</span>
+      </span>
+      <button class="btn small ghost" :title="tl('清除面积')" @click="clearArea">✕</button>
+    </div>
+    <ProblemLock v-if="locked" />
+    <div v-else-if="!rec" class="empty">{{ tl('运行仿真后显示曲线。') }}</div>
     <div v-else-if="!groups.length" class="empty">{{ tl('选择上方的预设或在“监视”页添加曲线。') }}</div>
-    <div ref="host" class="charts" />
+    <div v-show="!locked" ref="host" class="charts" />
   </div>
 </template>
 
@@ -350,6 +442,10 @@ function preset(kind: 'kin' | 'energy' | 'force') {
 .charts-wrap { display: flex; flex-direction: column; height: 100%; min-height: 0; padding: 0 12px 8px; }
 .chart-bar { display: flex; align-items: center; gap: 6px; padding: 4px 0 6px; flex-wrap: wrap; }
 .chart-bar .btn { height: 24px; }
+.area-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 2px 8px 6px; margin: 0 0 4px; border-radius: 8px; background: var(--fill); }
+.area-span { color: var(--text-3); }
+.area-row { display: inline-flex; align-items: center; gap: 4px; }
+.swatch { width: 10px; height: 3px; border-radius: 2px; display: inline-block; }
 .hint { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
 .charts { flex: 1; min-height: 0; display: flex; gap: 8px; overflow-x: auto; overflow-y: hidden; }
 .variant-monitor .charts { gap: 10px; align-content: flex-start; }

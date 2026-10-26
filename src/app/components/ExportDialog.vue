@@ -5,6 +5,7 @@
  * and the lab report dialogs.
  */
 import { tl } from '../../i18n'
+import { vSlideIndicator } from '../slideIndicator'
 import { inExportLanguage } from '../exportLang'
 import { computed, ref } from 'vue'
 import { state, showToast, viewCamera } from '../store'
@@ -33,7 +34,7 @@ const progress = ref(0)
 const csvUnits = ref<'si' | 'display'>('si')
 let cancel = false
 
-const safeName = computed(() => (state.scene.name || 'verity').replace(/[\\/:*?"<>|]/g, '_'))
+const safeName = computed(() => (state.scene.name || 'velophi').replace(/[\\/:*?"<>|]/g, '_'))
 const sepText = computed(() => { const s = effectiveSeparator({ separator: settings.export.csvSeparator, decimal: settings.export.csvDecimal }); return s === '\t' ? tl('制表符') : s === ',' ? tl('逗号') : tl('分号') })
 const tScale = computed(() => toDisp(1, 's'))
 
@@ -88,7 +89,7 @@ function openReport() { state.showExport = false; state.showReport = true }
 <template>
   <div class="dialog-backdrop" @mousedown.self="!busy && (state.showExport = false)">
     <div class="dialog">
-      <div class="dialog-header"><Icon name="export" :size="18" />{{ tl('导出') }}<span class="spacer" /><div class="tabs mini"><button :class="{ on: tab === 'csv' }" @click="tab = 'csv'">{{ tl('数据 CSV') }}</button><button :class="{ on: tab === 'video' }" @click="tab = 'video'">{{ tl('视频') }}</button></div><button class="btn icon ghost" :disabled="busy" @click="state.showExport = false"><Icon name="close" /></button></div>
+      <div class="dialog-header"><Icon name="export" :size="18" />{{ tl('导出') }}<span class="spacer" /><div v-slide-indicator class="tabs mini"><button :class="{ on: tab === 'csv' }" @click="tab = 'csv'">{{ tl('数据 CSV') }}</button><button :class="{ on: tab === 'video' }" @click="tab = 'video'">{{ tl('视频') }}</button></div><button class="btn icon ghost" :disabled="busy" @click="state.showExport = false"><Icon name="close" /></button></div>
       <div class="dialog-body">
         <div class="more">
           <button class="btn" :disabled="busy" :title="tl('视频、关键时刻截图、公式卡片、数据与 PPTX 一次导出')" @click="openCourseware"><Icon name="template" />{{ tl('课件包…') }}</button>

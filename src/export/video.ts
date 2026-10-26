@@ -92,7 +92,7 @@ export async function exportVideo(rec: Recording, o: VideoOptions, progress: (p:
   const defs = new Map(listQuantities(rec.system).map(q => [q.id, q]))
   const tEnd = Math.min(o.t1, (rec.frameCount - 1) * rec.dt)
   const count = videoFrameCount(o.t0, tEnd, o.speed, o.fps)
-  const footer = tl('Verity {0} · 仿真结果可复现 · {1}', [ENGINE_VERSION, fingerprintShort(rec)])
+  const footer = tl('VeloPhi {0} · 仿真结果可复现 · {1}', [ENGINE_VERSION, fingerprintShort(rec)])
   const overlayIds = o.overlayIds.filter(id => defs.has(id)).slice(0, 6)
   try {
     for (let i = 0; i < count; i++) {

@@ -79,9 +79,22 @@ function clampShown(d: number): number {
   return v
 }
 
+/** A continuous adjustment ran into a bound: the field nudges against it (26.52, D57). */
+const bump = ref<'lo' | 'hi' | null>(null)
+let bumpTimer: ReturnType<typeof setTimeout> | null = null
+function nudge(side: 'lo' | 'hi') {
+  if (bump.value === side) return
+  bump.value = side
+  if (bumpTimer) clearTimeout(bumpTimer)
+  bumpTimer = setTimeout(() => { bump.value = null; bumpTimer = null }, 220)
+}
+
 /** Set a shown value continuously (scrubbing, wheel): clamp, show, emit. */
 function setShown(d: number) {
-  const v = clampShown(Number(d.toPrecision(12)))
+  const want = Number(d.toPrecision(12))
+  const v = clampShown(want)
+  if (v > want) nudge('lo')
+  else if (v < want) nudge('hi')
   const si = clean(fromShown(v))
   text.value = shown(si)
   invalid.value = false
@@ -135,7 +148,7 @@ function key(e: KeyboardEvent) {
 </script>
 
 <template>
-  <span class="numfield" :class="{ 'has-unit': !!shownLabel }" :style="{ width }" :title="message">
+  <span class="numfield" :class="{ 'has-unit': !!shownLabel, [`bump-${bump}`]: !!bump }" :style="{ width }" :title="message">
     <input class="field mono" :class="{ invalid }" :value="text" :disabled="disabled" inputmode="decimal" :aria-invalid="invalid"
       @input="text = ($event.target as HTMLInputElement).value" @focus="focused = true" @blur="focused = false; commit()" @keydown="key" @wheel="wheel" />
     <span class="scrub" :class="{ on: scrubbing, bare: !shownLabel }" :title="tl('左右拖动连续调节（Shift 细调，Ctrl 粗调）')"
@@ -152,5 +165,10 @@ function key(e: KeyboardEvent) {
 .scrub { position: absolute; right: 2px; top: 2px; bottom: 2px; display: flex; align-items: center; justify-content: flex-end; padding: 0 6px; font-size: var(--type-tiny); color: var(--text-3); font-family: var(--font-mono); max-width: 50px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: ew-resize; border-radius: 6px; user-select: none; touch-action: none; }
 .scrub:hover, .scrub.on { color: var(--accent); background: var(--accent-soft); }
 .scrub.bare { opacity: 0.6; }
+/* Bound reached while scrubbing: a short push towards the bound and back */
+.bump-hi input { animation: nudge-hi var(--dur-3) var(--ease-spring); }
+.bump-lo input { animation: nudge-lo var(--dur-3) var(--ease-spring); }
+@keyframes nudge-hi { 40% { transform: translateX(3px); } }
+@keyframes nudge-lo { 40% { transform: translateX(-3px); } }
 .msg { position: absolute; right: 0; top: calc(100% + 2px); z-index: 20; font-size: var(--type-tiny); color: var(--on-accent); background: var(--danger); padding: 2px 7px; border-radius: 6px; white-space: nowrap; pointer-events: none; box-shadow: var(--shadow); }
 </style>

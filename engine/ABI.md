@@ -1,6 +1,6 @@
-# Verity core — WebAssembly ABI (version 1)
+# VeloPhi core — WebAssembly ABI (version 1)
 
-`verity-wasm` exports a raw C ABI (no wasm-bindgen, no imports). The JavaScript side is `src/engine/wasm.ts`; the
+`velophi-wasm` exports a raw C ABI (no wasm-bindgen, no imports). The JavaScript side is `src/engine/wasm.ts`; the
 worker job that drives it is `src/worker/wasmJob.ts`. Decisions: manual 26.50, D29 (interface) and D30 (bit parity).
 
 ## Conventions
@@ -72,6 +72,6 @@ for parity tests and for a future WASM rebuild on the main thread.
 
 ## Building
 
-Windows: `scripts\build-engine.cmd` (`cargo build -p verity-wasm --release --target wasm32-unknown-unknown`,
-copies `src\engine\verity_core.wasm`, writes its SHA-256 to `src\engine\verity_core.wasm.sha256`). The release
+Windows: `scripts\build-engine.cmd` (`cargo build -p velophi-wasm --release --target wasm32-unknown-unknown`,
+copies `src\engine\velophi_core.wasm`, writes its SHA-256 to `src\engine\velophi_core.wasm.sha256`). The release
 script runs it and the tests check the hash file.

@@ -20,6 +20,8 @@ export interface EditorUiState {
   polyDraft: Pt[]
   /** Points placed so far with the protractor: vertex, then the first arm. */
   angleDraft: Pt[]
+  /** Bodies picked so far with the combine tool (26.52). */
+  combineDraft: string[]
   /** Inline text input of the text tool (world anchor) or of an existing text annotation. */
   textInput: null | { at: Pt; text: string; editId: string | null }
   /** Open context menu: client position, world point and what was clicked. */
@@ -35,6 +37,7 @@ export const editor = reactive<EditorUiState>({
   annotationId: null,
   polyDraft: [],
   angleDraft: [],
+  combineDraft: [],
   textInput: null,
   menu: null,
   notice: '',
@@ -53,4 +56,5 @@ export function notify(text: string, ms = 3200) {
 export function clearDrafts() {
   editor.polyDraft = []
   editor.angleDraft = []
+  editor.combineDraft = []
 }

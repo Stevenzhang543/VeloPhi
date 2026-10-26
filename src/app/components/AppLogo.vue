@@ -1,7 +1,7 @@
 <script lang="ts">
 /**
- * The Verity mark (manual 26.51, D48): a projectile path with strobe positions at equal time steps (equal
- * horizontal spacing on the parabola y = 9.6 + (x − 14.4)²/8), the newest one highlighted. Same drawing as
+ * The VeloΦ mark (manual 26.52, D55): the letter Φ as two motions — an orbit (the ellipse) and a free fall along
+ * the stroke, strobed at equal time steps (spacing 1:3:5, the newest position highlighted). Same drawing as
  * assets/icon-small.svg; the desktop icon is assets/icon.svg.
  */
 let seq = 0
@@ -18,9 +18,10 @@ const id = `vlogo-${++seq}`
       <linearGradient :id="id" x1="0.1" y1="0" x2="0.9" y2="1"><stop offset="0" stop-color="#6366f1" /><stop offset="0.55" stop-color="#3730a3" /><stop offset="1" stop-color="#0f0c33" /></linearGradient>
     </defs>
     <rect x="1" y="1" width="30" height="30" rx="7" :fill="`url(#${id})`" />
-    <path d="M5 20.65Q15 -2.86 25 23.65" fill="none" stroke="#fff" stroke-opacity="0.55" stroke-width="1.3" stroke-linecap="round" />
-    <circle cx="9" cy="13.25" r="2.4" fill="#fff" fill-opacity="0.55" />
-    <circle cx="16" cy="9.92" r="2.8" fill="#fff" fill-opacity="0.85" />
-    <circle cx="23" cy="18.84" r="3.8" fill="#fbbf24" />
+    <ellipse cx="16" cy="16.25" rx="9.38" ry="6.56" fill="none" stroke="#fff" stroke-opacity="0.6" stroke-width="1.4" />
+    <line x1="16" y1="5" x2="16" y2="27.5" stroke="#fff" stroke-opacity="0.6" stroke-width="1.4" stroke-linecap="round" />
+    <circle cx="16" cy="9.75" r="1.6" fill="#fff" fill-opacity="0.7" />
+    <circle cx="16" cy="15.69" r="2" fill="#fff" fill-opacity="0.9" />
+    <circle cx="16" cy="24" r="3" fill="#fbbf24" />
   </svg>
 </template>

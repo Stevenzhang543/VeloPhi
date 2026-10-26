@@ -10,7 +10,7 @@
  */
 import type { Message } from '../i18n/message'
 import { MessageError } from '../i18n/message'
-import { markRaw, reactive, watchEffect } from 'vue'
+import { markRaw, reactive, watch, watchEffect } from 'vue'
 import type { Scene } from '../core/scene/types'
 import { cloneScene, parseScene, serializeScene, validateScene } from '../core/scene/io'
 import type { Recording, RollingFingerprint } from '../core/solver/simulation'
@@ -26,6 +26,8 @@ import type { RunStats, SimHandle } from './simClient'
 import type { DisplayOptions } from './settings'
 import { settings } from './settings'
 import { clock } from '../units/clock'
+import type { Problem } from '../teaching/problems'
+import { tl } from '../i18n'
 
 export type { DisplayOptions } from './settings'
 
@@ -37,6 +39,8 @@ export type Tool =
   | 'connect-rope' | 'connect-rod' | 'connect-spring' | 'connect-hinge' | 'add-force'
   | 'connect-damper' | 'connect-weld' | 'connect-slider' | 'connect-motor' | 'connect-gear'
   | 'measure-ruler' | 'measure-angle' | 'annotate-text' | 'annotate-arrow'
+  // 26.52: central fields, cutting and combining bodies
+  | 'add-central' | 'shape-cut' | 'shape-combine'
 
 /** Selected object, if any. */
 export type Selection = { kind: 'body' | 'connector' | 'pulley'; id: string } | null
@@ -73,6 +77,18 @@ export interface RunInfo {
 /** RunInfo before any run. */
 function emptyRun(): RunInfo {
   return { unbounded: false, tComputed: 0, tTarget: 0, speed: 0, memoryBytes: 0, chunks: 0, residentChunks: 0, checkpoints: 0, rebuilds: 0, engine: 'ts', engineReason: null, paused: false, fingerprint: null }
+}
+
+/** A problem being answered or written (26.52, D40): answers in SI (numeric) or option indices (choice). */
+export interface ProblemSession {
+  problem: Problem
+  answers: Record<string, number | null>
+  /** Answers checked: the animation, curves and formula cards are shown. */
+  revealed: boolean
+  /** Hints opened, by question id. */
+  hints: Record<string, boolean>
+  /** Teacher mode: the questions are edited, nothing is hidden. */
+  editing: boolean
 }
 
 /** Reactive application state. */
@@ -124,7 +140,7 @@ export interface AppState {
   chart: string[]
   /** Top-level page: the studio (build and analyse), the render & monitor page, or the settings page. */
   page: Page
-  rightTab: 'inspect' | 'formula' | 'watch' | 'predict' | 'settings'
+  rightTab: 'inspect' | 'formula' | 'watch' | 'predict' | 'settings' | 'problem'
   bottomTab: 'chart' | 'events'
   /** Effective theme (settings.themeMode resolved against the system appearance); read by the renderer. */
   theme: 'light' | 'dark'
@@ -135,6 +151,12 @@ export interface AppState {
   showCourseware: boolean
   showSweep: boolean
   showReport: boolean
+  /** 26.52 teaching tools (D62, D63) and the problem gallery (D40). */
+  showFbd: boolean
+  showTape: boolean
+  showProblems: boolean
+  /** The problem in progress (null: no problem mode). */
+  problem: ProblemSession | null
   /** Incremented to ask the viewport to reset its camera. */
   cameraRequest: number
   /** Fit the view to the motion once the next recording is ready. */
@@ -199,6 +221,10 @@ export const state = reactive<AppState>({
   showCourseware: false,
   showSweep: false,
   showReport: false,
+  showFbd: false,
+  showTape: false,
+  showProblems: false,
+  problem: null,
   cameraRequest: 0,
   fitPending: true,
   settingsSection: null,
@@ -271,6 +297,7 @@ function normalizeWatch(scene: Scene) {
 /** Replace the whole document (new, open, template). */
 export function loadScene(scene: Scene, name: string | null, path: string | null = null) {
   normalizeWatch(scene)
+  state.problem = null
   state.branch = null
   state.mainScene = null
   state.scene = scene
@@ -571,6 +598,7 @@ function setFrame(k: number) {
 export function play() {
   const rec = state.recording
   if (!rec || state.stale) return
+  if (problemLocked()) { showToast(tl('先作答，揭晓答案后再播放')); return }
   if (state.frame >= rec.frameCount - 1 && rec.completed !== false && !state.computing) setFrame(0)
   state.playing = true
   lastWall = performance.now()
@@ -610,22 +638,33 @@ export function pause() {
 }
 
 /** Show recorded frame k. */
-export function seekFrame(k: number) { setFrame(k) }
+export function seekFrame(k: number) { if (!problemLocked()) setFrame(k) }
 
 /** Show the recorded frame nearest to time t. */
 export function seekTime(t: number) {
   const rec = state.recording
-  if (!rec) return
+  if (!rec || problemLocked()) return
   setFrame(Math.round(t / rec.dt))
 }
 
 /** Seek to an exact time between frames (drawing only; readouts use the frame at or before t). */
-export function seekContinuous(t: number) { setTime(t) }
+export function seekContinuous(t: number) { if (!problemLocked()) setTime(t) }
+
+/** A problem is being answered: the playhead stays at t = 0 and results are hidden until the answers are revealed. */
+export function problemLocked(): boolean {
+  const p = state.problem
+  return !!p && !p.revealed && !p.editing
+}
+
+/** Show frame 0 (also while a problem is locked). */
+export function rewind() { pause(); setFrame(0) }
+// Entering the answering state (opening a problem, leaving the teacher's editing) goes back to t = 0
+watch(problemLocked, locked => { if (locked) rewind() })
 
 /** Seek to the first frame at or after an event time (readouts then show the state after the event). */
 export function seekAfter(t: number) {
   const rec = state.recording
-  if (!rec) return
+  if (!rec || problemLocked()) return
   pause()
   setFrame(Math.ceil(t / rec.dt - 1e-9))
 }

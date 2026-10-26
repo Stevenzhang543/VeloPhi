@@ -5,7 +5,7 @@
  * settings, the TypeScript solver does (simJob.ts). Both give bit-identical recordings. Created by
  * app/simClient.ts with `new Worker(new URL('../worker/sim.worker.ts', import.meta.url), { type: 'module' })`.
  */
-import wasmUrl from '../engine/verity_core.wasm?url'
+import wasmUrl from '../engine/velophi_core.wasm?url'
 import type { WasmEngine } from '../engine/wasm'
 import { loadEngine } from '../engine/wasm'
 import type { FromWorker, JobOptions, SimJob, ToWorker } from './simJob'

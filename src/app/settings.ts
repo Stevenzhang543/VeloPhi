@@ -1,7 +1,8 @@
 /**
  * Application preferences (not part of the scene document): appearance, units and digits, default overlays,
  * visual effects, editor snapping, solver and export defaults, projector mode and the optional trial log.
- * Persisted in localStorage ('verity.settings.v2'); the 26.48 preferences ('verity.prefs.v1') are migrated once.
+ * Persisted in localStorage ('velophi.settings.v2'); the settings of Verity 26.49–26.51 ('verity.settings.v2') are
+ * read when there are none yet (26.52, D53), and the 26.48 preferences ('verity.prefs.v1') are migrated once.
  *
  * Unit helpers live here so every component formats values through the same reactive unit choice: values are
  * SI everywhere and are converted only when shown (`fmtQ`, `toDisp`, `unitLabel`) or entered (`fromDisp`).
@@ -114,6 +115,23 @@ export interface KnowledgeSettings {
   level: number
 }
 
+/** Layout of the interface (26.52, D56). */
+export interface UiSettings {
+  /** Open (true) or folded (false) state of each collapsible section, by `panel.group` id; absent: its default. */
+  sections: Record<string, boolean>
+  /** The tool palette is shown as a narrow icon rail. */
+  toolRail: boolean
+  /** Interface animations (26.52, D57); off behaves like the system's reduce-motion setting. */
+  motion: boolean
+}
+
+/** Teaching tools (26.52, D62–D63): the last options used. */
+export interface TeachingSettings {
+  fbd: { layout: 'actual' | 'concurrent'; body: 'shape' | 'particle'; magnitudes: boolean; decompose: 'none' | 'axes' | 'incline'; resultant: boolean }
+  /** Ticker timer period (s) and the number of dots per counting interval. */
+  tape: { period: number; every: number }
+}
+
 /** All preferences. */
 export interface AppSettings {
   /** Interface language (D27): 'auto' follows the system. Never stored in scene files. */
@@ -145,6 +163,9 @@ export interface AppSettings {
   export: ExportSettings
   /** Local operation log for trials (D16): off by default, never uploaded. */
   trialLog: boolean
+  /** Layout: folded sections, tool rail, animations (26.52). */
+  ui: UiSettings
+  teaching: TeachingSettings
   /** Version of the stored settings (for one-time migrations), e.g. 2651 for 26.51. */
   rev: number
 }
@@ -169,12 +190,14 @@ function defaults(): AppSettings {
     sim: { worker: true, progressive: true, budgetSeconds: 60, lookAheadSeconds: 20, memoryMB: 512, engine: 'auto' },
     export: { fps: 60, scale: 1, bitrate: 0, csvSeparator: ',', csvDecimal: '.', imageBackground: 'theme', language: 'ui' },
     trialLog: false,
+    ui: { sections: {}, toolRail: false, motion: true },
+    teaching: { fbd: { layout: 'actual', body: 'shape', magnitudes: true, decompose: 'none', resultant: false }, tape: { period: 0.02, every: 5 } },
     rev: SETTINGS_REV
   }
 }
 
 /** Current settings revision. */
-const SETTINGS_REV = 2651
+const SETTINGS_REV = 2652
 
 /** The live, reactive preferences (saved automatically). */
 export const settings = reactive<AppSettings>(defaults())
@@ -267,7 +290,7 @@ export function effectiveTheme(): 'light' | 'dark' {
 }
 
 /** True when animations should stay still (OS preference honoured). */
-export function calmMotion(): boolean { return settings.effects.respectReducedMotion && sysEnv.reducedMotion }
+export function calmMotion(): boolean { return !settings.ui.motion || (settings.effects.respectReducedMotion && sysEnv.reducedMotion) }
 
 /** Effective effect switches after the quality level and the OS motion preference. */
 export function effectiveEffects(): EffectSettings {
@@ -286,7 +309,9 @@ export function effectiveEffects(): EffectSettings {
 
 // ---- Persistence ----
 
-const KEY = 'verity.settings.v2'
+const KEY = 'velophi.settings.v2'
+/** Settings saved under the old product name (Verity, up to 26.51; D53): read once, kept as they are. */
+const LEGACY_KEY = 'verity.settings.v2'
 const OLD_KEY = 'verity.prefs.v1'
 
 function merge<T extends object>(base: T, patch: unknown): T {
@@ -326,6 +351,12 @@ function sanitize() {
   settings.export.bitrate = clamp(settings.export.bitrate, 0, 2e8, 0)
   if (!['point', 'auto', 'comma'].includes(settings.decimalSeparator)) settings.decimalSeparator = d.decimalSeparator
   if (!['ui', 'zh', 'en', 'de'].includes(settings.export.language)) settings.export.language = d.export.language
+  const fb = settings.teaching.fbd
+  if (!['actual', 'concurrent'].includes(fb.layout)) fb.layout = d.teaching.fbd.layout
+  if (!['shape', 'particle'].includes(fb.body)) fb.body = d.teaching.fbd.body
+  if (!['none', 'axes', 'incline'].includes(fb.decompose)) fb.decompose = d.teaching.fbd.decompose
+  settings.teaching.tape.period = clamp(settings.teaching.tape.period, 0.001, 1, d.teaching.tape.period)
+  settings.teaching.tape.every = Math.round(clamp(settings.teaching.tape.every, 1, 50, d.teaching.tape.every))
 }
 
 /** The 26.48 preferences: theme, digits, overlays and auto-run. */
@@ -340,10 +371,13 @@ function migrateOld(raw: string) {
 /** Load the stored settings (call once at startup, before mounting). */
 export function loadSettings() {
   try {
-    const raw = localStorage.getItem(KEY)
+    const raw = localStorage.getItem(KEY) ?? localStorage.getItem(LEGACY_KEY)
     if (raw) {
       const stored = JSON.parse(raw) as { rev?: unknown }
       merge(settings, stored)
+      // Fold states are a map with free keys, which merge() does not copy
+      const sec = (stored as { ui?: { sections?: unknown } }).ui?.sections
+      if (sec && typeof sec === 'object') for (const [k, v] of Object.entries(sec as Record<string, unknown>)) if (typeof v === 'boolean') settings.ui.sections[k] = v
       const rev = typeof stored.rev === 'number' ? stored.rev : 0
       if (rev < 2651) {
         // 26.51 (D47): editing is continuous; grid snapping and fixed angle steps become opt-in

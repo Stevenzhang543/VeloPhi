@@ -10,7 +10,7 @@ import { simulate } from '../src/core/solver/simulation'
 import { addBody, addConnector, addGround, anchor, emptyScene } from '../src/core/scene/build'
 import type { Scene, SpringDef } from '../src/core/scene/types'
 
-/** SHA-256 of the recordings produced by Verity 26.48 (templates at their default parameters). */
+/** SHA-256 of the recordings produced by VeloPhi 26.48 (templates at their default parameters). */
 const TEMPLATE_HASHES: Record<string, string> = {
   incline: 'b1aa4574b18a84008550c157cf87f39b3ab8ec94ce10a47057487dbbedbe1ee0',
   'board-block': 'bb1283491e1cb3e5cbd463c2d839f0cdee83def25231b27c43a11edd10c9d2d5',

@@ -128,7 +128,7 @@ export function cardHtml(card: FormulaCard, o: CardImageOptions): string {
     `<div class="vcard-formula">${tex(card.symbolic, true)}</div>`,
     card.substituted ? `<div class="vcard-subst">${tex(card.substituted, false)}</div>` : '',
     `<table class="vcard-cmp"><tbody>${rows.map(([k, val]) => `<tr><td class="k">${esc(k)}</td><td class="v">${esc(val)}</td></tr>`).join('')}</tbody></table>`,
-    tl('<div class="vcard-foot">Verity {0} · 数值按显示单位{1}</div>', [ENGINE_VERSION, card.formula.note ? ` · ${esc(card.formula.note)}` : '']),
+    tl('<div class="vcard-foot">VeloPhi {0} · 数值按显示单位{1}</div>', [ENGINE_VERSION, card.formula.note ? ` · ${esc(card.formula.note)}` : '']),
     '</div>'
   ].join('')
 }

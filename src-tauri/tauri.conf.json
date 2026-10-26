@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Verity",
-  "version": "26.51.0",
-  "identifier": "app.verity.physics",
+  "productName": "VeloPhi",
+  "version": "26.52.0",
+  "identifier": "app.velophi.physics",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:5178",
@@ -13,27 +13,30 @@
     "windows": [
       {
         "label": "main",
-        "title": "Verity 26.51",
+        "title": "VeloΦ 26.52",
         "width": 1440,
         "height": 900,
         "minWidth": 1100,
         "minHeight": 680,
         "center": true,
-        "maximized": true,
+        "maximized": false,
+        "visible": false,
+        "backgroundColor": "#0d0f14",
         "resizable": true
       }
     ],
     "security": {
-      "csp": "default-src 'self'; connect-src 'self' ipc: http://ipc.localhost; img-src 'self' data: blob:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'wasm-unsafe-eval'; font-src 'self' data:; worker-src 'self' blob:"
+      "csp": "default-src 'self'; connect-src 'self' ipc: http://ipc.localhost; img-src 'self' data: blob:; media-src 'self' blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'wasm-unsafe-eval'; font-src 'self' data:; worker-src 'self' blob:",
+      "dangerousDisableAssetCspModification": ["style-src"]
     }
   },
   "bundle": {
     "active": true,
     "targets": ["nsis"],
-    "publisher": "Verity",
+    "publisher": "VeloPhi",
     "shortDescription": "可验证的力学仿真与教学引擎",
-    "longDescription": "Verity：面向物理专业学生与物理教师的力学仿真与教学引擎。搭建场景、精确仿真、随时暂停读数，并自动匹配公式与仿真结果对照。",
-    "copyright": "© 2026 Verity",
+    "longDescription": "VeloPhi（VeloΦ）：面向物理专业学生与物理教师的力学仿真与教学引擎。搭建场景、精确仿真、随时暂停读数，并自动匹配公式与仿真结果对照。",
+    "copyright": "© 2026 VeloPhi",
     "category": "Education",
     "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
     "windows": {

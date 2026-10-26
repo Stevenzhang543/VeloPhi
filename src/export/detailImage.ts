@@ -110,7 +110,7 @@ export function detailHtml(view: DetailView, o: Pick<DetailImageOptions, 'captio
     view.badges.length ? `<div class="vdet-badges">${view.badges.map(b => `<span class="vdet-badge ${TONE[b.tone]}">${esc(b.text)}</span>`).join('')}</div>` : '',
     view.headline ? `<div class="vdet-head-eq">${tex(view.headline, true)}</div>` : '',
     ...view.sections.map(s => `<div class="vdet-sec"><h3>${esc(s.title)}</h3>${s.blocks.map(blockHtml).join('')}</div>`),
-    `<div class="vdet-foot">Verity ${ENGINE_VERSION}${o.caption ? ` · ${esc(o.caption)}` : ''}</div>`,
+    `<div class="vdet-foot">VeloPhi ${ENGINE_VERSION}${o.caption ? ` · ${esc(o.caption)}` : ''}</div>`,
     '</div>'
   ].join('')
 }

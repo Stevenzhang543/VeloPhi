@@ -12,7 +12,8 @@
  */
 import { tl, paren, semiSep } from '../../i18n'
 import { computed, nextTick, ref, watch } from 'vue'
-import { state, seekTime } from '../store'
+import { state, seekTime, problemLocked } from '../store'
+import ProblemLock from './ProblemLock.vue'
 import { activeSituations, evaluateCard, THRESHOLDS } from '../../formula/match'
 import type { FormulaCard, Verdict } from '../../formula/match'
 import { FORMULAS } from '../../formula/library'
@@ -26,6 +27,7 @@ import { solveFormula } from '../../formula/solve'
 import { locale } from '../../i18n/locale'
 import RichText from './detail/RichText.vue'
 import Tex from './Tex.vue'
+import Section from './Section.vue'
 import { openFormulaDetail } from '../details'
 import { openHandbook } from '../handbook'
 
@@ -106,24 +108,25 @@ const sci = (v: number) => { const e = Math.round(Math.log10(v)); return `10${St
 
 <template>
   <div class="formulas">
-    <div v-if="!state.recording || state.stale" class="empty">{{ tl('运行仿真后，这里会按当前时刻列出匹配的公式，') }}<br />{{ tl('代入参数后与仿真结果逐项对照。') }}</div>
+    <ProblemLock v-if="problemLocked()" />
+    <div v-else-if="!state.recording || state.stale" class="empty">{{ tl('运行仿真后，这里会按当前时刻列出匹配的公式，') }}<br />{{ tl('代入参数后与仿真结果逐项对照。') }}</div>
     <template v-else>
-      <div class="legend tiny muted">
-        {{ tl('精确公式：相对误差 ≤ {0} 判为一致（能量账本 ≤ {1}）。近似公式按适用条件分级。已知量按“设置 › 单位与数值”显示，代入时换算为国际单位；颜色对应同一个量。', [sci(THRESHOLDS.exactRel), sci(THRESHOLDS.energyRel)]) }}
-      </div>
+      <Section id="formula.legend" :title="tl('判定与读法')" :open="false">
+        <div class="legend tiny muted">
+          {{ tl('精确公式：相对误差 ≤ {0} 判为一致（能量账本 ≤ {1}）。近似公式按适用条件分级。已知量按“设置 › 单位与数值”显示，代入时换算为国际单位；颜色对应同一个量。', [sci(THRESHOLDS.exactRel), sci(THRESHOLDS.energyRel)]) }}
+        </div>
+      </Section>
       <div v-if="reducedFrom !== null" class="reduced small" :class="{ now: reducedNow }">
         <span class="badge warn">{{ tl('精度降级') }}</span>
         <span>{{ tl('{0} Moreau–Jean 时间步进计算，{1}仿真值精度降低、事件时刻不精确定位，下面的对照仅供参考。', [reducedFrom > 0 ? tl('事件过于密集，自 t = {0} 起改用', [fmtQ(shownTime(reducedFrom), 's', 6)]) : tl('本次使用'), reducedFrom > 0 ? tl('此后的') : '']) }}</span>
       </div>
       <div v-if="state.computing && !state.situations.length" class="empty">{{ tl('正在计算，完成后识别典型情形并对照公式…') }}</div>
       <div v-else-if="groups.length === 0" class="empty">{{ tl('当前时刻没有识别到可匹配的典型情形。') }}</div>
-      <section v-for="g in groups" :key="g.sit.key" class="situation">
-        <header>
-          <span class="title">{{ g.sit.title }}</span>
-          <span class="spacer" />
+      <Section v-for="g in groups" :id="`formula.sit.${g.sit.type}`" :key="g.sit.key" class="situation" :title="g.sit.title" :count="g.cards.length" strong>
+        <template #actions>
           <button v-if="g.sit.tEvent !== undefined" class="btn ghost small" @click="seekTime(g.sit.tEvent!)">{{ tl('跳到 t = {0}', [fmtQ(shownTime(g.sit.tEvent!), 's', 6)]) }}</button>
           <span v-else class="tiny muted mono">{{ fmtNum(shownTime(g.sit.t0), 's', 5) }}–{{ fmtNum(shownTime(g.sit.t1), 's', 5) }} {{ unitLabel('s') }}</span>
-        </header>
+        </template>
         <details class="vars">
           <summary class="tiny muted">{{ tl('已知量（来自场景与本阶段初态）') }}</summary>
           <div v-for="(v, k) in g.sample.vars" :key="k" class="var small">
@@ -173,7 +176,7 @@ const sci = (v: number) => { const e = Math.round(Math.log10(v)); return `10${St
           </div>
         </div>
         <button v-if="g.above && !showAbove" class="above small" @click="showAbove = true">{{ tl('还有 {0} 条超出所选知识水平的公式，点此显示', [g.above]) }}</button>
-      </section>
+      </Section>
       <label v-if="groups.some(g => g.above) || showAbove" class="check small na-toggle"><input v-model="showAbove" type="checkbox" />{{ tl('显示超出所选知识水平的公式') }}</label>
       <label class="check small na-toggle"><input v-model="showNA" type="checkbox" />{{ tl('显示本时刻不适用的公式及原因') }}</label>
     </template>

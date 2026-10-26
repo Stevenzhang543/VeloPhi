@@ -5,7 +5,7 @@
  * next checkpoint before using it (core/solver/stream.ts), exactly as a chunk it recomputes itself. One worker
  * serves every recording; the compiled run of the last scenes is kept (app/rebuildClient.ts).
  */
-import wasmUrl from '../engine/verity_core.wasm?url'
+import wasmUrl from '../engine/velophi_core.wasm?url'
 import type { WasmEngine, WasmRun } from '../engine/wasm'
 import { loadEngine } from '../engine/wasm'
 import type { Scene } from '../core/scene/types'

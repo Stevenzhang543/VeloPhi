@@ -59,6 +59,28 @@ describe('contact snapping of a moved body', () => {
     expect(Math.abs(r.y - -0.4)).toBeLessThan(1e-12)
   })
 
+  it('slides along the surface when pushed into it (26.52, D57)', () => {
+    const { scene, block } = world()
+    const mem = { keys: [] as string[] }
+    // Engage 4 px above the ground, then push the pointer 30 cm below the surface while moving sideways
+    move(scene, block, { x: 0, y: -0.36 }, mem)
+    for (const x of [0.2, 0.55, 1.3]) {
+      const r = move(scene, block, { x, y: -0.7 }, mem)
+      expect(Math.abs(r.y - -0.4), `x ${x}`).toBeLessThan(1e-12)
+      expect(r.x).toBe(x)
+      const bottom = Math.min(...worldVerts({ ...block, position: { x: block.position.x + r.x, y: block.position.y + r.y } }).map(p => p.y))
+      expect(Math.abs(bottom)).toBeLessThan(1e-9)
+    }
+    // Moving away again lets go past 14 px
+    expect(move(scene, block, { x: 1.3, y: -0.2 }, mem).y).toBe(-0.2)
+  })
+
+  it('catches a quick move that lands overlapping (up to half the body size)', () => {
+    const { scene, block } = world()
+    const r = move(scene, block, { x: 0.1, y: -0.52 }, { keys: [] }) // 12 cm into the ground in one move
+    expect(Math.abs(r.y - -0.4)).toBeLessThan(1e-12)
+  })
+
   it('adds a second contact against a wall, keeping the first', () => {
     const { scene, block } = world()
     addBody(scene, { name: 'b', kind: 'static', shape: { type: 'box', width: 0.2, height: 2 }, position: { x: 1.1, y: 1 } })

@@ -8,8 +8,9 @@
  * surface. Nothing here snaps to a grid (see snap.ts, optional).
  */
 import type { BodyDef, Scene } from '../../core/scene/types'
+import { connectorAnchors } from '../../core/scene/types'
 import type { Pt } from './geometry'
-import { closestOnSegment, signedArea, worldVerts } from './geometry'
+import { closestOnSegment, outlineWorld, signedArea, worldVerts } from './geometry'
 
 /** Screen distance at which a contact snap engages (px). */
 export const ENGAGE_PX = 6
@@ -19,7 +20,7 @@ export const RELEASE_PX = 14
 export const ANGLE_ENGAGE = (1.5 * Math.PI) / 180
 export const ANGLE_RELEASE = (3.5 * Math.PI) / 180
 
-/** World outline of a body: a circle, or a counter-clockwise convex polygon. */
+/** World outline of a body: a circle, or a counter-clockwise simple polygon (convex or concave, 26.52). */
 export type Outline = { kind: 'circle'; c: Pt; r: number } | { kind: 'poly'; v: Pt[] }
 
 /** World outline of a body definition. */
@@ -28,6 +29,15 @@ export function outlineOf(def: BodyDef): Outline {
   let v = worldVerts(def)
   if (signedArea(v) < 0) v = v.slice().reverse()
   return { kind: 'poly', v }
+}
+
+/**
+ * World outlines of a body: one for a circle or a polygon, one per part for a compound (26.52, D35). Each part
+ * snaps on its own; snaps of different parts are told apart by their keys.
+ */
+export function outlinesOf(def: BodyDef): Outline[] {
+  if (def.shape.type !== 'compound') return [outlineOf(def)]
+  return outlineWorld(def).map(p => (p.kind === 'circle' ? { kind: 'circle' as const, c: p.c, r: p.r } : { kind: 'poly' as const, v: signedArea(p.pts) < 0 ? p.pts.slice().reverse() : p.pts }))
 }
 
 /** The outline moved by d. */
@@ -70,12 +80,15 @@ function along(p: Pt, a: Pt, b: Pt): number {
   return ee > 0 ? dot(sub(p, a), e) / ee : 0
 }
 
-/** Closest boundary point of a convex polygon to p, and whether p is inside. */
+/** Closest boundary point of a simple polygon to p, and whether p is inside (crossing count: concave too). */
 function closestOnPoly(v: Pt[], p: Pt): { q: Pt; d: number; inside: boolean } {
   let best = { q: v[0], d: Infinity }
-  let inside = true
+  let inside = false
+  for (let i = 0, j = v.length - 1; i < v.length; j = i++) {
+    const a = v[i], b = v[j]
+    if ((a.y > p.y) !== (b.y > p.y) && p.x < ((b.x - a.x) * (p.y - a.y)) / (b.y - a.y) + a.x) inside = !inside
+  }
   for (const e of edges(v)) {
-    if (dot(sub(p, e.a), e.n) > 0) inside = false
     const c = closestOnSegment(p, e.a, e.b)
     if (c.d < best.d) best = { q: c.q, d: c.d }
   }
@@ -145,6 +158,14 @@ export function contactSnaps(m: Outline, f: Outline, fid: string, reach: number)
   return out
 }
 
+/** Smallest extent of an outline (m): the diameter of a circle, the smaller side of a polygon's bounding box. */
+function outlineSize(o: Outline): number {
+  if (o.kind === 'circle') return 2 * o.r
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity
+  for (const p of o.v) { x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x); y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y) }
+  return Math.min(x1 - x0, y1 - y0)
+}
+
 /** Engaged snaps of a drag (kept between pointer moves for the hysteresis). */
 export interface SnapMemory { keys: string[] }
 
@@ -155,36 +176,46 @@ export interface MoveSnap { delta: Pt; contacts: ContactSnap[] }
  * Snap the move of body `movingId`, whose outline at the raw (unsnapped) pointer position is `raw`, against
  * every other body of the scene. `ppm`: zoom (px/m). Updates `mem`.
  */
-export function snapBodyMove(scene: Scene, movingId: string, raw: Outline, ppm: number, mem: SnapMemory, exclude: ReadonlySet<string> = new Set()): MoveSnap {
+export function snapBodyMove(scene: Scene, movingId: string, rawIn: Outline | Outline[], ppm: number, mem: SnapMemory, exclude: ReadonlySet<string> = new Set()): MoveSnap {
   const engage = ENGAGE_PX / ppm, release = RELEASE_PX / ppm
-  const all: ContactSnap[] = []
-  for (const b of scene.bodies) {
-    if (b.id === movingId || exclude.has(b.id)) continue
-    all.push(...contactSnaps(raw, outlineOf(b), b.id, release))
+  // Every part of the moving body against every part of the others (keys name the parts when there are several)
+  const raw = Array.isArray(rawIn) ? rawIn : [rawIn]
+  const snapsAgainst = (moving: Outline[], reach: number): ContactSnap[] => {
+    const out: ContactSnap[] = []
+    for (const b of scene.bodies) {
+      if (b.id === movingId || exclude.has(b.id)) continue
+      const fixed = outlinesOf(b)
+      moving.forEach((m, i) => fixed.forEach((f, j) => {
+        const fid = moving.length === 1 && fixed.length === 1 ? b.id : `${b.id}#${i}.${j}`
+        out.push(...contactSnaps(m, f, fid, reach))
+      }))
+    }
+    return out
   }
+  // 26.52 (D57): pushing into another body keeps the contact — the body slides along the surface instead of
+  // sinking in. An engaged contact holds at any depth and lets go only when the pointer moves RELEASE_PX away;
+  // a quick move that lands overlapping is caught up to half the size of the dragged body.
+  const catchDepth = Math.max(release, 0.5 * Math.max(...raw.map(outlineSize)))
+  const all = snapsAgainst(raw, Infinity)
   const pick = (cands: ContactSnap[], held: string[]): ContactSnap | null => {
+    // An engaged contact that still applies always wins (no flicker, and a deep push never jumps to another face)
     let best: ContactSnap | null = null
     for (const c of cands) {
-      const limit = held.includes(c.key) ? release : engage
-      if (Math.abs(c.gap) > limit) continue
-      // An engaged snap wins over a new one of the same size, so it does not flicker
-      const score = Math.abs(c.gap) - (held.includes(c.key) ? release : 0)
-      if (!best || score < Math.abs(best.gap) - (held.includes(best.key) ? release : 0)) best = c
+      if (!held.includes(c.key) || (c.gap > 0 && c.gap > release)) continue
+      if (!best || Math.abs(c.gap) < Math.abs(best.gap)) best = c
+    }
+    if (best) return best
+    for (const c of cands) {
+      if (Math.abs(c.gap) > (c.gap < 0 ? catchDepth : engage)) continue
+      if (!best || Math.abs(c.gap) < Math.abs(best.gap)) best = c
     }
     return best
   }
   const first = pick(all, mem.keys)
   if (!first) { mem.keys = []; return { delta: { x: 0, y: 0 }, contacts: [] } }
   // A second contact in another direction (both corrections applied; the second only across the first normal)
-  const moved = shifted(raw, first.delta)
-  const second: ContactSnap[] = []
-  for (const b of scene.bodies) {
-    if (b.id === movingId || exclude.has(b.id)) continue
-    for (const c of contactSnaps(moved, outlineOf(b), b.id, release)) {
-      if (Math.abs(c.n.x * first.n.y - c.n.y * first.n.x) < 0.5) continue
-      second.push(c)
-    }
-  }
+  const moved = raw.map(o => shifted(o, first.delta))
+  const second = snapsAgainst(moved, release).filter(c => Math.abs(c.n.x * first.n.y - c.n.y * first.n.x) >= 0.5)
   const s2 = pick(second, mem.keys)
   const delta = { x: first.delta.x, y: first.delta.y }
   const contacts = [first]
@@ -221,16 +252,17 @@ export function snapPointToObjects(scene: Scene, features: Pt[], p: Pt, ppm: num
   let sd = ENGAGE_PX / ppm
   for (const b of scene.bodies) {
     if (exclude.has(b.id)) continue
-    const o = outlineOf(b)
-    if (o.kind === 'circle') {
-      const d = sub(p, o.c), l = len(d)
-      if (l < 1e-12) continue
-      const g = Math.abs(l - o.r)
-      if (g < sd) { sd = g; out = { p: { x: o.c.x + d.x / l * o.r, y: o.c.y + d.y / l * o.r }, kind: 'surface', surface: { c: o.c, r: o.r } } }
-    } else {
-      for (const e of edges(o.v)) {
-        const c = closestOnSegment(p, e.a, e.b)
-        if (c.d < sd) { sd = c.d; out = { p: c.q, kind: 'surface', surface: { a: e.a, b: e.b } } }
+    for (const o of outlinesOf(b)) {
+      if (o.kind === 'circle') {
+        const d = sub(p, o.c), l = len(d)
+        if (l < 1e-12) continue
+        const g = Math.abs(l - o.r)
+        if (g < sd) { sd = g; out = { p: { x: o.c.x + d.x / l * o.r, y: o.c.y + d.y / l * o.r }, kind: 'surface', surface: { c: o.c, r: o.r } } }
+      } else {
+        for (const e of edges(o.v)) {
+          const c = closestOnSegment(p, e.a, e.b)
+          if (c.d < sd) { sd = c.d; out = { p: c.q, kind: 'surface', surface: { a: e.a, b: e.b } } }
+        }
       }
     }
   }
@@ -243,13 +275,14 @@ export function snapAngles(scene: Scene, def: BodyDef, reach: number): number[] 
   const c = def.position
   for (const b of scene.bodies) {
     if (b.id === def.id) continue
-    const o = outlineOf(b)
-    if (o.kind !== 'poly') continue
-    for (const e of edges(o.v)) {
-      if (closestOnSegment(c, e.a, e.b).d > reach) continue
-      const a = Math.atan2(e.b.y - e.a.y, e.b.x - e.a.x)
-      // A box looks the same after quarter turns: every quarter turn of the edge direction
-      for (let k = 0; k < 4; k++) out.push(wrapAngle(a + (k * Math.PI) / 2))
+    for (const o of outlinesOf(b)) {
+      if (o.kind !== 'poly') continue
+      for (const e of edges(o.v)) {
+        if (closestOnSegment(c, e.a, e.b).d > reach) continue
+        const a = Math.atan2(e.b.y - e.a.y, e.b.x - e.a.x)
+        // A box looks the same after quarter turns: every quarter turn of the edge direction
+        for (let k = 0; k < 4; k++) out.push(wrapAngle(a + (k * Math.PI) / 2))
+      }
     }
   }
   return out
@@ -284,7 +317,8 @@ export function sceneFeatures(scene: Scene, exclude: ReadonlySet<string> = new S
   for (const b of scene.bodies) {
     if (exclude.has(b.id)) continue
     if (b.kind !== 'static' || b.shape.type === 'circle') out.push({ x: b.position.x, y: b.position.y })
-    if (b.shape.type !== 'circle') out.push(...worldVerts(b))
+    if (b.shape.type === 'compound') { for (const o of outlinesOf(b)) if (o.kind === 'poly') out.push(...o.v); else out.push(o.c) }
+    else if (b.shape.type !== 'circle') out.push(...worldVerts(b))
   }
   for (const p of scene.pulleys) {
     if (p.body && exclude.has(p.body)) continue
@@ -294,6 +328,6 @@ export function sceneFeatures(scene: Scene, exclude: ReadonlySet<string> = new S
       out.push({ x: carrier.position.x + c * p.position.x - s * p.position.y, y: carrier.position.y + s * p.position.x + c * p.position.y })
     } else out.push({ x: p.position.x, y: p.position.y })
   }
-  for (const c of scene.connectors) for (const a of c.type === 'force' ? [c.a] : [c.a, c.b]) if (!a.body) out.push({ x: a.local.x, y: a.local.y })
+  for (const c of scene.connectors) for (const a of connectorAnchors(c)) if (!a.body) out.push({ x: a.local.x, y: a.local.y })
   return out
 }

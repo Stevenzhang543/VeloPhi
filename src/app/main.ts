@@ -13,6 +13,7 @@ import { loadSettings, settings } from './settings'
 import { initAppearance } from './appearance'
 import { buildTemplate, setTemplateGravity } from '../templates'
 import { locale, setLanguage } from '../i18n'
+import { revealInterface } from './opening'
 
 loadSettings()
 initAppearance()
@@ -31,5 +32,7 @@ state.scene = buildTemplate('incline')
 state.chart = defaultChart(state.scene)
 createApp(App).mount('#app')
 runSimulation()
+// Opening reveal from the centre of the screen (D54)
+void revealInterface()
 // Release self-check inside WebView2 (only with `--selftest <file>`; see app/selfCheck.ts)
 void import('./selfCheck').then(m => m.maybeSelfCheck()).catch(() => {})

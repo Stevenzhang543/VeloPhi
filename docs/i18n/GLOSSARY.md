@@ -1,6 +1,6 @@
 # 术语表 / Glossary / Glossar
 
-Verity 26.50（D27）三种语言的物理术语与界面用语。翻译以教材用语为准：中文按人教版高中物理，英文按通用教材英语，德文按德国高中（Sekundarstufe II）物理教材。界面文字表在 `src/i18n/texts/*.ts`，公式推导的三语内容在 `src/formula/derivations/`，事件说明在 `src/formula/eventDetail.ts`；新增文字时沿用这里的译法。
+VeloPhi 26.50（D27）三种语言的物理术语与界面用语。翻译以教材用语为准：中文按人教版高中物理，英文按通用教材英语，德文按德国高中（Sekundarstufe II）物理教材。界面文字表在 `src/i18n/texts/*.ts`，公式推导的三语内容在 `src/formula/derivations/`，事件说明在 `src/formula/eventDetail.ts`；新增文字时沿用这里的译法。
 
 约定：物理符号与 LaTeX 不翻译；德文摩擦因数写作 μ_H（Haft-）/ μ_G（Gleit-），界面中的符号仍为 μs / μk；“Zweites Newtonsches Gesetz”等定律名按教材写法大写。
 
@@ -280,3 +280,25 @@ Verity 26.50（D27）三种语言的物理术语与界面用语。翻译以教�
 | 功率 P = Fv、P = Mω | power | Leistung |
 | 正弦变化的力 F = F₀ sin ωt | sinusoidal force | sinusförmige Kraft |
 | 漂移 | drift | Drift |
+
+## 26.52 新增用语
+
+| zh | en | de |
+|---|---|---|
+| 受力分析图（隔离体图） | free-body diagram | Kräfteplan (Freikörperbild) |
+| 实际作用点 / 共点力 | actual points / concurrent forces | tatsächliche Angriffspunkte / im Schwerpunkt |
+| 沿接触面与垂直接触面分解 | components along and across the contact surface | Zerlegung längs und quer zur Kontaktfläche |
+| 合力 F合 | resultant F_net | Resultierende F_res |
+| 打点计时器 / 纸带 | ticker timer / ticker tape | Zeitmarkengeber / Papierstreifen |
+| 打点周期 / 计数点 / 计数间隔 | dot period / counting point / counting interval | Punktabstand / Zählpunkt / Zählabstand |
+| 逐差法 | successive differences | Differenzenverfahren |
+| 题目 / 题干 / 题目包 | problem / stem / problem file | Aufgabe / Aufgabentext / Aufgabendatei |
+| 揭晓答案 / 换一组数据 | reveal answers / another set of numbers | Antworten aufdecken / andere Zahlen |
+| 滑轨限位 / 限位恢复系数 | end stop / stop restitution | Anschlag / Stoßzahl am Anschlag |
+| 力矩上限 / 打滑 / 锁定 | torque limit / slip / lock | Höchstmoment / Rutschen / Einrasten |
+| 滚动阻力（系数 C_rr）/ 滚动静止 | rolling resistance (C_rr) / rolling rest | Rollwiderstand (C_rr) / Rollruhe |
+| 有心力 / 力心 | central force / centre | Zentralkraft / Zentrum |
+| 弹性中心力 / 平方反比 | elastic central force / inverse square | elastische Zentralkraft / umgekehrt quadratisch |
+| 辛积分（Gauss–Legendre） | symplectic integrator (Gauss–Legendre) | symplektisches Verfahren (Gauß–Legendre) |
+| 凹多边形 / 复合体 | concave polygon / compound body | konkaves Vieleck / zusammengesetzter Körper |
+| 切割 / 组合 / 拆分 | cut / combine / split | schneiden / verbinden / zerlegen |

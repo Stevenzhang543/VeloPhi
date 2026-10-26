@@ -1,6 +1,6 @@
 /**
  * Engine self-check of a release (26.51, carry-over 5 of 26.50): started by the desktop app with
- * `verity.exe --selftest <report.json>` from scripts/release.cmd. Inside the real WebView2 it runs every template
+ * `velophi.exe --selftest <report.json>` from scripts/release.cmd. Inside the real WebView2 it runs every template
  * (bounded, legacy duration) three ways — Rust/WebAssembly in the worker, TypeScript in the worker, TypeScript on
  * this thread — compares their fingerprints, writes the report and closes the app (exit code 0 only when all
  * agree). Nothing happens without the flag.

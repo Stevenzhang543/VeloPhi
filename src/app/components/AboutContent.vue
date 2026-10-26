@@ -1,9 +1,10 @@
 <script setup lang="ts">
 /**
- * About Verity: version, what makes results verifiable, shortcuts (optional) and third-party licenses.
+ * About VeloPhi: version, what makes results verifiable, shortcuts (optional) and third-party licenses.
  * Shared by the about dialog and the settings page.
  */
 import AppLogo from './AppLogo.vue'
+import Wordmark from './Wordmark.vue'
 import { tl } from '../../i18n'
 import { ENGINE_VERSION } from '../../core/scene/types'
 import { SHORTCUTS } from '../shortcuts'
@@ -27,8 +28,8 @@ const LICENSES: Array<{ name: string; license: string; use: string }> = [
     <div class="hero">
       <AppLogo :size="44" />
       <div>
-        <div class="title">Verity <span class="mono ver">{{ ENGINE_VERSION }}</span></div>
-        <div class="small muted">{{ tl('（暂名）面向物理专业学生与教师的力学仿真与教学引擎') }}</div>
+        <div class="title"><Wordmark :size="22" /> <span class="mono ver">{{ ENGINE_VERSION }}</span></div>
+        <div class="small muted">{{ tl('面向物理专业学生与教师的力学仿真与教学引擎') }}</div>
       </div>
     </div>
     <h4>{{ tl('它如何保证结果可验证') }}</h4>
@@ -54,7 +55,7 @@ const LICENSES: Array<{ name: string; license: string; use: string }> = [
     <div class="licenses small">
       <div v-for="l in LICENSES" :key="l.name" class="lic"><b>{{ l.name }}</b><span class="muted">{{ l.use }}</span><span class="mono tiny">{{ l.license }}</span></div>
     </div>
-    <p class="tiny muted">{{ tl('均未修改，按各自许可证使用；完整清单与许可证全文见安装目录中的 THIRD_PARTY_NOTICES。界面图标为 Verity 自绘，未使用任何第三方或专有图标、字体。') }}</p>
+    <p class="tiny muted">{{ tl('均未修改，按各自许可证使用；完整清单与许可证全文见安装目录中的 THIRD_PARTY_NOTICES。界面图标为 VeloPhi 自绘，未使用任何第三方或专有图标、字体。') }}</p>
   </div>
 </template>
 

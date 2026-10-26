@@ -198,7 +198,7 @@ async function exportCsv() {
   const rows = points.value.map(p => [f.paramUnit ? toDisp(p.value, f.paramUnit) : p.value, p.result === null ? null : f.measureUnit ? toDisp(p.result, f.measureUnit) : p.result, status(p).text, p.hash ?? ''])
   const text = tableCsv([`${f.param}${headerUnit(f.paramUnit)}`, `${f.measure}${headerUnit(f.measureUnit)}`, tl('状态'), tl('结果指纹 SHA-256')], rows,
     { separator: settings.export.csvSeparator, decimal: settings.export.csvDecimal },
-    [tl('Verity {0} 参数扫描', [ENGINE_VERSION]), tl('场景: {0}', [state.scene.name]), tl('数值为显示单位（见表头）；最大值、最小值按记录帧取（步长 Δt），事件时刻为精确定位值')])
+    [tl('VeloPhi {0} 参数扫描', [ENGINE_VERSION]), tl('场景: {0}', [state.scene.name]), tl('数值为显示单位（见表头）；最大值、最小值按记录帧取（步长 Δt），事件时刻为精确定位值')])
   const path = await saveFile(text, tl('{0}_参数扫描.csv', [safeName(state.scene.name)]), [{ name: tl('CSV 表格'), extensions: ['csv'] }])
   if (path) showToast(tl('已导出 {0}', [path]))
 }

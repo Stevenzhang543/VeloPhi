@@ -1,13 +1,27 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" class="booting">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Verity：面向物理教学的可验证力学仿真引擎" />
+    <meta name="description" content="VeloPhi（VeloΦ）：面向物理教学的可验证力学仿真引擎" />
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
-    <title>Verity 26.51</title>
+    <title>VeloΦ 26.52</title>
+    <!-- Opening screen (manual 26.52, D54): see src/app/opening.css -->
+    <link rel="stylesheet" href="/src/app/opening.css" />
   </head>
   <body>
+    <div id="vp-splash" aria-hidden="true">
+      <div class="mark">
+        <svg width="84" height="84" viewBox="0 0 32 32">
+          <defs><linearGradient id="vp-sbg" x1="0.1" y1="0" x2="0.9" y2="1"><stop offset="0" stop-color="#6366f1" /><stop offset="0.55" stop-color="#3730a3" /><stop offset="1" stop-color="#0f0c33" /></linearGradient></defs>
+          <rect x="1" y="1" width="30" height="30" rx="7" fill="url(#vp-sbg)" />
+          <ellipse cx="16" cy="16.25" rx="9.38" ry="6.56" fill="none" stroke="#fff" stroke-opacity="0.6" stroke-width="1.4" />
+          <line x1="16" y1="5" x2="16" y2="27.5" stroke="#fff" stroke-opacity="0.6" stroke-width="1.4" stroke-linecap="round" />
+          <circle cx="16" cy="9.75" r="1.6" fill="#fff" fill-opacity="0.7" /><circle cx="16" cy="15.69" r="2" fill="#fff" fill-opacity="0.9" /><circle cx="16" cy="24" r="3" fill="#fbbf24" />
+        </svg>
+        <div class="name">Velo<b>Φ</b></div>
+      </div>
+    </div>
     <div id="app"></div>
     <script type="module" src="/src/app/main.ts"></script>
   </body>

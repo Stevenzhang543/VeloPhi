@@ -5,6 +5,7 @@
  */
 import { tl } from '../i18n'
 import type { BodyDef, ConnectorDef, Scene } from '../core/scene/types'
+import { connectorAnchors } from '../core/scene/types'
 import { addBody, addGround, addIncline, addPulley, nextId } from '../core/scene/build'
 import type { System } from '../core/solver/dynamics'
 import type { Pose } from '../core/solver/kinematics'
@@ -62,19 +63,20 @@ export function bodyAt(sys: System, poses: Pose[], p: Pt, tol: number, dynamicOn
 export function surfaceBelow(sys: System, poses: Pose[], p: Pt, reach = 0.6): { foot: Pt; n: Pt; angle: number } | null {
   let best: { foot: Pt; n: Pt; d: number } | null = null
   for (const b of sys.model.bodies) {
-    if (b.shape.kind !== 'polygon') continue
+    if (b.shape.kind === 'circle') continue
     const pose = poses[b.global]
-    const { verts, normals, lengths } = b.shape
-    for (let f = 0; f < verts.length; f++) {
-      const nl = normals[f]
+    // Faces of a convex polygon, or of every part of a concave or compound body (26.52)
+    const faces = b.shape.kind === 'polygon'
+      ? b.shape.verts.map((v, f) => ({ v, nl: (b.shape as { normals: Pt[] }).normals[f], len: (b.shape as { lengths: number[] }).lengths[f] }))
+      : b.shape.faces.map(fc => ({ v: fc.e0, nl: fc.normal, len: fc.len }))
+    for (const { v, nl, len } of faces) {
       const n = { x: pose.c * nl.x - pose.s * nl.y, y: pose.s * nl.x + pose.c * nl.y }
       if (n.y < 0.25) continue
-      const v = verts[f]
       const e0 = { x: pose.x + pose.c * v.x - pose.s * v.y, y: pose.y + pose.s * v.x + pose.c * v.y }
       const t = { x: -n.y, y: n.x }
       const along = (p.x - e0.x) * t.x + (p.y - e0.y) * t.y
       const d = (p.x - e0.x) * n.x + (p.y - e0.y) * n.y
-      if (along < 0 || along > lengths[f] || d < -0.15 || d > reach) continue
+      if (along < 0 || along > len || d < -0.15 || d > reach) continue
       if (!best || Math.abs(d) < Math.abs(best.d)) best = { foot: { x: e0.x + t.x * along, y: e0.y + t.y * along }, n, d }
     }
   }
@@ -237,12 +239,29 @@ export function createForce(scene: Scene, sys: System, poses: Pose[], p: Pt): st
   return c.id
 }
 
+/**
+ * Create a central field (26.52, D60) at a point: on the body under it (at its centre of mass for a moving body), or
+ * fixed in space. Inverse-square attraction of all moving bodies by default; returns its id.
+ */
+export function createCentral(scene: Scene, sys: System, poses: Pose[], p: Pt): string {
+  const b = bodyAt(sys, poses, p, 0, false)
+  let a: ConnectorDef['a']
+  if (b && b.dynamic) a = { body: b.id, local: { x: 0, y: 0 } }
+  else if (b) { const ps = poses[b.global], dx = p.x - ps.x, dy = p.y - ps.y; a = { body: b.id, local: { x: ps.c * dx + ps.s * dy, y: -ps.s * dx + ps.c * dy } } }
+  else a = { body: null, local: { x: p.x, y: p.y } }
+  const used = new Set(scene.connectors.map(c => c.name)); let k = 1; while (used.has(tl('力心{0}', [k]))) k++
+  const c: ConnectorDef = { id: nextId(scene, 'z'), name: tl('力心{0}', [k]), type: 'central', a, k: 20, n: -2, targets: null }
+  scene.connectors.push(c)
+  return c.id
+}
+
 /** Remove an object and everything that refers to it. */
 export function deleteObject(scene: Scene, sel: Selection) {
   if (!sel) return
   if (sel.kind === 'body') {
     scene.bodies = scene.bodies.filter(b => b.id !== sel.id)
-    scene.connectors = scene.connectors.filter(c => c.a.body !== sel.id && (c.type === 'force' || c.b.body !== sel.id))
+    scene.connectors = scene.connectors.filter(c => !connectorAnchors(c).some(a => a.body === sel.id))
+    for (const c of scene.connectors) if (c.type === 'central' && c.targets) c.targets = c.targets.filter(t => t !== sel.id)
     // Movable pulleys carried by the body go with it, and ropes stop running over them
     const carried = new Set(scene.pulleys.filter(p => p.body === sel.id).map(p => p.id))
     if (carried.size) {

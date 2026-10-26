@@ -97,4 +97,4 @@ export function mimeOf(name: string): string {
 
 /** File filter of scene files. */
 /** File type of scene files (its name in the current language). */
-export function sceneFilter(): FileFilter[] { return [{ name: tl('Verity 场景'), extensions: ['json'] }] }
+export function sceneFilter(): FileFilter[] { return [{ name: tl('VeloPhi 场景'), extensions: ['json'] }] }

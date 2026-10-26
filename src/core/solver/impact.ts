@@ -28,18 +28,18 @@ import type { Message } from '../../i18n/message'
 import { msg } from '../../i18n/message'
 import { solveDense } from '../math/linalg'
 import type { ContactFeature, Pose, RowJ } from './kinematics'
-import { computePoses, equalityKins, ropeKin } from './kinematics'
+import { anchorState, computePoses, equalityKins, ropeKin, sliderAxisKin } from './kinematics'
 import type { PairInfo, System } from './dynamics'
-import { TOL, addRow, kineticEnergy, rowDot, rowMinvRow } from './dynamics'
+import { TOL, addRow, kineticEnergy, limitRow, rowDot, rowMinvRow } from './dynamics'
 import type { ContactKin } from './kinematics'
 import { touchingFeatures } from './modes'
 
-/** One contact or rope in an impact, with its velocities (m/s) and impulse (N·s). */
+/** One contact, rope or slider end stop in an impact, with its velocities (m/s) and impulse (N·s). */
 export interface ImpactPoint {
-  kind: 'contact' | 'rope'
+  kind: 'contact' | 'rope' | 'limit'
   pair: PairInfo | null
   feature: ContactFeature | null
-  /** Rope index for a rope, −1 for a contact. */
+  /** Rope index for a rope, slider index for an end stop (26.52), −1 for a contact. */
   rope: number
   vnBefore: number
   vnAfter: number
@@ -82,7 +82,23 @@ export function approaching(sys: System, X: Float64Array, posesIn?: Pose[]): boo
     const k = ropeKin(poses, r)
     if (k.value <= TOL.touch && k.vel < -TOL.vel) return true
   }
+  // 26.52: a slider moving into an end stop
+  if (sys.model.hasLimits) {
+    for (const st of stopRows(sys, poses)) if (st.row.vel < -TOL.vel) return true
+  }
   return false
+}
+
+/** End-stop rows of sliders at a stop (gap ≤ TOL.touch), in slider order, lower before upper (26.52). */
+function stopRows(sys: System, poses: Pose[]) {
+  const out: Array<{ k: number; row: ReturnType<typeof limitRow> }> = []
+  sys.model.sliders.forEach((sl, k) => {
+    if (!sl.limited) return
+    const kin = sliderAxisKin(poses, sl)
+    if (kin.value - sl.lo <= TOL.touch) out.push({ k, row: limitRow(sl, k, -1, kin) })
+    else if (sl.hi - kin.value <= TOL.touch) out.push({ k, row: limitRow(sl, k, 1, kin) })
+  })
+  return out
 }
 
 /** Warning recorded when Newton's law at several points at once would add energy and the impact is made plastic. */
@@ -111,8 +127,12 @@ export function resolveImpact(sys: System, X: Float64Array): ImpactResult | null
 function impactRows(sys: System, poses: Pose[], plastic: boolean): IRow[] | null {
   const model = sys.model
   const rows: IRow[] = []
-  // Equality constraints (hinges, rods and the connectors of 26.51) stay satisfied at velocity level
-  for (const e of equalityKins(model, poses)) rows.push({ j: e.kin.j, u: e.kin.vel, target: 0, unilateral: false, approach: false, info: null, kin: null })
+  // Equality constraints (hinges, rods and the connectors of 26.51) stay satisfied at velocity level; the drive of a
+  // torque-limited motor (26.52) cannot deliver an impulse and takes no part
+  for (const e of equalityKins(model, poses)) {
+    if (e.kind === 'drive' && model.motors[e.owner].limited) continue
+    rows.push({ j: e.kin.j, u: e.kin.vel, target: 0, unilateral: false, approach: false, info: null, kin: null })
+  }
   let any = false
   for (const t of touchingFeatures(sys, poses)) {
     const u = t.kin.vn
@@ -137,6 +157,25 @@ function impactRows(sys: System, poses: Pose[], plastic: boolean): IRow[] | null
       kin: null
     })
   })
+  // 26.52 (D58): slider end stops, Newton's law with the stop's restitution
+  if (model.hasLimits) {
+    for (const { k, row } of stopRows(sys, poses)) {
+      const sl = model.sliders[k]
+      const u = row.vel
+      const approach = u < -TOL.vel
+      if (approach) any = true
+      const e = approach && -u >= TOL.zeno && !plastic ? sl.e : 0
+      const pb = anchorState(poses, sl.b)
+      const A = sl.a.body && sl.a.body.index >= 0 ? poses[sl.a.body.global] : null
+      const ax = A ? A.c * sl.axis.x - A.s * sl.axis.y : sl.axis.x, ay = A ? A.s * sl.axis.x + A.c * sl.axis.y : sl.axis.y
+      const sg = row.sub === 0 ? 1 : -1
+      rows.push({
+        j: row.j, u, target: approach ? -e * u : 0, unilateral: true, approach,
+        info: { kind: 'limit', pair: null, feature: null, rope: k, vnBefore: u, vnAfter: u, impulse: 0, restitution: e, cx: pb.px, cy: pb.py, nx: sg * ax, ny: sg * ay },
+        kin: null
+      })
+    }
+  }
   return any ? rows : null
 }
 

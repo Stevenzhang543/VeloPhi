@@ -1,9 +1,9 @@
 [workspace]
 resolver = "2"
-members = ["verity-core", "verity-cli", "verity-wasm"]
+members = ["velophi-core", "velophi-cli", "velophi-wasm"]
 
 [workspace.package]
-version = "26.51.0"
+version = "26.52.0"
 edition = "2021"
 publish = false
 
@@ -14,8 +14,8 @@ codegen-units = 1
 panic = "abort"
 
 # Tests and the dev build run whole simulations: optimise the core even there (no effect on results)
-[profile.dev.package.verity-core]
+[profile.dev.package.velophi-core]
 opt-level = 2
 
-[profile.test.package.verity-core]
+[profile.test.package.velophi-core]
 opt-level = 2

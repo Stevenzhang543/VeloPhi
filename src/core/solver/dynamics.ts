@@ -11,12 +11,12 @@
  */
 import type { Material } from '../scene/types'
 import { solveDense } from '../math/linalg'
-import type { BodyModel, Model } from './model'
-import { pairKey, pairMaterial } from './model'
+import type { BodyModel, Model, SliderModel } from './model'
+import { centralForce, centralPotential, pairKey, pairMaterial } from './model'
 import { ENV_SIZE, ForceExprError, branchOf, fillEnv } from './forceExpr'
 import { msg } from '../../i18n/message'
-import type { ContactFeature, ContactKin, Pose, Probe, RowJ, RowTerm } from './kinematics'
-import { anchorState, computePoses, contactKin, distanceKin, equalityKins, pairFeatures, pairProbes, ropeKin, ropePath } from './kinematics'
+import type { ConstraintKin, ContactFeature, ContactKin, Pose, Probe, RowJ, RowTerm } from './kinematics'
+import { anchorState, computePoses, contactKin, distanceKin, equalityKins, pairFeatures, pairProbes, rollKin, ropeKin, ropePath, sliderAxisKin } from './kinematics'
 
 /**
  * Tolerances shared by the solver. Lengths in m, velocities in m/s, times in s; force and acceleration
@@ -72,16 +72,27 @@ export interface UnitMode {
   friction: Friction
   /** Sliding direction: sign of vt (friction acts against it). */
   s: number
+  /**
+   * Rolling resistance (26.52, D59), present when the pair has some and a round body can turn: 0 while the relative
+   * rolling ω_A − ω_B is locked (rolling rest), otherwise its sign (the resisting couple acts against it).
+   */
+  roll?: number
 }
 
 /**
  * Contact and connector mode. `taut[k]`: rope k is taut. `sw` holds the frozen branch (+1, −1, or 0 for sign
  * at zero) of every switch of the variable forces (model.switches); absent or empty when the scene has none.
  */
-export interface Mode { units: UnitMode[]; taut: boolean[]; sw?: number[] }
+export interface Mode {
+  units: UnitMode[]; taut: boolean[]; sw?: number[]
+  /** End stops of the sliders (26.52, D58; present when some slider has one): 0 free, −1 at the lower, +1 at the upper stop. */
+  limit?: number[]
+  /** Torque-limited speed motors (26.52, D58; present when some motor has a limit): 0 locked, ±1 slipping with e = ω_rel − speed of that sign. */
+  slip?: number[]
+}
 
 /** Kind of a constraint row ('weld', 'motor', 'drive', 'slider' and 'gear' since 26.51). */
-export type RowKind = 'hinge' | 'weld' | 'motor' | 'drive' | 'rod' | 'slider' | 'gear' | 'rope' | 'normal' | 'tangent'
+export type RowKind = 'hinge' | 'weld' | 'motor' | 'drive' | 'rod' | 'slider' | 'gear' | 'rope' | 'normal' | 'tangent' | 'limit' | 'roll'
 /** One active constraint at acceleration level: J·a + c = 0. */
 export interface Row {
   kind: RowKind
@@ -116,6 +127,10 @@ export interface UnitState {
   /** Normal force of each closed point (N). */
   pointLambda: number[]
   openKin: ContactKin[]
+  /** Rolling resistance couple on A (N·m; 0 without rolling resistance), relative rolling ω_A − ω_B and its rate (26.52). */
+  roll: number
+  wr: number
+  wra: number
 }
 
 /** Solution of the dynamics of a mode at one state. */
@@ -138,6 +153,11 @@ export interface ModeSolution {
   ropeKin: Array<{ value: number; vel: number; acc: number }>
   /** Energy ledger rates. */
   rates: Rates
+  /** Force of each slider's end stop (N, pushing inwards; 0 when free); empty when no slider has stops (26.52). */
+  limitForce: number[]
+  /** Torque of each motor on b (N·m) and the rate of e = ω_b − ω_a − speed; empty when no motor has a torque limit (26.52). */
+  driveTorque: number[]
+  driveAcc: number[]
 }
 
 /** Energy ledger rates (W). */
@@ -391,6 +411,22 @@ export function appliedForces(sys: System, poses: Pose[], rates: Rates | null, X
       }
     }
   }
+  // 26.52 (D60): central fields pull (k > 0) each target's centre of mass towards the centre; a centre on a dynamic body
+  // takes the reaction at its point. Conservative: the potential is part of the mechanical energy, no ledger entry
+  for (const c of model.centrals) {
+    const P = anchorState(poses, c.a)
+    const cb = c.a.body
+    for (const t of c.targets) {
+      const p = poses[t.global]
+      const dx = p.x - P.px, dy = p.y - P.py
+      const r = Math.sqrt(dx * dx + dy * dy)
+      if (!(r > 0)) continue
+      const F = centralForce(c.k, c.n, r, t.bound)
+      const fx = -F * dx / r, fy = -F * dy / r
+      Q[3 * t.index] += fx; Q[3 * t.index + 1] += fy
+      if (cb && cb.index >= 0) { Q[3 * cb.index] -= fx; Q[3 * cb.index + 1] -= fy; Q[3 * cb.index + 2] -= P.rx * fy - P.ry * fx }
+    }
+  }
   // 26.51 (D51): torque motors act on b and react on a; their power is motor work
   for (const m of model.motors) {
     if (m.mode !== 'torque') continue
@@ -438,9 +474,39 @@ export function newRates(pairs = 0): Rates {
 /** Surface speed of the face owner of a feature (conveyors). */
 export function beltOf(f: ContactFeature): number { return f.kind === 'pf' ? f.B.body.beltSpeed : 0 }
 
+/**
+ * Radius of the rolling body of a contact (26.52, D59): the round side's radius (the smaller one when both are round),
+ * 0 when neither side is round or neither body can turn.
+ */
+export function rollRadius(f: ContactFeature): number {
+  const rA = f.A.radius, rB = f.kind === 'pp' ? f.B.radius : 0
+  const R = rA > 0 && rB > 0 ? Math.min(rA, rB) : rA > 0 ? rA : rB
+  if (!(R > 0)) return 0
+  return f.A.body.invInertia > 0 || f.B.body.invInertia > 0 ? R : 0
+}
+
+/** Rolling resistance coefficient of a pair (0: none). */
+export function rollingOf(pair: PairInfo): number { return pair.material.rolling ?? 0 }
+
+/**
+ * The end-stop row of slider k on side −1 (lower) or +1 (upper): g = s − lo or hi − s ≥ 0, its force pushes inwards.
+ */
+export function limitRow(sl: SliderModel, k: number, side: number, kin: ConstraintKin): Row {
+  if (side < 0) return { kind: 'limit', owner: k, sub: 0, j: kin.j, f: kin.j, c: kin.c, value: kin.value - sl.lo, vel: kin.vel }
+  const j = negRow(kin.j)
+  return { kind: 'limit', owner: k, sub: 1, j, f: j, c: -kin.c, value: sl.hi - kin.value, vel: -kin.vel }
+}
+
+/** A row with every coefficient negated. */
+export function negRow(r: RowJ): RowJ {
+  const out: RowJ = { ai: r.ai, ax: -r.ax, ay: -r.ay, aw: -r.aw, bi: r.bi, bx: -r.bx, by: -r.by, bw: -r.bw }
+  if (r.ex) out.ex = r.ex.map(t => ({ i: t.i, x: -t.x, y: -t.y, w: -t.w }))
+  return out
+}
+
 // ---- Solve ----
 /** Kinematics of a unit's reference, closed and open points. */
-export interface UnitKin { refKin: ContactKin; pointKin: ContactKin[]; openKin: ContactKin[] }
+export interface UnitKin { refKin: ContactKin; pointKin: ContactKin[]; openKin: ContactKin[]; rollKin: ConstraintKin | null }
 /** Rows of a mode with the kinematics they were built from. */
 export interface ModeRows { rows: Row[]; unitKin: UnitKin[]; ropeKins: ReturnType<typeof ropeKin>[] }
 
@@ -448,7 +514,17 @@ export interface ModeRows { rows: Row[]; unitKin: UnitKin[]; ropeKins: ReturnTyp
 export function buildRows(sys: System, poses: Pose[], mode: Mode): ModeRows {
   const model = sys.model
   const rows: Row[] = []
-  for (const e of equalityKins(model, poses)) rows.push({ kind: e.kind, owner: e.owner, sub: e.sub, j: e.kin.j, f: e.kin.j, c: e.kin.c, value: e.kin.value, vel: e.kin.vel })
+  const slip = mode.slip
+  for (const e of equalityKins(model, poses)) {
+    // A slipping torque-limited motor (26.52) drives with ±τmax (an applied torque), not with its speed row
+    if (slip && e.kind === 'drive' && slip[e.owner] !== 0) continue
+    rows.push({ kind: e.kind, owner: e.owner, sub: e.sub, j: e.kin.j, f: e.kin.j, c: e.kin.c, value: e.kin.value, vel: e.kin.vel })
+  }
+  // 26.52: closed end stops of sliders
+  if (mode.limit) {
+    const lim = mode.limit
+    model.sliders.forEach((sl, k) => { if (lim[k] !== 0) rows.push(limitRow(sl, k, lim[k], sliderAxisKin(poses, sl))) })
+  }
   const ropeKins = model.ropes.map((r, k) => {
     const rk = ropeKin(poses, r)
     if (mode.taut[k]) rows.push({ kind: 'rope', owner: k, sub: 0, j: rk.j, f: rk.j, c: rk.c, value: rk.value, vel: rk.vel })
@@ -459,14 +535,19 @@ export function buildRows(sys: System, poses: Pose[], mode: Mode): ModeRows {
     const pointKin = u.points.map(p => (p === u.ref ? refKin : contactKin(p, poses)))
     const openKin = u.open.map(p => contactKin(p, poses))
     const muK = u.pair.material.muK
+    // 26.52 (D59): rolling resistance; while rolling its couple −sign·C_rr·R·N is folded into the normal rows
+    const rk = u.roll !== undefined && u.points.length > 0 ? rollKin(poses, u.ref.A.body, u.ref.B.body) : null
+    const rr = rk && u.roll !== 0 ? -u.roll! * rollingOf(u.pair) * rollRadius(u.ref) : 0
     pointKin.forEach((k, pi) => {
-      const f = u.friction === 'slide' ? combine(k.jn, refKin.jt, -muK * u.s) : k.jn
+      let f = u.friction === 'slide' ? combine(k.jn, refKin.jt, -muK * u.s) : k.jn
+      if (rr !== 0) f = combine(f, rk!.j, rr)
       rows.push({ kind: 'normal', owner: ui, sub: pi, j: k.jn, f, c: k.cn, value: k.gap, vel: k.vn })
     })
     if (u.friction === 'stick' && u.points.length > 0) {
       rows.push({ kind: 'tangent', owner: ui, sub: 0, j: refKin.jt, f: refKin.jt, c: refKin.ct, value: 0, vel: refKin.vt })
     }
-    return { refKin, pointKin, openKin }
+    if (rk && u.roll === 0) rows.push({ kind: 'roll', owner: ui, sub: 0, j: rk.j, f: rk.j, c: 0, value: 0, vel: rk.vel })
+    return { refKin, pointKin, openKin, rollKin: rk }
   })
   return { rows, unitKin, ropeKins }
 }
@@ -478,6 +559,8 @@ export function solveMode(sys: System, X: Float64Array, mode: Mode, posesIn?: Po
   const poses = posesIn ?? computePoses(model, X)
   const rates = newRates(sys.pairs.length)
   const Q = appliedForces(sys, poses, rates, X, mode.sw ?? null)
+  // 26.52 (D58): a slipping torque-limited motor drives b with −sign(e)·τmax (reaction on a); its power is motor work
+  if (mode.slip) slipTorques(model, poses, mode.slip, Q, rates)
   const { rows, unitKin, ropeKins } = buildRows(sys, poses, mode)
   const m = rows.length
   // Unconstrained accelerations a0 = M⁻¹Q
@@ -507,13 +590,14 @@ export function solveMode(sys: System, X: Float64Array, mode: Mode, posesIn?: Po
   }
   // Unit summaries and ledger rates
   const units: UnitState[] = mode.units.map((u, ui) => {
-    const { refKin, pointKin, openKin } = unitKin[ui]
+    const { refKin, pointKin, openKin, rollKin: rk } = unitKin[ui]
     const pointLambda: number[] = []
-    let normal = 0, tangent = 0
+    let normal = 0, tangent = 0, roll = 0
     for (let r = 0; r < m; r++) {
       const row = rows[r]
       if (row.owner !== ui) continue
       if (row.kind === 'normal') { pointLambda.push(lambda[r]); normal += lambda[r] } else if (row.kind === 'tangent') tangent = lambda[r]
+      else if (row.kind === 'roll') roll = lambda[r]
     }
     if (u.friction === 'slide') tangent = -u.pair.material.muK * u.s * normal
     const vt = refKin.vt
@@ -527,7 +611,17 @@ export function solveMode(sys: System, X: Float64Array, mode: Mode, posesIn?: Po
         rates.pairHeat[u.pair.index] += heat
       }
     }
-    return { normal, tangent, vt, at, refKin, pointKin, pointLambda, openKin }
+    let wr = 0, wra = 0
+    if (rk) {
+      wr = rk.vel
+      wra = rowDot(rk.j, acc) + rk.c
+      if (u.roll !== 0) roll = -u.roll! * rollingOf(u.pair) * rollRadius(u.ref) * normal
+      // The couple's work is friction heat (26.52: booked with the friction of the pair)
+      const rh = -roll * wr
+      rates.heat += rh
+      rates.pairHeat[u.pair.index] += rh
+    }
+    return { normal, tangent, vt, at, refKin, pointKin, pointLambda, openKin, roll, wr, wra }
   })
   // 26.51: the drive of a speed motor delivers λ·(ω_b − ω_a) (motor work)
   for (let r = 0; r < m; r++) {
@@ -542,7 +636,39 @@ export function solveMode(sys: System, X: Float64Array, mode: Mode, posesIn?: Po
     return 0
   })
   const ropeKinOut = ropeKins.map(rk => ({ value: rk.value, vel: rk.vel, acc: rowDot(rk.j, acc) + rk.c }))
-  return { poses, rows, lambda, acc, Q, consistent, residual, rank, units, ropeTension, ropeKin: ropeKinOut, rates }
+  // 26.52: end-stop forces and motor torques
+  const limitForce: number[] = []
+  if (model.hasLimits) {
+    for (let k = 0; k < model.sliders.length; k++) limitForce.push(0)
+    for (let r = 0; r < m; r++) if (rows[r].kind === 'limit') limitForce[rows[r].owner] = lambda[r]
+  }
+  const driveTorque: number[] = [], driveAcc: number[] = []
+  if (model.hasSlip) {
+    model.motors.forEach((mo, k) => {
+      const a = mo.a.body, b = mo.b.body
+      driveAcc.push((b && b.index >= 0 ? acc[3 * b.index + 2] : 0) - (a && a.index >= 0 ? acc[3 * a.index + 2] : 0))
+      if (mo.mode === 'torque') { driveTorque.push(mo.torque); return }
+      const d = mode.slip ? mode.slip[k] : 0
+      if (d !== 0) { driveTorque.push(-d * mo.maxTorque); return }
+      let tq = 0
+      for (let r = 0; r < m; r++) if (rows[r].kind === 'drive' && rows[r].owner === k) tq = lambda[r]
+      driveTorque.push(tq)
+    })
+  }
+  return { poses, rows, lambda, acc, Q, consistent, residual, rank, units, ropeTension, ropeKin: ropeKinOut, rates, limitForce, driveTorque, driveAcc }
+}
+
+/** Applied torques of slipping torque-limited motors (26.52, D58), with their power as motor work. */
+function slipTorques(model: Model, poses: Pose[], slip: number[], Q: Float64Array, rates: Rates | null) {
+  model.motors.forEach((mo, k) => {
+    const d = slip[k]
+    if (!d) return
+    const tq = -d * mo.maxTorque
+    const a = mo.a.body, b = mo.b.body
+    if (b && b.index >= 0) Q[3 * b.index + 2] += tq
+    if (a && a.index >= 0) Q[3 * a.index + 2] -= tq
+    if (rates) rates.beltWork += tq * ((b ? poses[b.global].w : 0) - (a ? poses[a.global].w : 0))
+  })
 }
 
 /** Time derivative of the state for a fixed mode. */
@@ -564,7 +690,12 @@ export function derivative(sys: System, X: Float64Array, mode: Mode, out: Float6
 
 // ---- Energy ----
 /** Mechanical energy (J): kinetic, gravitational (zero at `energyZeroY`) and spring potential. */
-export interface EnergyParts { kinetic: number; gravity: number; spring: number; total: number }
+export interface EnergyParts {
+  kinetic: number; gravity: number; spring: number
+  /** Potential of the central fields (26.52, D60; 0 without them). */
+  field: number
+  total: number
+}
 
 /** Mechanical energy of state X. */
 export function energy(sys: System, X: Float64Array, posesIn?: Pose[]): EnergyParts {
@@ -602,7 +733,17 @@ export function energy(sys: System, X: Float64Array, posesIn?: Pose[]): EnergyPa
       }
     }
   }
-  return { kinetic, gravity, spring, total: kinetic + gravity + spring }
+  // 26.52 (D60): potential of the central fields (scenes without them keep the sum of 26.51)
+  let field = 0
+  for (const c of model.centrals) {
+    const P = anchorState(poses, c.a)
+    for (const t of c.targets) {
+      const p = poses[t.global]
+      const dx = p.x - P.px, dy = p.y - P.py
+      field += centralPotential(c.k, c.n, Math.sqrt(dx * dx + dy * dy), t.bound)
+    }
+  }
+  return { kinetic, gravity, spring, field, total: model.centrals.length ? kinetic + gravity + spring + field : kinetic + gravity + spring }
 }
 
 /** Kinetic energy of state X (J). */

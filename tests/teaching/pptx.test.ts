@@ -22,7 +22,7 @@ describe('pptx', () => {
   it('builds title, moment, continuation and video slides', async () => {
     const formulas = Array.from({ length: 6 }, (_, i) => ({ ...img(520, 250), title: `公式${i}` }))
     const bytes = await buildPptx({
-      title: '板块模型', description: '物块滑上长木板', meta: ['Verity 26.49.0', 'SHA-256 abc'],
+      title: '板块模型', description: '物块滑上长木板', meta: ['VeloPhi 26.49.0', 'SHA-256 abc'],
       moments: [
         { title: '关键时刻 1 · t = 0 s', subtitle: '初始时刻', screenshot: img(1280, 720), formulas: [], readouts: [{ label: '物块 速度', value: '4 m/s' }] },
         { title: '关键时刻 2 · t = 0.907 s', subtitle: '物块–木板 相对静止（共速）', screenshot: img(1280, 720), formulas, readouts: [{ label: '物块 速度', value: '0.4444 m/s' }, { label: '木板 速度', value: '0.4444 m/s' }] }

@@ -11,16 +11,24 @@
  *            kink (−|argument| for sign() sitting at zero);
  *   pulley   length of a rope's end segment, between a body and the pulley it runs onto, minus PULLEY_REACH —
  *            the body reaches the pulley and the run stops there (26.51; before, the step size collapsed).
+ * 26.52 (D58, D59):
+ *   limit      s − lo and hi − s of a slider whose stops are open — it reaches an end stop;
+ *   unlimit    force of a closed end stop — the slider leaves it;
+ *   mslip      τmax − |τ| of a locked torque-limited motor — it starts to slip;
+ *   mlock      d·e of a slipping motor — its relative speed is back at the set speed;
+ *   rollStart  C_rr·N·R − |M| of a unit in rolling rest — it starts to roll;
+ *   rollStop   r·ω_rel of a rolling unit — its relative rolling stops.
  * Hysteresis: a function that starts at (or within ε of) zero fires only after falling ε below its start, so
  * a mode chosen exactly at a boundary does not trigger itself again.
  */
 import type { Pose, Probe } from './kinematics'
-import { computePoses, featureProbeKey, probeValue, ropePath } from './kinematics'
+import { computePoses, featureProbeKey, probeValue, ropePath, sliderAxisKin } from './kinematics'
 import type { Mode, ModeSolution, System } from './dynamics'
-import { TOL, solveMode, switchArg } from './dynamics'
+import { TOL, rollRadius, rollingOf, solveMode, switchArg } from './dynamics'
 
 /** Kind of event function (see the module header). */
 export type EventType = 'contact' | 'liftoff' | 'leave' | 'slip' | 'stop' | 'slack' | 'taut' | 'switch' | 'pulley'
+  | 'limit' | 'unlimit' | 'mslip' | 'mlock' | 'rollStart' | 'rollStop'
 
 /** A rope end closer than this to the pulley it runs onto has reached it (m). */
 export const PULLEY_REACH = 1e-3
@@ -34,6 +42,8 @@ export interface EventFn {
   rope: number
   /** Switch index (variable forces), −1 otherwise. */
   sw: number
+  /** Slider (limit, unlimit; `point` 0 lower, 1 upper) or motor (mslip, mlock) index, −1 otherwise (26.52). */
+  item: number
   /** Probe of a contact function. */
   probe: Probe | null
   /** Hysteresis width ε. */
@@ -54,7 +64,7 @@ export function buildEventFns(sys: System, mode: Mode, poses: Pose[], sol: ModeS
   const epsF = TOL.force * model.forceScale
   const fns: EventFn[] = []
   const add = (type: EventType, eps: number, value: EventFn['value'], extra: Partial<EventFn> = {}) => {
-    fns.push({ type, unit: -1, point: -1, rope: -1, sw: -1, probe: null, eps, threshold: 0, start: 0, value, ...extra })
+    fns.push({ type, unit: -1, point: -1, rope: -1, sw: -1, item: -1, probe: null, eps, threshold: 0, start: 0, value, ...extra })
   }
   const closedProbes = new Set<string>()
   mode.units.forEach((u, ui) => {
@@ -71,6 +81,16 @@ export function buildEventFns(sys: System, mode: Mode, poses: Pose[], sol: ModeS
     if (u.points.length > 0 && u.friction === 'slide') {
       const sgn = u.s
       add('stop', 1e-10, (_, s) => sgn * s.units[ui].vt, { unit: ui })
+    }
+    // 26.52: rolling resistance
+    if (u.points.length > 0 && u.roll !== undefined) {
+      if (u.roll === 0) {
+        const cap = rollingOf(u.pair) * rollRadius(u.ref)
+        add('rollStart', epsF, (_, s) => cap * s.units[ui].normal - Math.abs(s.units[ui].roll), { unit: ui })
+      } else {
+        const r = u.roll
+        add('rollStop', 1e-10, (_, s) => r * s.units[ui].wr, { unit: ui })
+      }
     }
   })
   for (const pair of sys.pairs) {
@@ -96,6 +116,23 @@ export function buildEventFns(sys: System, mode: Mode, poses: Pose[], sol: ModeS
       add('switch', SWITCH_EPS, b !== 0 ? (_p, _s, Y) => b * switchArg(sys, k, Y, sw) : (_p, _s, Y) => -Math.abs(switchArg(sys, k, Y, sw)), { sw: k })
     }
   }
+  // 26.52: end stops of sliders and torque-limited motors
+  if (mode.limit) {
+    mode.limit.forEach((side, k) => {
+      const sl = model.sliders[k]
+      if (side !== 0) { add('unlimit', epsF, (_, s) => s.limitForce[k], { item: k, point: side < 0 ? 0 : 1 }); return }
+      if (sl.lo > -Infinity) add('limit', TOL.ext, poses => sliderAxisKin(poses, sl).value - sl.lo, { item: k, point: 0 })
+      if (sl.hi < Infinity) add('limit', TOL.ext, poses => sl.hi - sliderAxisKin(poses, sl).value, { item: k, point: 1 })
+    })
+  }
+  if (mode.slip) {
+    mode.slip.forEach((d, k) => {
+      const mo = model.motors[k]
+      if (!mo.limited) return
+      if (d === 0) add('mslip', epsF, (_, s) => mo.maxTorque - Math.abs(s.driveTorque[k]), { item: k })
+      else add('mlock', 1e-10, (p, _s) => d * driveError(p, mo), { item: k })
+    })
+  }
   // Probes that start at contact but are already separating (after a bounce) need no hysteresis
   let ahead: Pose[] | null = null
   const dt = 1e-7
@@ -109,12 +146,20 @@ export function buildEventFns(sys: System, mode: Mode, poses: Pose[], sol: ModeS
     const g0 = f.value(poses, sol, X)
     f.start = g0
     f.threshold = g0 > f.eps ? 0 : Math.min(g0, 0) - f.eps
-    if (f.type === 'contact' && ahead && f.threshold < 0) {
+    // A contact or an end stop that starts slightly crossed but is moving away (just after a bounce) gets no
+    // hysteresis: otherwise every bounce would sink an extra ε and gain energy (26.52: end stops too)
+    if ((f.type === 'contact' || f.type === 'limit') && ahead && f.threshold < 0) {
       const rate = (f.value(ahead, sol, X) - g0) / dt
       if (rate > 1e-9) f.threshold = Math.min(0, g0)
     }
   }
   return fns
+}
+
+/** e = ω_b − ω_a − speed of a motor at the given poses. */
+function driveError(poses: Pose[], mo: System['model']['motors'][number]): number {
+  const wa = mo.a.body ? poses[mo.a.body.global].w : 0, wb = mo.b.body ? poses[mo.b.body.global].w : 0
+  return wb - wa - mo.speed
 }
 
 /**

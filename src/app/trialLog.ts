@@ -28,7 +28,9 @@ export interface TrialEntry {
 }
 
 /** Storage key of the log in localStorage. */
-export const TRIAL_LOG_KEY = 'verity.trialLog.v1'
+export const TRIAL_LOG_KEY = 'velophi.trialLog.v1'
+/** Key of the log under the old product name (Verity, up to 26.51; D53), read when the new key is empty. */
+const LEGACY_TRIAL_LOG_KEY = 'verity.trialLog.v1'
 /** Most entries kept; the oldest are dropped first. */
 export const TRIAL_LOG_CAP = 5000
 
@@ -55,7 +57,7 @@ function load(): TrialEntry[] {
   if (buffer) return buffer
   let list: TrialEntry[] = []
   try {
-    const raw = store()?.getItem(TRIAL_LOG_KEY)
+    const raw = store()?.getItem(TRIAL_LOG_KEY) ?? store()?.getItem(LEGACY_TRIAL_LOG_KEY)
     if (raw) { const parsed = JSON.parse(raw) as unknown; if (Array.isArray(parsed)) list = parsed.filter(isEntry) }
     } catch { /* A damaged log starts over */ }
   buffer = list.slice(-TRIAL_LOG_CAP)
@@ -120,14 +122,15 @@ export function clearTrialLog() {
   buffer = []
   session = null
   if (flushTimer) { clearTimeout(flushTimer); flushTimer = null }
-    try { store()?.removeItem(TRIAL_LOG_KEY) } catch { /* Ignore */ }
+    // Clearing means the whole log, including one still kept under the old product name
+    try { store()?.removeItem(TRIAL_LOG_KEY); store()?.removeItem(LEGACY_TRIAL_LOG_KEY) } catch { /* Ignore */ }
 }
 
 /** The export document. */
 export function trialLogJson(): string {
   flushTrialLog()
   return JSON.stringify({
-    format: 'verity-trial-log', version: 1, engine: ENGINE_VERSION, exportedAt: new Date().toISOString(),
+    format: 'velophi-trial-log', version: 1, engine: ENGINE_VERSION, exportedAt: new Date().toISOString(),
     note: tl('本地操作日志：不含姓名、文件名或场景内容，仅在本机保存，由试用者手动导出。'),
     entries: load()
   }, null, 1) + '\n'
@@ -137,5 +140,5 @@ export function trialLogJson(): string {
 export async function exportTrialLog(): Promise<string | null> {
   const d = new Date()
   const stamp = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}-${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')}`
-  return saveFile(trialLogJson(), `verity-trial-log-${stamp}.json`, [{ name: 'JSON', extensions: ['json'] }])
+  return saveFile(trialLogJson(), `velophi-trial-log-${stamp}.json`, [{ name: 'JSON', extensions: ['json'] }])
 }

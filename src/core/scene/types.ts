@@ -4,19 +4,36 @@
  */
 import type { Vec2 } from '../math/vec'
 
-/** Value of the `format` field of every scene file. */
-export const SCENE_FORMAT = 'verity-scene'
+/** Value of the `format` field of every scene file (26.52: VeloPhi, D53). */
+export const SCENE_FORMAT = 'velophi-scene'
+/** Format values of older files that are still read (Verity, up to 26.51). */
+export const LEGACY_SCENE_FORMATS: readonly string[] = ['verity-scene']
 /** Current scene file format version; older files are migrated on load (see io.ts). */
-export const SCENE_VERSION = 4
+export const SCENE_VERSION = 5
 /** Engine version written into saved scenes. */
-export const ENGINE_VERSION = '26.51.0'
+export const ENGINE_VERSION = '26.52.0'
 
 /** Shape of a body, in body coordinates (m). */
-export type ShapeDef =
+export type ShapeDef = PartShapeDef | CompoundShapeDef
+
+/** A shape that can also be a part of a compound shape. */
+export type PartShapeDef =
   | { type: 'circle'; radius: number }
   | { type: 'box'; width: number; height: number }
-  /** Convex polygon, counter-clockwise, in body coordinates (for dynamic bodies relative to the centre of mass). */
+  /**
+   * Simple polygon (no self-intersection), counter-clockwise, in body coordinates (for dynamic bodies relative to the
+   * centre of mass). Convex up to 26.51; since 26.52 (D35) it may be concave.
+   */
   | { type: 'polygon'; points: Vec2[] }
+
+/**
+ * Compound shape (26.52, D35): parts placed in body coordinates (for dynamic bodies about the centre of mass of the
+ * whole, uniform density). Parts of one body never collide with each other.
+ */
+export interface CompoundShapeDef { type: 'compound'; parts: ShapePart[] }
+
+/** A part of a compound shape: its shape, the position of its own origin (box and circle: centre) and its angle. */
+export interface ShapePart { shape: PartShapeDef; position: Vec2; angle: number }
 
 /** Particle (translation only), rigid body, or static (immovable) body. */
 export type BodyKind = 'particle' | 'rigid' | 'static'
@@ -32,6 +49,11 @@ export interface Material {
   muK: number
   /** Coefficient of restitution e (0 … 1). */
   restitution: number
+  /**
+   * Rolling resistance coefficient C_rr (dimensionless, 26.52, D59): a round body rolling on a surface feels the
+   * couple C_rr·N·r against its rolling. A contact uses the larger of the two bodies' values. Absent: 0.
+   */
+  rolling?: number
 }
 
 /**
@@ -132,19 +154,55 @@ export interface WeldDef { id: string; name: string; type: 'weld'; a: Anchor; b:
  * Slider (prismatic joint, 26.51): anchor b stays on the line through anchor a along `axis` (a direction in the
  * frame of a's body, world when a has no body). `free`: b's body may turn; otherwise the relative angle is kept.
  */
-export interface SliderDef { id: string; name: string; type: 'slider'; a: Anchor; b: Anchor; axis: Vec2; free?: boolean }
+export interface SliderDef {
+  id: string; name: string; type: 'slider'; a: Anchor; b: Anchor; axis: Vec2; free?: boolean
+  /**
+   * End stops (26.52, D58): b's displacement s = axis·(P_b − P_a) stays within [min, max] (m; null: no stop on that
+   * side); hitting a stop is an impact with restitution e. Absent or null: no stops.
+   */
+  limits?: { min: number | null; max: number | null; restitution: number } | null
+}
 /**
  * Motor (26.51): a pin joint that also drives b relative to a — at constant relative angular velocity `speed`
  * (rad/s, counter-clockwise) or with constant torque `torque` (N·m on b, the reaction on a).
  */
-export interface MotorDef { id: string; name: string; type: 'motor'; a: Anchor; b: Anchor; mode: 'speed' | 'torque'; speed: number; torque: number }
+export interface MotorDef {
+  id: string; name: string; type: 'motor'; a: Anchor; b: Anchor; mode: 'speed' | 'torque'; speed: number; torque: number
+  /**
+   * Torque limit of a speed motor (N·m, 26.52, D58): beyond it the motor slips and drives with ±maxTorque until the
+   * relative speed is back at `speed`. Absent or null: unlimited.
+   */
+  maxTorque?: number | null
+}
 /**
  * Gear or belt (26.51): ω_a + ratio·ω_b = 0 between the bodies of the two anchors (b without a body: the world,
  * i.e. a brake). Meshing gears have a positive ratio r_b/r_a; a crossed belt the same, an open belt a negative one.
  */
 export interface GearDef { id: string; name: string; type: 'gear'; a: Anchor; b: Anchor; ratio: number }
-/** Any connector between two anchors (a force has only `a`). */
-export type ConnectorDef = RopeDef | RodDef | SpringDef | HingeDef | ForceDef | DamperDef | WeldDef | SliderDef | MotorDef | GearDef
+/**
+ * Central field (26.52, D60): every target body is pulled towards (k > 0) or pushed from (k < 0) the centre `a` by
+ * F = k·rⁿ along the line to its centre of mass (n = 1: elastic, n = −2: inverse square). Inside the target's bounding
+ * radius R the force falls off linearly to 0 at the centre. The potential k·rⁿ⁺¹/(n + 1) (k·ln r for n = −1) is part of
+ * the mechanical energy. A centre on a dynamic body feels the reactions.
+ */
+export interface CentralDef {
+  id: string; name: string; type: 'central'
+  a: Anchor
+  /** Strength (N/mⁿ); positive: attraction. */
+  k: number
+  /** Exponent n. */
+  n: number
+  /** Bodies acted on (ids); null: every dynamic body except the one carrying the centre. */
+  targets: string[] | null
+}
+/** Any connector between two anchors (a force and a central field have only `a`). */
+export type ConnectorDef = RopeDef | RodDef | SpringDef | HingeDef | ForceDef | DamperDef | WeldDef | SliderDef | MotorDef | GearDef | CentralDef
+
+/** A connector with a single anchor (a force or a central field). */
+export function singleAnchor(c: ConnectorDef): c is ForceDef | CentralDef { return c.type === 'force' || c.type === 'central' }
+
+/** The anchors of a connector: `a`, and `b` when it has one. */
+export function connectorAnchors(c: ConnectorDef): Anchor[] { return singleAnchor(c) ? [c.a] : [c.a, c.b] }
 
 /** Teaching annotations drawn over the scene (world coordinates, m). They never affect the simulation. */
 export type AnnotationDef =
@@ -153,15 +211,19 @@ export type AnnotationDef =
   | { id: string; type: 'ruler'; from: Vec2; to: Vec2 }
   | { id: string; type: 'angle'; vertex: Vec2; a: Vec2; b: Vec2 }
 
-/** Material override for one pair of bodies; without one, a contact uses the smaller of the two bodies' values. */
-export interface ContactPairDef { a: string; b: string; muS: number; muK: number; restitution: number }
+/**
+ * Material override for one pair of bodies; without one, a contact uses the smaller of the two bodies' values (the
+ * larger for rolling resistance).
+ */
+export interface ContactPairDef { a: string; b: string; muS: number; muK: number; restitution: number; rolling?: number }
 
 /**
  * 'dopri5' (default, event-driven with the accuracy of manual §6), 'rk4' and 'euler' (fixed-step teaching
  * integrators, events still located), 'moreau' (Moreau–Jean time stepping: reduced accuracy, for scenes with
- * very many contacts).
+ * very many contacts), 'gauss4' (26.52, D61: two-stage Gauss–Legendre, fixed step, symplectic — the energy of a
+ * conservative system stays bounded over long runs).
  */
-export type IntegratorKind = 'dopri5' | 'rk4' | 'euler' | 'moreau'
+export type IntegratorKind = 'dopri5' | 'rk4' | 'euler' | 'moreau' | 'gauss4'
 
 /**
  * Kind of state change after which a run may stop (`SceneSettings.stopAt`): a sliding pair reaches common
@@ -264,7 +326,7 @@ export interface CustomQuantityDef {
   expr: string
 }
 
-/** The scene document as saved to a .verity.json file. */
+/** The scene document as saved to a .velophi.json file. */
 export interface Scene {
   format: typeof SCENE_FORMAT
   version: number

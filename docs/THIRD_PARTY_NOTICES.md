@@ -1,7 +1,7 @@
 # Third-party notices / 第三方组件声明
 
-Verity 26.50 bundles the following open-source components. Each is used unmodified under its own license.
-Verity 26.50 使用了下列开源组件，均未修改，按各自许可证使用。许可证全文见文末（相同文本只列一次）。
+VeloPhi 26.50 bundles the following open-source components. Each is used unmodified under its own license.
+VeloPhi 26.50 使用了下列开源组件，均未修改，按各自许可证使用。许可证全文见文末（相同文本只列一次）。
 
 ## npm packages in the application (51)
 

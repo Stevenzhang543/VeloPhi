@@ -2,7 +2,7 @@
 
 The physics core writes no natural language (manual 26.50, D27). Warnings and errors are `{ key, params }`, built
 the same way by the TypeScript engine (`msg()` in `src/i18n/message.ts`) and the Rust engine (`Message` in
-`verity-core/src/message.rs`); the parity harness compares them in full (key and every parameter, numbers by their
+`velophi-core/src/message.rs`); the parity harness compares them in full (key and every parameter, numbers by their
 bits). The interface renders them in the current language: run messages with `src/i18n/coreText.ts`
 (`renderMessage`, `msgText`). Numbers are SI; formatting is the interface's business.
 
@@ -23,6 +23,7 @@ bits). The interface renders them in the current language: run messages with `sr
 | `warn.muSBelowMuK` | body | (26.49: English text) μs < μk |
 | `err.forceNotFinite` | force, t, fx, fy | …：变力表达式在 t = … s 时没有有限值…，仿真停止 |
 | `err.stepTooSmall` | t | 步长过小（t = … s），仿真停止 |
+| `err.stateNotFinite` | t | t = … s 时运动状态不再是有限值（物体被加速到无穷远…），仿真停止 (new in 26.52) |
 | `err.switchChatter` | force, t | …：变力表达式在 t = … s 附近反复切换…，仿真停止 |
 | `err.eventChatter` | t, count | t = … s 处事件抖振（同一时刻 … 次状态切换），仿真停止 |
 | `err.stepLimit` | — | 步数超过上限，仿真停止 |
@@ -70,6 +71,15 @@ reach the user only if the two loaders ever disagree; they are rendered as key a
 | `scene.gearInvalid` | connector (26.51) |
 | `scene.gravitationNotPositive` | — (26.51) |
 | `scene.dragNegative` | body (26.51) |
+| `scene.rollingRange` | body (26.52; a pair: "a–b") |
+| `scene.motorMaxTorque` | connector (26.52) |
+| `scene.sliderLimits` | connector (26.52) |
+| `scene.sliderLimitRestitution` | connector (26.52) |
+| `scene.centralInvalid` | connector (26.52) |
+| `scene.centralTargetMissing` | connector, body (26.52) |
+| `scene.polygonNotSimple` | body (26.52: self-intersecting or zero-area polygon) |
+| `scene.compoundEmpty` | body (26.52) |
+| `scene.compoundPartInvalid` | body (26.52) |
 
 ## Force expressions (Rust `expr.rs`)
 

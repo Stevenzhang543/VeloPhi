@@ -1,9 +1,9 @@
 {
-  "name": "verity",
+  "name": "velophi",
   "private": true,
-  "version": "26.51.0",
+  "version": "26.52.0",
   "type": "module",
-  "description": "Verity: physics simulation and teaching engine with verifiable results",
+  "description": "VeloPhi: physics simulation and teaching engine with verifiable results",
   "license": "UNLICENSED",
   "scripts": {
     "dev": "vite",

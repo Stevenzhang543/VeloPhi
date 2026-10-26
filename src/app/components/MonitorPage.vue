@@ -9,7 +9,7 @@
 import { tl, paren } from '../../i18n'
 import { msgText } from '../../i18n/locale'
 import { computed, provide, ref } from 'vue'
-import { state, edit } from '../store'
+import { state, edit, problemLocked } from '../store'
 import { canonicalQuantityId, evaluateQuantity, listQuantities, makeContext } from '../../core/observe/quantities'
 import type { QuantityDef } from '../../core/observe/quantities'
 import { cardsAt } from '../../formula/match'
@@ -33,7 +33,8 @@ provide(PAGE_ACTIVE, computed(() => props.active))
 const COLORS = ['#2f7cf6', '#e5484d', '#16a34a', '#d97706', '#8b5cf6', '#0891b2', '#db2777', '#64748b']
 
 const live = () => props.active
-const rec = useGated(live, () => (state.stale ? null : state.recording))
+// While a problem is answered the monitor shows nothing (26.52)
+const rec = useGated(live, () => (state.stale || problemLocked() ? null : state.recording))
 const runId = useGated(live, () => state.runId)
 const frame = useGated(live, () => state.panelFrame)
 

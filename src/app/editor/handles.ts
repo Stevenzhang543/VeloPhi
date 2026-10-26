@@ -12,7 +12,7 @@ import { tl } from '../../i18n'
 import type { BodyDef, PulleyDef, Scene } from '../../core/scene/types'
 import type { Pt, Attachments } from './geometry'
 import {
-  MIN_SIZE, bodyCenter, captureAttachments, centroid, clean, closestOnSegment, pulleyWorld, isValidConvex, localVerts, remapAttachments,
+  MIN_SIZE, bodyCenter, captureAttachments, centroid, clean, closestOnSegment, pulleyWorld, isValidSimple, localVerts, remapAttachments,
   rotate, signedArea, toLocalPt, toWorldPt, worldVerts, writePolygon
 } from './geometry'
 import { roundTo } from './snap'
@@ -209,7 +209,7 @@ export function applyHandleDrag(scene: Scene, d: HandleDrag, p: Pt, o: DragOptio
     const cand = verts.map(v => ({ ...v }))
     const lp = toLocalPt(orig, p)
     cand[h.index] = { x: clean(lp.x), y: clean(lp.y) }
-    if (!isValidConvex(cand)) {
+    if (!isValidSimple(cand)) {
       fb.invalid = cand.map(l => toWorldPt(orig, l))
       return fb
     }
@@ -299,7 +299,7 @@ export function deleteVertex(scene: Scene, def: BodyDef, index: number): boolean
   const verts = localVerts(def)
   if (verts.length <= 3) return false
   const rest = verts.filter((_, i) => i !== index)
-  if (!isValidConvex(rest)) return false
+  if (!isValidSimple(rest)) return false
   const orig: BodyDef = JSON.parse(JSON.stringify(def))
   writePolygon(def, orig, rest, captureAttachments(scene, def.id))
   return true

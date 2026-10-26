@@ -66,6 +66,11 @@ const TEXT: Record<string, [Render, Render, Render]> = {
     p => `${str(p.body)}: polygon points are taken relative to its centre of mass`,
     p => `${str(p.body)}: Polygonpunkte werden relativ zum Schwerpunkt genommen`
   ],
+  'warn.compoundCentred': [
+    p => `${str(p.body)}：复合体各部分的位置已改为相对于整体质心`,
+    p => `${str(p.body)}: the parts of the compound body are taken relative to its centre of mass`,
+    p => `${str(p.body)}: Die Teile des zusammengesetzten Körpers werden auf seinen Schwerpunkt bezogen`
+  ],
   'warn.muSBelowMuK': [
     p => `${str(p.body)}：静摩擦因数小于动摩擦因数（μs < μk）`,
     p => `${str(p.body)}: coefficient of static friction below kinetic (μs < μk)`,
@@ -80,6 +85,11 @@ const TEXT: Record<string, [Render, Render, Render]> = {
     p => `步长过小（t = ${fixed(p.t, 6)} s），仿真停止`,
     p => `Step size too small (t = ${fixed(p.t, 6)} s); simulation stopped`,
     p => `Schrittweite zu klein (t = ${fixed(p.t, 6)} s); Simulation angehalten`
+  ],
+  'err.stateNotFinite': [
+    p => `t = ${fixed(p.t, 6)} s 时运动状态不再是有限值（物体被加速到无穷远，例如斥力随距离增大的有心力），仿真停止`,
+    p => `The state is no longer finite at t = ${fixed(p.t, 6)} s (a body is driven off to infinity, e.g. by a repulsive central force that grows with distance); simulation stopped`,
+    p => `Bei t = ${fixed(p.t, 6)} s ist der Bewegungszustand nicht mehr endlich (ein Körper wird ins Unendliche getrieben, z. B. durch eine abstoßende Zentralkraft, die mit dem Abstand wächst); Simulation angehalten`
   ],
   'err.switchChatter': [
     p => `${str(p.force)}：变力表达式在 t = ${fixed(p.t, 9)} s 附近反复切换（例如 sign(vx) 在 vx = 0 处），无法确定方向，仿真停止。模拟摩擦请使用接触面的摩擦因数`,

@@ -1,5 +1,5 @@
 /**
- * The Rust core as WebAssembly (manual 26.50, D29/D30): src/engine/verity_core.wasm, run through the worker job
+ * The Rust core as WebAssembly (manual 26.50, D29/D30): src/engine/velophi_core.wasm, run through the worker job
  * of wasmJob.ts, must give the same recordings as the TypeScript engine — every frame, event and fingerprint —
  * for the templates (bounded at their former duration and unbounded), and its chunk rebuilds must be accepted by
  * the TypeScript side.
@@ -18,7 +18,7 @@ import { startWasmJob } from '../src/worker/wasmJob'
 import type { WasmEngine } from '../src/engine/wasm'
 import { WasmEngineError, instantiateEngine } from '../src/engine/wasm'
 
-const WASM = 'src/engine/verity_core.wasm'
+const WASM = 'src/engine/velophi_core.wasm'
 let engine: WasmEngine
 
 beforeAll(async () => {

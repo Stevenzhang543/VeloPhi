@@ -72,12 +72,12 @@ export async function buildPptx(input: DeckInput): Promise<Uint8Array> {
   const pptx = new PptxGenJS()
   pptx.layout = 'LAYOUT_WIDE'
   pptx.title = input.title
-  pptx.author = 'Verity'
+  pptx.author = 'VeloPhi'
   pptx.subject = tl('物理仿真课件')
   pptx.theme = { headFontFace: FONT, bodyFontFace: FONT }
 
   const footer = (slide: ReturnType<typeof pptx.addSlide>, n: number) => {
-    slide.addText(`Verity · ${input.title}`, { x: 0.5, y: H - 0.42, w: 8, h: 0.3, fontFace: FONT, fontSize: 9, color: TEXT2 })
+    slide.addText(`VeloPhi · ${input.title}`, { x: 0.5, y: H - 0.42, w: 8, h: 0.3, fontFace: FONT, fontSize: 9, color: TEXT2 })
     slide.addText(String(n), { x: W - 1.5, y: H - 0.42, w: 1, h: 0.3, fontFace: FONT, fontSize: 9, color: TEXT2, align: 'right' })
   }
   let n = 0

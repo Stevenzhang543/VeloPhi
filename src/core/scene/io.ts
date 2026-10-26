@@ -1,13 +1,14 @@
 /**
- * Scene files (.verity.json): UTF-8 JSON with a fixed key order, numbers written with full precision
+ * Scene files (.velophi.json): UTF-8 JSON with a fixed key order, numbers written with full precision
  * (shortest round-trip form), so a saved scene reloads bit-identically and diffs are readable. Older
  * versions are migrated step by step; unknown fields of newer files are kept in `extra`.
  */
 import { tl } from '../../i18n'
-import type { AnnotationDef, BodyDef, BranchDef, ConnectorDef, Scene, StartLedgerDef, StopAtDef, StopKind } from './types'
-import { ENGINE_VERSION, MAX_DURATION, SCENE_FORMAT, SCENE_VERSION, STOP_KINDS } from './types'
+import type { AnnotationDef, BodyDef, BranchDef, ConnectorDef, PartShapeDef, Scene, StartLedgerDef, StopAtDef, StopKind } from './types'
+import { ENGINE_VERSION, LEGACY_SCENE_FORMATS, MAX_DURATION, SCENE_FORMAT, SCENE_VERSION, STOP_KINDS } from './types'
 import { emptyScene } from './build'
 import { checkForceExpr } from '../solver/forceExpr'
+import { polygonIsSimple } from '../solver/model'
 
 /** Invalid scene file; the message is user-facing. */
 export class SceneFileError extends Error {}
@@ -79,7 +80,10 @@ const MIGRATIONS: Record<number, (doc: Record<string, unknown>) => Record<string
     return { ...doc, settings: st }
   },
   // 26.50 -> 26.51: drag, gravitation and the new connectors are optional fields; nothing to change
-  3: doc => doc
+  3: doc => doc,
+  // 26.51 -> 26.52: compound and concave shapes, slider limits, motor torque limits, rolling resistance, central
+  // fields and the Gauss–Legendre integrator are optional fields; nothing to change
+  4: doc => doc
 }
 
 function parseStopAt(v: unknown): StopAtDef | null {
@@ -95,7 +99,7 @@ export function parseScene(text: string): { scene: Scene; warnings: string[] } {
   try { raw = JSON.parse(text) } catch (e) { throw new SceneFileError(tl('不是有效的 JSON：{0}', [(e as Error).message])) }
   if (!raw || typeof raw !== 'object') throw new SceneFileError(tl('文件内容不是场景'))
   let doc = raw as Record<string, unknown>
-  if (doc.format !== SCENE_FORMAT) throw new SceneFileError(tl('不是 Verity 场景文件（format 字段不符）'))
+  if (doc.format !== SCENE_FORMAT && !LEGACY_SCENE_FORMATS.includes(String(doc.format))) throw new SceneFileError(tl('不是 VeloPhi 场景文件（format 字段不符）'))
   const warnings: string[] = []
   let version = num(doc.version, 'version')
   if (version > SCENE_VERSION) warnings.push(tl('文件来自更新的版本（格式 {0}），未知字段已保留但可能不生效', [version]))
@@ -112,7 +116,7 @@ export function parseScene(text: string): { scene: Scene; warnings: string[] } {
     settings: {
       gravity: vec(st.gravity, 'settings.gravity', base.settings.gravity),
       outputStep: num(st.outputStep, 'settings.outputStep', base.settings.outputStep),
-      integrator: (['dopri5', 'rk4', 'euler', 'moreau'].includes(st.integrator as string) ? st.integrator : 'dopri5') as Scene['settings']['integrator'],
+      integrator: (['dopri5', 'rk4', 'euler', 'moreau', 'gauss4'].includes(st.integrator as string) ? st.integrator : 'dopri5') as Scene['settings']['integrator'],
       relTol: num(st.relTol, 'settings.relTol', base.settings.relTol),
       absTol: num(st.absTol, 'settings.absTol', base.settings.absTol),
       duration: st.duration === null || st.duration === undefined ? null : num(st.duration, 'settings.duration'),
@@ -126,7 +130,7 @@ export function parseScene(text: string): { scene: Scene; warnings: string[] } {
     bodies: ((doc.bodies ?? []) as unknown[]).map((b, i) => parseBody(b as Record<string, unknown>, `bodies[${i}]`)),
     pulleys: ((doc.pulleys ?? []) as Array<Record<string, unknown>>).map((p, i) => ({ id: str(p.id, `pulleys[${i}].id`), name: str(p.name, `pulleys[${i}].name`, tl('滑轮')), position: vec(p.position, `pulleys[${i}].position`), radius: num(p.radius, `pulleys[${i}].radius`, 0), ...(typeof p.body === 'string' ? { body: p.body } : {}) })),
     connectors: ((doc.connectors ?? []) as unknown[]).map(c => c as ConnectorDef),
-    contactPairs: ((doc.contactPairs ?? []) as Array<Record<string, unknown>>).map((p, i) => ({ a: str(p.a, `contactPairs[${i}].a`), b: str(p.b, `contactPairs[${i}].b`), muS: num(p.muS, 'muS'), muK: num(p.muK, 'muK'), restitution: num(p.restitution, 'restitution') })),
+    contactPairs: ((doc.contactPairs ?? []) as Array<Record<string, unknown>>).map((p, i) => ({ a: str(p.a, `contactPairs[${i}].a`), b: str(p.b, `contactPairs[${i}].b`), muS: num(p.muS, 'muS'), muK: num(p.muK, 'muK'), restitution: num(p.restitution, 'restitution'), ...(p.rolling !== undefined && p.rolling !== null ? { rolling: num(p.rolling, `contactPairs[${i}].rolling`) } : {}) })),
     view: { center: vec((doc.view as Record<string, unknown> | undefined)?.center, 'view.center', base.view.center), pixelsPerMeter: num((doc.view as Record<string, unknown> | undefined)?.pixelsPerMeter, 'view.pixelsPerMeter', base.view.pixelsPerMeter) },
     watch: Array.isArray(doc.watch) ? (doc.watch as unknown[]).filter((w): w is string => typeof w === 'string') : [],
     annotations: Array.isArray(doc.annotations) ? (doc.annotations as unknown[]).filter(isAnnotation) : [],
@@ -178,14 +182,33 @@ function isAnnotation(a: unknown): a is AnnotationDef {
   }
 }
 
+/** A shape that may be a part of a compound shape. */
+function parsePartShape(shape: Record<string, unknown>, path: string): PartShapeDef {
+  if (shape.type === 'circle') return { type: 'circle', radius: num(shape.radius, `${path}.radius`) }
+  if (shape.type === 'box') return { type: 'box', width: num(shape.width, `${path}.width`), height: num(shape.height, `${path}.height`) }
+  if (shape.type === 'polygon') {
+    if (!Array.isArray(shape.points)) throw new SceneFileError(tl('{0} 应为列表', [`${path}.points`]))
+    return { type: 'polygon', points: (shape.points as unknown[]).map((p, i) => vec(p, `${path}.points[${i}]`)) }
+  }
+  throw new SceneFileError(tl('{0}.shape.type 未知', [path.replace(/\.shape$/, '')]))
+}
+
 function parseBody(b: Record<string, unknown>, path: string): BodyDef {
   const shape = b.shape as Record<string, unknown>
   if (!shape || typeof shape !== 'object') throw new SceneFileError(tl('{0}.shape 缺失', [path]))
   let s: BodyDef['shape']
-  if (shape.type === 'circle') s = { type: 'circle', radius: num(shape.radius, `${path}.shape.radius`) }
-  else if (shape.type === 'box') s = { type: 'box', width: num(shape.width, `${path}.shape.width`), height: num(shape.height, `${path}.shape.height`) }
-  else if (shape.type === 'polygon') s = { type: 'polygon', points: (shape.points as unknown[]).map((p, i) => vec(p, `${path}.shape.points[${i}]`)) }
-  else throw new SceneFileError(tl('{0}.shape.type 未知', [path]))
+  if (shape.type === 'compound') {
+    // 26.52 (D35): parts with their placement
+    if (!Array.isArray(shape.parts)) throw new SceneFileError(tl('{0} 应为列表', [`${path}.shape.parts`]))
+    s = {
+      type: 'compound',
+      parts: (shape.parts as Array<Record<string, unknown>>).map((p, i) => {
+        const pp = `${path}.shape.parts[${i}]`
+        if (!p || typeof p !== 'object' || !p.shape || typeof p.shape !== 'object') throw new SceneFileError(tl('{0}.shape 缺失', [pp]))
+        return { shape: parsePartShape(p.shape as Record<string, unknown>, `${pp}.shape`), position: vec(p.position, `${pp}.position`, { x: 0, y: 0 }), angle: num(p.angle, `${pp}.angle`, 0) }
+      })
+    }
+  } else s = parsePartShape(shape, `${path}.shape`)
   const mat = (b.material ?? {}) as Record<string, unknown>
   const kind = (['particle', 'rigid', 'static'].includes(b.kind as string) ? b.kind : 'rigid') as BodyDef['kind']
   return {
@@ -194,7 +217,7 @@ function parseBody(b: Record<string, unknown>, path: string): BodyDef {
     velocity: vec(b.velocity, `${path}.velocity`, { x: 0, y: 0 }), angularVelocity: num(b.angularVelocity, `${path}.angularVelocity`, 0),
     mass: num(b.mass, `${path}.mass`, kind === 'static' ? 0 : 1), inertia: b.inertia === null || b.inertia === undefined ? null : num(b.inertia, `${path}.inertia`),
     fixedRotation: !!b.fixedRotation,
-    material: { muS: num(mat.muS, `${path}.material.muS`, 0), muK: num(mat.muK, `${path}.material.muK`, 0), restitution: num(mat.restitution, `${path}.material.restitution`, 0) },
+    material: { muS: num(mat.muS, `${path}.material.muS`, 0), muK: num(mat.muK, `${path}.material.muK`, 0), restitution: num(mat.restitution, `${path}.material.restitution`, 0), ...(mat.rolling !== undefined && mat.rolling !== null ? { rolling: num(mat.rolling, `${path}.material.rolling`) } : {}) },
     beltSpeed: num(b.beltSpeed, `${path}.beltSpeed`, 0), color: str(b.color, `${path}.color`, '#2563eb'),
     ...(b.drag && typeof b.drag === 'object' ? { drag: { linear: num((b.drag as Record<string, unknown>).linear, `${path}.drag.linear`, 0), quadratic: num((b.drag as Record<string, unknown>).quadratic, `${path}.drag.quadratic`, 0) } } : {})
   }
@@ -210,13 +233,28 @@ export function validateScene(scene: Scene) {
     if (b.shape.type === 'circle' && !(b.shape.radius > 0)) throw new SceneFileError(tl('{0}：半径必须大于 0', [b.name]))
     if (b.shape.type === 'box' && !(b.shape.width > 0 && b.shape.height > 0)) throw new SceneFileError(tl('{0}：宽高必须大于 0', [b.name]))
     if (b.shape.type === 'polygon' && b.shape.points.length < 3) throw new SceneFileError(tl('{0}：多边形至少需要 3 个顶点', [b.name]))
+    // 26.52 (D35): concave polygons are allowed, self-intersecting ones are not; compound parts are checked one by one
+    if (b.shape.type === 'polygon' && !polygonIsSimple(b.shape.points)) throw new SceneFileError(tl('{0}：多边形的边不能相交，面积不能为零', [b.name]))
+    if (b.shape.type === 'compound') {
+      if (b.shape.parts.length === 0) throw new SceneFileError(tl('{0}：复合体至少需要一个部分', [b.name]))
+      for (const p of b.shape.parts) {
+        const ps = p.shape
+        if ((ps.type === 'circle' && !(ps.radius > 0)) || (ps.type === 'box' && !(ps.width > 0 && ps.height > 0)) || (ps.type === 'polygon' && !polygonIsSimple(ps.points))) {
+          throw new SceneFileError(tl('{0}：复合体的部分无效（半径、宽高须大于 0，多边形须为简单多边形）', [b.name]))
+        }
+      }
+    }
     const m = b.material
     if (m.muS < 0 || m.muK < 0 || m.restitution < 0 || m.restitution > 1) throw new SceneFileError(tl('{0}：摩擦因数应 ≥ 0，恢复系数应在 0…1', [b.name]))
+    if (m.rolling !== undefined && !(m.rolling >= 0 && m.rolling <= 1)) throw new SceneFileError(tl('{0}：滚动阻力系数应在 0…1', [b.name]))
+  }
+  for (const p of scene.contactPairs) {
+    if (p.rolling !== undefined && !(p.rolling >= 0 && p.rolling <= 1)) throw new SceneFileError(tl('{0}：滚动阻力系数应在 0…1', [`${p.a}–${p.b}`]))
   }
   const pulleys = new Set(scene.pulleys.map(p => p.id))
   for (const p of scene.pulleys) if (p.body && !ids.has(p.body)) throw new SceneFileError(tl('{0}：所在的物体 {1} 不存在', [p.name, p.body]))
   for (const c of scene.connectors) {
-    for (const a of c.type === 'force' ? [c.a] : [c.a, c.b]) if (a.body && !ids.has(a.body)) throw new SceneFileError(tl('{0}：连接的物体 {1} 不存在', [c.name, a.body]))
+    for (const a of c.type === 'force' || c.type === 'central' ? [c.a] : [c.a, c.b]) if (a.body && !ids.has(a.body)) throw new SceneFileError(tl('{0}：连接的物体 {1} 不存在', [c.name, a.body]))
     if (c.type === 'rope') {
       for (const p of c.pulleys) if (!pulleys.has(p.pulley)) throw new SceneFileError(tl('{0}：滑轮 {1} 不存在', [c.name, p.pulley]))
       // A rope end cannot sit on the body that carries the very wheel it runs onto
@@ -233,6 +271,16 @@ export function validateScene(scene: Scene) {
     if (c.type === 'damper' && !(c.damping >= 0)) throw new SceneFileError(tl('{0}：阻尼系数应 ≥ 0', [c.name]))
     if (c.type === 'slider' && !(Math.hypot(c.axis?.x ?? 0, c.axis?.y ?? 0) > 0)) throw new SceneFileError(tl('{0}：滑轨方向不能为零向量', [c.name]))
     if (c.type === 'motor' && !(Number.isFinite(c.speed) && Number.isFinite(c.torque))) throw new SceneFileError(tl('{0}：马达的转速和力矩应为有限数', [c.name]))
+    if (c.type === 'motor' && c.maxTorque !== undefined && c.maxTorque !== null && !(c.maxTorque > 0 && Number.isFinite(c.maxTorque))) throw new SceneFileError(tl('{0}：马达的力矩上限应大于 0', [c.name]))
+    if (c.type === 'slider' && c.limits) {
+      const { min, max, restitution } = c.limits
+      if ((min !== null && !Number.isFinite(min)) || (max !== null && !Number.isFinite(max)) || (min !== null && max !== null && !(min < max))) throw new SceneFileError(tl('{0}：滑轨限位应满足 下限 < 上限', [c.name]))
+      if (!(restitution >= 0 && restitution <= 1)) throw new SceneFileError(tl('{0}：限位的恢复系数应在 0…1', [c.name]))
+    }
+    if (c.type === 'central') {
+      if (!(Number.isFinite(c.k) && Number.isFinite(c.n) && Math.abs(c.n) <= 4)) throw new SceneFileError(tl('{0}：有心力的强度应为有限数，指数应在 −4…4', [c.name]))
+      for (const t of c.targets ?? []) if (!ids.has(t)) throw new SceneFileError(tl('{0}：作用对象 {1} 不存在', [c.name, t]))
+    }
     if (c.type === 'gear' && (!c.a.body || !(Number.isFinite(c.ratio) && c.ratio !== 0))) throw new SceneFileError(tl('{0}：齿轮需要连接物体，传动比不能为 0', [c.name]))
     if (c.type === 'force' && c.expr) {
       if (!c.a.body) throw new SceneFileError(tl('{0}：变力必须作用在物体上', [c.name]))

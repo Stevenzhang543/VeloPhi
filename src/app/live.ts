@@ -16,7 +16,7 @@ import { frameIsCheap } from '../core/solver/simulation'
 import { evaluateQuantity, makeContext } from '../core/observe/quantities'
 
 /** Provided by each page: true while the page is the one shown. */
-export const PAGE_ACTIVE: InjectionKey<Ref<boolean>> = Symbol('verity.pageActive')
+export const PAGE_ACTIVE: InjectionKey<Ref<boolean>> = Symbol('velophi.pageActive')
 
 /**
  * Whether the page containing the calling component is shown. Components on hidden pages stay mounted and keep

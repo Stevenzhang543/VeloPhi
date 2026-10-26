@@ -1,6 +1,6 @@
 # Porting notes: TypeScript solver → Rust core
 
-The Rust core (`verity-core`) is a line-by-line port of `src/core` and gives **bit-identical** results
+The Rust core (`velophi-core`) is a line-by-line port of `src/core` and gives **bit-identical** results
 (manual 26.50, D29–D31). Manual 26.51 (D49) revised D31: new physics is still written on both sides, because the
 bit-for-bit comparison is the strongest check there is and the TypeScript solver remains the fallback (no
 WebAssembly), the engine of parameter sweeps and of recomputation on the interface thread. The physics of 26.51 —
@@ -11,7 +11,7 @@ random scenes of `randomScene2651`, `randomImpactScene` and the branch scenes in
 
 ## Module map
 
-| TypeScript (`src/core`) | Rust (`verity-core/src`) |
+| TypeScript (`src/core`) | Rust (`velophi-core/src`) |
 | --- | --- |
 | `math/dmath.ts` (fdlibm port) | `dmath.rs` |
 | `math/linalg.ts`, `math/vec.ts` | `linalg.rs` (vectors inline) |

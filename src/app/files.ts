@@ -6,6 +6,7 @@ import { emptyScene, addGround } from '../core/scene/build'
 import { parseScene, SceneFileError } from '../core/scene/io'
 import { openTextFile, saveFile, sceneFilter, isDesktop } from '../platform/files'
 import { ask } from '../platform/ask'
+import { openProblemText } from './problemMode'
 
 /** Start a new scene with a ground (asks first when there are unsaved changes). */
 export async function newScene() {
@@ -25,6 +26,8 @@ export async function openScene() {
   try {
     const f = await openTextFile(sceneFilter())
     if (!f) return
+    // A problem file opened as a scene opens the problem (26.52)
+    if (/"format"\s*:\s*"velophi-problem"/.test(f.text.slice(0, 200))) { await openProblemText(f.text, f.name); return }
     const { scene, warnings } = parseScene(f.text)
     loadScene(scene, f.name, f.path)
     if (warnings.length) showToast(warnings.join(semiSep()))
@@ -39,7 +42,7 @@ export async function saveScene(asNew = false) {
   try {
     const text = serializeCurrent()
     const base = (state.scene.name || tl('场景')).replace(/[\\/:*?"<>|]/g, '_')
-    const path = await saveFile(text, state.fileName ?? `${base}.verity.json`, sceneFilter(), !asNew && isDesktop ? state.filePath : null)
+    const path = await saveFile(text, state.fileName ?? `${base}.velophi.json`, sceneFilter(), !asNew && isDesktop ? state.filePath : null)
     if (!path) return
     state.filePath = isDesktop ? path : null
     state.fileName = path.split(/[\\/]/).pop() ?? path

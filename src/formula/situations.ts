@@ -174,12 +174,15 @@ function surfaceSituations(rec: Recording, out: Situation[]) {
       if (other.dynamic) return null
       const geo = unitGeometry(sys, seg.X0, u, b.id)
       if (geo.ny <= 1e-9) return null
+      // 26.52 (D59): the rolling formulas assume no rolling resistance
+      if (rolling && (u.pair.material.rolling ?? 0) > 0) return null
       // Translation only: a polygon rests on a face (two points) and does not turn
       if (!rolling && (Math.abs(seg.X0[3 * sys.n + 3 * b.index + 2]) > 1e-9 || (b.shape.kind === 'polygon' && u.points.length !== 2 && b.invInertia > 0))) return null
       let status: string = u.friction
       if (u.friction === 'slide') status = slideDirection(u, geo.refSign, geo.k, geo) > 0 ? 'down' : 'up'
       if (u.friction === 'none') status = 'smooth'
-      return `${rolling ? 'roll' : 'surf'}:${other.id}:${status}`
+      // The face is part of the signature: a concave body offers several faces to one pair (26.52, D35)
+      return `${rolling ? 'roll' : 'surf'}:${other.id}:${status}:${Math.round(Math.atan2(geo.ny, geo.nx) * 1e6)}`
     })
     for (const r of list) {
       const seg0 = r.segs[0]

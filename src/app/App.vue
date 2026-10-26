@@ -27,6 +27,10 @@ import AboutDialog from './components/AboutDialog.vue'
 import CoursewareDialog from './components/CoursewareDialog.vue'
 import SweepDialog from './components/SweepDialog.vue'
 import ReportDialog from './components/ReportDialog.vue'
+import FbdDialog from './components/FbdDialog.vue'
+import TapeDialog from './components/TapeDialog.vue'
+import ProblemGallery from './components/ProblemGallery.vue'
+import ProblemPanel from './components/ProblemPanel.vue'
 import PredictionPanel from './components/PredictionPanel.vue'
 import { editor } from './editor/editorState'
 import MonitorPage from './components/MonitorPage.vue'
@@ -35,6 +39,7 @@ import DetailPanel from './components/DetailPanel.vue'
 import { isDesktop } from '../platform/files'
 import { PAGE_ACTIVE } from './live'
 import { settings } from './settings'
+import { vSlideIndicator } from './slideIndicator'
 import { logEvent } from './trialLog'
 
 const bottomHeight = ref(290)
@@ -50,7 +55,7 @@ const mounted = reactive<Record<Page, boolean>>({ studio: true, monitor: state.p
 const warmed = reactive<Record<Page, boolean>>({ studio: true, monitor: false, settings: false })
 watch(() => state.page, p => { mounted[p] = true; logEvent('page.open', { page: p }) })
 // Trial log: which dialogs are used (ids only)
-const DIALOGS = { export: () => state.showExport, courseware: () => state.showCourseware, sweep: () => state.showSweep, report: () => state.showReport, templates: () => state.showTemplates } as const
+const DIALOGS = { export: () => state.showExport, courseware: () => state.showCourseware, sweep: () => state.showSweep, report: () => state.showReport, fbd: () => state.showFbd, tape: () => state.showTape, problems: () => state.showProblems, templates: () => state.showTemplates } as const
 for (const [dialog, open] of Object.entries(DIALOGS)) watch(open, v => { if (v) logEvent('dialog.open', { dialog }) })
 watch(() => [mounted.monitor, mounted.settings], () => {
   for (const p of ['monitor', 'settings'] as const) {
@@ -124,7 +129,7 @@ onMounted(async () => {
   const { ask } = await import('@tauri-apps/plugin-dialog')
   unlistenClose = await getCurrentWindow().onCloseRequested(async e => {
     if (!state.dirty) return
-    const leave = await ask(tl('当前场景有未保存的修改，确定退出吗？'), { title: 'Verity', kind: 'warning', okLabel: tl('退出'), cancelLabel: tl('取消') })
+    const leave = await ask(tl('当前场景有未保存的修改，确定退出吗？'), { title: 'VeloPhi', kind: 'warning', okLabel: tl('退出'), cancelLabel: tl('取消') })
     if (!leave) e.preventDefault()
   })
 })
@@ -147,8 +152,12 @@ function dragSplit(kind: 'bottom' | 'right', e: MouseEvent) {
 
 /** Labels are computed so that a language change relabels them (App itself is not remounted). */
 const RIGHT_TABS = computed((): Array<{ id: typeof state.rightTab; label: string }> => [
+  // The problem tab exists while a problem is open (26.52, D40)
+  ...(state.problem ? [{ id: 'problem' as const, label: tl('题目') }] : []),
   { id: 'formula', label: tl('公式对照') }, { id: 'inspect', label: tl('属性') }, { id: 'watch', label: tl('监视') }, { id: 'predict', label: tl('预测') }, { id: 'settings', label: tl('场景') }
 ])
+// Leaving problem mode on the problem tab shows the formula cards
+watch(() => state.problem, p => { if (!p && state.rightTab === 'problem') state.rightTab = 'formula' })
 </script>
 
 <template>
@@ -156,7 +165,7 @@ const RIGHT_TABS = computed((): Array<{ id: typeof state.rightTab; label: string
   <div :key="locale.lang" class="app" :style="{ '--bottom-h': `${bottomHeight}px`, '--right-w': `${rightWidth}px` }">
     <TopBar class="top" />
     <div class="pages">
-        <div class="page page-studio" :class="pageClass('studio')" :inert="!studioOn">
+        <div class="page page-studio" :class="[pageClass('studio'), { rail: settings.ui.toolRail }]" :inert="!studioOn">
           <aside class="left"><LeftPanel /></aside>
           <main class="center">
             <div class="view"><Viewport variant="studio" /></div>
@@ -164,7 +173,7 @@ const RIGHT_TABS = computed((): Array<{ id: typeof state.rightTab; label: string
             <section class="pane bottom">
               <Timeline :active="studioOn" />
               <div class="bottom-tabs">
-                <div class="tabs"><button :class="{ on: state.bottomTab === 'chart' }" @click="state.bottomTab = 'chart'">{{ tl('曲线') }}</button><button :class="{ on: state.bottomTab === 'events' }" @click="state.bottomTab = 'events'">{{ tl('事件') }}</button></div>
+                <div v-slide-indicator class="tabs"><button :class="{ on: state.bottomTab === 'chart' }" @click="state.bottomTab = 'chart'">{{ tl('曲线') }}</button><button :class="{ on: state.bottomTab === 'events' }" @click="state.bottomTab = 'events'">{{ tl('事件') }}</button></div>
               </div>
               <div class="bottom-body">
                 <ChartPanel :class="tabClass(state.bottomTab === 'chart')" :inert="state.bottomTab !== 'chart'" :active="studioOn && state.bottomTab === 'chart'" />
@@ -175,11 +184,12 @@ const RIGHT_TABS = computed((): Array<{ id: typeof state.rightTab; label: string
           <div class="split-v" @mousedown.prevent="dragSplit('right', $event)" />
           <aside class="pane right">
             <div class="right-head">
-              <div class="tabs" role="tablist">
+              <div v-slide-indicator class="tabs" :class="{ six: !!state.problem }" role="tablist">
                 <button v-for="t in RIGHT_TABS" :key="t.id" role="tab" :aria-selected="state.rightTab === t.id" :class="{ on: state.rightTab === t.id }" @click="state.rightTab = t.id">{{ t.label }}</button>
               </div>
             </div>
             <div class="tab-stack">
+              <div v-if="state.problem" class="tab-panel" :class="tabClass(state.rightTab === 'problem')" :inert="state.rightTab !== 'problem'"><ProblemPanel /></div>
               <div class="tab-panel" :class="tabClass(state.rightTab === 'formula')" :inert="state.rightTab !== 'formula'"><FormulaPanel :active="studioOn && state.rightTab === 'formula'" /></div>
               <div class="tab-panel" :class="tabClass(state.rightTab === 'inspect')" :inert="state.rightTab !== 'inspect'"><Inspector /></div>
               <div class="tab-panel" :class="tabClass(state.rightTab === 'watch')" :inert="state.rightTab !== 'watch'"><WatchPanel :active="studioOn && state.rightTab === 'watch'" /></div>
@@ -198,6 +208,9 @@ const RIGHT_TABS = computed((): Array<{ id: typeof state.rightTab; label: string
     <CoursewareDialog v-if="state.showCourseware && state.recording" />
     <SweepDialog v-if="state.showSweep" />
     <ReportDialog v-if="state.showReport && state.recording" />
+    <FbdDialog v-if="state.showFbd && state.recording" />
+    <TapeDialog v-if="state.showTape && state.recording" />
+    <ProblemGallery v-if="state.showProblems" />
     <div v-if="state.toast" class="toast" :class="{ error: state.toast.error }" role="status">{{ state.toast.text }}</div>
   </div>
 </template>
@@ -222,6 +235,8 @@ const RIGHT_TABS = computed((): Array<{ id: typeof state.rightTab; label: string
   gap: 0 8px;
 }
 .left { grid-area: left; min-height: 0; }
+/* Icon rail of the tool palette (D56) */
+.page-studio.rail { --left-w: calc(56px * var(--zoom)); }
 .center { grid-area: center; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 .view { flex: 1; min-height: 160px; }
 .split-h { height: 8px; cursor: row-resize; flex: 0 0 auto; }
@@ -235,6 +250,9 @@ const RIGHT_TABS = computed((): Array<{ id: typeof state.rightTab; label: string
 .right-head { padding: 10px 10px 6px; container-type: inline-size; }
 /* Five tabs in a narrow panel: smaller labels before anything is cut */
 @container (max-width: 330px) { .right-head .tabs button { font-size: var(--type-tiny); padding: 0 2px; } }
+/* Six tabs in problem mode: widths follow the labels, smaller type sooner */
+.right-head .tabs.six button { flex: 1 1 auto; padding: 0 3px; }
+@container (max-width: 420px) { .right-head .tabs.six button { font-size: var(--type-tiny); } }
 .tab-stack { flex: 1; min-height: 0; position: relative; }
 .tab-panel { position: absolute; inset: 0; overflow: auto; padding: 4px 12px 12px; }
 </style>

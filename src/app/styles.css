@@ -1,5 +1,5 @@
 /*
- * Verity design tokens. Derived from the Nova_A token set (4 pt grid, concentric radii, system font stack
+ * VeloPhi design tokens. Derived from the Nova_A token set (4 pt grid, concentric radii, system font stack
  * with bundled OFL fallbacks; nothing Apple-proprietary is bundled). Light is the default theme because
  * classrooms project on white boards; dark is chosen in the settings or follows the system.
  *
@@ -24,7 +24,10 @@
   --radius-pane: 14px; --radius-group: 10px; --radius-row: 7px; --radius-pill: 999px;
   --control-h: calc(28px * var(--zoom));
   --left-w: calc(216px * var(--zoom));
+  /* Motion tokens (26.52, D57): press, hover/switch, open/dialog; reduced motion shortens them all (fx-calm) */
+  --dur-1: 90ms; --dur-2: 160ms; --dur-3: 240ms;
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-spring: cubic-bezier(0.3, 1.3, 0.5, 1);
 
   --bg: #eef0f4;
   --pane: #ffffff;
@@ -114,6 +117,8 @@
 
 * { box-sizing: border-box; }
 html, body, #app { margin: 0; height: 100%; }
+/* The interface paints its own background so the opening reveal (D54) shows it inside the growing circle */
+#app { background: var(--bg); }
 body {
   font-family: var(--font-ui);
   font-size: var(--type-body);
@@ -207,6 +212,18 @@ textarea.field { height: auto; padding: 6px 8px; resize: vertical; line-height: 
 .segmented button:hover { color: var(--text); }
 .segmented button.on { background: var(--pane); color: var(--text); font-weight: 600; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.14), 0 0 0 0.5px rgba(0, 0, 0, 0.05); }
 :root[data-theme="dark"] .segmented button.on, :root[data-theme="dark"] .tabs button.on { background: #3a3a3f; }
+/* Sliding selection pill (26.52, D57; see app/slideIndicator.ts) */
+.has-ind { position: relative; isolation: isolate; }
+.has-ind::before {
+  content: ''; position: absolute; left: 0; top: 0; z-index: 0; pointer-events: none;
+  width: var(--ind-w, 0); height: var(--ind-h, 0); transform: translate(var(--ind-x, 0), var(--ind-y, 0)); opacity: var(--ind-o, 0);
+  border-radius: 7px; background: var(--pane); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.14), 0 0 0 0.5px rgba(0, 0, 0, 0.05);
+}
+.tabs.has-ind::before { border-radius: 6px; }
+:root[data-theme="dark"] .has-ind::before { background: #3a3a3f; }
+.has-ind.ind-ready::before { transition: transform var(--dur-3) var(--ease-out), width var(--dur-3) var(--ease-out), opacity var(--dur-2) ease; }
+.has-ind > button { position: relative; z-index: 1; }
+.has-ind > button.on { background: transparent !important; box-shadow: none !important; }
 
 /* iOS-style switch on a checkbox */
 input[type="checkbox"].switch { appearance: none; -webkit-appearance: none; width: 34px; height: 20px; border-radius: 999px; background: var(--fill-strong); position: relative; cursor: pointer; flex: 0 0 auto; margin: 0; transition: background 160ms ease; }
@@ -246,13 +263,15 @@ kbd { font-family: var(--font-mono); font-size: var(--type-tiny); background: va
 @keyframes pop-in { from { opacity: 0; transform: translateY(-4px) scale(0.98); } to { opacity: 1; transform: none; } }
 
 .dialog-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.32); display: flex; align-items: center; justify-content: center; z-index: 9000; animation: fade-in 140ms ease; }
-.dialog { background: var(--pane); border-radius: 18px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); width: min(880px, calc(100vw - 48px)); max-height: calc(100vh - 48px); display: flex; flex-direction: column; overflow: hidden; animation: pop-in 180ms var(--ease-out); }
+.dialog { background: var(--pane); border-radius: 18px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); width: min(880px, calc(100vw - 48px)); max-height: calc(100vh - 48px); display: flex; flex-direction: column; overflow: hidden; animation: dialog-in var(--dur-3) var(--ease-spring); }
+@keyframes dialog-in { from { opacity: 0; transform: translateY(8px) scale(0.965); } to { opacity: 1; transform: none; } }
 .dialog-header { display: flex; align-items: center; padding: 16px 20px 8px; font-size: calc(17px * var(--zoom)); font-weight: 600; gap: 8px; }
 .dialog-body { padding: 8px 20px 16px; overflow: auto; }
 .dialog-footer { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 20px 16px; border-top: 1px solid var(--separator); }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 
-.toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--pane); padding: 8px 14px; border-radius: 12px; box-shadow: var(--shadow); z-index: 9500; font-size: var(--type-small); max-width: 70vw; animation: fade-in 160ms ease; }
+.toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--pane); padding: 8px 14px; border-radius: 12px; box-shadow: var(--shadow); z-index: 9500; font-size: var(--type-small); max-width: 70vw; animation: toast-in var(--dur-3) var(--ease-spring); }
+@keyframes toast-in { from { opacity: 0; transform: translate(-50%, 14px) scale(0.96); } to { opacity: 1; transform: translate(-50%, 0); } }
 .toast.error { background: var(--danger); color: #fff; }
 
 /* Progress bar */

@@ -1,4 +1,4 @@
-/** Interface icon paths (24 × 24 grid, stroked with currentColor). Drawn for Verity; no third-party icon set. */
+/** Interface icon paths (24 × 24 grid, stroked with currentColor). Drawn for VeloPhi; no third-party icon set. */
 
 /** SVG path data by icon name. */
 export const UI_ICONS: Record<string, string> = {
@@ -75,5 +75,21 @@ export const UI_ICONS: Record<string, string> = {
   more: 'M6 12h.01M12 12h.01M18 12h.01',
   book: 'M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5zM4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5M8 7h8M8 11h6',
   branch: 'M6 3v12M18 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM18 9a9 9 0 0 1-9 9',
-  graduation: 'M2 9l10-5 10 5-10 5zM6 11v5c3 2.5 9 2.5 12 0v-5M22 9v6'
+  graduation: 'M2 9l10-5 10 5-10 5zM6 11v5c3 2.5 9 2.5 12 0v-5M22 9v6',
+  // 26.52 (D56, D62–D64, D40, D35, D60)
+  sidebar: 'M4 5h16v14H4zM9.5 5v14',
+  menu: 'M4 7h16M4 12h16M4 17h16',
+  phi: 'M12 3v18M6 12a6 4.2 0 1 0 12 0 6 4.2 0 1 0-12 0',
+  problem: 'M5 3.5h14v17H5zM9.6 9.2a2.4 2.4 0 1 1 3.4 2.2c-.6.3-1 .8-1 1.4v.6M12 16.4v.1',
+  fbd: 'M9.5 9.5h5v5h-5zM12 9.5V3.5M10.2 5.3L12 3.5l1.8 1.8M12 14.5v6M10.2 18.7l1.8 1.8 1.8-1.8M14.5 12h6M18.7 10.2l1.8 1.8-1.8 1.8',
+  tape: 'M2.5 8.5h19v7h-19zM5 12h.01M7 12h.01M10 12h.01M14 12h.01M19 12h.01',
+  area: 'M4 4v16h16M4 18l5-3 4-5 7-4M9 15v3M13 10v8M17 7.7V18',
+  cut: 'M6.5 6.5a2.5 2.5 0 1 0 0 .01M6.5 17.5a2.5 2.5 0 1 0 0 .01M8.6 8l11.4 9M8.6 16L20 7',
+  compound: 'M3.5 9.5h9v10h-9zM16 13.5a4.5 4.5 0 1 0 0 .01',
+  concave: 'M5 4h5.5v10.5H19V20H5z',
+  central: 'M12 10.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3M12 3v4M12 17v4M3 12h4M17 12h4M10.2 5.3L12 7l1.8-1.7M10.2 18.7L12 17l1.8 1.7M5.3 10.2L7 12l-1.7 1.8M18.7 10.2L17 12l1.7 1.8',
+  limit: 'M3 12h18M7 7v10M17 7v10M10 10l-3 2 3 2M14 10l3 2-3 2',
+  reveal: 'M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12zM12 9.2a2.8 2.8 0 1 0 0 5.6 2.8 2.8 0 0 0 0-5.6M12 2v1.5M5 4l1 1M19 4l-1 1',
+  check2: 'M5 12.5l4.5 4.5L19 7.5',
+  cross: 'M7 7l10 10M17 7L7 17'
 }

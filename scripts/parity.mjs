@@ -1,10 +1,12 @@
 /**
  * Parity harness of the Rust core (decision D30): the TypeScript engine (bundled with esbuild, run in this Node
- * process) and the native `verity-cli` must give the same bits.
+ * process) and the native `velophi-cli` must give the same bits.
  *
  *   node scripts/parity.mjs [options]
  *     --random N        random scenes (default 500)          --seed S         generator seed (default 2650)
  *     --random2651 N    random scenes with the physics of 26.51 (drag, gravitation, new connectors; default 300)
+ *     --random2652 N    random scenes with the physics of 26.52 (end stops, torque-limited motors, rolling
+ *                       resistance, central fields, Gauss–Legendre, concave and compound bodies; default 300)
  *     --impacts N       random scenes of blocks landing flat, in corners and on each other (multi-point frictional
  *                       impacts, D37; default 150)
  *     --branches N      branches (D52) of the templates and of N random scenes, from a random frame with a random
@@ -38,6 +40,7 @@ const opt = (name, def) => { const i = args.indexOf(name); return i >= 0 ? args[
 const flag = name => args.includes(name)
 const RANDOM = Number(opt('--random', '500'))
 const RANDOM2651 = Number(opt('--random2651', '300'))
+const RANDOM2652 = Number(opt('--random2652', '300'))
 const IMPACTS = Number(opt('--impacts', '150'))
 const BRANCHES = Number(opt('--branches', '60'))
 const SEED = Number(opt('--seed', '2650'))
@@ -47,9 +50,9 @@ const UNTIL = Number(opt('--until', '60'))
 mkdirSync(join(work, 'scenes'), { recursive: true })
 
 // ---- Build ----
-const cli = join(engine, 'target', 'release', process.platform === 'win32' ? 'verity-cli.exe' : 'verity-cli')
+const cli = join(engine, 'target', 'release', process.platform === 'win32' ? 'velophi-cli.exe' : 'velophi-cli')
 if (!flag('--no-build')) {
-  const r = spawnSync('cargo', ['build', '--release', '-p', 'verity-cli'], { cwd: engine, stdio: 'inherit', env: { ...process.env, CARGO_TARGET_DIR: join(engine, 'target') } })
+  const r = spawnSync('cargo', ['build', '--release', '-p', 'velophi-cli'], { cwd: engine, stdio: 'inherit', env: { ...process.env, CARGO_TARGET_DIR: join(engine, 'target') } })
   if (r.status !== 0) { console.error('cargo build failed'); process.exit(2) }
 }
 const bundleFile = join(work, 'ts.mjs')
@@ -84,9 +87,9 @@ function mulberry32(a) {
   return () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296 }
 }
 
-/** Read a container written by verity-cli (engine/ABI.md). */
+/** Read a container written by velophi-cli (engine/ABI.md). */
 function readContainer(file) { return parseContainer(readFileSync(file)) }
-/** Read a sequence of length-prefixed containers (verity-cli --deltas). */
+/** Read a sequence of length-prefixed containers (velophi-cli --deltas). */
 function readDeltas(file) {
   const buf = readFileSync(file), out = []
   for (let o = 0; o < buf.length;) { const n = buf.readUInt32LE(o); out.push(parseContainer(buf.subarray(o + 4, o + 4 + n))); o += 4 + n }
@@ -200,7 +203,7 @@ function moduleChecks() {
     const inFile = join(work, `math-${name}.in`), outFile = join(work, `math-${name}.out`)
     writeFileSync(inFile, new Uint8Array(input.buffer))
     const r = spawnSync(cli, ['math', name, inFile, outFile], { encoding: 'utf8' })
-    if (r.status !== 0) { fail(`dmath ${name}: verity-cli failed: ${r.stderr}`); continue }
+    if (r.status !== 0) { fail(`dmath ${name}: velophi-cli failed: ${r.stderr}`); continue }
     const got = new Float64Array(readFileSync(outFile).buffer.slice(0))
     let bad = 0, first = -1
     for (let i = 0; i < N; i++) if (!sameNum(expected[i], got[i])) { bad++; if (first < 0) first = i }
@@ -254,7 +257,7 @@ function moduleChecks() {
   const inFile = join(work, 'expr.in.json'), outFile = join(work, 'expr.out.json')
   writeFileSync(inFile, JSON.stringify({ cases, envs }))
   const r = spawnSync(cli, ['expr', inFile, outFile], { encoding: 'utf8' })
-  if (r.status !== 0) { fail(`expressions: verity-cli failed: ${r.stderr}`); return }
+  if (r.status !== 0) { fail(`expressions: velophi-cli failed: ${r.stderr}`); return }
   const rsOut = JSON.parse(readFileSync(outFile, 'utf8'))
   let bad = 0, okCount = 0
   for (let i = 0; i < cases.length; i++) {
@@ -540,8 +543,120 @@ function randomScene2651(rng, idx) {
   return s
 }
 
+/**
+ * Random scene with the physics of 26.52 (D58–D61): sliders with end stops, torque-limited speed motors, rolling
+ * resistance of round bodies, central fields (on the world or a body, all or some targets) and the Gauss–Legendre
+ * integrator, mixed with older connectors. A separate generator, so the earlier scenes stay as they were.
+ */
+function randomScene2652(rng, idx) {
+  const { emptyScene, addGround, addBody, addConnector, anchor } = V
+  const r = (a, b) => a + (b - a) * rng()
+  const pick = a => a[Math.floor(rng() * a.length)]
+  const chance = p => rng() < p
+  const round = (x, d = 3) => Math.round(x * 10 ** d) / 10 ** d
+  const s = emptyScene(`random2652-${idx}`)
+  s.settings.duration = round(r(1, 2.5), 2)
+  s.settings.integrator = chance(0.7) ? 'dopri5' : pick(['gauss4', 'gauss4', 'rk4', 'moreau'])
+  const crr = () => (chance(0.6) ? round(r(0.005, 0.1), 3) : undefined)
+  const mat = () => {
+    const muS = chance(0.2) ? 0 : round(r(0.1, 0.9), 2)
+    const m = { muS, muK: round(muS * r(0.5, 1), 2), restitution: chance(0.5) ? 0 : round(r(0, 0.9), 2) }
+    const c = crr()
+    if (c !== undefined) m.rolling = c
+    return m
+  }
+  const field = chance(0.25)
+  let groundTop = 0
+  if (field) s.settings.gravity = { x: 0, y: chance(0.6) ? 0 : -2 }
+  else {
+    s.settings.gravity = { x: 0, y: -pick([9.8, 10]) }
+    groundTop = round(r(-0.2, 0.2), 2)
+    addGround(s, { id: 'ground', top: groundTop, left: -6, right: 12, material: mat(), role: 'ground' })
+  }
+  // 26.52 (D35): a static concave body on the ground (a V-notch or a channel)
+  if (!field && chance(0.3)) {
+    const w = round(r(0.6, 1.4)), h = round(r(0.2, 0.6)), x0 = round(r(-0.5, 1.5))
+    const pts = chance(0.5)
+      ? [{ x: -w, y: 0 }, { x: w, y: 0 }, { x: w, y: h }, { x: round(w / 2), y: h }, { x: 0, y: round(h * r(0.1, 0.6)) }, { x: round(-w / 2), y: h }, { x: -w, y: h }]
+      : [{ x: -w, y: 0 }, { x: w, y: 0 }, { x: w, y: h }, { x: round(w * 0.7), y: h }, { x: round(w * 0.7), y: round(h * 0.3) }, { x: round(-w * 0.7), y: round(h * 0.3) }, { x: round(-w * 0.7), y: h }, { x: -w, y: h }]
+    addBody(s, { id: 'terrain', name: '凹槽', kind: 'static', role: 'ground', shape: { type: 'polygon', points: pts }, position: { x: x0, y: groundTop }, material: mat() })
+  }
+  const n = 1 + Math.floor(rng() * 3)
+  const bodies = []
+  for (let i = 0; i < n; i++) {
+    let body
+    const kindPick = rng()
+    if (kindPick < 0.2) {
+      // A concave L or chevron about its centroid
+      const a = round(r(0.15, 0.35)), b = round(r(0.08, 0.2))
+      const pts = chance(0.5)
+        ? [{ x: 0, y: 0 }, { x: a, y: 0 }, { x: a, y: b }, { x: b, y: b }, { x: b, y: a }, { x: 0, y: a }]
+        : [{ x: 0, y: 0 }, { x: a, y: b }, { x: 2 * a, y: 0 }, { x: 2 * a, y: b }, { x: a, y: 2 * b }, { x: 0, y: b }]
+      let A = 0, cx = 0, cy = 0
+      for (let k = 0; k < pts.length; k++) { const p = pts[k], q = pts[(k + 1) % pts.length], c = p.x * q.y - q.x * p.y; A += c; cx += (p.x + q.x) * c; cy += (p.y + q.y) * c }
+      cx /= 3 * A; cy /= 3 * A
+      body = addBody(s, { id: `b${i}`, name: `凹块${i}`, shape: { type: 'polygon', points: pts.map(p => ({ x: round(p.x - cx, 6), y: round(p.y - cy, 6) })) }, position: { x: round(-1.5 + i * r(0.7, 1.1)), y: round(groundTop + a + r(0.05, 1)) }, angle: round(r(-1, 1)), velocity: { x: chance(0.5) ? round(r(-2, 2)) : 0, y: 0 }, angularVelocity: chance(0.3) ? round(r(-4, 4)) : 0, mass: round(r(0.2, 2)), material: mat() })
+      bodies.push(body)
+      continue
+    }
+    if (kindPick < 0.32) {
+      // A compound: dumbbell, hammer or T
+      const k = rng()
+      const parts = k < 0.4
+        ? [{ shape: { type: 'circle', radius: round(r(0.05, 0.12)) }, position: { x: -0.25, y: 0 }, angle: 0 }, { shape: { type: 'box', width: 0.5, height: 0.04 }, position: { x: 0, y: 0 }, angle: 0 }, { shape: { type: 'circle', radius: round(r(0.05, 0.12)) }, position: { x: 0.25, y: 0 }, angle: 0 }]
+        : k < 0.7
+          ? [{ shape: { type: 'box', width: 0.06, height: 0.5 }, position: { x: 0, y: 0 }, angle: 0 }, { shape: { type: 'circle', radius: round(r(0.06, 0.12)) }, position: { x: 0, y: 0.27 }, angle: 0 }]
+          : [{ shape: { type: 'box', width: 0.4, height: 0.08 }, position: { x: 0, y: 0.2 }, angle: 0 }, { shape: { type: 'box', width: 0.08, height: 0.36 }, position: { x: 0, y: 0 }, angle: round(r(-0.2, 0.2)) }]
+      body = addBody(s, { id: `b${i}`, name: `组合${i}`, shape: { type: 'compound', parts }, position: { x: round(-1.5 + i * r(0.7, 1.1)), y: round(groundTop + 0.4 + r(0.05, 1)) }, angle: round(r(-1.5, 1.5)), velocity: { x: chance(0.5) ? round(r(-2, 2)) : 0, y: 0 }, angularVelocity: chance(0.3) ? round(r(-4, 4)) : 0, mass: round(r(0.2, 2)), material: mat() })
+      bodies.push(body)
+      continue
+    }
+    if (chance(0.55)) {
+      const rad = round(r(0.05, 0.25))
+      const onGround = !field && chance(0.6)
+      const v = chance(0.6) ? round(r(-3, 3)) : 0
+      body = addBody(s, { id: `b${i}`, name: `轮${i}`, kind: chance(0.15) ? 'particle' : 'rigid', role: 'wheel', shape: { type: 'circle', radius: rad }, position: { x: round(-1.5 + i * r(0.6, 1.1)), y: onGround ? groundTop + rad : round(groundTop + rad + r(0.05, 1.2)) }, velocity: { x: v, y: field ? round(r(-1, 1)) : 0 }, angularVelocity: onGround && chance(0.6) ? round(-v / rad * r(0.5, 1.5)) : chance(0.2) ? round(r(-6, 6)) : 0, mass: round(r(0.1, 2)), material: mat() })
+    } else {
+      const w = round(r(0.1, 0.4)), h = round(r(0.1, 0.3))
+      body = addBody(s, { id: `b${i}`, name: `块${i}`, shape: { type: 'box', width: w, height: h }, position: { x: round(-1.5 + i * r(0.6, 1.1)), y: chance(0.4) ? groundTop + h / 2 : round(groundTop + h / 2 + r(0.05, 1.2)) }, angle: chance(0.2) ? round(r(-0.5, 0.5)) : 0, velocity: { x: chance(0.5) ? round(r(-3, 3)) : 0, y: 0 }, mass: round(r(0.1, 3)), material: mat() })
+    }
+    bodies.push(body)
+  }
+  const localOf = (b, w) => { const c = Math.cos(b.angle), sn = Math.sin(b.angle), dx = w.x - b.position.x, dy = w.y - b.position.y; return { x: c * dx + sn * dy, y: -sn * dx + c * dy } }
+  const nc = 1 + Math.floor(rng() * 3)
+  // At most one joint (slider or motor) per body: two would usually contradict each other
+  const jointed = new Set()
+  for (let c = 0; c < nc; c++) {
+    const b = pick(bodies), o = pick(bodies)
+    const other = o !== b
+    let kind = rng()
+    if (kind < 0.55 && jointed.has(b.id)) kind = 0.6 + 0.4 * kind
+    if (kind < 0.55) jointed.add(b.id)
+    if (kind < 0.3) {
+      const th = chance(0.4) ? pick([0, Math.PI / 2, -Math.PI / 2]) : r(-Math.PI, Math.PI)
+      const lo = chance(0.8) ? round(-r(0.05, 0.8)) : null, hi = chance(0.8) ? round(r(0.05, 0.8)) : null
+      const limits = { min: lo, max: hi, restitution: chance(0.4) ? 0 : round(r(0, 1), 2) }
+      if (other && chance(0.3)) addConnector(s, { id: `s${c}`, name: `滑轨${c}`, type: 'slider', a: anchor(o, localOf(o, b.position)), b: anchor(b), axis: { x: round(Math.cos(th)), y: round(Math.sin(th)) }, free: chance(0.4), limits })
+      else addConnector(s, { id: `s${c}`, name: `滑轨${c}`, type: 'slider', a: anchor(null, { ...b.position }), b: anchor(b), axis: { x: round(Math.cos(th)), y: round(Math.sin(th)) }, free: chance(0.4), limits })
+    } else if (kind < 0.55) {
+      const a = other && chance(0.4) ? anchor(o, localOf(o, b.position)) : anchor(null, { ...b.position })
+      addConnector(s, { id: `m${c}`, name: `马达${c}`, type: 'motor', a, b: anchor(b), mode: chance(0.85) ? 'speed' : 'torque', speed: round(r(-8, 8)), torque: round(r(-2, 2)), maxTorque: chance(0.8) ? round(r(0.05, 3)) : null })
+    } else if (kind < 0.8) {
+      const onBody = other && chance(0.3)
+      const ctr = onBody ? anchor(o) : anchor(null, { x: round(r(-1, 1)), y: round(groundTop + r(0.5, 2)) })
+      addConnector(s, { id: `z${c}`, name: `中心${c}`, type: 'central', a: ctr, k: round(r(-4, 15)), n: pick([1, -2, -1, 0, 2, 0.5]), targets: chance(0.5) ? null : [b.id] })
+    } else if (kind < 0.9) {
+      addConnector(s, { id: `k${c}`, name: `弹簧${c}`, type: 'spring', a: anchor(b), b: anchor(null, { x: round(b.position.x + r(-0.4, 0.4)), y: round(b.position.y + r(0.3, 1)) }), stiffness: round(r(5, 80)), restLength: null, damping: chance(0.5) ? 0 : round(r(0, 1)) })
+    } else {
+      addConnector(s, { id: `f${c}`, name: `力${c}`, type: 'force', a: anchor(b), force: { x: round(r(-5, 5)), y: round(r(-3, 8)) } })
+    }
+  }
+  if (chance(0.15) && s.bodies.length > 1) s.contactPairs.push({ a: bodies[0].id, b: s.bodies[0].id, muS: round(r(0, 1), 2), muK: round(r(0, 0.8), 2), restitution: round(r(0, 1), 2), ...(chance(0.5) ? { rolling: round(r(0, 0.1), 3) } : {}) })
+  return s
+}
+
 // ---- Runs ----
-/** Run a scene with the TypeScript engine as the harness runs it with Rust (see verity-cli run_once). */
+/** Run a scene with the TypeScript engine as the harness runs it with Rust (see velophi-cli run_once). */
 function runTs(scene, duration, until, withDeltas = false) {
   const t0 = performance.now()
   let run
@@ -595,7 +710,7 @@ function runRust(file, out, duration, until, verify, deltas) {
   if (until !== undefined) a.push('--until', String(until))
   if (verify) a.push('--verify-rebuild')
   const r = spawnSync(cli, a, { encoding: 'utf8', maxBuffer: 1 << 26 })
-  if (r.status !== 0) throw new Error(`verity-cli failed: ${r.stderr}`)
+  if (r.status !== 0) throw new Error(`velophi-cli failed: ${r.stderr}`)
   const doc = readContainer(out)
   doc.info = JSON.parse(r.stdout.trim().split('\n').pop())
   return doc
@@ -695,7 +810,7 @@ function compareScene(name, scene, duration, until, goldenHash) {
       break
     }
   }
-  // Rebuilds: Rust from its own checkpoints (verity-cli --verify-rebuild); TypeScript from the Rust checkpoints
+  // Rebuilds: Rust from its own checkpoints (velophi-cli --verify-rebuild); TypeScript from the Rust checkpoints
   if (rs.info.rebuildChecked !== undefined) {
     rebuildsChecked += rs.info.rebuildChecked
     for (const p of rs.info.rebuildProblems) P(`Rust rebuild: ${p}`)
@@ -746,6 +861,18 @@ function compareScene(name, scene, duration, until, goldenHash) {
     }
     count(`26.51 end ${rec.stopReason}${rec.error ? ' ' + rustKey(rec.error) : ''}`)
   }
+  if (name.startsWith('random2652/')) {
+    // 26.52 physics exercised
+    if (scene.settings.integrator === 'gauss4') count('26.52 gauss4')
+    if (scene.connectors.some(c => c.type === 'central')) count('26.52 central field')
+    for (const t of new Set(rec.events.flatMap(e => e.changes.map(c => c.type)))) if (['limit', 'unlimit', 'motorSlip', 'motorLock', 'rollStop', 'rollStart'].includes(t)) count(`26.52 change ${t}`)
+    if (rec.segments.some(g => g.label.includes('/r'))) count('26.52 rolling resistance in a mode')
+    if (scene.bodies.some(b => b.shape.type === 'compound')) count('26.52 compound body')
+    if (scene.bodies.some(b => b.shape.type === 'polygon' && b.id !== 'terrain')) count('26.52 concave body')
+    if (scene.bodies.some(b => b.id === 'terrain')) count('26.52 concave terrain')
+    if (rec.segments.some(g => { const u = g.mode.units.filter(x => x.points.length > 0).map(x => x.pair.key); return new Set(u).size < u.length })) count('26.52 several contact units of one pair')
+    count(`26.52 end ${rec.stopReason}${rec.error ? ' ' + rustKey(rec.error) : ''}`)
+  }
   report(name, problems, ts.ms, rs.ms, rec)
 }
 
@@ -762,11 +889,11 @@ function report(name, problems, tsMs, rsMs, rec) {
 // ---- Fixtures for `cargo test` ----
 /**
  * --write-fixtures: the template, golden and special scenes as JSON with their TypeScript fingerprints (bounded:
- * the 26.49 recordingHash; unbounded for 10 s: the rolling fingerprint) into engine/verity-core/tests/fixtures,
+ * the 26.49 recordingHash; unbounded for 10 s: the rolling fingerprint) into engine/velophi-core/tests/fixtures,
  * so the Rust tests check parity without Node.
  */
 function writeFixtures() {
-  const dir = join(engine, 'verity-core', 'tests', 'fixtures')
+  const dir = join(engine, 'velophi-core', 'tests', 'fixtures')
   mkdirSync(dir, { recursive: true })
   const list = []
   const add = (name, scene) => {
@@ -786,7 +913,7 @@ function writeFixtures() {
 // ---- Speed ----
 /**
  * --bench N: the 14 original templates at their legacy duration, median of N runs after two warm-up runs, TS in
- * this process and Rust in verity-cli (native, in-process timing; scene parsing and compilation included on both
+ * this process and Rust in velophi-cli (native, in-process timing; scene parsing and compilation included on both
  * sides). The WASM build is timed on Windows (Chromium/WebView2) in the next round.
  */
 function bench(runs) {
@@ -857,6 +984,20 @@ console.log(`Random scenes of 26.51 (${RANDOM2651}, seed ${SEED})`)
   }
 }
 
+console.log(`Random scenes of 26.52 (${RANDOM2652}, seed ${SEED})`)
+{
+  const rng = mulberry32(SEED ^ 0x2652)
+  let shown = 0
+  for (let i = 0; i < RANDOM2652; i++) {
+    const scene = randomScene2652(rng, i)
+    try { V.validateScene(scene) } catch (e) { console.log(`  (random2652/${i} invalid: ${e.message})`); continue }
+    if (!want(`random2652/${i}`)) continue
+    const before = failures
+    compareScene(`random2652/${i}`, scene, undefined, undefined, null)
+    if (failures === before && ++shown % 100 === 0) console.log(`  … ${shown} random scenes of 26.52 identical`)
+  }
+}
+
 console.log(`Random multi-point impacts (${IMPACTS}, seed ${SEED})`)
 {
   const rng = mulberry32(SEED ^ 0x37)
@@ -877,6 +1018,8 @@ console.log(`Branches (templates and ${BRANCHES} random scenes, seed ${SEED})`)
   const sources = [...V.TEMPLATES.map(t => [`branch/${t.id}`, V.buildTemplate(t.id, {})])]
   const rr = mulberry32(SEED ^ 0x5200)
   for (let i = 0; i < BRANCHES; i++) sources.push([`branch/random${i}`, i % 2 ? randomScene2651(rr, 1000 + i) : randomScene(rr, 1000 + i)])
+  const r52 = mulberry32(SEED ^ 0x5252)
+  for (let i = 0; i < Math.ceil(BRANCHES / 3); i++) sources.push([`branch/random2652-${i}`, randomScene2652(r52, 2000 + i)])
   let shown = 0
   for (const [name, parent] of sources) {
     if (!want(name)) continue

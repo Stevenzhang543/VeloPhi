@@ -93,27 +93,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2c754d6c33795a1c324727428e5a7dedb5b06195f9890bdbcba760d3e246563"
 
 [[package]]
-name = "verity-cli"
-version = "26.51.0"
+name = "velophi-cli"
+version = "26.52.0"
 dependencies = [
  "serde_json",
- "verity-core",
+ "velophi-core",
 ]
 
 [[package]]
-name = "verity-core"
-version = "26.51.0"
+name = "velophi-core"
+version = "26.52.0"
 dependencies = [
  "serde",
  "serde_json",
 ]
 
 [[package]]
-name = "verity-wasm"
-version = "26.51.0"
+name = "velophi-wasm"
+version = "26.52.0"
 dependencies = [
  "serde_json",
- "verity-core",
+ "velophi-core",
 ]
 
 [[package]]

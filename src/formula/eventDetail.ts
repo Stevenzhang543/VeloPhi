@@ -123,6 +123,66 @@ export const TRIGGER_TEXT: Record<EventType, TriggerTemplate> = {
       'g ist die Länge s des Seilstücks zwischen dem Körper und der Rolle, über die es läuft, minus 1 mm. Fällt g auf 0, hat der Körper die Rolle erreicht, und die Rechnung endet.'
     ),
     unit: 'm'
+  },
+  limit: {
+    name: T('到达限位检测', 'Reaching an end stop', 'Erreichen eines Anschlags'),
+    g: 'g(t) = s(t) - s_\\mathrm{min}\\ \\text{or}\\ s_\\mathrm{max} - s(t)',
+    meaning: T(
+      'g 为滑块沿滑轨到限位的距离（s 为沿滑轨方向的位移）。g 减小到 0，滑块到达限位；若此时仍有速度，按限位的恢复系数发生碰撞。',
+      'g is the distance of the slider from its end stop along the rail (s is the displacement along the rail). When g falls to 0 the slider reaches the stop; if it still moves, it hits the stop with the stop\'s coefficient of restitution.',
+      'g ist der Abstand des Schlittens vom Anschlag längs der Schiene (s ist die Verschiebung längs der Schiene). Fällt g auf 0, erreicht der Schlitten den Anschlag; bewegt er sich noch, stößt er mit der Stoßzahl des Anschlags dagegen.'
+    ),
+    unit: 'm'
+  },
+  unlimit: {
+    name: T('离开限位检测', 'Leaving an end stop', 'Verlassen eines Anschlags'),
+    g: 'g(t) = F_\\mathrm{stop}(t)',
+    meaning: T(
+      'g 为限位对滑块的作用力（只能向内推）。g 减小到 0，滑块不再压着限位，开始离开。',
+      'g is the force of the end stop on the slider (it can only push inwards). When g falls to 0 the slider no longer presses on the stop and starts to leave it.',
+      'g ist die Kraft des Anschlags auf den Schlitten (er kann nur nach innen drücken). Fällt g auf 0, drückt der Schlitten nicht mehr gegen den Anschlag und beginnt, sich zu lösen.'
+    ),
+    unit: 'N'
+  },
+  mslip: {
+    name: T('马达打滑检测', 'Motor starts to slip', 'Motor beginnt zu rutschen'),
+    g: 'g(t) = \\tau_\\mathrm{max} - |\\tau(t)|',
+    meaning: T(
+      'g 为马达的力矩上限 τ_max 与维持设定转速所需力矩 |τ| 之差。g 减小到 0，马达已不能维持设定转速，开始以最大力矩打滑。',
+      'g is the motor\'s torque limit τ_max minus the torque |τ| needed to hold the set speed. When g falls to 0 the motor can no longer hold its speed and starts to slip, driving with its maximum torque.',
+      'g ist die Drehmomentgrenze τ_max des Motors minus dem zum Halten der Solldrehzahl nötigen Drehmoment |τ|. Fällt g auf 0, kann der Motor die Drehzahl nicht mehr halten und rutscht mit seinem Höchstmoment.'
+    ),
+    unit: 'N·m'
+  },
+  mlock: {
+    name: T('马达恢复转速检测', 'Motor back at speed', 'Motor wieder auf Solldrehzahl'),
+    g: 'g(t) = d\\,(\\omega_\\mathrm{rel} - \\omega_0)',
+    meaning: T(
+      'g 为相对角速度与设定转速之差（d 为打滑方向，使打滑时 g > 0）。g 减小到 0，马达回到设定转速，重新锁定转速。',
+      'g is the relative angular velocity minus the set speed (d is the direction of slipping, so g > 0 while slipping). When g falls to 0 the motor is back at its speed and locks onto it again.',
+      'g ist die relative Winkelgeschwindigkeit minus der Solldrehzahl (d ist die Rutschrichtung, sodass g > 0 beim Rutschen). Fällt g auf 0, hat der Motor seine Drehzahl wieder erreicht und hält sie erneut.'
+    ),
+    unit: 'rad/s'
+  },
+  rollStart: {
+    name: T('开始滚动检测', 'Onset of rolling', 'Beginn des Rollens'),
+    g: 'g(t) = C_\\mathrm{rr} N R - |M|',
+    meaning: T(
+      'g 为最大滚动阻力偶 C_rr·N·R 与维持不滚动所需的力偶 |M| 之差。g 减小到 0，滚动阻力偶不足以阻止滚动，物体开始滚动。',
+      'g is the largest rolling-resistance couple C_rr·N·R minus the couple |M| needed to keep the body from rolling. When g falls to 0 rolling resistance can no longer hold it and the body starts to roll.',
+      'g ist das größte Rollwiderstandsmoment C_rr·N·R minus dem Moment |M|, das nötig ist, um das Rollen zu verhindern. Fällt g auf 0, reicht der Rollwiderstand nicht mehr, und der Körper beginnt zu rollen.'
+    ),
+    unit: 'N·m'
+  },
+  rollStop: {
+    name: T('停止滚动检测', 'Rolling stops', 'Rollen endet'),
+    g: 'g(t) = r\\,\\omega_\\mathrm{rel}',
+    meaning: T(
+      'g 为圆形物体相对接触面的转动角速度（r 为滚动方向，使滚动时 g > 0）。g 减小到 0，滚动停止。',
+      'g is the angular velocity of the round body relative to the surface (r is the rolling direction, so g > 0 while rolling). When g falls to 0 the rolling stops.',
+      'g ist die Winkelgeschwindigkeit des runden Körpers relativ zur Unterlage (r ist die Rollrichtung, sodass g > 0 beim Rollen). Fällt g auf 0, endet das Rollen.'
+    ),
+    unit: 'rad/s'
   }
 }
 
@@ -238,6 +298,60 @@ export const CHANGE_TEXT: Record<ChangeType, ChangeTemplate> = {
       'Der Körper am Seilende ist bis an die Rolle gezogen worden, über die das Seil läuft: Das Seilstück dazwischen ist auf null geschrumpft. Danach würde der Körper gegen die Rolle laufen (im Modell gibt es keinen Kontakt zwischen Rollen und Körpern), deshalb endet die Rechnung hier.'
     ),
     law: T('绳长不变：一端缩短多少，另一端就伸长多少', 'The rope length is constant: what one end loses, the other gains', 'Die Seillänge ist konstant: Was ein Ende verliert, gewinnt das andere')
+  },
+  limit: {
+    name: T('到达限位', 'Reaches an end stop', 'Erreicht einen Anschlag'),
+    text: T(
+      '滑块到达滑轨的限位。若到达时仍有速度，按限位的恢复系数 e 发生碰撞（反弹速度为碰前的 e 倍）；此后若滑块压在限位上，限位给它向内的作用力。',
+      'The slider reaches the end stop of its rail. If it still moves, it hits the stop with the stop\'s coefficient of restitution e (it bounces back at e times its speed); while it presses on the stop, the stop pushes it inwards.',
+      'Der Schlitten erreicht den Anschlag seiner Schiene. Bewegt er sich noch, stößt er mit der Stoßzahl e des Anschlags dagegen (er prallt mit dem e-fachen Betrag zurück); solange er gegen den Anschlag drückt, schiebt ihn dieser nach innen.'
+    ),
+    law: T('限位是单边约束：s_min ≤ s ≤ s_max，作用力只能向内', 'An end stop is a one-sided constraint: s_min ≤ s ≤ s_max, its force only pushes inwards', 'Ein Anschlag ist eine einseitige Bindung: s_min ≤ s ≤ s_max, seine Kraft drückt nur nach innen')
+  },
+  unlimit: {
+    name: T('离开限位', 'Leaves the end stop', 'Verlässt den Anschlag'),
+    text: T(
+      '限位对滑块的作用力减小到零，滑块离开限位，此后沿滑轨自由滑动。',
+      'The force of the stop on the slider falls to zero and the slider leaves it; it then slides freely along the rail.',
+      'Die Kraft des Anschlags auf den Schlitten sinkt auf null, der Schlitten löst sich und gleitet frei längs der Schiene.'
+    ),
+    law: T('限位力只能是推力：F ≥ 0', 'The force of a stop can only push: F ≥ 0', 'Die Kraft eines Anschlags kann nur drücken: F ≥ 0')
+  },
+  motorSlip: {
+    name: T('马达打滑', 'Motor slips', 'Motor rutscht'),
+    text: T(
+      '维持设定转速所需的力矩超过了马达的力矩上限，马达不能再保持转速，改为以最大力矩 τ_max 驱动（方向使相对转速趋向设定值）。',
+      'The torque needed to hold the set speed exceeds the motor\'s limit: the motor can no longer hold its speed and drives with its maximum torque τ_max instead (in the direction that brings the speed back towards the set value).',
+      'Das zum Halten der Solldrehzahl nötige Drehmoment übersteigt die Grenze des Motors: Er kann die Drehzahl nicht mehr halten und treibt stattdessen mit dem Höchstmoment τ_max an (in der Richtung, die die Drehzahl zur Solldrehzahl zurückführt).'
+    ),
+    law: T('马达力矩：|τ| ≤ τ_max；转动定律 M = Iβ', 'Motor torque: |τ| ≤ τ_max; rotational law M = Iα', 'Motormoment: |τ| ≤ τ_max; Grundgesetz der Drehbewegung M = J·α')
+  },
+  motorLock: {
+    name: T('马达恢复转速', 'Motor back at speed', 'Motor wieder auf Drehzahl'),
+    text: T(
+      '相对转速回到设定值，且所需力矩不超过上限，马达重新保持设定转速。',
+      'The relative speed is back at the set value and the torque needed is within the limit: the motor holds its speed again.',
+      'Die relative Drehzahl hat den Sollwert wieder erreicht, und das nötige Drehmoment liegt unter der Grenze: Der Motor hält seine Drehzahl wieder.'
+    ),
+    law: T('设定转速：ω_rel = ω₀，所需力矩 |τ| ≤ τ_max', 'Set speed: ω_rel = ω₀ with the needed torque |τ| ≤ τ_max', 'Solldrehzahl: ω_rel = ω₀ bei nötigem Moment |τ| ≤ τ_max')
+  },
+  rollStop: {
+    name: T('滚动停止', 'Rolling stops', 'Rollen endet'),
+    text: T(
+      '圆形物体相对接触面的转动停止，滚动阻力偶由滚动阻力 C_rr·N·R 变为维持不滚动所需的力偶（不超过最大值）。',
+      'The round body stops turning relative to the surface; the rolling-resistance couple changes from C_rr·N·R to whatever couple keeps it from rolling (at most that value).',
+      'Der runde Körper hört auf, sich relativ zur Unterlage zu drehen; das Rollwiderstandsmoment wechselt von C_rr·N·R zu dem Moment, das das Rollen verhindert (höchstens dieser Wert).'
+    ),
+    law: T('滚动阻力偶：|M| ≤ C_rr·N·R', 'Rolling-resistance couple: |M| ≤ C_rr·N·R', 'Rollwiderstandsmoment: |M| ≤ C_rr·N·R')
+  },
+  rollStart: {
+    name: T('开始滚动', 'Rolling begins', 'Rollen beginnt'),
+    text: T(
+      '维持不滚动所需的力偶达到最大滚动阻力偶 C_rr·N·R，物体开始滚动；此后滚动阻力偶大小为 C_rr·N·R，方向与相对滚动方向相反。',
+      'The couple needed to keep the body from rolling reaches the largest rolling-resistance couple C_rr·N·R and it starts to roll; from now on the couple is C_rr·N·R against the relative rolling.',
+      'Das zum Verhindern des Rollens nötige Moment erreicht das größte Rollwiderstandsmoment C_rr·N·R, und der Körper beginnt zu rollen; ab jetzt wirkt C_rr·N·R entgegen der Rollbewegung.'
+    ),
+    law: T('滚动阻力偶：M = C_rr·N·R，与相对滚动方向相反', 'Rolling resistance: M = C_rr·N·R against the relative rolling', 'Rollwiderstand: M = C_rr·N·R entgegen der Rollbewegung')
   }
 }
 

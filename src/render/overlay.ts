@@ -14,7 +14,7 @@ export interface Pt { x: number; y: number }
 /** An outline drawn by the editor (world coordinates; an arc's radius is in screen pixels). */
 export type OverlayShape =
   | { kind: 'poly'; pts: Pt[]; closed: boolean; invalid?: boolean; fill?: boolean; dashed?: boolean }
-  | { kind: 'circle'; c: Pt; r: number; invalid?: boolean; fill?: boolean; dashed?: boolean }
+  | { kind: 'circle'; c: Pt; r: number; invalid?: boolean; fill?: boolean; dashed?: boolean; alpha?: number }
   | { kind: 'line'; a: Pt; b: Pt; dashed?: boolean; invalid?: boolean }
   | { kind: 'arc'; c: Pt; rPx: number; from: number; to: number }
 
@@ -73,6 +73,7 @@ export function drawEditorOverlay(ctx: CanvasRenderingContext2D, cam: Camera, ov
     ctx.fillStyle = color
     ctx.lineWidth = lw(1.6)
     ctx.setLineDash('dashed' in s && s.dashed ? [6, 4] : [])
+    ctx.globalAlpha = 'alpha' in s && s.alpha !== undefined ? s.alpha : 1
     ctx.beginPath()
     if (s.kind === 'poly') {
       s.pts.forEach((p, i) => { const [x, y] = toScreen(cam, p.x, p.y); if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y) })
@@ -91,11 +92,13 @@ export function drawEditorOverlay(ctx: CanvasRenderingContext2D, cam: Camera, ov
       ctx.arc(x, y, s.rPx, -s.from, -s.from - diff, diff > 0)
     }
     if ('fill' in s && s.fill) {
-      ctx.globalAlpha = 0.1
+      const a = ctx.globalAlpha
+      ctx.globalAlpha = 0.1 * a
       ctx.fill()
-      ctx.globalAlpha = 1
+      ctx.globalAlpha = a
     }
     ctx.stroke()
+    ctx.globalAlpha = 1
   }
   ctx.setLineDash([])
   if (ov.stem) {

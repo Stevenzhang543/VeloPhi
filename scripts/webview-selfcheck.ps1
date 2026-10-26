@@ -1,12 +1,12 @@
-# Release self-check inside WebView2 (26.51): starts the built desktop app with --selftest, which runs every
+# Release self-check inside WebView2 (26.52): starts the built desktop app with --selftest, which runs every
 # template with Rust/WebAssembly and TypeScript in the real WebView2, compares the fingerprints, writes the report
 # and closes (see src/app/selfCheck.ts). Fails when the app does not finish in 10 minutes or any template differs.
 $ErrorActionPreference = 'Stop'
 $Root = (Get-Location).Path
-$Version = '26.51'
+$Version = '26.52'
 $Ev = Join-Path $Root ".cache\evidence-$Version"
 New-Item -ItemType Directory -Force -Path $Ev | Out-Null
-$exe = Join-Path $Root 'src-tauri\target\release\verity.exe'
+$exe = Join-Path $Root 'src-tauri\target\release\velophi.exe'
 $report = Join-Path $Ev 'webview-selfcheck.json'
 if (Test-Path $report) { Move-Item $report ($report + '.old-' + (Get-Date -Format 'HHmmss')) }
 $p = Start-Process -FilePath $exe -ArgumentList @('--selftest', $report) -PassThru

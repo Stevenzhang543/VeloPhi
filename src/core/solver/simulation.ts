@@ -30,7 +30,7 @@ import { MOREAU, moreauStep } from './moreau'
 import { project, resolveInitialOverlap } from './project'
 import type { ProjectionInfo } from './project'
 import type { Rhs, StepResult } from './integrators'
-import { dopri5Step, eulerStep, rk4Step } from './integrators'
+import { dopri5Step, eulerStep, gauss4Step, rk4Step } from './integrators'
 import { computePoses } from './kinematics'
 import { ForceExprError } from './forceExpr'
 import type { Message } from '../../i18n/message'
@@ -61,11 +61,13 @@ export interface Segment {
 /** Kind of a state change reported at an event. */
 export type ChangeType =
   | 'impact' | 'touch' | 'separate' | 'stick' | 'slip' | 'reverse' | 'leave' | 'slack' | 'taut' | 'switch' | 'timestep' | 'pulley'
+  // 26.52 (D58, D59): slider end stops, torque-limited motors, rolling resistance
+  | 'limit' | 'unlimit' | 'motorSlip' | 'motorLock' | 'rollStop' | 'rollStart'
 
 /** One change at an event: an impact, a contact or rope change, or a switch of a variable force. */
 export interface ChangeDetail {
   type: ChangeType
-  /** Pair key "a|b", rope id, or force id (switch). */
+  /** Pair key "a|b", rope id, force id (switch), slider id (end stop) or motor id. */
   subject: string
   bodies: string[]
   /**
@@ -259,6 +261,9 @@ function diffModes(sys: System, prev: Mode | null, next: Mode, impact: ImpactRes
       } else if (p.kind === 'rope' && p.vnBefore < 0) {
         const r = sys.model.ropes[p.rope]
         out.push({ type: 'taut', subject: r.id, bodies: [r.a.body?.id ?? '', r.b.body?.id ?? ''].filter(Boolean), impulse: p.impulse, vnBefore: p.vnBefore, vnAfter: p.vnAfter })
+      } else if (p.kind === 'limit' && p.vnBefore < 0) {
+        const sl = sys.model.sliders[p.rope]
+        out.push({ type: 'limit', subject: sl.id, bodies: [sl.a.body?.id ?? '', sl.b.body?.id ?? ''].filter(Boolean), impulse: p.impulse, vnBefore: p.vnBefore, vnAfter: p.vnAfter, restitution: p.restitution, point: { x: p.cx, y: p.cy }, normal: { x: p.nx, y: p.ny } })
       }
     }
   }
@@ -290,8 +295,36 @@ function diffModes(sys: System, prev: Mode | null, next: Mode, impact: ImpactRes
       out.push({ type: 'switch', subject: f.id, bodies: f.a.body ? [f.a.body.id] : [], switchIndex: k, branch: next.sw[k], kink: !def.jump })
     }
   }
+  // 26.52: rolling resistance of closed units of the same pair in both modes, in unit order
+  for (const u of next.units) {
+    if (u.points.length === 0 || u.roll === undefined) continue
+    const p = prev.units.find(q => q.pair === u.pair && q.points.length > 0 && q.roll !== undefined)
+    if (!p || p.roll === u.roll) continue
+    const bodies = [u.pair.X.id, u.pair.Y.id]
+    if (u.roll === 0) out.push({ type: 'rollStop', subject: u.pair.key, bodies })
+    else if (p.roll === 0) out.push({ type: 'rollStart', subject: u.pair.key, bodies })
+  }
+  // 26.52: slider end stops and torque-limited motors
+  if (prev.limit && next.limit) {
+    model.sliders.forEach((sl, k) => {
+      const a = prev.limit![k], b = next.limit![k]
+      if (a === b) return
+      const bodies = [sl.a.body?.id ?? '', sl.b.body?.id ?? ''].filter(Boolean)
+      if (b !== 0 && !out.some(c => c.type === 'limit' && c.subject === sl.id)) out.push({ type: 'limit', subject: sl.id, bodies })
+      else if (b === 0) out.push({ type: 'unlimit', subject: sl.id, bodies })
+    })
+  }
+  if (prev.slip && next.slip) {
+    model.motors.forEach((mo, k) => {
+      const a = prev.slip![k], b = next.slip![k]
+      if (a === b) return
+      const bodies = [mo.a.body?.id ?? '', mo.b.body?.id ?? ''].filter(Boolean)
+      out.push({ type: b === 0 ? 'motorLock' : 'motorSlip', subject: mo.id, bodies })
+    })
+  }
   return out
 }
+
 
 /** Does a change match a stop kind (settings.stopAt.on)? 'touch' also matches an impact (contact with a bounce). */
 export function changeMatches(c: ChangeDetail, on: StopKind): boolean {
@@ -507,7 +540,8 @@ export class SimulationRun {
   private startReduced(reason: Message) {
     const sys = this.system
     this.reducedFrom = this.t
-    this.warnings.push(msg('warn.reducedAccuracy', { t: this.t, reason }))
+    // Parameters in key order: the WebAssembly transport writes them sorted, and both engines must give the same text
+    this.warnings.push(msg('warn.reducedAccuracy', { reason, t: this.t }))
     const mode = stateMode(sys, this.X, MOREAU.stickSpeed)
     this.mode = mode
     const last = this.segments[this.segments.length - 1]
@@ -533,6 +567,7 @@ export class SimulationRun {
       for (let i = 1; i <= S && tNext > t0; i++) {
         const t1 = i === S ? tNext : t0 + (tNext - t0) * i / S
         const r = moreauStep(sys, X, t1 - this.t)
+        if (!finiteState(r.X, 6 * sys.n)) { this.X = X; this.fail(msg('err.stateNotFinite', { t: this.t })); return }
         X = r.X
         this.impactLoss += r.loss
         this.t = t1
@@ -584,7 +619,8 @@ export class SimulationRun {
       combined = combined ? { ...imp, points: [...combined.points, ...imp.points], energyBefore: combined.energyBefore, loss: combined.loss + imp.loss } : imp
     }
     const slack = fired.filter(f => f.type === 'slack').map(f => f.rope)
-    let choice = determineMode(sys, Xc, undefined, slack.length ? { slack } : {})
+    const unlimit = fired.filter(f => f.type === 'unlimit').map(f => f.item)
+    let choice = determineMode(sys, Xc, undefined, slack.length || unlimit.length ? { slack, unlimit } : {})
     Xc = project(sys, Xc, choice.mode, this.projInfo)
     choice = { ...choice, solution: solveMode(sys, Xc, choice.mode) }
     if (choice.ambiguous) {
@@ -599,6 +635,7 @@ export class SimulationRun {
     const slot = this.system.timeSlot
     if (integrator === 'rk4') return rk4Step(this.rhs, X0, h, k1, slot)
     if (integrator === 'euler') return eulerStep(this.rhs, X0, h, 3 * this.system.n, k1, slot)
+    if (integrator === 'gauss4') return gauss4Step(this.rhs, X0, h, k1, slot)
     return dopri5Step(this.rhs, X0, h, this.ctl, k1, slot)
   }
 
@@ -709,6 +746,17 @@ export class SimulationRun {
       const hTry = clipped ? remaining : this.h
       const X = this.X
       const r = this.stepFrom(X, hTry, this.k1)
+      // 26.52: a state that is no longer finite (a body driven off to infinity in finite time): smaller steps, else stop
+      if (!finiteState(r.X, 6 * sys.n)) {
+        if (integrator === 'dopri5') {
+          this.stats.rejected++
+          this.h = hTry * 0.2
+          if (this.h < 1e-14) { this.fail(msg('err.stepTooSmall', { t })); return }
+          continue
+        }
+        this.fail(msg('err.stateNotFinite', { t }))
+        return
+      }
       if (integrator === 'dopri5' && r.err > 1) {
         this.stats.rejected++
         this.h = hTry * Math.max(0.2, 0.9 * pow(r.err, -0.2))
@@ -1031,6 +1079,12 @@ export const REST_TOL = 1e-6
 /** Approximate rest must last this long (s of recorded frames). */
 export const REST_HOLD = 1
 
+/** Are the first `count` components of a state (positions and velocities) all finite? */
+function finiteState(X: Float64Array, count: number): boolean {
+  for (let i = 0; i < count; i++) if (!Number.isFinite(X[i])) return false
+  return true
+}
+
 /** Are the first `count` components of the derivative (velocities, accelerations) all within REST_TOL? */
 function nearRest(f: Float64Array, count: number): boolean {
   for (let i = 0; i < count; i++) if (!(Math.abs(f[i]) <= REST_TOL)) return false
@@ -1106,7 +1160,7 @@ export function exactStateAt(rec: Recording, t: number): Float64Array {
   const st = sys.model.settings
   const h = t - t0
   const slot = sys.timeSlot
-  const r = st.integrator === 'rk4' ? rk4Step(rhs, X0, h, undefined, slot) : st.integrator === 'euler' ? eulerStep(rhs, X0, h, 3 * n, undefined, slot) : dopri5Step(rhs, X0, h, { relTol: st.relTol, absTol: st.absTol, count: 6 * n }, undefined, slot)
+  const r = st.integrator === 'rk4' ? rk4Step(rhs, X0, h, undefined, slot) : st.integrator === 'euler' ? eulerStep(rhs, X0, h, 3 * n, undefined, slot) : st.integrator === 'gauss4' ? gauss4Step(rhs, X0, h, undefined, slot) : dopri5Step(rhs, X0, h, { relTol: st.relTol, absTol: st.absTol, count: 6 * n }, undefined, slot)
   if (slot >= 0) r.X[slot] = t
   return r.X
 }
@@ -1119,7 +1173,10 @@ export function frameSolution(rec: Recording, k: number): ModeSolution {
 
 /** Energy ledger of a state (J). */
 export interface Ledger {
-  kinetic: number; gravity: number; spring: number; mechanical: number
+  kinetic: number; gravity: number; spring: number
+  /** Potential of the central fields (26.52; 0 without them). */
+  field: number
+  mechanical: number
   frictionHeat: number; appliedWork: number; damping: number; beltWork: number; impactLoss: number
   /** E_mech + heat + damping + impact loss − applied work − belt work (constant in an exact solution). */
   balance: number
@@ -1132,7 +1189,7 @@ export function ledgerAt(rec: Recording, X: Float64Array, impactLoss: number): L
   const b = sys.auxBase
   const frictionHeat = X[b + AUX_HEAT], appliedWork = X[b + AUX_WORK], damping = X[b + AUX_DAMP], beltWork = X[b + AUX_BELT]
   return {
-    kinetic: e.kinetic, gravity: e.gravity, spring: e.spring, mechanical: e.total,
+    kinetic: e.kinetic, gravity: e.gravity, spring: e.spring, field: e.field, mechanical: e.total,
     frictionHeat, appliedWork, damping, beltWork, impactLoss,
     balance: e.total + frictionHeat + damping + impactLoss - appliedWork - beltWork
   }

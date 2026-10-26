@@ -4,6 +4,8 @@
  * material point when a body's local frame changes.
  */
 import type { BodyDef, PulleyDef, Scene } from '../../core/scene/types'
+import { connectorAnchors } from '../../core/scene/types'
+import { compoundMass, polygonIsSimple, shapeOutline } from '../../core/solver/model'
 
 /** A point (m). */
 export interface Pt { x: number; y: number }
@@ -88,6 +90,20 @@ export function isValidConvex(pts: Pt[]): boolean {
   return Math.abs(turn - 2 * Math.PI) < 1e-6
 }
 
+/**
+ * A simple polygon (26.52, D35: concave allowed), counter-clockwise and not degenerate: every edge at least MIN_EDGE,
+ * area at least MIN_AREA, no two edges crossing.
+ */
+export function isValidSimple(pts: Pt[]): boolean {
+  const n = pts.length
+  if (n < 3 || !(signedArea(pts) >= MIN_AREA)) return false
+  for (let i = 0; i < n; i++) {
+    const p = pts[i], q = pts[(i + 1) % n]
+    if (Math.hypot(q.x - p.x, q.y - p.y) < MIN_EDGE) return false
+  }
+  return polygonIsSimple(pts)
+}
+
 /** Rotate a vector by `angle` (rad). */
 export function rotate(p: Pt, angle: number): Pt {
   const c = Math.cos(angle), s = Math.sin(angle)
@@ -110,7 +126,7 @@ export function toLocalPt(def: BodyDef, w: Pt): Pt {
  * dynamic polygons relative to the centre of mass. Empty for circles.
  */
 export function localVerts(def: BodyDef): Pt[] {
-  if (def.shape.type === 'circle') return []
+  if (def.shape.type === 'circle' || def.shape.type === 'compound') return []
   if (def.shape.type === 'box') {
     const w = def.shape.width / 2, h = def.shape.height / 2
     return [{ x: -w, y: -h }, { x: w, y: -h }, { x: w, y: h }, { x: -w, y: h }]
@@ -135,8 +151,17 @@ export function pulleyWorld(scene: Scene, p: PulleyDef): Pt {
 
 /** Centre used for rotating and placing: centre of mass of dynamic bodies, area centroid of static ones. */
 export function bodyCenter(def: BodyDef): Pt {
-  if (def.shape.type !== 'polygon' || def.kind !== 'static') return { x: def.position.x, y: def.position.y }
-  return toWorldPt(def, centroid(localVerts(def)))
+  if (def.kind !== 'static' || def.shape.type === 'circle' || def.shape.type === 'box') return { x: def.position.x, y: def.position.y }
+  if (def.shape.type === 'polygon') return toWorldPt(def, centroid(localVerts(def)))
+  return toWorldPt(def, compoundMass(def.shape, 1).centroid)
+}
+
+/**
+ * World outline of a body as the solver places it (26.52): one circle or polygon, or the parts of a concave or
+ * compound body.
+ */
+export function outlineWorld(def: BodyDef): Array<{ kind: 'circle'; c: Pt; r: number } | { kind: 'poly'; pts: Pt[] }> {
+  return shapeOutline(def.shape, def.kind !== 'static').map(p => (p.kind === 'circle' ? { kind: 'circle' as const, c: toWorldPt(def, p.center), r: p.radius } : { kind: 'poly' as const, pts: p.verts.map(v => toWorldPt(def, v)) }))
 }
 
 /** World bounding box of a body definition. */
@@ -146,7 +171,12 @@ export function bodyBounds(def: BodyDef): { minX: number; minY: number; maxX: nu
     return { minX: def.position.x - r, minY: def.position.y - r, maxX: def.position.x + r, maxY: def.position.y + r }
   }
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-  for (const p of worldVerts(def)) { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y) }
+  const grow = (x: number, y: number, r = 0) => { minX = Math.min(minX, x - r); maxX = Math.max(maxX, x + r); minY = Math.min(minY, y - r); maxY = Math.max(maxY, y + r) }
+  if (def.shape.type === 'compound') {
+    for (const part of outlineWorld(def)) { if (part.kind === 'circle') grow(part.c.x, part.c.y, part.r); else for (const p of part.pts) grow(p.x, p.y) }
+    return { minX, minY, maxX, maxY }
+  }
+  for (const p of worldVerts(def)) grow(p.x, p.y)
   return { minX, minY, maxX, maxY }
 }
 
@@ -159,7 +189,7 @@ export interface Attachments { items: Array<{ orig: Pt; set: (p: Pt) => void }> 
 export function captureAttachments(scene: Scene, bodyId: string): Attachments {
   const items: Attachments['items'] = []
   for (const c of scene.connectors) {
-    const ends = c.type === 'force' ? [c.a] : [c.a, c.b]
+    const ends = connectorAnchors(c)
     for (const a of ends) if (a.body === bodyId) items.push({ orig: { ...a.local }, set: p => { a.local.x = p.x; a.local.y = p.y } })
   }
   for (const p of scene.pulleys) if (p.body === bodyId) items.push({ orig: { ...p.position }, set: q => { p.position.x = q.x; p.position.y = q.y } })

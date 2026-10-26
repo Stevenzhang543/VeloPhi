@@ -5,15 +5,18 @@
  * (validated live); pulleys can be fixed in the world or carried by a body (movable pulley).
  */
 import { tl } from '../../i18n'
+import { vSlideIndicator } from '../slideIndicator'
 import { computed, ref, watch } from 'vue'
 import { state, edit } from '../store'
 import NumField from './NumField.vue'
 import Icon from './Icon.vue'
-import type { BodyDef, ConnectorDef, ForceDef, PulleyDef, Scene } from '../../core/scene/types'
+import Section from './Section.vue'
+import type { BodyDef, CentralDef, ConnectorDef, ForceDef, PulleyDef, Scene, SliderDef } from '../../core/scene/types'
 import { shapeInertia } from '../../core/solver/model'
 import { checkForceExpr, FORCE_EXPR_HELP } from '../../core/solver/forceExpr'
 import { canonicalQuantityId } from '../../core/observe/quantities'
 import { deleteObject, duplicateBody } from '../editing'
+import { explodeCompound } from '../editor/shapeOps'
 import { fmtQ } from '../settings'
 
 const body = computed<BodyDef | null>(() => (state.selection?.kind === 'body' ? state.scene.bodies.find(b => b.id === state.selection!.id) ?? null : null))
@@ -33,6 +36,66 @@ function setConn(fn: (c: ConnectorDef, s: Scene) => void) {
   edit(s => { const c = s.connectors.find(x => x.id === id); if (c) fn(c, s) })
 }
 function setForce(fn: (c: ForceDef) => void) { setConn(c => { if (c.type === 'force') fn(c) }) }
+function setSlider(fn: (c: SliderDef) => void) { setConn(c => { if (c.type === 'slider') fn(c) }) }
+function setCentral(fn: (c: CentralDef) => void) { setConn(c => { if (c.type === 'central') fn(c) }) }
+
+// ---- 26.52: end stops, torque limit, central fields ----
+const slider = computed<SliderDef | null>(() => (conn.value?.type === 'slider' ? conn.value : null))
+const central = computed<CentralDef | null>(() => (conn.value?.type === 'central' ? conn.value : null))
+function toggleLimits(on: boolean) { setSlider(c => { if (on) c.limits = { min: -0.5, max: 0.5, restitution: 0 }; else delete c.limits }) }
+function toggleLimitSide(side: 'min' | 'max', on: boolean) {
+  setSlider(c => {
+    if (!c.limits) return
+    if (!on) { c.limits[side] = null; if (c.limits.min === null && c.limits.max === null) delete c.limits; return }
+    const other = side === 'min' ? c.limits.max : c.limits.min
+    c.limits[side] = side === 'min' ? (other !== null ? other - 0.5 : -0.5) : (other !== null ? other + 0.5 : 0.5)
+  })
+}
+function setLimit(side: 'min' | 'max', v: number) {
+  setSlider(c => {
+    if (!c.limits) return
+    const other = side === 'min' ? c.limits.max : c.limits.min
+    // Keep min < max: an invalid value is clamped just short of the other stop
+    if (other !== null && (side === 'min' ? v >= other : v <= other)) v = side === 'min' ? other - 1e-3 : other + 1e-3
+    c.limits[side] = v
+  })
+}
+/** Presets of the exponent n of a central field. */
+const CENTRAL_PRESETS: Array<{ n: number; label: string }> = [
+  { n: 1, label: tl('弹性中心力 F = k·r（n = 1）') },
+  { n: -2, label: tl('平方反比 F = k/r²（n = −2）') },
+  { n: -1, label: tl('F = k/r（n = −1）') },
+  { n: 0, label: tl('大小恒定 F = k（n = 0）') }
+]
+const centralPreset = computed(() => (central.value && CENTRAL_PRESETS.some(p => p.n === central.value!.n) ? String(central.value.n) : 'custom'))
+function toggleTarget(id: string, on: boolean) {
+  setCentral(c => {
+    const all = state.scene.bodies.filter(b => b.kind !== 'static' && b.id !== c.a.body).map(b => b.id)
+    const list = new Set(c.targets ?? all)
+    if (on) list.add(id); else list.delete(id)
+    c.targets = all.every(x => list.has(x)) ? null : all.filter(x => list.has(x))
+  })
+}
+const centralTargets = computed(() => (central.value ? state.scene.bodies.filter(b => b.kind !== 'static' && b.id !== central.value!.a.body) : []))
+
+// ---- 26.52: compound bodies, rolling resistance ----
+function explode() {
+  const id = body.value?.id
+  if (!id) return
+  let first: string | null = null
+  edit(s => { first = explodeCompound(s, id) })
+  if (first) state.selection = { kind: 'body', id: first }
+}
+/** Rolling resistance of a contact pair as used (override, else the larger body value). */
+function pairRolling(p: { a: string; b: string; rolling?: number }): number {
+  if (p.rolling !== undefined) return p.rolling
+  const A = state.scene.bodies.find(b => b.id === p.a), B = state.scene.bodies.find(b => b.id === p.b)
+  return Math.max(A?.material.rolling ?? 0, B?.material.rolling ?? 0)
+}
+function setPairRolling(i: number, v: number) {
+  const target = pairs.value[i]
+  edit(s => { const p = s.contactPairs.find(x => x.a === target.a && x.b === target.b); if (p) p.rolling = v })
+}
 function setPulley(fn: (p: PulleyDef, s: Scene) => void) {
   const id = pulley.value?.id
   if (!id) return
@@ -40,7 +103,7 @@ function setPulley(fn: (p: PulleyDef, s: Scene) => void) {
 }
 
 /** Display name of each connector type (forces: constant or variable, decided in the template). */
-const CONN_TYPES: Record<string, string> = { rope: tl('轻绳（只能拉）'), rod: tl('轻杆（可拉可压）'), spring: tl('轻弹簧'), hinge: tl('光滑铰链'), damper: tl('阻尼器（只有阻尼）'), weld: tl('焊接（连成一体）'), slider: tl('滑轨（移动副）'), motor: tl('马达（驱动转轴）'), gear: tl('齿轮 / 皮带') }
+const CONN_TYPES: Record<string, string> = { rope: tl('轻绳（只能拉）'), rod: tl('轻杆（可拉可压）'), spring: tl('轻弹簧'), hinge: tl('光滑铰链'), damper: tl('阻尼器（只有阻尼）'), weld: tl('焊接（连成一体）'), slider: tl('滑轨（移动副）'), motor: tl('马达（驱动转轴）'), gear: tl('齿轮 / 皮带'), central: tl('有心力（力场）') }
 
 const bodyName = (id: string | null) => (id ? state.scene.bodies.find(b => b.id === id)?.name ?? id : tl('固定点（世界）'))
 
@@ -191,12 +254,18 @@ function setPulleyBody(bodyId: string) {
           </select>
         </div>
         <div class="row"><label>{{ tl('形状') }}</label>
-          <select class="field grow" :value="body.shape.type" :disabled="body.shape.type === 'polygon'" @change="changeShape(($event.target as HTMLSelectElement).value as 'circle' | 'box')">
+          <select class="field grow" :value="body.shape.type" :disabled="body.shape.type === 'polygon' || body.shape.type === 'compound'" @change="changeShape(($event.target as HTMLSelectElement).value as 'circle' | 'box')">
             <option value="circle">{{ tl('圆') }}</option>
             <option value="box">{{ tl('矩形') }}</option>
             <option v-if="body.shape.type === 'polygon'" value="polygon">{{ tl('多边形') }}</option>
+            <option v-if="body.shape.type === 'compound'" value="compound">{{ tl('复合体') }}</option>
           </select>
         </div>
+        <template v-if="body.shape.type === 'compound'">
+          <div class="row"><label>{{ tl('组成部分') }}</label><span class="grow small"><b>{{ body.shape.parts.length }}</b> {{ tl('个') }}<span class="muted">{{ tl('（圆 {0}、矩形 {1}、多边形 {2}）', [body.shape.parts.filter(p => p.shape.type === 'circle').length, body.shape.parts.filter(p => p.shape.type === 'box').length, body.shape.parts.filter(p => p.shape.type === 'polygon').length]) }}</span></span></div>
+          <div class="tiny muted note">{{ tl('复合体是一个刚体：各部分密度相同，质量按面积分配，质心与转动惯量由各部分合成（平行轴定理）；部分之间不碰撞。') }}</div>
+          <div class="row"><span class="grow" /><button class="btn small" @click="explode"><Icon name="compound" :size="14" />{{ tl('拆分为独立物体') }}</button></div>
+        </template>
         <div v-if="body.shape.type === 'circle'" class="row"><label>{{ tl('半径 r') }}</label><NumField class="grow" :model-value="body.shape.radius" unit="m" :min="1e-4" @update:model-value="v => setBody(b => { if (b.shape.type === 'circle') b.shape.radius = v })" /></div>
         <template v-if="body.shape.type === 'box'">
           <div class="row"><label>{{ tl('宽 w') }}</label><NumField class="grow" :model-value="body.shape.width" unit="m" :min="1e-4" @update:model-value="v => setBody(b => { if (b.shape.type === 'box') b.shape.width = v })" /></div>
@@ -205,86 +274,94 @@ function setPulleyBody(bodyId: string) {
         <div v-if="body.shape.type === 'polygon'" class="row"><label>{{ tl('顶点') }}</label><span class="grow small"><b>{{ body.shape.points.length }}</b> {{ tl('个') }}<span class="muted">{{ tl('（选中后在画布上拖动顶点修改；Alt + 点击顶点删除）') }}</span></span></div>
       </div>
 
-      <div class="group-title">{{ tl('位置与初始运动') }}</div>
-      <div class="group">
-        <div class="row"><label>{{ body.kind === 'static' ? tl('原点 x') : tl('质心 x') }}</label><NumField class="grow" :model-value="body.position.x" unit="m" @update:model-value="v => setBody(b => { b.position.x = v })" /></div>
-        <div class="row"><label>{{ body.kind === 'static' ? tl('原点 y') : tl('质心 y') }}</label><NumField class="grow" :model-value="body.position.y" unit="m" @update:model-value="v => setBody(b => { b.position.y = v })" /></div>
-        <div class="row"><label>{{ tl('角度 θ') }}</label><NumField class="grow" :model-value="body.angle" unit="rad" @update:model-value="v => setBody(b => { b.angle = v })" /></div>
-        <template v-if="body.kind !== 'static'">
-          <div class="row"><label>{{ tl('初速度 vₓ') }}</label><NumField class="grow" :model-value="body.velocity.x" unit="m/s" @update:model-value="v => setBody(b => { b.velocity.x = v })" /></div>
-          <div class="row"><label>{{ tl('初速度 v_y') }}</label><NumField class="grow" :model-value="body.velocity.y" unit="m/s" @update:model-value="v => setBody(b => { b.velocity.y = v })" /></div>
-          <div class="row"><label>{{ tl('速率 / 方向') }}</label>
-            <NumField class="grow" :model-value="speed" unit="m/s" :min="0" @update:model-value="setSpeed" />
-            <NumField class="grow" :model-value="direction" unit="rad" @update:model-value="setDirection" />
-          </div>
-          <div v-if="body.kind === 'rigid' && !body.fixedRotation" class="row"><label>{{ tl('初角速度 ω') }}</label><NumField class="grow" :model-value="body.angularVelocity" unit="rad/s" @update:model-value="v => setBody(b => { b.angularVelocity = v })" /></div>
-        </template>
-      </div>
+      <Section id="inspect.motion" :title="tl('位置与初始运动')">
+        <div class="group">
+          <div class="row"><label>{{ body.kind === 'static' ? tl('原点 x') : tl('质心 x') }}</label><NumField class="grow" :model-value="body.position.x" unit="m" @update:model-value="v => setBody(b => { b.position.x = v })" /></div>
+          <div class="row"><label>{{ body.kind === 'static' ? tl('原点 y') : tl('质心 y') }}</label><NumField class="grow" :model-value="body.position.y" unit="m" @update:model-value="v => setBody(b => { b.position.y = v })" /></div>
+          <div class="row"><label>{{ tl('角度 θ') }}</label><NumField class="grow" :model-value="body.angle" unit="rad" @update:model-value="v => setBody(b => { b.angle = v })" /></div>
+          <template v-if="body.kind !== 'static'">
+            <div class="row"><label>{{ tl('初速度 vₓ') }}</label><NumField class="grow" :model-value="body.velocity.x" unit="m/s" @update:model-value="v => setBody(b => { b.velocity.x = v })" /></div>
+            <div class="row"><label>{{ tl('初速度 v_y') }}</label><NumField class="grow" :model-value="body.velocity.y" unit="m/s" @update:model-value="v => setBody(b => { b.velocity.y = v })" /></div>
+            <div class="row"><label>{{ tl('速率 / 方向') }}</label>
+              <NumField class="grow" :model-value="speed" unit="m/s" :min="0" @update:model-value="setSpeed" />
+              <NumField class="grow" :model-value="direction" unit="rad" @update:model-value="setDirection" />
+            </div>
+            <div v-if="body.kind === 'rigid' && !body.fixedRotation" class="row"><label>{{ tl('初角速度 ω') }}</label><NumField class="grow" :model-value="body.angularVelocity" unit="rad/s" @update:model-value="v => setBody(b => { b.angularVelocity = v })" /></div>
+          </template>
+        </div>
+      </Section>
 
       <template v-if="body.kind !== 'static'">
-        <div class="group-title">{{ tl('质量与转动') }}</div>
-        <div class="group">
-          <div class="row"><label>{{ tl('质量 m') }}</label><NumField class="grow" :model-value="body.mass" unit="kg" :min="1e-9" @update:model-value="v => setBody(b => { b.mass = v })" /><span class="weight mono tiny" :title="tl('重力 G = mg（g 取场景设置）')">G = {{ fmtQ(body.mass * gScene, 'N') }}</span></div>
-          <template v-if="body.kind === 'rigid'">
-            <div class="row"><label>{{ tl('转动惯量') }}</label>
-              <select class="field grow" :value="body.inertia === null ? 'auto' : 'custom'" @change="setBody(b => { b.inertia = ($event.target as HTMLSelectElement).value === 'auto' ? null : autoInertia })">
-                <option value="auto">{{ tl('按匀质形状计算') }}</option>
-                <option value="custom">{{ tl('自定义') }}</option>
-              </select>
-            </div>
-            <div class="row"><label>{{ tl('I（对质心）') }}</label>
-              <NumField v-if="body.inertia !== null" class="grow" :model-value="body.inertia" unit="kg·m²" :min="1e-12" @update:model-value="v => setBody(b => { b.inertia = v })" />
-              <span v-else class="grow mono small">{{ fmtQ(autoInertia, 'kg·m²', 6) }}</span>
-            </div>
-            <div class="row"><label>{{ tl('禁止转动') }}</label><label class="check grow"><input type="checkbox" :checked="body.fixedRotation" @change="setBody(b => { b.fixedRotation = ($event.target as HTMLInputElement).checked })" />{{ tl('只平动（如方块在面上滑动）') }}</label></div>
-          </template>
-        </div>
-        <div class="group-title">{{ tl('空气阻力') }}</div>
-        <div class="group">
-          <div class="row"><label>{{ tl('考虑阻力') }}</label><label class="check grow"><input type="checkbox" :checked="!!body.drag" @change="setBody(b => { if (($event.target as HTMLInputElement).checked) b.drag = { linear: 0.1, quadratic: 0 }; else delete b.drag })" />{{ tl('F = −(b + c|v|)v，作用在质心') }}</label></div>
-          <template v-if="body.drag">
-            <div class="row"><label>{{ tl('线性系数 b') }}</label><NumField class="grow" :model-value="body.drag.linear" unit="N·s/m" :min="0" @update:model-value="v => setBody(b => { if (b.drag) b.drag.linear = v })" /></div>
-            <div class="row"><label>{{ tl('平方系数 c') }}</label><NumField class="grow" :model-value="body.drag.quadratic" unit="N·s²/m²" :min="0" @update:model-value="v => setBody(b => { if (b.drag) b.drag.quadratic = v })" /></div>
-            <div class="tiny muted note">{{ terminalText }}</div>
-          </template>
-        </div>
+        <Section id="inspect.mass" :title="tl('质量与转动')">
+          <div class="group">
+            <div class="row"><label>{{ tl('质量 m') }}</label><NumField class="grow" :model-value="body.mass" unit="kg" :min="1e-9" @update:model-value="v => setBody(b => { b.mass = v })" /><span class="weight mono tiny" :title="tl('重力 G = mg（g 取场景设置）')">G = {{ fmtQ(body.mass * gScene, 'N') }}</span></div>
+            <template v-if="body.kind === 'rigid'">
+              <div class="row"><label>{{ tl('转动惯量') }}</label>
+                <select class="field grow" :value="body.inertia === null ? 'auto' : 'custom'" @change="setBody(b => { b.inertia = ($event.target as HTMLSelectElement).value === 'auto' ? null : autoInertia })">
+                  <option value="auto">{{ tl('按匀质形状计算') }}</option>
+                  <option value="custom">{{ tl('自定义') }}</option>
+                </select>
+              </div>
+              <div class="row"><label>{{ tl('I（对质心）') }}</label>
+                <NumField v-if="body.inertia !== null" class="grow" :model-value="body.inertia" unit="kg·m²" :min="1e-12" @update:model-value="v => setBody(b => { b.inertia = v })" />
+                <span v-else class="grow mono small">{{ fmtQ(autoInertia, 'kg·m²', 6) }}</span>
+              </div>
+              <div class="row"><label>{{ tl('禁止转动') }}</label><label class="check grow"><input type="checkbox" :checked="body.fixedRotation" @change="setBody(b => { b.fixedRotation = ($event.target as HTMLInputElement).checked })" />{{ tl('只平动（如方块在面上滑动）') }}</label></div>
+            </template>
+          </div>
+        </Section>
+        <Section id="inspect.drag" :title="tl('空气阻力')" :open="false">
+          <div class="group">
+            <div class="row"><label>{{ tl('考虑阻力') }}</label><label class="check grow"><input type="checkbox" :checked="!!body.drag" @change="setBody(b => { if (($event.target as HTMLInputElement).checked) b.drag = { linear: 0.1, quadratic: 0 }; else delete b.drag })" />{{ tl('F = −(b + c|v|)v，作用在质心') }}</label></div>
+            <template v-if="body.drag">
+              <div class="row"><label>{{ tl('线性系数 b') }}</label><NumField class="grow" :model-value="body.drag.linear" unit="N·s/m" :min="0" @update:model-value="v => setBody(b => { if (b.drag) b.drag.linear = v })" /></div>
+              <div class="row"><label>{{ tl('平方系数 c') }}</label><NumField class="grow" :model-value="body.drag.quadratic" unit="N·s²/m²" :min="0" @update:model-value="v => setBody(b => { if (b.drag) b.drag.quadratic = v })" /></div>
+              <div class="tiny muted note">{{ terminalText }}</div>
+            </template>
+          </div>
+        </Section>
       </template>
 
       <template v-if="body.kind === 'static' && state.scene.settings.gravitation">
-        <div class="group-title">{{ tl('引力质量') }}</div>
-        <div class="group">
-          <div class="row"><label>{{ tl('质量 M') }}</label><NumField class="grow" :model-value="body.mass" unit="kg" :min="0" @update:model-value="v => setBody(b => { b.mass = v })" /></div>
-          <div class="tiny muted note">{{ tl('固定物体不动，但以这个质量吸引其他物体（如恒星、行星）。') }}</div>
-        </div>
+        <Section id="inspect.gravMass" :title="tl('引力质量')">
+          <div class="group">
+            <div class="row"><label>{{ tl('质量 M') }}</label><NumField class="grow" :model-value="body.mass" unit="kg" :min="0" @update:model-value="v => setBody(b => { b.mass = v })" /></div>
+            <div class="tiny muted note">{{ tl('固定物体不动，但以这个质量吸引其他物体（如恒星、行星）。') }}</div>
+          </div>
+        </Section>
       </template>
 
-      <div class="group-title">{{ tl('材料') }}</div>
-      <div class="group">
-        <div class="row"><label>{{ tl('静摩擦因数 μs') }}</label><NumField class="grow" :model-value="body.material.muS" :min="0" :step="0.05" @update:model-value="v => setBody(b => { b.material.muS = v })" /></div>
-        <div class="row"><label>{{ tl('动摩擦因数 μk') }}</label><NumField class="grow" :model-value="body.material.muK" :min="0" :step="0.05" @update:model-value="v => setBody(b => { b.material.muK = v })" /></div>
-        <div class="row"><label>{{ tl('恢复系数 e') }}</label><NumField class="grow" :model-value="body.material.restitution" :min="0" :max="1" :step="0.05" @update:model-value="v => setBody(b => { b.material.restitution = v })" /></div>
-        <div v-if="body.kind === 'static'" class="row"><label>{{ tl('传送带速度 u') }}</label><NumField class="grow" :model-value="body.beltSpeed" unit="m/s" @update:model-value="v => setBody(b => { b.beltSpeed = v })" /></div>
-        <div class="tiny muted note">{{ tl('两物体接触时取两者中较小的值；需要单独指定时在下方“接触对”中设置。') }}<template v-if="body.kind === 'static'">{{ tl('传送带：u > 0 时表面顺时针运行（上表面向右）。') }}</template></div>
-      </div>
+      <Section id="inspect.material" :title="tl('材料')">
+        <div class="group">
+          <div class="row"><label>{{ tl('静摩擦因数 μs') }}</label><NumField class="grow" :model-value="body.material.muS" :min="0" :step="0.05" @update:model-value="v => setBody(b => { b.material.muS = v })" /></div>
+          <div class="row"><label>{{ tl('动摩擦因数 μk') }}</label><NumField class="grow" :model-value="body.material.muK" :min="0" :step="0.05" @update:model-value="v => setBody(b => { b.material.muK = v })" /></div>
+          <div class="row"><label>{{ tl('恢复系数 e') }}</label><NumField class="grow" :model-value="body.material.restitution" :min="0" :max="1" :step="0.05" @update:model-value="v => setBody(b => { b.material.restitution = v })" /></div>
+          <div class="row" :title="tl('滚动阻力系数：滚动时受阻力偶 M = C_rr·N·r（r 为滚动物体的半径）；接触时取两物体中较大的值')"><label>{{ tl('滚动阻力 C_rr') }}</label><NumField class="grow" :model-value="body.material.rolling ?? 0" :min="0" :max="1" :step="0.005" @update:model-value="v => setBody(b => { if (v > 0) b.material.rolling = v; else delete b.material.rolling })" /></div>
+          <div v-if="body.kind === 'static'" class="row"><label>{{ tl('传送带速度 u') }}</label><NumField class="grow" :model-value="body.beltSpeed" unit="m/s" @update:model-value="v => setBody(b => { b.beltSpeed = v })" /></div>
+          <div class="tiny muted note">{{ tl('两物体接触时摩擦因数与恢复系数取两者中较小的值，滚动阻力取较大的值；需要单独指定时在下方“接触对”中设置。') }}<template v-if="body.kind === 'static'">{{ tl('传送带：u > 0 时表面顺时针运行（上表面向右）。') }}</template></div>
+        </div>
+      </Section>
 
-      <div class="group-title">{{ tl('接触对（覆盖材料）') }}</div>
-      <div class="group">
-        <div v-for="(p, i) in pairs" :key="p.a + p.b" class="pair">
-          <div class="small">{{ bodyName(p.a === body.id ? p.b : p.a) }}</div>
-          <div class="pair-fields">
-            <NumField :model-value="p.muS" :min="0" label="μs" @update:model-value="v => setPair(i, 'muS', v)" />
-            <NumField :model-value="p.muK" :min="0" label="μk" @update:model-value="v => setPair(i, 'muK', v)" />
-            <NumField :model-value="p.restitution" :min="0" :max="1" label="e" @update:model-value="v => setPair(i, 'restitution', v)" />
-            <button class="btn icon ghost danger" :title="tl('移除')" @click="removePair(i)"><Icon name="close" /></button>
+      <Section id="inspect.pairs" :title="tl('接触对（覆盖材料）')" :open="false">
+        <div class="group">
+          <div v-for="(p, i) in pairs" :key="p.a + p.b" class="pair">
+            <div class="small">{{ bodyName(p.a === body.id ? p.b : p.a) }}</div>
+            <div class="pair-fields">
+              <NumField :model-value="p.muS" :min="0" label="μs" @update:model-value="v => setPair(i, 'muS', v)" />
+              <NumField :model-value="p.muK" :min="0" label="μk" @update:model-value="v => setPair(i, 'muK', v)" />
+              <NumField :model-value="p.restitution" :min="0" :max="1" label="e" @update:model-value="v => setPair(i, 'restitution', v)" />
+              <NumField :model-value="pairRolling(p)" :min="0" :max="1" label="Cᵣᵣ" @update:model-value="v => setPairRolling(i, v)" />
+              <button class="btn icon ghost danger" :title="tl('移除')" @click="removePair(i)"><Icon name="close" /></button>
+            </div>
+          </div>
+          <div class="row">
+            <select class="field grow" value="" @change="addPair(($event.target as HTMLSelectElement).value); ($event.target as HTMLSelectElement).value = ''">
+              <option value="" disabled>{{ tl('为与某物体的接触单独设置…') }}</option>
+              <option v-for="o in otherBodies" :key="o.id" :value="o.id">{{ o.name }}</option>
+            </select>
           </div>
         </div>
-        <div class="row">
-          <select class="field grow" value="" @change="addPair(($event.target as HTMLSelectElement).value); ($event.target as HTMLSelectElement).value = ''">
-            <option value="" disabled>{{ tl('为与某物体的接触单独设置…') }}</option>
-            <option v-for="o in otherBodies" :key="o.id" :value="o.id">{{ o.name }}</option>
-          </select>
-        </div>
-      </div>
+      </Section>
 
       <div class="group">
         <div class="row"><label>{{ tl('颜色') }}</label><input type="color" :value="body.color" @change="setBody(b => { b.color = ($event.target as HTMLInputElement).value })" /></div>
@@ -328,8 +405,8 @@ function setPulleyBody(bodyId: string) {
       <div class="group">
         <div class="row"><label>{{ tl('名称') }}</label><input class="field grow" :value="conn.name" @change="setConn(c => { c.name = ($event.target as HTMLInputElement).value || c.name })" /></div>
         <div class="row"><label>{{ tl('类型') }}</label><span class="grow">{{ CONN_TYPES[conn.type] ?? (force?.expr ? tl('变力') : tl('恒力')) }}</span></div>
-        <div class="row"><label>{{ conn.type === 'force' ? tl('作用于') : tl('端点 A') }}</label><span class="grow small">{{ bodyName(conn.a.body) }}</span></div>
-        <div v-if="conn.type !== 'force'" class="row"><label>{{ tl('端点 B') }}</label><span class="grow small">{{ bodyName(conn.b.body) }}</span></div>
+        <div class="row"><label>{{ conn.type === 'force' ? tl('作用于') : conn.type === 'central' ? tl('中心') : tl('端点 A') }}</label><span class="grow small">{{ conn.type === 'central' && !conn.a.body ? tl('空间中的固定点') : bodyName(conn.a.body) }}</span></div>
+        <div v-if="conn.type !== 'force' && conn.type !== 'central'" class="row"><label>{{ tl('端点 B') }}</label><span class="grow small">{{ bodyName(conn.b.body) }}</span></div>
       </div>
       <div v-if="conn.type === 'rope' || conn.type === 'rod'" class="group">
         <div class="row"><label>{{ tl('长度') }}</label>
@@ -374,25 +451,60 @@ function setPulleyBody(bodyId: string) {
         <div class="row"><label>{{ tl('滑动方向') }}</label><NumField class="grow" :model-value="Math.atan2(conn.axis.y, conn.axis.x)" unit="rad" @update:model-value="v => setConn(c => { if (c.type === 'slider') c.axis = { x: Number(Math.cos(v).toPrecision(12)), y: Number(Math.sin(v).toPrecision(12)) } })" /></div>
         <div class="row"><label>{{ tl('允许转动') }}</label><label class="check grow"><input type="checkbox" :checked="!!conn.free" @change="setConn(c => { if (c.type === 'slider') { if (($event.target as HTMLInputElement).checked) c.free = true; else delete c.free } })" />{{ tl('B 可以绕滑块转动') }}</label></div>
         <div class="tiny muted note">{{ tl('B 端只能沿过 A 端的直线移动；方向角相对 A 物体（连到世界时相对水平向右）测量。') }}</div>
+        <div class="row"><label>{{ tl('限位') }}</label><label class="check grow"><input type="checkbox" :checked="!!slider?.limits" @change="toggleLimits(($event.target as HTMLInputElement).checked)" />{{ tl('B 沿滑轨的位移 s 有上下限') }}</label></div>
+        <template v-if="slider?.limits">
+          <div class="row"><label>{{ tl('下限 s_min') }}</label>
+            <input type="checkbox" class="side-check" :checked="slider.limits.min !== null" :title="tl('有下限')" @change="toggleLimitSide('min', ($event.target as HTMLInputElement).checked)" />
+            <NumField v-if="slider.limits.min !== null" class="grow" :model-value="slider.limits.min" unit="m" @update:model-value="v => setLimit('min', v)" />
+            <span v-else class="grow small muted">{{ tl('不限') }}</span>
+          </div>
+          <div class="row"><label>{{ tl('上限 s_max') }}</label>
+            <input type="checkbox" class="side-check" :checked="slider.limits.max !== null" :title="tl('有上限')" @change="toggleLimitSide('max', ($event.target as HTMLInputElement).checked)" />
+            <NumField v-if="slider.limits.max !== null" class="grow" :model-value="slider.limits.max" unit="m" @update:model-value="v => setLimit('max', v)" />
+            <span v-else class="grow small muted">{{ tl('不限') }}</span>
+          </div>
+          <div class="row"><label>{{ tl('限位恢复系数') }}</label><NumField class="grow" :model-value="slider.limits.restitution" :min="0" :max="1" :step="0.05" @update:model-value="v => setSlider(c => { if (c.limits) c.limits.restitution = v })" /></div>
+          <div class="tiny muted note">{{ tl('s 从 A 端量到 B 端、沿滑动方向为正。到达限位时若还有速度就发生碰撞（反弹速度为碰前的 e 倍，e = 0 时停在限位上）；压在限位上时限位给 B 向内的支持力。') }}</div>
+        </template>
       </div>
       <div v-if="conn.type === 'motor'" class="group">
         <div class="row"><label>{{ tl('驱动方式') }}</label>
-          <div class="segmented grow">
+          <div v-slide-indicator class="segmented grow">
             <button :class="{ on: conn.mode === 'speed' }" @click="setConn(c => { if (c.type === 'motor') c.mode = 'speed' })">{{ tl('恒定转速') }}</button>
             <button :class="{ on: conn.mode === 'torque' }" @click="setConn(c => { if (c.type === 'motor') c.mode = 'torque' })">{{ tl('恒定力矩') }}</button>
           </div>
         </div>
         <div v-if="conn.mode === 'speed'" class="row"><label>{{ tl('转速 ω') }}</label><NumField class="grow" :model-value="conn.speed" unit="rad/s" @update:model-value="v => setConn(c => { if (c.type === 'motor') c.speed = v })" /></div>
+        <template v-if="conn.mode === 'speed'">
+          <div class="row"><label>{{ tl('力矩上限') }}</label><label class="check grow"><input type="checkbox" :checked="conn.maxTorque !== undefined && conn.maxTorque !== null" @change="setConn(c => { if (c.type === 'motor') { if (($event.target as HTMLInputElement).checked) c.maxTorque = 1; else delete c.maxTorque } })" />{{ tl('超过时打滑') }}</label></div>
+          <div v-if="conn.maxTorque !== undefined && conn.maxTorque !== null" class="row"><label>τ_max</label><NumField class="grow" :model-value="conn.maxTorque" unit="N·m" :min="1e-9" @update:model-value="v => setConn(c => { if (c.type === 'motor') c.maxTorque = v })" /></div>
+        </template>
         <div v-else class="row"><label>{{ tl('力矩 M') }}</label><NumField class="grow" :model-value="conn.torque" unit="N·m" @update:model-value="v => setConn(c => { if (c.type === 'motor') c.torque = v })" /></div>
-        <div class="tiny muted note">{{ conn.mode === 'speed' ? tl('B 相对 A 以恒定角速度转动（逆时针为正）；开始时转速立即达到设定值。马达做的功计入能量账本。') : tl('马达对 B 施加恒定力矩，对 A 施加等大反向的力矩（逆时针为正）；做的功计入能量账本。') }}</div>
+        <div class="tiny muted note">{{ conn.mode === 'speed' ? ((conn.maxTorque ?? null) !== null ? tl('B 相对 A 以恒定角速度转动（逆时针为正）。所需力矩不超过上限时保持转速；超过时“打滑”，以最大力矩驱动，直到转速重新回到设定值。马达做的功计入能量账本。') : tl('B 相对 A 以恒定角速度转动（逆时针为正）；开始时转速立即达到设定值。马达做的功计入能量账本。')) : tl('马达对 B 施加恒定力矩，对 A 施加等大反向的力矩（逆时针为正）；做的功计入能量账本。') }}</div>
       </div>
       <div v-if="conn.type === 'gear'" class="group">
         <div class="row"><label>{{ tl('传动比 r') }}</label><NumField class="grow" :model-value="conn.ratio" @update:model-value="v => { if (v !== 0) setConn(c => { if (c.type === 'gear') c.ratio = v }) }" /></div>
         <div class="tiny muted note">{{ tl('约束 ω_A + r·ω_B = 0。外啮合齿轮取 r = r_B / r_A（转向相反）；开口皮带取 r = −r_B / r_A（转向相同）。') }}</div>
       </div>
+      <div v-if="central" class="group">
+        <div class="row"><label>{{ tl('规律') }}</label>
+          <select class="field grow" :value="centralPreset" @change="setCentral(c => { const v = ($event.target as HTMLSelectElement).value; if (v !== 'custom') c.n = Number(v) })">
+            <option v-for="p in CENTRAL_PRESETS" :key="p.n" :value="String(p.n)">{{ p.label }}</option>
+            <option value="custom">{{ tl('自定义指数 n') }}</option>
+          </select>
+        </div>
+        <div class="row"><label>{{ tl('强度 k') }}</label><NumField class="grow" :model-value="central.k" :unit="central.n === 0 ? 'N' : ''" @update:model-value="v => setCentral(c => { c.k = v })" /></div>
+        <div class="row"><label>{{ tl('指数 n') }}</label><NumField class="grow" :model-value="central.n" :min="-4" :max="4" :step="1" @update:model-value="v => setCentral(c => { c.n = v })" /></div>
+        <div class="row"><label>{{ tl('作用对象') }}</label><label class="check grow"><input type="checkbox" :checked="central.targets === null" @change="setCentral(c => { c.targets = ($event.target as HTMLInputElement).checked ? null : [] })" />{{ tl('全部运动物体') }}</label></div>
+        <div v-if="central.targets !== null" class="targets">
+          <label v-for="b in centralTargets" :key="b.id" class="check small"><input type="checkbox" :checked="central.targets.includes(b.id)" @change="toggleTarget(b.id, ($event.target as HTMLInputElement).checked)" />{{ b.name }}</label>
+          <span v-if="!centralTargets.length" class="small muted">{{ tl('场景中还没有运动物体') }}</span>
+        </div>
+        <div class="tiny muted note">{{ tl('力沿中心与质心的连线，大小 F = k·rⁿ：k > 0 指向中心（引力），k < 0 背离中心（斥力）。物体与中心的距离小于物体自身大小时，力线性减小到 0。势能 k·rⁿ⁺¹/(n+1)（n = −1 时 k·ln r）计入机械能。') }}</div>
+      </div>
       <div v-if="force" class="group">
         <div class="row"><label>{{ tl('力的形式') }}</label>
-          <div class="segmented grow">
+          <div v-slide-indicator class="segmented grow">
             <button :class="{ on: !force.expr }" @click="setForceMode('const')">{{ tl('恒力') }}</button>
             <button :class="{ on: !!force.expr }" @click="setForceMode('expr')">{{ tl('表达式 F(t, 状态)') }}</button>
           </div>
@@ -436,7 +548,9 @@ function setPulleyBody(bodyId: string) {
 .note { padding: 6px 2px 4px; line-height: 1.45; }
 .weight { flex: 0 0 auto; color: var(--text-2); background: var(--fill); border-radius: 6px; padding: 2px 6px; white-space: nowrap; }
 .pair { padding: 6px 0; border-bottom: 1px solid var(--separator); }
-.pair-fields { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 4px; margin-top: 4px; }
+.pair-fields { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr auto; gap: 4px; margin-top: 4px; }
+.side-check { flex: 0 0 auto; margin: 0 2px 0 0; }
+.targets { display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 2px 0 6px; }
 .quick { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; margin: 4px 0 10px; }
 .quick .btn { height: 24px; padding: 0 8px; }
 .actions { display: flex; gap: 8px; justify-content: flex-end; }

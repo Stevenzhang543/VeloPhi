@@ -15,14 +15,18 @@
  *                              vn⁺ ≥ −gap/h (land without bouncing); Pn ≥ 0, complementary
  *     friction                 |Pt| ≤ μ·Pn, aiming at vt⁺ = 0 (μs while sticking, μk while sliding)
  *     ropes at full length     like a contact with e = 0
+ *     slider end stops         like a contact with the stop's restitution (26.52)
+ *     torque-limited drives    the drive row with |P| ≤ h·τmax (26.52)
+ *     rolling resistance       |P_roll| ≤ C_rr·R·Pn on the relative rolling, aiming at zero (26.52)
  *   q⁺ = q + h·v⁺, then penetration and joint drift are removed by a mass-weighted projection.
  * Fixed loop orders and sweep counts keep it bit-reproducible. Contact forces between frames, friction heat
  * and impact losses are not resolved individually: the energy the impulses remove is booked as one loss.
  */
 import type { Pose, RowJ } from './kinematics'
-import { computePoses, contactKin, equalityKins, ropeKin } from './kinematics'
+import type { ContactFeature } from './kinematics'
+import { computePoses, contactKin, equalityKins, rollKin, ropeKin, sliderAxisKin } from './kinematics'
 import type { System } from './dynamics'
-import { AUX_BELT, AUX_DAMP, AUX_WORK, TOL, appliedForces, energy, newRates, rowDot, rowMinvRow } from './dynamics'
+import { AUX_BELT, AUX_DAMP, AUX_WORK, TOL, appliedForces, energy, limitRow, newRates, rollRadius, rollingOf, rowDot, rowMinvRow } from './dynamics'
 import { inRegion, pairMayTouch } from './modes'
 import { correction } from './project'
 
@@ -51,6 +55,8 @@ interface PRow {
   mu: number
   /** Accumulated impulse of the row. */
   lambda: number
+  /** Bound |λ| ≤ lim of an equality row (the drive of a torque-limited motor, 26.52). */
+  lim?: number
 }
 
 function addVel(model: System['model'], v: Float64Array, j: RowJ, dl: number) {
@@ -67,20 +73,20 @@ function addVel(model: System['model'], v: Float64Array, j: RowJ, dl: number) {
  */
 function contactCandidates(sys: System, poses: Pose[], h: number, vStar: Float64Array) {
   const model = sys.model
-  const out: Array<{ pairIndex: number; kin: ReturnType<typeof contactKin> }> = []
+  const out: Array<{ pairIndex: number; kin: ReturnType<typeof contactKin>; feature: ContactFeature }> = []
   for (const pair of sys.pairs) {
     const a = poses[pair.X.global], b = poses[pair.Y.global]
     const reach = h * (Math.abs(a.vx) + Math.abs(a.vy) + Math.abs(a.w) * pair.X.bound + Math.abs(b.vx) + Math.abs(b.vy) + Math.abs(b.w) * pair.Y.bound + model.accelScale * h)
     if (!pairMayTouch(pair, poses, 2 * reach + 1e-6)) continue
-    const local: ReturnType<typeof contactKin>[] = []
+    const local: Array<{ k: ReturnType<typeof contactKin>; f: ContactFeature }> = []
     for (const f of pair.features) {
       const k = contactKin(f, poses)
       if (!inRegion(k) || k.gap < -0.05) continue
       if (k.gap > TOL.touch && k.gap + h * Math.min(k.vn, rowDot(k.jn, vStar)) > 0) continue
-      if (local.some(o => Math.abs(o.cx - k.cx) <= 1e-9 && Math.abs(o.cy - k.cy) <= 1e-9)) continue
-      local.push(k)
+      if (local.some(o => Math.abs(o.k.cx - k.cx) <= 1e-9 && Math.abs(o.k.cy - k.cy) <= 1e-9)) continue
+      local.push({ k, f })
     }
-    for (const k of local) out.push({ pairIndex: pair.index, kin: k })
+    for (const o of local) out.push({ pairIndex: pair.index, kin: o.k, feature: o.f })
   }
   return out
 }
@@ -111,6 +117,7 @@ export function moreauStep(sys: System, X: Float64Array, h: number): MoreauStepR
   for (const e of equalityKins(model, poses)) {
     if (e.kind === 'drive') drives.push(rows.length)
     eq(e.kin.j, e.kind === 'drive' ? model.motors[e.owner].speed : 0)
+    if (e.kind === 'drive' && model.motors[e.owner].limited) rows[rows.length - 1].lim = h * model.motors[e.owner].maxTorque
   }
   model.ropes.forEach(r => {
     const k = ropeKin(poses, r)
@@ -133,6 +140,31 @@ export function moreauStep(sys: System, X: Float64Array, h: number): MoreauStepR
       const mu = Math.abs(k.vt) <= MOREAU.stickSpeed ? Math.max(mat.muS, mat.muK) : mat.muK
       rows.push({ j: k.jt, d: rowMinvRow(model, k.jt, k.jt), target: -belt, kind: 'tangent', normal: ni, mu, lambda: 0 })
     }
+    // 26.52: rolling resistance, a friction-like row on the relative rolling
+    const crr = rollingOf(pair)
+    if (crr > 0) {
+      const R = rollRadius(c.feature)
+      if (R > 0) {
+        const rk = rollKin(poses, c.feature.A.body, c.feature.B.body)
+        rows.push({ j: rk.j, d: rowMinvRow(model, rk.j, rk.j), target: 0, kind: 'tangent', normal: ni, mu: crr * R, lambda: 0 })
+      }
+    }
+  }
+  // 26.52: slider end stops that touch or that the motion reaches within the step
+  if (model.hasLimits) {
+    model.sliders.forEach((sl, k) => {
+      if (!sl.limited) return
+      const kin = sliderAxisKin(poses, sl)
+      for (const side of [-1, 1]) {
+        if (side < 0 ? !(sl.lo > -Infinity) : !(sl.hi < Infinity)) continue
+        const row = limitRow(sl, k, side, kin)
+        if (row.value > TOL.touch && row.value + 2 * h * row.vel > 0) continue
+        const reaches = row.value <= TOL.touch || row.value + h * row.vel <= 0
+        const e = row.vel < -vRest ? sl.e : 0
+        const target = reaches ? Math.max(-e * row.vel, row.value > TOL.touch ? -row.value / h : 0) : -row.value / h
+        rows.push({ j: row.j, d: rowMinvRow(model, row.j, row.j), target, kind: 'normal', normal: -1, mu: 0, lambda: 0 })
+      }
+    })
   }
   // Projected Gauss–Seidel
   for (let sweep = 0; sweep < MOREAU.sweeps; sweep++) {
@@ -142,6 +174,7 @@ export function moreauStep(sys: System, X: Float64Array, h: number): MoreauStepR
       let next = r.lambda + (r.target - vel) / r.d
       if (r.kind === 'normal') next = Math.max(0, next)
       else if (r.kind === 'tangent') { const lim = r.mu * rows[r.normal].lambda; next = Math.min(lim, Math.max(-lim, next)) }
+      else if (r.lim !== undefined) next = Math.min(r.lim, Math.max(-r.lim, next))
       const dl = next - r.lambda
       if (dl !== 0) { addVel(model, v, r.j, dl); r.lambda = next }
     }
@@ -170,6 +203,15 @@ function projectPositions(sys: System, Xin: Float64Array): Float64Array {
     const rows: Array<{ j: RowJ; err: number }> = []
     for (const e of equalityKins(model, poses)) if (e.holonomic && Math.abs(e.kin.value) > MOREAU.slop) rows.push({ j: e.kin.j, err: e.kin.value })
     model.ropes.forEach(r => { const k = ropeKin(poses, r); if (k.value < -MOREAU.slop) rows.push({ j: k.j, err: k.value }) })
+    // 26.52: slider end stops
+    if (model.hasLimits) {
+      model.sliders.forEach((sl, k) => {
+        if (!sl.limited) return
+        const kin = sliderAxisKin(poses, sl)
+        if (kin.value - sl.lo < -MOREAU.slop) { const r = limitRow(sl, k, -1, kin); rows.push({ j: r.j, err: r.value }) }
+        else if (sl.hi - kin.value < -MOREAU.slop) { const r = limitRow(sl, k, 1, kin); rows.push({ j: r.j, err: r.value }) }
+      })
+    }
     for (const pair of sys.pairs) {
       if (!pairMayTouch(pair, poses, 1e-6)) continue
       const seen: Array<{ x: number; y: number }> = []

@@ -5,6 +5,7 @@
  * units like everywhere else (the stored settings stay SI).
  */
 import { tl, paren } from '../../i18n'
+import { vSlideIndicator } from '../slideIndicator'
 import { computed, provide, ref, watch } from 'vue'
 import { applyLookAhead, applyMemoryBudget, state } from '../store'
 import type { DisplayToggle } from '../settings'
@@ -43,6 +44,13 @@ const SECTIONS: Array<{ id: SectionId; label: string; icon: string; desc: string
   { id: 'privacy', label: tl('隐私与试用'), icon: 'shield', desc: tl('本地操作日志（试用期间可选）。') },
   { id: 'about', label: tl('关于'), icon: 'info', desc: '' }
 ]
+/** Navigation groups (26.52, D56): everyday settings, teaching, system. */
+const NAV_GROUPS: Array<{ title: string; ids: SectionId[] }> = [
+  { title: tl('常用'), ids: ['general', 'units', 'display', 'effects', 'editor'] },
+  { title: tl('教学'), ids: ['knowledge', 'handbook'] },
+  { title: tl('系统'), ids: ['sim', 'export', 'keys', 'privacy', 'about'] }
+]
+const byId = (id: SectionId) => SECTIONS.find(s => s.id === id)!
 const current = ref<SectionId>('general')
 const section = computed(() => SECTIONS.find(s => s.id === current.value)!)
 const resettable = computed(() => current.value !== 'keys' && current.value !== 'about' && current.value !== 'handbook')
@@ -157,9 +165,12 @@ async function resetAll() { if (await ask(tl('将所有设置恢复为默认值�
     <nav class="pane snav" :aria-label="tl('设置分区')">
       <div class="pane-header">{{ tl('设置') }}</div>
       <div class="nav-list">
-        <button v-for="s in SECTIONS" :key="s.id" class="nav-item" :class="{ on: current === s.id }" :aria-current="current === s.id ? 'page' : undefined" @click="current = s.id">
-          <span class="nav-icon"><Icon :name="s.icon" :size="15" /></span>{{ s.label }}
-        </button>
+        <template v-for="g in NAV_GROUPS" :key="g.title">
+          <div class="nav-group tiny">{{ g.title }}</div>
+          <button v-for="s in g.ids.map(byId)" :key="s.id" class="nav-item" :class="{ on: current === s.id }" :aria-current="current === s.id ? 'page' : undefined" @click="current = s.id">
+            <span class="nav-icon"><Icon :name="s.icon" :size="15" /></span>{{ s.label }}
+          </button>
+        </template>
       </div>
       <div class="nav-foot tiny muted">{{ tl('设置保存在本机，不随场景文件保存。') }}<button class="link" @click="resetAll">{{ tl('全部恢复默认') }}</button></div>
     </nav>
@@ -181,7 +192,7 @@ async function resetAll() { if (await ask(tl('将所有设置恢复为默认值�
               <div class="sc"><select v-model="settings.language" :aria-label="tl('语言')"><option value="auto">{{ tl('跟随系统') }}</option><option value="zh">{{ tl('简体中文') }}</option><option value="en">English</option><option value="de">Deutsch</option></select></div>
             </div>
             <div class="srow"><div class="sl"><b>{{ tl('外观') }}</b><span>{{ tl('浅色适合投影；“跟随系统”会随系统的深浅色实时切换。') }}</span></div>
-              <div class="segmented"><button v-for="t in THEMES" :key="t.id" :class="{ on: settings.themeMode === t.id }" @click="settings.themeMode = t.id"><Icon :name="t.icon" :size="14" />{{ t.label }}</button></div>
+              <div v-slide-indicator class="segmented"><button v-for="t in THEMES" :key="t.id" :class="{ on: settings.themeMode === t.id }" @click="settings.themeMode = t.id"><Icon :name="t.icon" :size="14" />{{ t.label }}</button></div>
             </div>
             <div class="srow"><div class="sl"><b>{{ tl('界面缩放') }}</b><span>{{ tl('文字与控件的大小（不影响画布的物理比例）。') }}</span></div>
               <div class="sc range"><input v-model.number="settings.uiScale" type="range" min="0.85" max="1.4" step="0.05" :aria-label="tl('界面缩放')" /><span class="mono val">{{ Math.round(settings.uiScale * 100) }}%</span></div>
@@ -259,7 +270,7 @@ async function resetAll() { if (await ask(tl('将所有设置恢复为默认值�
         <template v-else-if="current === 'effects'">
           <div class="sgroup">
             <div class="srow"><div class="sl"><b>{{ tl('效果质量') }}</b><span>{{ tl('“关闭”停用下面全部效果；“高”使背景连续流动、模糊更细腻。') }}</span></div>
-              <div class="segmented"><button v-for="q in QUALITIES" :key="q.id" :class="{ on: settings.effects.quality === q.id }" @click="settings.effects.quality = q.id">{{ q.label }}</button></div>
+              <div v-slide-indicator class="segmented"><button v-for="q in QUALITIES" :key="q.id" :class="{ on: settings.effects.quality === q.id }" @click="settings.effects.quality = q.id">{{ q.label }}</button></div>
             </div>
           </div>
           <div class="sgroup" :class="{ dim: fxOff }">
@@ -278,6 +289,7 @@ async function resetAll() { if (await ask(tl('将所有设置恢复为默认值�
             </div>
           </div>
           <div class="sgroup">
+            <div class="srow"><div class="sl"><b>{{ tl('界面动画') }}</b><span>{{ tl('展开与折叠、切换、按下与拖动时的过渡和反馈动画，以及启动时从中心展开的开场动画。关闭后改为即时切换。') }}</span></div><input v-model="settings.ui.motion" type="checkbox" class="switch" /></div>
             <div class="srow"><div class="sl"><b>{{ tl('遵循系统的“减少动态效果”') }}</b><span>{{ tl('系统当前{0}此选项。开启时停止动画、运动模糊与粒子。', [sysEnv.reducedMotion ? tl('已开启') : tl('未开启')]) }}</span></div><input v-model="settings.effects.respectReducedMotion" type="checkbox" class="switch" /></div>
           </div>
           <div class="effective tiny muted">
@@ -411,8 +423,11 @@ async function resetAll() { if (await ask(tl('将所有设置恢复为默认值�
 .settings-page { display: grid; grid-template-columns: calc(220px * var(--zoom)) minmax(0, 1fr); gap: 8px; height: 100%; min-height: 0; }
 .snav { min-height: 0; }
 .nav-list { display: flex; flex-direction: column; gap: 1px; padding: 2px 8px; overflow: auto; flex: 1; }
-.nav-item { display: flex; align-items: center; gap: 10px; height: calc(32px * var(--zoom)); padding: 0 8px; border: 0; border-radius: 8px; background: transparent; cursor: pointer; text-align: left; font-size: var(--type-body); color: var(--text); transition: background 120ms ease; }
+.nav-item { display: flex; align-items: center; gap: 10px; height: calc(32px * var(--zoom)); padding: 0 8px; border: 0; border-radius: 8px; background: transparent; cursor: pointer; text-align: left; font-size: var(--type-body); color: var(--text); transition: background var(--dur-2) var(--ease-out), transform var(--dur-1) var(--ease-out); }
+.nav-item:active { transform: scale(0.98); }
 .nav-item:hover { background: var(--hover); }
+.nav-group { color: var(--text-3); font-weight: 600; padding: 10px 8px 3px; }
+.nav-group:first-child { padding-top: 2px; }
 .nav-item.on { background: var(--accent); color: var(--on-accent); }
 .nav-icon { width: 24px; height: 24px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; background: var(--fill); color: var(--text-2); }
 .nav-item.on .nav-icon { background: rgba(255, 255, 255, 0.22); color: inherit; }
