@@ -6,11 +6,11 @@
 import { describe, expect, it } from 'vitest'
 import { addBody, addConnector, addPulley, anchor, emptyScene } from '../src/core/scene/build'
 import type { RopeDef, Scene } from '../src/core/scene/types'
-import { compileModel } from '../src/core/solver/model'
-import { buildSystem } from '../src/core/solver/dynamics'
-import { computePoses, pulleyCenter, ropeKin } from '../src/core/solver/kinematics'
-import type { RowJ } from '../src/core/solver/kinematics'
-import { frameLedger, frameSolution, frameState, simulate } from '../src/core/solver/simulation'
+import { compileModel } from './reference/core/solver/model'
+import { buildSystem } from './reference/core/solver/dynamics'
+import { computePoses, pulleyCenter, ropeKin } from './reference/core/solver/kinematics'
+import type { RowJ } from './reference/core/solver/kinematics'
+import { frameLedger, frameSolution, frameState, simulate } from './reference/core/solver/simulation'
 import { validateScene } from '../src/core/scene/io'
 
 function rowDotArr(j: RowJ, v: number[]): number {

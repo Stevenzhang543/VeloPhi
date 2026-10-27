@@ -1,0 +1,22 @@
+[package]
+name = "velophi-napi"
+description = "Node-API module over the VeloPhi core C ABI, for the front-end tests in environments without a wasm32 toolchain (tests only, never shipped)"
+version = "26.55.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+velophi-wasm = { path = "../velophi-wasm" }
+velophi-native = { path = "../velophi-native" }
+serde_json = "1"
+
+# Built on its own (scripts/build-napi.mjs), outside the engine workspace
+[workspace]
+
+[profile.release]
+opt-level = 3
+codegen-units = 16
+panic = "abort"

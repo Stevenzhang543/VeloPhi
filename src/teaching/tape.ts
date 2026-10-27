@@ -8,11 +8,11 @@
  *
  * Distance along the tape: the path length (∫|v| dt by Simpson between dots) or the displacement along x or y.
  *
- * Pure module (no Vue, no DOM).
+ * 26.53: the strip is computed in the core (teaching.rs `tape`); this module draws it (no Vue, no DOM).
  */
 import { tl } from '../i18n'
-import type { Recording } from '../core/solver/simulation'
-import { exactStateAt } from '../core/solver/simulation'
+import type { Recording } from '../engine/recording'
+import { tapeOf } from '../engine/views'
 import type { Palette } from '../render/renderer'
 import { DARK, LIGHT } from '../render/renderer'
 import { FONT } from '../render/style'
@@ -58,68 +58,9 @@ export interface TapeData {
   simAccel: number | null
 }
 
-/** Velocity component the tape measures at state X (dynamic slot i). */
-function speedOf(X: Float64Array, n: number, i: number, dir: TapeDirection): number {
-  const vx = X[3 * n + 3 * i], vy = X[3 * n + 3 * i + 1]
-  return dir === 'x' ? vx : dir === 'y' ? vy : Math.hypot(vx, vy)
-}
-
-/** The tape of a body; null for a static or unknown body or when the run is too short for two counting points. */
+/** The tape of a body (computed in the core, teaching.rs); null for a static or unknown body or when the run is too short for two counting points. */
 export function tapeData(rec: Recording, o: TapeOptions): TapeData | null {
-  const model = rec.system.model
-  const b = model.bodies.find(x => x.id === o.bodyId)
-  if (!b || !b.dynamic) return null
-  const n = model.n, i = b.index
-  const period = o.period > 0 ? o.period : TAPE_DEFAULTS.period
-  const every = Math.max(1, Math.round(o.every))
-  const T = period * every
-  const tEnd = (rec.frameCount - 1) * rec.dt
-  const start = Math.max(0, Math.min(tEnd, o.start))
-  const maxIntervals = Math.floor((tEnd - start) / T + 1e-9)
-  const intervals = Math.min(maxIntervals, Math.max(1, Math.round(o.intervals ?? TAPE_DEFAULTS.intervals)))
-  if (intervals < 1) return null
-  const dotCount = intervals * every + 1
-  const dots: Array<{ t: number; s: number }> = []
-  const X0 = exactStateAt(rec, start)
-  const x0 = X0[3 * i], y0 = X0[3 * i + 1]
-  let s = 0
-  // Path length: Simpson on |v| with 4 sub-intervals per dot period
-  const SUB = 4
-  let prev = X0
-  for (let k = 0; k < dotCount; k++) {
-    const t = start + k * period
-    let X = prev
-    if (k > 0) {
-      if (o.direction === 'path') {
-        const h = period / SUB
-        const v: number[] = [speedOf(prev, n, i, 'path')]
-        for (let j = 1; j <= SUB; j++) { X = exactStateAt(rec, Math.min(tEnd, start + (k - 1) * period + j * h)); v.push(speedOf(X, n, i, 'path')) }
-        s += h / 3 * (v[0] + 4 * v[1] + 2 * v[2] + 4 * v[3] + v[4])
-      } else {
-        X = exactStateAt(rec, Math.min(tEnd, t))
-      }
-    }
-    const dist = o.direction === 'x' ? X[3 * i] - x0 : o.direction === 'y' ? X[3 * i + 1] - y0 : s
-    dots.push({ t, s: dist })
-    prev = X
-  }
-  const counts = Array.from({ length: intervals + 1 }, (_v, c) => dots[c * every])
-  const lengths = counts.slice(1).map((c, j) => c.s - counts[j].s)
-  const velocities: TapeData['velocities'] = []
-  for (let c = 1; c < lengths.length; c++) {
-    const t = counts[c].t
-    velocities.push({ n: c, t, tape: (lengths[c - 1] + lengths[c]) / (2 * T), sim: speedOf(exactStateAt(rec, t), n, i, o.direction) })
-  }
-  const m = Math.floor(lengths.length / 2)
-  let accel: number | null = null, simAccel: number | null = null
-  if (m >= 1) {
-    let a1 = 0, a2 = 0
-    for (let j = 0; j < m; j++) { a1 += lengths[j]; a2 += lengths[m + j] }
-    accel = (a2 - a1) / (m * m * T * T)
-    const t1 = counts[2 * m].t
-    simAccel = (speedOf(exactStateAt(rec, t1), n, i, o.direction) - speedOf(X0, n, i, o.direction)) / (t1 - start)
-  }
-  return { bodyId: b.id, name: b.name, direction: o.direction, period, every, T, dots, lengths, velocities, accel, used: 2 * m, simAccel }
+  return tapeOf(rec, { bodyId: o.bodyId, direction: o.direction, period: o.period, every: o.every, start: o.start, intervals: o.intervals })
 }
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')

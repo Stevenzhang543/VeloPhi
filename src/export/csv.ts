@@ -9,8 +9,8 @@
  * (the convention of spreadsheets in comma-decimal locales) so that no number has to be quoted.
  */
 import { tl } from '../i18n'
-import type { ChangeDetail, Recording } from '../core/solver/simulation'
-import { listQuantities, quantitySeries } from '../core/observe/quantities'
+import type { ChangeDetail, Recording } from '../engine/recording'
+import { listQuantities, quantitySeries } from '../engine/observe'
 import { ENGINE_VERSION } from '../core/scene/types'
 import type { UnitChoice } from '../units/units'
 import { displayLabel, toDisplay } from '../units/units'
@@ -73,7 +73,7 @@ export function tableCsv(header: string[], rows: Array<Array<number | string | n
 
 /** CSV of quantities over the recorded frames, with '#' lines describing the run. */
 export function recordingCsv(rec: Recording, opts: CsvOptions): string {
-  const defs = new Map(listQuantities(rec.system).map(q => [q.id, q]))
+  const defs = new Map(listQuantities(rec).map(q => [q.id, q]))
   const ids = opts.ids.filter(id => defs.has(id))
   const { t, values } = quantitySeries(rec, ids, opts.from, opts.to, Math.max(1, Math.round(opts.stride)))
   const display = opts.units === 'display' && !!opts.unitChoice

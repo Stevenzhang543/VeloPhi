@@ -24,6 +24,7 @@ import Tex from './Tex.vue'
 import AboutContent from './AboutContent.vue'
 import HandbookView from './HandbookView.vue'
 import { PAGE_ACTIVE } from '../live'
+import { isDesktop } from '../../platform/files'
 import { ask } from '../../platform/ask'
 
 const props = withDefaults(defineProps<{ active?: boolean }>(), { active: true })
@@ -117,7 +118,10 @@ const OVERLAYS: Array<{ key: DisplayToggle; label: string; hint: string }> = [
   { key: 'strobe', label: tl('频闪照片'), hint: tl('按固定时间间隔叠加物体此前的位置（导出图片与视频时一并绘出）') },
   { key: 'grid', label: tl('网格与比例尺'), hint: '' },
   { key: 'axes', label: tl('坐标轴'), hint: '' },
-  { key: 'names', label: tl('物体名称'), hint: '' }
+  { key: 'names', label: tl('物体名称'), hint: '' },
+  { key: 'fields', label: tl('匀强电场与磁场'), hint: tl('电场的虚线箭头、磁场的 ⊙ / × 点阵') },
+  { key: 'fieldLines', label: tl('电场线'), hint: tl('点电荷与匀强场的合场，从正电荷出发') },
+  { key: 'equipotentials', label: tl('等势线'), hint: tl('电势相等的点连成的线') }
 ]
 
 // ---- Effects ----
@@ -334,8 +338,8 @@ async function resetAll() { if (await ask(tl('将所有设置恢复为默认值�
         <!-- ---- Simulation ---- -->
         <template v-else-if="current === 'sim'">
           <div class="sgroup">
-            <div class="srow"><div class="sl"><b>{{ tl('计算引擎') }}</b><span>{{ tl('Rust 引擎编译为 WebAssembly，速度约为 TypeScript 引擎的 3–4 倍；两者结果逐位相同。Rust 引擎无法加载时自动改用 TypeScript 引擎。') }}</span></div>
-              <div class="sc"><select v-model="settings.sim.engine"><option value="auto">{{ `Rust${paren('WebAssembly')}` }}</option><option value="ts">TypeScript</option></select></div>
+            <div class="srow"><div class="sl"><b>{{ tl('计算引擎') }}</b><span>{{ tl('所有计算都由 Rust 引擎完成。桌面版默认在原生线程中运行（最快）；也可改用 WebAssembly 后台线程（网页版始终使用），两者结果逐位相同。更改后下次启动生效。') }}</span></div>
+              <div class="sc"><select v-model="settings.sim.engine"><option value="auto">{{ isDesktop ? tl('原生 Rust（自动）') : `Rust${paren('WebAssembly')}` }}</option><option value="wasm">{{ `Rust${paren('WebAssembly')}` }}</option></select></div>
             </div>
             <div class="srow"><div class="sl"><b>{{ tl('在后台线程计算') }}</b><span>{{ tl('使用 Web Worker，长时间计算时界面不卡顿；结果与前台计算逐位相同。') }}</span></div><input v-model="settings.sim.worker" type="checkbox" class="switch" /></div>
             <div class="srow"><div class="sl"><b>{{ tl('边算边播') }}</b><span>{{ tl('已算出的部分立即显示并可以播放；公式对照随运动阶段的完成逐步出现。') }}</span></div><input v-model="settings.sim.progressive" type="checkbox" class="switch" /></div>

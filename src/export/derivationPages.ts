@@ -5,12 +5,12 @@
  * (formula/detail.ts, formula/eventDetail.ts, export/detailImage.ts). Courseware writes them as PNG files and
  * slides; the lab report embeds them.
  */
-import type { Recording } from '../core/solver/simulation'
-import type { Situation } from '../formula/situations'
+import type { Recording } from '../engine/recording'
+import type { Situation } from '../formula/recognize'
 import type { UnitChoice } from '../units/units'
 import type { Lang } from '../i18n/tri'
 import { buildFormulaDetail } from '../formula/detail'
-import { buildEventDetail } from '../formula/eventDetail'
+import { buildEventDetail, eventDataOf } from '../formula/eventDetail'
 import type { ImageBackground } from './still'
 import { shownCards } from './formulaImage'
 import type { LevelFilter } from './formulaImage'
@@ -46,11 +46,11 @@ export interface DerivationPageOptions {
 }
 
 /** The formula cards of the key moments, each formula of each situation once, with the moment's time. */
-export function derivationTargets(sits: Situation[], moments: KeyMoment[], digits: number, units: UnitChoice, level: LevelFilter = null): Array<{ situation: Situation; formulaId: string; title: string; t: number }> {
+export function derivationTargets(rec: Recording, sits: Situation[], moments: KeyMoment[], digits: number, units: UnitChoice, level: LevelFilter = null): Array<{ situation: Situation; formulaId: string; title: string; t: number }> {
   const seen = new Set<string>()
   const out: Array<{ situation: Situation; formulaId: string; title: string; t: number }> = []
   for (const m of moments) {
-    for (const c of shownCards(cardsForMoment(sits, m.t, digits, units), level)) {
+    for (const c of shownCards(cardsForMoment(rec, sits, m.t, digits, units), level)) {
       const key = `${c.situation.key}|${c.formula.id}`
       if (seen.has(key)) continue
       seen.add(key)
@@ -64,7 +64,7 @@ export function derivationTargets(sits: Situation[], moments: KeyMoment[], digit
  * Render the pages. `check` is called between pages (throws to cancel); `step` reports progress (0–1).
  */
 export async function derivationPages(rec: Recording, sits: Situation[], moments: KeyMoment[], o: DerivationPageOptions, check: () => void = () => {}, step: (p: number) => void = () => {}): Promise<DerivationPage[]> {
-  const targets = derivationTargets(sits, moments, o.digits, o.units, o.level ?? null).slice(0, o.maxFormulas ?? 40)
+  const targets = derivationTargets(rec, sits, moments, o.digits, o.units, o.level ?? null).slice(0, o.maxFormulas ?? 40)
   const events = moments.filter(m => m.eventIndex !== undefined && rec.events[m.eventIndex]?.changes.length)
   const total = targets.length + events.length
   const pages: DerivationPage[] = []
@@ -80,7 +80,7 @@ export async function derivationPages(rec: Recording, sits: Situation[], moments
   for (const m of events) {
     check()
     step(k++ / Math.max(1, total))
-    const view = buildEventDetail(rec, m.eventIndex!, o.lang, { digits: o.digits, units: o.units })
+    const view = buildEventDetail(eventDataOf(rec, m.eventIndex!), m.eventIndex!, o.lang, { digits: o.digits, units: o.units })
     const r = await detailImage(view, img, { png: true })
     pages.push({ kind: 'event', title: m.label, png: r.png, svg: r.svg, width: r.width, height: r.height, scale: r.scale })
   }

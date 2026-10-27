@@ -5,9 +5,6 @@
  */
 import { settings } from '../settings'
 import { minorGridStep } from '../../render/renderer'
-import type { Model } from '../../core/solver/model'
-import type { Pose } from '../../core/solver/kinematics'
-import { pulleyCenter } from '../../core/solver/kinematics'
 import type { Pt } from './geometry'
 
 /** Snap step (m) at zoom `ppm` (px/m). */
@@ -40,18 +37,7 @@ export function snapLength(v: number, ppm: number, alt: boolean): number {
   return Math.max(s, roundTo(v, s))
 }
 
-/** Feature points at the drawn state: centres of moving bodies, polygon vertices, pulley axles, fixed anchors. */
-export function featurePoints(model: Model, poses: Pose[]): Pt[] {
-  const out: Pt[] = []
-  for (const b of model.bodies) {
-    const ps = poses[b.global]
-    if (b.dynamic || b.shape.kind === 'circle') out.push({ x: ps.x, y: ps.y })
-    if (b.shape.kind === 'polygon') for (const v of b.shape.verts) out.push({ x: ps.x + ps.c * v.x - ps.s * v.y, y: ps.y + ps.s * v.x + ps.c * v.y })
-  }
-  for (const p of model.pulleys) { const c = pulleyCenter(poses, p); out.push({ x: c.x, y: c.y }) }
-  for (const c of [...model.ropes, ...model.rods, ...model.springs, ...model.hinges]) for (const a of [c.a, c.b]) if (!a.body) out.push({ x: a.local.x, y: a.local.y })
-  return out
-}
+/** Feature points (centres, vertices, pulley axles, fixed anchors) come from the core: engine/views.ts `featurePointsOf`. */
 
 /** Nearest feature point within `tolPx` screen pixels, or null. */
 export function featureSnap(points: Pt[], p: Pt, ppm: number, tolPx = 9): Pt | null {

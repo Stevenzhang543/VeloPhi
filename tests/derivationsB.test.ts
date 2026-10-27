@@ -10,12 +10,12 @@ import type { FormulaDef } from '../src/formula/library'
 import { DERIVATIONS_B, SHARED_B } from '../src/formula/derivations/groupB'
 import type { Derivation, DerivationStep } from '../src/formula/derivations/types'
 import type { Tri } from '../src/i18n/tri'
-import { dimension, evaluate, parse, variables } from '../src/formula/expr'
+import { dimension, evaluate, parse, variables } from './reference/formula/expr'
 import { dimEqual, formatDim, unitDim } from '../src/formula/units'
 import type { Dim } from '../src/formula/units'
 import { TEMPLATES, buildTemplate } from '../src/templates'
-import { simulate } from '../src/core/solver/simulation'
-import { recognize } from '../src/formula/situations'
+import { simulate } from './reference/core/solver/simulation'
+import { recognize } from './reference/formula/situations'
 
 const GROUP_B = ['pendulum', 'spring', 'spring-pair', 'vcircle-rope', 'vcircle-rod', 'rotation', 'rolling', 'roll-slip', 'hinged-impact', 'var-force']
 const formulasB = FORMULAS.filter(f => GROUP_B.includes(f.situation))

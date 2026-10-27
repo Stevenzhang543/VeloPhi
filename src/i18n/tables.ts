@@ -12,10 +12,13 @@ import { TEXTS_PHYSICS } from './texts/physics'
 import { TEXTS_FORMULA } from './texts/formula'
 import { TEXTS_TEMPLATES } from './texts/templates'
 import { TEXTS_2652 } from './texts/v2652'
+import { TEXTS_2653 } from './texts/v2653'
+import { TEXTS_2654 } from './texts/v2654'
+import { TEXTS_2655 } from './texts/v2655'
 
 /** The hand-written parts (tests check them for unused and duplicate entries). */
 export const TEXT_PARTS: Record<string, Record<string, readonly [string, string]>> = {
-  app: TEXTS_APP, settings: TEXTS_SETTINGS, dialogs: TEXTS_DIALOGS, physics: TEXTS_PHYSICS, formula: TEXTS_FORMULA, templates: TEXTS_TEMPLATES, v2652: TEXTS_2652
+  app: TEXTS_APP, settings: TEXTS_SETTINGS, dialogs: TEXTS_DIALOGS, physics: TEXTS_PHYSICS, formula: TEXTS_FORMULA, templates: TEXTS_TEMPLATES, v2652: TEXTS_2652, v2653: TEXTS_2653, v2654: TEXTS_2654, v2655: TEXTS_2655
 }
 
 /** English and German tables. */

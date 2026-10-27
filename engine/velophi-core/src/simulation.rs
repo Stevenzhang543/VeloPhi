@@ -61,6 +61,9 @@ pub enum ChangeType {
     MotorLock,
     RollStop,
     RollStart,
+    /// 26.55 (D90): a charged body enters or leaves a field region.
+    ZoneEnter,
+    ZoneLeave,
 }
 
 impl ChangeType {
@@ -85,6 +88,8 @@ impl ChangeType {
             ChangeType::MotorLock => "motorLock",
             ChangeType::RollStop => "rollStop",
             ChangeType::RollStart => "rollStart",
+            ChangeType::ZoneEnter => "zoneEnter",
+            ChangeType::ZoneLeave => "zoneLeave",
         }
     }
 }
@@ -488,8 +493,16 @@ fn diff_modes(sys: &System, prev: Option<&Mode>, next: &Mode, impact: Option<&Im
     }
     let model = &sys.model;
     if let (Some(psw), Some(nsw)) = (&prev.sw, &next.sw) {
+        let ns = model.arena.switches.len();
         for (k, branch) in nsw.iter().enumerate() {
             if psw.get(k) == Some(branch) {
+                continue;
+            }
+            if k >= ns {
+                // 26.55 (D90): a field region
+                let Some(&(zi, g)) = model.zone_pairs.get(k - ns) else { continue };
+                let ty = if *branch > 0 { ChangeType::ZoneEnter } else { ChangeType::ZoneLeave };
+                out.push(ChangeDetail::simple(ty, &model.zones[zi].id, vec![model.bodies[g].id.clone()]));
                 continue;
             }
             let f = &model.forces[model.switch_force[k]];
@@ -903,8 +916,20 @@ impl SimulationRun {
             k += 1;
         }
         let mut choice = determine_mode(&sys, &xc, 20000, slack, unlimit)?;
+        let moving = sliding_speeds(&sys, &xc, &choice.mode);
         if let Some(px) = project(&sys, &xc, &choice.mode, &mut self.proj_info, &mut self.proj_scratch) {
             xc = px;
+        }
+        // 26.53 (D73): a unit taken as sliding whose relative tangential velocity the projection brought to rest (the
+        // other contacts fix the body) is decided again at the projected state, where it may stick
+        if !moving.is_empty() {
+            let after = sliding_speeds(&sys, &xc, &choice.mode);
+            if after.iter().zip(&moving).any(|(v, m)| m.abs() > crate::dynamics::tol::VEL && v.abs() <= crate::dynamics::tol::VEL) {
+                choice = determine_mode(&sys, &xc, 20000, slack, unlimit)?;
+                if let Some(px) = project(&sys, &xc, &choice.mode, &mut self.proj_info, &mut self.proj_scratch) {
+                    xc = px;
+                }
+            }
         }
         choice.solution = solve_mode(&sys, &xc, &choice.mode, None)?;
         if choice.ambiguous {
@@ -1583,4 +1608,15 @@ pub fn simulate(scene: &Scene, mut opts: SimOptions) -> SimResult<SimulationRun>
     let mut run = SimulationRun::new(scene, opts)?;
     run.advance(u64::MAX, f64::INFINITY);
     Ok(run)
+}
+
+/// Relative tangential velocities of the sliding units of a mode at state X (26.53, D73).
+fn sliding_speeds(sys: &System, x: &[f64], mode: &Mode) -> Vec<f64> {
+    let sliding = |u: &&crate::dynamics::UnitMode| !u.points.is_empty() && u.friction == crate::dynamics::Friction::Slide;
+    if !mode.units.iter().any(|u| sliding(&u)) {
+        return Vec::new();
+    }
+    let model = &sys.model;
+    let poses = compute_poses(model, x);
+    mode.units.iter().filter(sliding).map(|u| crate::kinematics::contact_kin(model, &sys.pairs[u.pair].features[u.ref_], &poses).vt).collect()
 }

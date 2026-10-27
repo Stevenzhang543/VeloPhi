@@ -6,10 +6,10 @@
  */
 import { describe, expect, it } from 'vitest'
 import { emptyScene, addBody, addPulley, anchor } from '../src/core/scene/build'
-import { compileModel } from '../src/core/solver/model'
-import { buildSystem } from '../src/core/solver/dynamics'
-import { computePoses, contactKin, distanceKin, hingeKin, pairFeatures, ropeKin } from '../src/core/solver/kinematics'
-import type { RowJ } from '../src/core/solver/kinematics'
+import { compileModel } from './reference/core/solver/model'
+import { buildSystem } from './reference/core/solver/dynamics'
+import { computePoses, contactKin, distanceKin, hingeKin, pairFeatures, ropeKin } from './reference/core/solver/kinematics'
+import type { RowJ } from './reference/core/solver/kinematics'
 
 function rowDot(j: RowJ, v: number[]): number {
   let s = 0

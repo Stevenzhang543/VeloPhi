@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest'
 import { addBody, addConnector, addGround, addIncline, anchor, emptyScene, onIncline } from '../src/core/scene/build'
 import type { Scene, SpringDef } from '../src/core/scene/types'
-import { frameLedger, frameState, simulate } from '../src/core/solver/simulation'
+import { frameLedger, frameState, simulate } from './reference/core/solver/simulation'
 
 function ledgerDrift(scene: Scene) {
   const rec = simulate(scene)

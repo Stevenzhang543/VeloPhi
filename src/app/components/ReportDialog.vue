@@ -15,9 +15,9 @@ import { derivationPages } from '../../export/derivationPages'
 import { computed, reactive, ref, watch } from 'vue'
 import { state, showToast, viewCamera } from '../store'
 import { fmtQ, settings, unitLabel, toDisp, effectiveCurriculum } from '../settings'
-import type { Recording } from '../../core/solver/simulation'
-import type { QuantityDef } from '../../core/observe/quantities'
-import { listQuantities, quantitySeries } from '../../core/observe/quantities'
+import type { Recording } from '../../engine/recording'
+import type { QuantityDef } from '../../engine/observe'
+import { listQuantities, quantitySeries } from '../../engine/observe'
 import { ENGINE_VERSION } from '../../core/scene/types'
 import { exportFingerprint } from '../../export/fingerprint'
 import { DARK, LIGHT, computeTrajectories, eventLabel, vectorScales } from '../../render/renderer'
@@ -31,8 +31,8 @@ import { VERDICT_TEXT, cardImage, relErrorText, shownCards } from '../../export/
 import { CHART_LIGHT, SERIES_COLORS, chartPng } from '../../export/chartImage'
 import type { ReportFigure, ReportInput, ReportTable } from '../../export/report'
 import { buildReportHtml, printHtml } from '../../export/report'
-import { safeName } from '../../export/courseware'
-import { timeLabel } from '../../export/video'
+import { safeName } from '../../export/safeName'
+import { timeLabel } from '../../export/timeLabel'
 import { dataUrl } from '../../export/zip'
 import { GRADE_TEXT, comparePrediction, readPredictions, targetLabel } from '../../analysis/prediction'
 import { templateById } from '../../templates'
@@ -61,7 +61,7 @@ const fbdTarget = computed(() => {
 const curveIds = computed(() => {
   const r = rec.value
   if (!r) return []
-  const known = new Set(listQuantities(r.system).map(q => q.id))
+  const known = new Set(listQuantities(r).map(q => q.id))
   const ids = (state.chart.length ? state.chart : r.scene.watch).filter(id => known.has(id))
   return ids.slice(0, 8)
 })
@@ -126,7 +126,7 @@ function parameterTables(r: Recording): ReportTable[] {
 }
 
 async function curveFigures(r: Recording): Promise<ReportFigure[]> {
-  const defs = new Map(listQuantities(r.system).map(q => [q.id, q]))
+  const defs = new Map(listQuantities(r).map(q => [q.id, q]))
   const groups = new Map<string, QuantityDef[]>()
   for (const id of curveIds.value) { const q = defs.get(id)!; const l = groups.get(q.unit) ?? []; l.push(q); groups.set(q.unit, l) }
   const stride = Math.max(1, Math.floor(r.frameCount / 2000))
@@ -168,7 +168,7 @@ async function generate(): Promise<string> {
     const view = { cx: viewCamera.cx, cy: viewCamera.cy, ppmAtHeight: viewCamera.ppm, viewHeight: viewCamera.height }
     const aspect = Math.max(0.4, Math.min(2.5, viewCamera.width / Math.max(1, viewCamera.height)))
     const width = 1200, height = Math.round(width / aspect)
-    const trajectories = computeTrajectories(r), scales = vectorScales(r, r.system)
+    const trajectories = computeTrajectories(r), scales = vectorScales(r)
     const shots = spread(ms, MAX_SHOTS)
     for (let i = 0; i < shots.length; i++) {
       stepText.value = tl('截图 {0}/{1}', [i + 1, shots.length])
@@ -192,7 +192,7 @@ async function generate(): Promise<string> {
     const seen = new Set<string>()
     const images: ReportFigure[] = []
     for (const m of ms) {
-      for (const c of shownCards(cardsForMoment(sits, m.t, state.digits, units), levelFilter())) {
+      for (const c of shownCards(cardsForMoment(r, sits, m.t, state.digits, units), levelFilter())) {
         const key = `${c.key}@${m.t}`
         if (seen.has(key)) continue
         seen.add(key)
@@ -226,7 +226,7 @@ async function generate(): Promise<string> {
     })))
   }
   if (opt.predictions && hasPredictions.value) {
-    const defs = new Map(listQuantities(r.system).map(q => [q.id, q]))
+    const defs = new Map(listQuantities(r).map(q => [q.id, q]))
     const ctx = { quantities: defs, bodyName: (id: string) => nameOf(r, id), time: (t: number) => timeLabel(t, units) }
     input.predictions = readPredictions(state.scene).map(p => {
       const c = comparePrediction(r, sits, p)

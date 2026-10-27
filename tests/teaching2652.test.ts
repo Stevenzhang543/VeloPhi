@@ -4,13 +4,16 @@
 import { describe, expect, it } from 'vitest'
 import { buildTemplate } from '../src/templates'
 import { addBody, addGround, emptyScene } from '../src/core/scene/build'
-import { simulate } from '../src/core/solver/simulation'
+import { simulate } from '../src/engine/recording'
 import { fbdData, fbdSvg, fbdTable, FBD_DEFAULTS } from '../src/teaching/fbd'
 import { tapeData, tapeSvg } from '../src/teaching/tape'
-import { areaUnder, simpson } from '../src/teaching/area'
+import { areaUnder } from '../src/teaching/area'
+import { calc } from '../src/engine/core'
+
+const simpson = (values: number[], h: number) => calc<{ value: number }>({ op: 'simpson', values, h }).value
 import { BUILTIN_PROBLEMS, builtinProblem, varyParams } from '../src/teaching/problemBank'
 import { isCorrect, parseProblem, problemParams, ptext, questionKey, serializeProblem } from '../src/teaching/problems'
-import { recognize } from '../src/formula/situations'
+import { recognize } from '../src/formula/recognize'
 
 describe('free-body diagram', () => {
   it('a block on a rough incline: G, N and f in textbook order, summing to m·a', () => {

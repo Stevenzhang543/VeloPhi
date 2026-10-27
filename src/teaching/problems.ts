@@ -15,10 +15,9 @@ import type { Lang, Tri } from '../i18n/tri'
 import { fillParams } from '../i18n/tri'
 import type { Scene } from '../core/scene/types'
 import { parseScene, serializeScene, SceneFileError } from '../core/scene/io'
-import type { ChangeType, Recording } from '../core/solver/simulation'
-import { frameImpactLoss } from '../core/solver/simulation'
-import { evaluateQuantity, listQuantities, makeContext, makeContextFor, quantitySeries } from '../core/observe/quantities'
-import type { Situation } from '../formula/situations'
+import type { ChangeType, Recording } from '../engine/recording'
+import { extremeOf, listQuantities, valueAtFrame, valuesAtEvent } from '../engine/observe'
+import type { Situation } from '../formula/recognize'
 import type { PredictionTarget, TargetValue } from '../analysis/prediction'
 import { evaluateTarget, firstEvent, relativeError } from '../analysis/prediction'
 import { formatSig } from '../units/units'
@@ -108,7 +107,7 @@ export function problemParams(p: Problem): Record<string, string> {
 
 /** SI unit of a target's value. */
 export function problemTargetUnit(rec: Recording, target: ProblemTarget): string {
-  if (target.kind === 'atEvent' || target.kind === 'end' || target.kind === 'extreme') return listQuantities(rec.system).find(q => q.id === target.id)?.unit ?? ''
+  if (target.kind === 'atEvent' || target.kind === 'end' || target.kind === 'extreme') return listQuantities(rec).find(q => q.id === target.id)?.unit ?? ''
   return evaluateTarget(rec, [], target).unit
 }
 
@@ -123,24 +122,19 @@ export function evaluateProblemTarget(rec: Recording, sits: Situation[], target:
     if (target.kind === 'formula' && v.formulaNote !== undefined) return { ...v, formula: null }
     return v
   }
-  const q = listQuantities(rec.system).find(x => x.id === target.id)
+  const q = listQuantities(rec).find(x => x.id === target.id)
   if (!q) return { sim: null, formula: null, unit: '', simNote: tl('场景中没有这个量（物体或连接件可能已删除）') }
   const finite = (v: number) => (Number.isFinite(v) ? v : null)
-  if (target.kind === 'end') return { sim: finite(evaluateQuantity(makeContext(rec, rec.frameCount - 1), target.id)), formula: null, unit: q.unit }
+  if (target.kind === 'end') return { sim: finite(valueAtFrame(rec, rec.frameCount - 1, target.id)), formula: null, unit: q.unit }
   if (target.kind === 'extreme') {
     if (rec.frameCount > EXTREME_MAX_FRAMES) return { sim: null, formula: null, unit: q.unit, simNote: tl('记录太长，无法查找最值') }
-    const v = quantitySeries(rec, [target.id]).values[0]
-    let best = target.which === 'max' ? -Infinity : Infinity
-    for (const x of v) if (Number.isFinite(x)) best = target.which === 'max' ? Math.max(best, x) : Math.min(best, x)
+    const best = extremeOf(rec, target.id, target.which === 'max' ? 'max' : 'min')
     return { sim: Number.isFinite(best) ? best : null, formula: null, unit: q.unit }
   }
   const e = firstEvent(rec, target.event, target.body)
   if (!e) return { sim: null, formula: null, unit: q.unit, simNote: rec.completed ? tl('本次仿真中没有发生该事件') : tl('仿真未算完，记录内没有该事件') }
-  const after = target.side === 'after'
-  const seg = rec.segments[after ? e.segment : Math.max(0, e.segment - 1)] ?? rec.segments[0]
-  const k = Math.min(rec.frameCount - 1, Math.floor(e.t / rec.dt + 1e-9) + (after ? 1 : 0))
-  const ctx = makeContextFor(rec, after ? e.after : e.before, seg.mode, frameImpactLoss(rec, k), e.t)
-  return { sim: finite(evaluateQuantity(ctx, target.id)), formula: null, unit: q.unit }
+  const v = valuesAtEvent(rec, e.index, target.side === 'after' ? 'after' : 'before', [target.id])[0]
+  return { sim: finite(v), formula: null, unit: q.unit }
 }
 
 /** Correct answer of a question: a value (SI, numeric) or an option index (choice); null when it cannot be read. */

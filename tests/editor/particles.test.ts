@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { addBody, addGround, emptyScene } from '../../src/core/scene/build'
-import { simulate } from '../../src/core/solver/simulation'
+import { simulate } from '../../src/engine/recording'
 import { MAX_PARTICLES, drawParticles, hash2, particleEmitterCount } from '../../src/render/effects'
 import { LIGHT } from '../../src/render/renderer'
 import type { Camera } from '../../src/render/renderer'

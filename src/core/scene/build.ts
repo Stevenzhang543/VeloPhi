@@ -57,6 +57,8 @@ export interface BodyOptions {
   color?: string
   /** Air resistance (26.51, D50). */
   drag?: DragDef
+  /** Electric charge (C; 26.54, D78). */
+  charge?: number
 }
 
 let counter = 0
@@ -86,7 +88,8 @@ export function addBody(scene: Scene, o: BodyOptions): BodyDef {
     material: { ...DEFAULT_MATERIAL, ...(o.material ?? {}) },
     beltSpeed: o.beltSpeed ?? 0,
     color: o.color ?? COLORS[role],
-    ...(o.drag ? { drag: { ...o.drag } } : {})
+    ...(o.drag ? { drag: { ...o.drag } } : {}),
+    ...(o.charge ? { charge: o.charge } : {})
   }
   scene.bodies.push(body)
   return body

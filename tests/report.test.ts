@@ -2,8 +2,8 @@
 import { it } from 'vitest'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { TEMPLATES, buildTemplate } from '../src/templates'
-import { frameLedger, simulate } from '../src/core/solver/simulation'
-import { recognize } from '../src/formula/situations'
+import { frameLedger, simulate } from '../src/engine/recording'
+import { recognize } from '../src/formula/recognize'
 import { evaluateCard } from '../src/formula/match'
 import { FORMULAS } from '../src/formula/library'
 
@@ -17,9 +17,9 @@ it('report', () => {
     const verdicts: Record<string, number> = {}
     let maxRel = 0, approx = ''
     for (const s of recognize(rec)) {
-      const sample = s.sample(s.tEvent ?? (s.t0 + s.t1) / 2)
       for (const f of FORMULAS.filter(f => f.situation === s.type)) {
-        const c = evaluateCard(f, s, sample, { digits: 8 })
+        const c = evaluateCard(rec, s, f.id, s.tEvent ?? (s.t0 + s.t1) / 2, { digits: 8 })
+        if (!c) continue
         verdicts[c.verdict] = (verdicts[c.verdict] ?? 0) + 1
         if (c.verdict === 'match' && c.relError !== null && Math.abs(c.theory ?? 0) > 1e-9) maxRel = Math.max(maxRel, c.relError)
         if (f.kind === 'approx') approx = `${f.id} rel ${c.relError?.toExponential(2)} (${c.verdict})`

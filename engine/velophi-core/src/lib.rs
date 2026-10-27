@@ -5,23 +5,35 @@
 //! Module map (TypeScript → Rust) and the porting rules are in `engine/PORTING.md`.
 #![forbid(unsafe_code)]
 
+pub mod api;
+pub mod calc;
 pub mod checkpoint;
 pub mod dmath;
+pub mod driver;
 pub mod dynamics;
 pub mod events;
 pub mod expr;
+pub mod formula;
 pub mod impact;
 pub mod integrators;
 pub mod js;
 pub mod kinematics;
+pub mod labs;
 pub mod linalg;
+pub mod lod;
 pub mod message;
 pub mod model;
 pub mod modes;
 pub mod moreau;
+pub mod numeric;
+pub mod observe;
 pub mod project;
 pub mod record;
+pub mod regions;
 pub mod scene;
+pub mod session;
 pub mod sha256;
 pub mod simulation;
+pub mod teaching;
 pub mod transport;
+pub mod views;

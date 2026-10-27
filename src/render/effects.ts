@@ -7,19 +7,18 @@
  *  - fading trails behind the moving bodies over the last few tenths of a second;
  *  - particles: impact sparks and dust, dust at sliding contacts and a puff where a rope jerks taut.
  *
- * Particles are stateless: emitters are built once per recording from its events and segments, and the
+ * Particles are stateless: emitters are built in the core (views.rs) per block of time from the events and the
+ * sliding contacts of the recording, and the
  * position of every particle at time t is a closed-form function of (t − emitTime) and a hash of
  * (emitter seed, particle index). Scrubbing backwards, slow motion and video export therefore show exactly
  * the same particles.
  */
-import type { Recording } from '../core/solver/simulation'
-import { frameState } from '../core/solver/simulation'
-import type { ContactFeature, Pose } from '../core/solver/kinematics'
-import { anchorState, computePoses, contactKin } from '../core/solver/kinematics'
-import type { BodyModel } from '../core/solver/model'
+import type { Recording } from '../engine/recording'
+import type { BodyModel } from '../engine/model'
+import type { Pose } from '../engine/views'
+import { emittersOf, posesAt } from '../engine/views'
 import type { Camera, Palette } from './renderer'
 import { bodyPath } from './renderer'
-import { displayStateAt } from './interp'
 import { lw } from './style'
 
 /** Which visual effects are on, with their time windows. */
@@ -36,50 +35,44 @@ export interface FrameEffects {
 /** Upper bound of particles drawn in one frame. */
 export const MAX_PARTICLES = 400
 
-// ---- Scratch buffers ----
-
-const pool: Float64Array[] = []
-function scratch(i: number, size: number): Float64Array {
-  let b = pool[i]
-  if (!b || b.length !== size) { b = new Float64Array(size); pool[i] = b }
-  return b
-}
-
 // ---- Motion blur ----
 
 /**
- * Ghost images of the moving bodies over [t − shutter, t], drawn under the sharp frame. Bodies that moved
- * less than about a pixel are skipped, and nothing is drawn when no body moved.
+ * Ghost images of the moving bodies over [t − shutter, t], drawn under the sharp frame (`poses`: the drawn poses
+ * at t). Bodies that moved less than about a pixel are skipped, and nothing is drawn when no body moved.
  */
-export function drawMotionBlur(ctx: CanvasRenderingContext2D, cam: Camera, rec: Recording, t: number, shutter: number, X: Float64Array) {
+export function drawMotionBlur(ctx: CanvasRenderingContext2D, cam: Camera, rec: Recording, t: number, shutter: number, poses: Pose[]) {
   const model = rec.system.model
   if (!(shutter > 0) || model.dynamic.length === 0) return
   const t0 = Math.max(0, t - shutter)
   if (t - t0 < 1e-9) return
-  const X0 = displayStateAt(rec, t0, scratch(0, rec.size))
+  const P0 = posesAt(rec, { times: [t0] })[0]
+  if (!P0) return
   let maxPx = 0
   const moving: Array<{ b: BodyModel; px: number; size: number }> = []
   for (const b of model.dynamic) {
-    const i = 3 * b.index
-    const dth = X[i + 2] - X0[i + 2]
-    const px = Math.hypot(X[i] - X0[i], X[i + 1] - X0[i + 1]) * cam.ppm + Math.abs(dth) * b.bound * cam.ppm
+    const a = poses[b.global], o = P0[b.global]
+    const dth = a.th - o.th
+    const px = Math.hypot(a.x - o.x, a.y - o.y) * cam.ppm + Math.abs(dth) * b.bound * cam.ppm
     if (px < 1) continue
     moving.push({ b, px, size: Math.max(2, 2 * b.bound * cam.ppm) })
     if (px > maxPx) maxPx = px
   }
   if (moving.length === 0) return
   const N = Math.max(6, Math.min(12, Math.round(maxPx / 3)))
+  const times: number[] = []
+  for (let s = 1; s < N; s++) times.push(t0 + ((t - t0) * s) / N)
+  const samples = [P0, ...posesAt(rec, { times })]
   for (let s = 0; s < N; s++) {
-    const tau = t0 + ((t - t0) * s) / N
-    const Xs = s === 0 ? X0 : displayStateAt(rec, tau, scratch(1, rec.size))
-    const poses = computePoses(model, Xs)
+    const ps = samples[s]
+    if (!ps) continue
     const w = (s + 1) / N
     for (const m of moving) {
       // About k ghosts cover a point of the smear; choose the alpha so they add up to ~0.55
       const k = Math.max(1, Math.min(N, (N * m.size) / m.px))
       const a = 1 - Math.pow(0.45, 1 / k)
       ctx.globalAlpha = Math.min(0.6, a * (0.35 + 1.3 * w))
-      bodyPath(ctx, cam, m.b, poses[m.b.global])
+      bodyPath(ctx, cam, m.b, ps[m.b.global])
       ctx.fillStyle = m.b.def.color
       ctx.fill()
     }
@@ -103,13 +96,14 @@ export function drawTrails(ctx: CanvasRenderingContext2D, cam: Camera, rec: Reco
   ctx.lineJoin = 'round'
   // Sampled frames from old to new (one state each), ending at the drawn position
   const count = Math.floor((k1 - k0) / stride) + 1
-  const states: Float64Array[] = []
-  for (let j = 0; j < count; j++) states.push(frameState(rec, k0 + j * stride))
+  const frames: number[] = []
+  for (let j = 0; j < count; j++) frames.push(k0 + j * stride)
+  const states = posesAt(rec, { frames })
   for (const b of rec.system.model.dynamic) {
     const pose = poses[b.global]
     const total = count + 1
-    const sx = (j: number) => (j < count ? states[j][3 * b.index] : pose.x)
-    const sy = (j: number) => (j < count ? states[j][3 * b.index + 1] : pose.y)
+    const sx = (j: number) => (j < count ? states[j][b.global].x : pose.x)
+    const sy = (j: number) => (j < count ? states[j][b.global].y : pose.y)
     // Skip bodies at rest
     if (Math.hypot(sx(0) - pose.x, sy(0) - pose.y) * cam.ppm < 2) continue
     ctx.strokeStyle = b.def.color
@@ -177,119 +171,23 @@ export function hash2(a: number, b: number): number {
   return h >>> 0
 }
 
-/** Emission interval of sliding dust (s of simulated time). */
-const SLIDE_DT = 1 / 120
-/** Dust particles per second of sliding per m/s of slip speed. */
-const SLIDE_RATE = 36
-/** Most emitters built per block (very long slides stop adding dust). */
-const MAX_EMITTERS = 40000
-
-/** Outward normal (away from the static body, if any) and whether both bodies move. */
-function outward(f: ContactFeature | null, nx: number, ny: number): { x: number; y: number; both: boolean } {
-  if (!f) return { x: nx, y: ny, both: false }
-  const aDyn = f.A.body.dynamic, bDyn = f.B.body.dynamic
-  if (!aDyn) return { x: -nx, y: -ny, both: false }
-  return { x: nx, y: ny, both: aDyn && bDyn }
-}
-
-/** Emitters of one block of a recording: impacts, rope jerks and dust along sliding contacts, sorted by time. */
+/** Emitters of one block of a recording (computed in the core): impacts, rope jerks and dust along sliding contacts. */
 function buildBlock(rec: Recording, block: number): ParticleBlock {
-  const model = rec.system.model
+  const r = emittersOf(rec, block)
+  const F = r.fields, e = r.emitters
   const em: Emitter[] = []
-  const bStart = block * BLOCK, bEnd = (block + 1) * BLOCK
-  const inBlock = (t: number) => t >= bStart && t < bEnd
-  // Impacts and rope jerks (events are sorted by time)
-  let e0 = 0, e1 = rec.events.length
-  while (e0 < e1) { const mid = (e0 + e1) >> 1; if (rec.events[mid].t < bStart) e0 = mid + 1; else e1 = mid }
-  for (let ei = e0; ei < rec.events.length && rec.events[ei].t < bEnd; ei++) {
-    const e = rec.events[ei]
-    if (em.length > MAX_EMITTERS) break
-    const pts = e.impact?.points ?? []
-    let ropePuff = false
-    pts.forEach((p, pi) => {
-      const vn = -p.vnBefore
-      if (p.kind === 'contact') {
-        if (vn < 0.05) return
-        const o = outward(p.feature, p.nx, p.ny)
-        const count = Math.max(3, Math.min(32, Math.round(3 + 8 * vn)))
-        em.push({
-          t: e.t, x: p.cx, y: p.cy, ang: Math.atan2(o.y, o.x), spread: o.both ? Math.PI * 2 : Math.PI * 0.8,
-          speed: Math.min(4, 0.25 + 0.45 * vn), count, kind: vn > 1.2 ? SPARK : DUST, seed: hash2(ei, pi), life: vn > 1.2 ? 0.55 : 0.7,
-          nx: o.both ? 0 : o.x, ny: o.both ? 0 : o.y
-        })
-      } else if (p.kind === 'rope' && vn > 0.02) {
-        const r = model.ropes[p.rope]
-        if (!r) return
-        const poses = computePoses(model, e.after)
-        for (const a of [r.a, r.b]) {
-          if (!a.body?.dynamic) continue
-          const s = anchorState(poses, a)
-          em.push({ t: e.t, x: s.px, y: s.py, ang: Math.PI / 2, spread: Math.PI * 2, speed: 0.2 + 0.25 * Math.min(4, vn), count: Math.max(5, Math.min(14, Math.round(5 + 4 * vn))), kind: PUFF, seed: hash2(ei, 1000 + p.rope * 2 + (a === r.a ? 0 : 1)), life: 0.45, nx: 0, ny: 0 })
-        }
-        ropePuff = true
-      }
-    })
-    // A rope that becomes taut without a jerk still gets a small puff
-    if (!ropePuff) {
-      for (const c of e.changes) {
-        if (c.type !== 'taut') continue
-        const r = model.ropes.find(x => x.id === c.subject)
-        if (!r) continue
-        const poses = computePoses(model, e.after)
-        for (const a of [r.a, r.b]) {
-          if (!a.body?.dynamic) continue
-          const s = anchorState(poses, a)
-          em.push({ t: e.t, x: s.px, y: s.py, ang: Math.PI / 2, spread: Math.PI * 2, speed: 0.18, count: 4, kind: PUFF, seed: hash2(ei, 2000 + (a === r.a ? 0 : 1)), life: 0.35, nx: 0, ny: 0 })
-        }
-      }
-    }
+  for (let i = 0; i + F <= e.length; i += F) {
+    em.push({ t: e[i], x: e[i + 1], y: e[i + 2], ang: e[i + 3], spread: e[i + 4], speed: e[i + 5], count: e[i + 6], kind: e[i + 7], seed: e[i + 8], life: e[i + 9], nx: e[i + 10], ny: e[i + 11] })
   }
-  // Dust at sliding contacts: emission times m·SLIDE_DT inside the block, of the segments overlapping it
-  const tEnd = (rec.frameCount - 1) * rec.dt
-  let s0 = 0, s1 = rec.segments.length
-  while (s0 < s1) { const mid = (s0 + s1) >> 1; if (rec.segments[mid].t0 <= bStart) s0 = mid + 1; else s1 = mid }
-  for (let si = Math.max(0, s0 - 1); si < rec.segments.length && rec.segments[si].t0 < bEnd; si++) {
-    const seg = rec.segments[si]
-    const t1 = Math.min(seg.t1, tEnd)
-    seg.mode.units.forEach((u, ui) => {
-      if (u.friction !== 'slide' || u.points.length === 0) return
-      for (let m = Math.max(Math.ceil(seg.t0 / SLIDE_DT - 1e-9), Math.floor(bStart / SLIDE_DT) - 1); m * SLIDE_DT < t1; m++) {
-        if (em.length > MAX_EMITTERS) return
-        const te = m * SLIDE_DT
-        if (te >= bEnd) break
-        if (!inBlock(te)) continue
-        let k = Math.min(rec.frameCount - 1, Math.round(te / rec.dt))
-        if (k * rec.dt < seg.t0 - 1e-12 && k + 1 < rec.frameCount) k++
-        if (k * rec.dt > t1 + 1e-12) break
-        const poses = computePoses(model, frameState(rec, k))
-        const ref = contactKin(u.ref, poses)
-        const slip = Math.abs(ref.vt)
-        if (slip < 0.03) continue
-        const seed = hash2(100000 + si * 64 + ui, m)
-        const count = Math.floor(SLIDE_RATE * slip * SLIDE_DT + (seed >>> 8) / 16777216)
-        if (count <= 0) continue
-        let cx = 0, cy = 0
-        for (const pf of u.points) { const kk = contactKin(pf, poses); cx += kk.cx; cy += kk.cy }
-        cx /= u.points.length; cy /= u.points.length
-        const o = outward(u.ref, ref.nx, ref.ny)
-        // Motion of the sliding (dynamic) body relative to the surface; dust is kicked out behind it
-        const sg = (u.ref.A.body.dynamic ? 1 : -1) * Math.sign(ref.vt)
-        const mx = sg * ref.tx, my = sg * ref.ty
-        const dx = -0.75 * mx + 0.65 * o.x, dy = -0.75 * my + 0.65 * o.y
-        em.push({ t: te, x: cx, y: cy, ang: Math.atan2(dy, dx), spread: 1.4, speed: Math.min(1.2, 0.15 + 0.3 * slip), count: Math.min(4, count), kind: DUST, seed, life: 0.55, nx: o.x, ny: o.y })
-      }
-    })
-  }
-  em.sort((a, b) => a.t - b.t || a.seed - b.seed)
   const times = new Float64Array(em.length)
-  em.forEach((e, i) => { times[i] = e.t })
-  return { frames: rec.frameCount, events: rec.events.length, final: bEnd <= tEnd, emitters: em, times }
+  em.forEach((x, i) => { times[i] = x.t })
+  return { frames: rec.frameCount, events: rec.events.length, final: r.final, emitters: em, times }
 }
 
 /** The emitter block b of a recording (cached per frame store; rebuilt while it still grows). */
 function blockOf(rec: Recording, b: number): ParticleBlock {
-  let blocks = particleCaches.get(rec.frames)
-  if (!blocks) { blocks = new Map(); particleCaches.set(rec.frames, blocks) }
+  let blocks = particleCaches.get(rec.session)
+  if (!blocks) { blocks = new Map(); particleCaches.set(rec.session, blocks) }
   let c = blocks.get(b)
   if (!c || (!c.final && (c.frames !== rec.frameCount || c.events !== rec.events.length))) { c = buildBlock(rec, b); blocks.set(b, c) }
   return c

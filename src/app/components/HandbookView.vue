@@ -10,6 +10,10 @@ import { computed, nextTick, ref, watch } from 'vue'
 import { locale } from '../../i18n/locale'
 import type { Tri } from '../../i18n/tri'
 import { TOPICS, topicOf } from '../../handbook/topics'
+import { CONCEPTS } from '../../handbook/concepts'
+import type { Concept } from '../../handbook/concepts'
+import { openLab, openTemplate } from '../learn/actions'
+import { labInfo } from '../lab/catalog'
 import type { FormulaDef } from '../../formula/library'
 import { FORMULAS } from '../../formula/library'
 import { LEVEL_CHOICES, levelOrdinal, levelTag, withinLevel } from '../../formula/levels'
@@ -41,6 +45,17 @@ function matches(f: FormulaDef, topicTitle: string): boolean {
   if (!q) return true
   return [f.title, f.latex, f.id, topicTitle, f.note ?? ''].some(s => norm(s).includes(q))
 }
+
+/** 26.55: concept pages (no formulas) — shown with all topics, on their own chip, or when the search matches. */
+const conceptPages = computed<Concept[]>(() => {
+  const q = norm(query.value)
+  if (q) return CONCEPTS.filter(c => [T(c.title), ...c.sections.flatMap(s => [T(s.heading), ...s.paragraphs.map(T)])].some(x => norm(x).includes(q)))
+  if (topic.value === 'all') return CONCEPTS
+  return CONCEPTS.filter(c => `concept:${c.id}` === topic.value)
+})
+/** What a concept page links to: a template or an experiment (`lab:<id>`). */
+function seeName(ref: string): string { return ref.startsWith('lab:') ? labInfo(ref.slice(4))?.title ?? ref : templateById(ref)?.name ?? ref }
+function openSee(ref: string) { if (ref.startsWith('lab:')) openLab(ref.slice(4)); else void openTemplate(ref) }
 
 const sections = computed(() => {
   const searching = query.value.trim() !== ''
@@ -103,6 +118,15 @@ watch(() => state.handbookFocus, async id => {
   await nextTick()
   document.getElementById(`hb-${id}`)?.scrollIntoView({ block: 'start', behavior: 'smooth' })
 }, { immediate: true })
+// 26.55 (D96): the learning path or the global search asked for a topic or a concept page
+watch(() => state.handbookTopic, async id => {
+  if (!id) return
+  state.handbookTopic = null
+  query.value = ''
+  topic.value = id
+  await nextTick()
+  document.querySelector('.handbook')?.scrollIntoView({ block: 'start' })
+}, { immediate: true })
 </script>
 
 <template>
@@ -118,8 +142,12 @@ watch(() => state.handbookFocus, async id => {
       <button v-for="t in TOPICS" :key="t.id" class="chip" :class="{ on: topic === t.id }" role="tab" :aria-selected="topic === t.id" @click="topic = t.id; query = ''">
         <Icon :name="t.icon" :size="13" />{{ T(t.title) }}
       </button>
+      <span class="chip-sep tiny muted">{{ tl('概念页') }}</span>
+      <button v-for="c in CONCEPTS" :key="c.id" class="chip concept" :class="{ on: topic === `concept:${c.id}` }" role="tab" :aria-selected="topic === `concept:${c.id}`" @click="topic = `concept:${c.id}`; query = ''">
+        <Icon :name="c.icon" :size="13" />{{ T(c.title) }}
+      </button>
     </div>
-    <p v-if="total === 0" class="small muted empty">{{ hiddenTotal ? tl('没有符合当前知识水平的条目；勾选“显示全部级别”查看其余 {0} 条。', [hiddenTotal]) : tl('没有找到匹配的条目。') }}</p>
+    <p v-if="total === 0 && !conceptPages.length" class="small muted empty">{{ hiddenTotal ? tl('没有符合当前知识水平的条目；勾选“显示全部级别”查看其余 {0} 条。', [hiddenTotal]) : tl('没有找到匹配的条目。') }}</p>
 
     <section v-for="s in sections" :key="s.topic.id" class="topic">
       <h3><Icon :name="s.topic.icon" :size="16" />{{ T(s.topic.title) }}<span class="tiny muted">{{ tl('{0} 条公式', [s.formulas.length]) }}</span></h3>
@@ -168,6 +196,20 @@ watch(() => state.handbookFocus, async id => {
       </article>
       <button v-if="s.hidden && !allLevels" class="link small hidden-note" @click="allLevels = true">{{ tl('还有 {0} 条超出所选知识水平的公式，点此显示', [s.hidden]) }}</button>
     </section>
+
+    <!-- 26.55: concept pages (roadmap group E: explained, not simulated) -->
+    <section v-for="c in conceptPages" :key="c.id" class="topic concept-page">
+      <h3><Icon :name="c.icon" :size="16" />{{ T(c.title) }}<span class="badge level">{{ tl('概念页') }}</span></h3>
+      <div v-for="(sec, i) in c.sections" :key="i" class="principle">
+        <div class="label">{{ T(sec.heading) }}</div>
+        <p v-for="(para, j) in sec.paragraphs" :key="j">{{ T(para) }}</p>
+        <div v-if="sec.laws?.length" class="laws"><Tex v-for="l in sec.laws" :key="l" :tex="l" /></div>
+      </div>
+      <div v-if="c.see.length" class="see small">
+        <span class="muted">{{ tl('动手试一试：') }}</span>
+        <button v-for="r in c.see" :key="r" class="btn small ghost" @click="openSee(r)"><Icon :name="r.startsWith('lab:') ? 'flask' : 'template'" :size="13" />{{ seeName(r) }}</button>
+      </div>
+    </section>
   </div>
 </template>
 
@@ -208,4 +250,7 @@ h3 .tiny { font-weight: 400; }
 .example { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--fill); border-radius: 8px; padding: 6px 10px; }
 .link { border: 0; background: none; color: var(--accent); cursor: pointer; padding: 2px; }
 .hidden-note { margin: 0 2px 8px; }
+.chip-sep { align-self: center; margin: 0 2px 0 8px; }
+.chip.concept:not(.on) { background: transparent; box-shadow: inset 0 0 0 1px var(--separator); }
+.see { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 2px 2px 10px; }
 </style>

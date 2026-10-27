@@ -11,9 +11,9 @@
  */
 import { computed, inject, shallowRef, watchEffect } from 'vue'
 import type { InjectionKey, Ref } from 'vue'
-import type { Recording } from '../core/solver/simulation'
-import { frameIsCheap } from '../core/solver/simulation'
-import { evaluateQuantity, makeContext } from '../core/observe/quantities'
+import type { Recording } from '../engine/recording'
+import { frameIsCheap } from '../engine/recording'
+import { quantitiesAtFrames, quantitySeries } from '../engine/observe'
 
 /** Provided by each page: true while the page is the one shown. */
 export const PAGE_ACTIVE: InjectionKey<Ref<boolean>> = Symbol('velophi.pageActive')
@@ -99,11 +99,8 @@ export function seriesWindow(rec: Recording, runId: number, ids: string[], w: Se
   const c = windowCache
   const todo = [...new Set(ids)].filter(id => !c.values.has(id))
   if (todo.length) {
-    const arrs = todo.map(id => { const a = new Float64Array(c.t.length); c.values.set(id, a); return a })
-    for (let i = 0; i < c.t.length; i++) {
-      const ctx = makeContext(rec, k0 + i * stride)
-      todo.forEach((id, j) => { arrs[j][i] = evaluateQuantity(ctx, id) })
-    }
+    const r = quantitySeries(rec, todo, k0, k0 + (c.t.length - 1) * stride, stride)
+    todo.forEach((id, j) => c.values.set(id, r.values[j]))
   }
   return { t: c.t, get: (id: string) => c.values.get(id) ?? new Float64Array(c.t.length), stride: c.stride, total: c.t.length, from: c.from }
 }
@@ -116,7 +113,7 @@ let overview: { runId: number; values: Map<string, Map<number, number>> } | null
  * always in memory — plus the last frame; at most WINDOW_SAMPLES samples (chunks are skipped evenly beyond).
  */
 export function seriesOverview(rec: Recording, runId: number, ids: string[]): SeriesView {
-  const F = rec.frames.chunkFrames ?? Math.max(1, Math.round(1 / rec.dt))
+  const F = rec.chunkFrames
   const chunks = Math.floor((rec.frameCount - 1) / F) + 1
   const step = Math.max(1, Math.ceil(chunks / WINDOW_SAMPLES)) * F
   const ks: number[] = []
@@ -127,14 +124,13 @@ export function seriesOverview(rec: Recording, runId: number, ids: string[]): Se
   const list = [...new Set(ids)]
   const maps = list.map(id => { let m = cache.get(id); if (!m) { m = new Map(); cache.set(id, m) } return m })
   const arrays = list.map(() => new Float64Array(ks.length))
-  ks.forEach((k, i) => {
-    let ctx: ReturnType<typeof makeContext> | null = null
-    list.forEach((id, j) => {
-      let v = maps[j].get(k)
-      if (v === undefined) { ctx ??= makeContext(rec, k); v = evaluateQuantity(ctx, id); maps[j].set(k, v) }
-      arrays[j][i] = v
-    })
-  })
+  // Frames not known yet, evaluated in one call
+  const missing = ks.filter(k => maps.some(m => !m.has(k)))
+  if (missing.length) {
+    const r = quantitiesAtFrames(rec, list, missing)
+    missing.forEach((k, i) => list.forEach((_id, j) => { maps[j].set(k, r.values[j][i]) }))
+  }
+  ks.forEach((k, i) => list.forEach((_id, j) => { arrays[j][i] = maps[j].get(k) ?? NaN }))
   const byId = new Map(list.map((id, j) => [id, arrays[j]]))
   return { t: Float64Array.from(ks, k => k * rec.dt), get: (id: string) => byId.get(id) ?? new Float64Array(ks.length), stride: step, total: ks.length, from: 0 }
 }
@@ -168,10 +164,8 @@ export function seriesFor(rec: Recording, runId: number, ids: string[]): SeriesV
   }
   if (todo.length) {
     const start = Math.min(...todo.map(x => x.from))
-    for (let i = start; i < available; i++) {
-      const ctx = makeContext(rec, i * c.stride)
-      for (const x of todo) if (i >= x.from) x.arr[i] = evaluateQuantity(ctx, x.id)
-    }
+    const r = quantitySeries(rec, todo.map(x => x.id), start * c.stride, (available - 1) * c.stride, c.stride)
+    todo.forEach((x, j) => { const v = r.values[j]; for (let i = Math.max(start, x.from); i < available; i++) x.arr[i] = v[i - start] })
     for (const x of todo) c.filled.set(x.id, available)
   }
   return {

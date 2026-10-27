@@ -89,9 +89,179 @@ pub fn same_bits(a: f64, b: f64) -> bool {
     a.to_bits() == b.to_bits()
 }
 
+
+/// Shortest round-trip decimal digits and exponent of a finite positive x: (digits, n) with x = 0.d₁d₂… × 10ⁿ
+/// (the s, k, n of ECMAScript Number::toString).
+fn shortest_digits(x: f64) -> (Vec<u8>, i32) {
+    let e = format!("{:e}", x);
+    let (mant, exp) = e.split_once('e').expect("exponent");
+    let exp: i32 = exp.parse().expect("exponent digits");
+    let digits: Vec<u8> = mant.bytes().filter(|c| c.is_ascii_digit()).collect();
+    (digits, exp + 1)
+}
+
+/// `String(x)` / template-literal text of a number (ECMAScript Number::toString, radix 10).
+pub fn js_num(x: f64) -> String {
+    if x.is_nan() {
+        return "NaN".into();
+    }
+    if x == 0.0 {
+        return "0".into();
+    }
+    if x.is_infinite() {
+        return if x > 0.0 { "Infinity".into() } else { "-Infinity".into() };
+    }
+    if x < 0.0 {
+        return format!("-{}", js_num(-x));
+    }
+    let (d, n) = shortest_digits(x);
+    let k = d.len() as i32;
+    let ds = String::from_utf8(d.clone()).expect("ascii");
+    if k <= n && n <= 21 {
+        let mut s = ds;
+        for _ in 0..(n - k) {
+            s.push('0');
+        }
+        return s;
+    }
+    if 0 < n && n <= 21 {
+        return format!("{}.{}", &ds[..n as usize], &ds[n as usize..]);
+    }
+    if -6 < n && n <= 0 {
+        let mut s = String::from("0.");
+        for _ in 0..(-n) {
+            s.push('0');
+        }
+        s.push_str(&ds);
+        return s;
+    }
+    let e = n - 1;
+    let sign = if e < 0 { '-' } else { '+' };
+    if k == 1 {
+        format!("{}e{}{}", ds, sign, e.abs())
+    } else {
+        format!("{}.{}e{}{}", &ds[..1], &ds[1..], sign, e.abs())
+    }
+}
+
+/// Exact decimal digits of a finite positive x rounded to p significant digits, ties away from zero (ECMAScript
+/// picks the larger n): (digits, e) with x ≈ d₁.d₂… × 10ᵉ.
+fn precision_digits(x: f64, p: usize) -> (Vec<u8>, i32) {
+    // Rust prints the exact binary value with as many digits as asked; 800 covers every double
+    let exact = format!("{:.800e}", x);
+    let (mant, exp) = exact.split_once('e').expect("exponent");
+    let mut e: i32 = exp.parse().expect("exponent digits");
+    let all: Vec<u8> = mant.bytes().filter(|c| c.is_ascii_digit()).map(|c| c - b'0').collect();
+    let mut d: Vec<u8> = all[..p].to_vec();
+    let rest = &all[p..];
+    let round_up = match rest.first() {
+        Some(&r) if r > 5 => true,
+        Some(&5) => true, // exactly half or more: up (ties to the larger)
+        _ => false,
+    };
+    if round_up {
+        let mut i = p;
+        loop {
+            if i == 0 {
+                d.insert(0, 1);
+                d.truncate(p);
+                e += 1;
+                break;
+            }
+            i -= 1;
+            if d[i] == 9 {
+                d[i] = 0;
+            } else {
+                d[i] += 1;
+                break;
+            }
+        }
+    }
+    (d, e)
+}
+
+/// `x.toPrecision(p)` (1 ≤ p ≤ 100).
+pub fn js_to_precision(x: f64, p: usize) -> String {
+    if !x.is_finite() {
+        return js_num(x);
+    }
+    if x == 0.0 {
+        let mut s = String::from("0");
+        if p > 1 {
+            s.push('.');
+            for _ in 1..p {
+                s.push('0');
+            }
+        }
+        return s;
+    }
+    if x < 0.0 {
+        return format!("-{}", js_to_precision(-x, p));
+    }
+    let (d, e) = precision_digits(x, p);
+    let ds: String = d.iter().map(|c| (b'0' + c) as char).collect();
+    if e < -6 || e >= p as i32 {
+        let sign = if e < 0 { '-' } else { '+' };
+        return if p == 1 { format!("{}e{}{}", ds, sign, e.abs()) } else { format!("{}.{}e{}{}", &ds[..1], &ds[1..], sign, e.abs()) };
+    }
+    if e == p as i32 - 1 {
+        return ds;
+    }
+    if e >= 0 {
+        let k = (e + 1) as usize;
+        return format!("{}.{}", &ds[..k], &ds[k..]);
+    }
+    let mut s = String::from("0.");
+    for _ in 0..(-(e + 1)) {
+        s.push('0');
+    }
+    s.push_str(&ds);
+    s
+}
+
+/// `x.toExponential(f)` (0 ≤ f ≤ 100).
+pub fn js_to_exponential(x: f64, f: usize) -> String {
+    if !x.is_finite() {
+        return js_num(x);
+    }
+    if x < 0.0 {
+        return format!("-{}", js_to_exponential(-x, f));
+    }
+    let (d, e) = if x == 0.0 { (vec![0u8; f + 1], 0) } else { precision_digits(x, f + 1) };
+    let ds: String = d.iter().map(|c| (b'0' + c) as char).collect();
+    let sign = if e < 0 { '-' } else { '+' };
+    if f == 0 {
+        format!("{}e{}{}", ds, sign, e.abs())
+    } else {
+        format!("{}.{}e{}{}", &ds[..1], &ds[1..], sign, e.abs())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn number_texts() {
+        assert_eq!(js_num(0.1 + 0.2), "0.30000000000000004");
+        assert_eq!(js_num(-0.0), "0");
+        assert_eq!(js_num(1e21), "1e+21");
+        assert_eq!(js_num(123456789012345680000.0), "123456789012345680000");
+        assert_eq!(js_num(1.5e-7), "1.5e-7");
+        assert_eq!(js_num(0.000001), "0.000001");
+        assert_eq!(js_num(2.0), "2");
+        assert_eq!(js_num(-12.5), "-12.5");
+        assert_eq!(js_to_precision(0.125, 2), "0.13");
+        assert_eq!(js_to_precision(123.456, 4), "123.5");
+        assert_eq!(js_to_precision(0.000123456, 3), "0.000123");
+        assert_eq!(js_to_precision(1234567.0, 3), "1.23e+6");
+        assert_eq!(js_to_precision(99.99, 3), "100");
+        assert_eq!(js_to_precision(0.0, 4), "0.000");
+        assert_eq!(js_to_precision(1e-7, 2), "1.0e-7");
+        assert_eq!(js_to_precision(5.0, 1), "5");
+        assert_eq!(js_to_exponential(12345.0, 2), "1.23e+4");
+        assert_eq!(js_to_exponential(0.0, 2), "0.00e+0");
+    }
 
     #[test]
     fn min_max_zeros_and_nan() {

@@ -15,18 +15,17 @@ import 'uplot/dist/uPlot.min.css'
 import { state, showToast } from '../store'
 import { settings, toDisp, unitLabel } from '../settings'
 import { startSimulation } from '../simClient'
+import { parallelRuns } from '../../engine/host'
 import { cloneScene } from '../../core/scene/io'
-import { compileModel } from '../../core/solver/model'
-import { buildSystem } from '../../core/solver/dynamics'
-import type { ChangeType } from '../../core/solver/simulation'
-import type { QuantityDef } from '../../core/observe/quantities'
-import { listQuantities } from '../../core/observe/quantities'
+import type { ChangeType } from '../../engine/recording'
+import type { QuantityDef } from '../../engine/observe'
+import { listQuantities, sceneQuantities } from '../../engine/observe'
 import type { SweepMeasure, SweepParam, SweepPoint, SweepRunner } from '../../analysis/sweep'
 import { MAX_SWEEP_POINTS, linspace, listSweepParams, measureUnit, runSweep } from '../../analysis/sweep'
 import { EVENT_TYPES, eventTypeLabel } from '../../analysis/prediction'
 import { tableCsv } from '../../export/csv'
 import { CHART_DARK, CHART_LIGHT, chartPng } from '../../export/chartImage'
-import { safeName } from '../../export/courseware'
+import { safeName } from '../../export/safeName'
 import { ENGINE_VERSION, finiteDuration } from '../../core/scene/types'
 import { formatSig } from '../../units/units'
 import { saveFile } from '../../platform/files'
@@ -68,11 +67,10 @@ function initRange() {
 watch(paramId, initRange, { immediate: true })
 
 // ---- Measure ----
-const system = computed(() => {
-  if (state.recording) return state.recording.system
-  try { return buildSystem(compileModel(cloneScene(state.scene))) } catch { return null }
+const quantities = computed<QuantityDef[]>(() => {
+  if (state.recording && !state.stale) return listQuantities(state.recording)
+  try { return sceneQuantities(cloneScene(state.scene)) } catch { return [] }
 })
-const quantities = computed<QuantityDef[]>(() => (system.value ? listQuantities(system.value) : []))
 const qById = computed(() => new Map(quantities.value.map(q => [q.id, q])))
 const dynamicBodies = computed(() => state.scene.bodies.filter(b => b.kind !== 'static'))
 const presentEvents = computed(() => new Set((state.recording?.events ?? []).flatMap(e => e.changes.map(c => c.type))))
@@ -120,6 +118,9 @@ let cancelFlag = false
 const values = computed(() => linspace(from.value, to.value, count.value))
 const canRun = computed(() => !!param.value && count.value >= 1 && (count.value === 1 || to.value !== from.value) && (mKind.value === 'eventTime' || qById.value.has(mQuantity.value)))
 
+/** Points computed at once: the native engine's threads (a run in the worker or on this thread: one). */
+const sweepConcurrency = () => (settings.sim.worker ? parallelRuns() : 1)
+
 async function run() {
   const p = param.value
   if (!p || running.value) return
@@ -137,7 +138,7 @@ async function run() {
       onPoint: pt => { points.value = [...points.value, pt] },
       onProgress: f => { progress.value = f },
       cancelled: () => cancelFlag
-    })
+    }, sweepConcurrency())
     logEvent('sweep.run', { ok: !cancelFlag, cancelled: cancelFlag, param: paramKind(p), n: values.value.length, done: points.value.length, results: points.value.filter(x => x.result !== null).length, measure: m.kind, seconds: Math.round((performance.now() - started) / 100) / 10 })
   } catch (e) {
     showToast(tl('参数扫描失败：{0}', [(e as Error).message]), true)

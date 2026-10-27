@@ -1,20 +1,19 @@
 /**
  * 26.52 free-body diagram (D62): the forces on one body at one instant, drawn as a standalone SVG in the
- * textbook way. The forces are the ones the canvas draws (render/renderer.ts `bodyForces`, from the mode solution
- * of the recording at that time), merged and ordered for teaching: contact points of one contact unit become one
- * normal force, forces are listed gravity first, then normal forces, friction, tensions, spring forces, drag,
+ * textbook way. The forces are the ones the canvas draws (the forces of the mode solution of the recording at that
+ * time; 26.53: computed in the core, teaching.rs `fbd`), merged and ordered for teaching: contact points of one contact
+ * unit become one normal force, forces are listed gravity first, then normal forces, friction, tensions, spring forces, drag,
  * gravitation and the rest. Whatever the list misses (gear teeth, a pulley's rope, …) is the difference
  * m·a − ΣF and is drawn as "other constraint forces", so the diagram always adds up to m·a.
  *
  * Pure module (no Vue, no DOM): the dialog, the report and the tests use it.
  */
 import { tl } from '../i18n'
-import type { Recording } from '../core/solver/simulation'
-import { exactStateAt } from '../core/solver/simulation'
-import { solveMode } from '../core/solver/dynamics'
-import type { ShapeModel } from '../core/solver/model'
-import type { DrawInput, ForceKind, Palette } from '../render/renderer'
-import { DARK, LIGHT, bodyForces } from '../render/renderer'
+import type { Recording } from '../engine/recording'
+import type { ShapeModel } from '../engine/model'
+import { fbdOf } from '../engine/views'
+import type { ForceKind, Palette } from '../render/renderer'
+import { DARK, LIGHT, forceColor, forceLabel } from '../render/renderer'
 import { FONT } from '../render/style'
 import { formatSig } from '../units/units'
 
@@ -53,84 +52,16 @@ export interface FbdData {
   incline: number | null
 }
 
-/** Textbook order: gravity, normal forces, friction, tensions, spring forces, drag, gravitation, the rest. */
-const ORDER: Record<FbdForce['kind'], number> = {
-  gravity: 0, normal: 1, limit: 2, friction: 3, tension: 4, pin: 5, spring: 6, damper: 7, drag: 8, attract: 9, central: 10, applied: 11, other: 12
-}
-
 /** Forces on a dynamic body at time t of a recording; null for a static or unknown body. */
 export function fbdData(rec: Recording, time: number, bodyId: string, theme: 'light' | 'dark' = 'light'): FbdData | null {
-  const sys = rec.system
-  const b = sys.model.bodies.find(o => o.id === bodyId)
-  if (!b || !b.dynamic) return null
-  const tMax = Math.max(0, (rec.frameCount - 1) * rec.dt)
-  const t = Math.max(0, Math.min(tMax, time))
-  const X = exactStateAt(rec, t)
-  const segs = rec.segments
-  let seg = segs[0]
-  for (const s of segs) { if (s.t0 <= t) seg = s; else break }
-  const sol = solveMode(sys, X, seg.mode)
+  const d = fbdOf(rec, time, bodyId)
+  if (!d) return null
   const P = theme === 'dark' ? DARK : LIGHT
-  const input = { sys, sol, mode: seg.mode, palette: P } as unknown as DrawInput
-  const raw = bodyForces(input, b, sol.poses)
-  const pose = sol.poses[b.global]
-
-  // Contact points of one unit (N1, N2 … in a row) become one normal force at their centre of pressure
-  const merged: FbdForce[] = []
-  for (let i = 0; i < raw.length; i++) {
-    const a = raw[i]
-    if (a.kind === 'normal' && /^N\d+$/.test(a.label)) {
-      let fx = 0, fy = 0, wx = 0, wy = 0, w = 0, j = i
-      while (j < raw.length && raw[j].kind === 'normal' && /^N\d+$/.test(raw[j].label) && (j === i || raw[j].label !== 'N1')) {
-        const r = raw[j], m = Math.hypot(r.fx, r.fy)
-        fx += r.fx; fy += r.fy; wx += r.x * m; wy += r.y * m; w += m
-        j++
-      }
-      const cx = w > 0 ? wx / w : raw.slice(i, j).reduce((s, r) => s + r.x, 0) / (j - i)
-      const cy = w > 0 ? wy / w : raw.slice(i, j).reduce((s, r) => s + r.y, 0) / (j - i)
-      merged.push({ kind: 'normal', label: 'N', sub: '', x: cx, y: cy, fx, fy, color: a.color })
-      i = j - 1
-      continue
-    }
-    merged.push({ kind: a.kind, label: a.label, sub: '', x: a.x, y: a.y, fx: a.fx, fy: a.fy, color: a.color })
+  return {
+    bodyId: d.bodyId, name: d.name, time: d.time, mass: d.mass, x: d.x, y: d.y, c: d.c, s: d.s, shape: d.shape,
+    forces: d.forces.map(f => ({ kind: f.kind, label: f.kind === 'other' ? tl(f.label) : forceLabel(f.label), sub: f.sub, x: f.x, y: f.y, fx: f.fx, fy: f.fy, color: forceColor(f.kind, P) })),
+    net: d.net, ma: d.ma, incline: d.incline
   }
-  const forces = merged.filter(f => Math.hypot(f.fx, f.fy) > 0)
-
-  // Whatever the list misses: m·a − ΣF
-  const i3 = 3 * b.index
-  const ma = { x: b.mass * sol.acc[i3], y: b.mass * sol.acc[i3 + 1] }
-  let sx = 0, sy = 0, big = Math.hypot(ma.x, ma.y)
-  for (const f of forces) { sx += f.fx; sy += f.fy; big = Math.max(big, Math.hypot(f.fx, f.fy)) }
-  const rx = ma.x - sx, ry = ma.y - sy
-  if (Math.hypot(rx, ry) > 1e-6 * Math.max(big, 1e-9) && Math.hypot(rx, ry) > 1e-12) {
-    forces.push({ kind: 'other', label: tl('F其他'), sub: '', x: pose.x, y: pose.y, fx: rx, fy: ry, color: P.text2 })
-    sx += rx; sy += ry
-  }
-
-  forces.sort((p, q) => ORDER[p.kind] - ORDER[q.kind])
-  // Indices for repeated symbols: N1, N2 …
-  const count = new Map<string, number>()
-  for (const f of forces) count.set(f.label, (count.get(f.label) ?? 0) + 1)
-  const seen = new Map<string, number>()
-  for (const f of forces) {
-    if ((count.get(f.label) ?? 0) < 2) continue
-    const k = (seen.get(f.label) ?? 0) + 1
-    seen.set(f.label, k)
-    f.sub = String(k)
-  }
-
-  let incline: number | null = null, best = 0
-  for (const f of forces) {
-    if (f.kind !== 'normal') continue
-    const m = Math.hypot(f.fx, f.fy)
-    if (m > best) { best = m; incline = Math.atan2(f.fy, f.fx) - Math.PI / 2 }
-  }
-  if (incline !== null) {
-    // Tangent pointing to the right half-plane (an incline rising to the right has a positive angle)
-    while (incline > Math.PI / 2) incline -= Math.PI
-    while (incline <= -Math.PI / 2) incline += Math.PI
-  }
-  return { bodyId: b.id, name: b.name, time: t, mass: b.mass, x: pose.x, y: pose.y, c: pose.c, s: pose.s, shape: b.shape, forces, net: { x: sx, y: sy }, ma, incline }
 }
 
 /** Options of the drawing. */

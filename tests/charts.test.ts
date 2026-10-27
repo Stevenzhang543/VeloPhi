@@ -1,34 +1,28 @@
 /**
- * Long-chart level of detail (decision D32, render/chartLod.ts): the min/max envelope of every column equals a brute
+ * Long-chart level of detail (decision D32; the core's lod.rs through render/chartLod.ts): the min/max envelope of every column equals a brute
  * force over the column's frames at all three levels, also when chunks have been evicted (summaries, recompute on
  * request), and a complete view does no further work.
  */
 import { describe, expect, it } from 'vitest'
 import { buildTemplate } from '../src/templates'
-import type { Recording } from '../src/core/solver/simulation'
-import { SimulationRun, frameState } from '../src/core/solver/simulation'
-import { StreamRecording } from '../src/core/solver/stream'
-import { DeltaWriter } from '../src/core/solver/transport'
-import { cloneScene } from '../src/core/scene/io'
+import type { Recording } from '../src/engine/recording'
+import { frameState } from '../src/engine/recording'
 import type { Scene } from '../src/core/scene/types'
-import { evaluateQuantity, listQuantities, makeContext } from '../src/core/observe/quantities'
+import { listQuantities, quantitySeries } from '../src/engine/observe'
 import type { Envelope, LodLevel } from '../src/render/chartLod'
-import { chartEnvelope, chooseLevel, envelopePlot, lodCounters, stateComponent } from '../src/render/chartLod'
+import { chartEnvelope, chooseLevel, envelopePlot, lodCounters } from '../src/render/chartLod'
+import { streamRun } from './helpers/stream'
 
-/** An unbounded run streamed into a StreamRecording up to `frames` frames, then stopped (as the worker does). */
+/** An unbounded run streamed into a recording store up to `frames` frames, then stopped (as the host does). */
 function stream(scene: Scene, frames: number, chunkSeconds: number, budgetBytes = Infinity): Recording {
-  const run = new SimulationRun(cloneScene(scene), { duration: null, chunkSeconds })
-  const writer = new DeltaWriter(run, true)
-  const s = new StreamRecording({ scene: cloneScene(scene), chunkFrames: run.chunkFrames, duration: null, budgetBytes })
-  for (;;) {
-    const done = run.advance(Date.now() + 5, frames)
-    if (!done && run.k >= frames) run.stop()
-    for (const d of writer.next()) s.apply(structuredClone(d))
-    if (run.finished) break
-  }
-  const end = run.result()
-  return s.final({ completed: end.completed, error: end.error, hash: end.hash, stopReason: end.stopReason })
+  return streamRun(scene, { duration: null, frames, chunkSeconds, budgetBytes }).rec
 }
+
+/** State component of a quantity read straight from the state (core), or −1. */
+const stateComponent = (rec: Recording, id: string) => rec.session.call<{ component: number }>({ op: 'stateComponent', id }).component
+/** Memory counters of a recording's session. */
+const memory = (rec: Recording) => rec.session.call<{ memory: { chunks: number; residentChunks: number; rebuilds: number } }>({ op: 'info' }).memory
+const evictChunk = (rec: Recording, c: number) => rec.session.call({ op: 'evict', chunk: c })
 
 /** Brute force over the frames of each column of an envelope. */
 function brute(ref: Recording, env: Envelope, id: string) {
@@ -36,9 +30,9 @@ function brute(ref: Recording, env: Envelope, id: string) {
   const out = { min: new Float64Array(C), max: new Float64Array(C), first: new Float64Array(C), last: new Float64Array(C) }
   for (let j = 0; j < C; j++) {
     let lo = Infinity, hi = -Infinity
-    const val = (k: number) => evaluateQuantity(makeContext(ref, k), id)
-    for (let k = env.colFirst[j]; k <= env.colLast[j]; k++) { const v = val(k); if (Number.isFinite(v)) { if (v < lo) lo = v; if (v > hi) hi = v } }
-    out.min[j] = lo; out.max[j] = hi; out.first[j] = val(env.colFirst[j]); out.last[j] = val(env.colLast[j])
+    const vals = quantitySeries(ref, [id], env.colFirst[j], env.colLast[j]).values[0]
+    for (const v of vals) if (Number.isFinite(v)) { if (v < lo) lo = v; if (v > hi) hi = v }
+    out.min[j] = lo; out.max[j] = hi; out.first[j] = vals[0]; out.last[j] = vals[vals.length - 1]
   }
   return out
 }
@@ -46,7 +40,7 @@ function brute(ref: Recording, env: Envelope, id: string) {
 /** Call until nothing is pending (recomputing evicted chunks one per call). */
 function complete(rec: Recording, ids: string[], k0: number, k1: number, columns: number, level?: LodLevel): Envelope {
   for (let i = 0; i < 2000; i++) {
-    const env = chartEnvelope(rec, { ids, k0, k1, columns, budgetMs: 5, rebuild: true, level })
+    const env = chartEnvelope(rec, { ids, k0, k1, columns, budget: 1500, rebuild: true, level })
     if (!env.pending) return env
   }
   throw new Error('envelope never completed')
@@ -74,12 +68,12 @@ describe('long-chart envelope', () => {
   const ids = ['bob.x', 'bob.vy', 'bob.v', 'system.e', 'bob.ek']
 
   it('knows which quantities are plain state components', () => {
-    const known = new Set(listQuantities(ref.system).map(q => q.id))
+    const known = new Set(listQuantities(ref).map(q => q.id))
     for (const id of ids) expect(known.has(id)).toBe(true)
-    expect(stateComponent(ref.system, 'bob.x')).toBeGreaterThanOrEqual(0)
-    expect(stateComponent(ref.system, 'bob.vy')).toBeGreaterThanOrEqual(0)
-    expect(stateComponent(ref.system, 'bob.v')).toBe(-1)
-    expect(stateComponent(ref.system, 'system.e')).toBe(-1)
+    expect(stateComponent(ref, 'bob.x')).toBeGreaterThanOrEqual(0)
+    expect(stateComponent(ref, 'bob.vy')).toBeGreaterThanOrEqual(0)
+    expect(stateComponent(ref, 'bob.v')).toBe(-1)
+    expect(stateComponent(ref, 'system.e')).toBe(-1)
     expect(chooseLevel(600, 1000, 600)).toBe('frame')
     expect(chooseLevel(60000, 1000, 600)).toBe('block')
     expect(chooseLevel(1e6, 1000, 600)).toBe('chunk')
@@ -95,30 +89,30 @@ describe('long-chart envelope', () => {
 
   it('is exact across evicted chunks: summaries without recomputing, the rest recomputed on request', () => {
     const rec = stream(scene, FRAMES, 0.25)
-    const store = rec.frames as StreamRecording
-    for (let c = 0; c < store.chunkCount - 1; c += 2) store.evictChunk(c)
-    const evictedBefore = store.memory().residentChunks
+    const chunks = memory(rec).chunks
+    for (let c = 0; c < chunks - 1; c += 2) evictChunk(rec, c)
+    const evictedBefore = memory(rec).residentChunks
     // State components at the chunk level come from the summaries: complete at once, nothing recomputed
-    const env = chartEnvelope(rec, { ids: ['bob.x', 'bob.vy'], k0: 0, k1: FRAMES, columns: 9, level: 'chunk', budgetMs: 50 })
+    const env = chartEnvelope(rec, { ids: ['bob.x', 'bob.vy'], k0: 0, k1: FRAMES, columns: 9, level: 'chunk', budget: 15000 })
     expect(env.pending).toBe(false)
-    expect(store.rebuilds).toBe(0)
+    expect(memory(rec).rebuilds).toBe(0)
     expectExact(ref, env, ['bob.x', 'bob.vy'])
     // Derived quantities: evicted chunks are stand-ins until recomputed
-    const first = chartEnvelope(rec, { ids: ['bob.v'], k0: 0, k1: FRAMES, columns: 9, level: 'chunk', budgetMs: 50 })
+    const first = chartEnvelope(rec, { ids: ['bob.v'], k0: 0, k1: FRAMES, columns: 9, level: 'chunk', budget: 15000 })
     expect(first.pending).toBe(true)
     expect(first.evicted.length).toBeGreaterThan(0)
-    expect(store.rebuilds).toBe(0)
-    expect(store.memory().residentChunks).toBe(evictedBefore)
+    expect(memory(rec).rebuilds).toBe(0)
+    expect(memory(rec).residentChunks).toBe(evictedBefore)
     for (const level of ['chunk', 'block', 'frame'] as LodLevel[]) {
-      for (let c = 0; c < store.chunkCount - 1; c += 3) store.evictChunk(c)
+      for (let c = 0; c < chunks - 1; c += 3) evictChunk(rec, c)
       expectExact(ref, complete(rec, ids, 0, FRAMES, level === 'chunk' ? 11 : level === 'block' ? 150 : 2000, level), ids)
     }
-    expect(store.rebuilds).toBeGreaterThan(0)
+    expect(memory(rec).rebuilds).toBeGreaterThan(0)
   })
 
   it('a complete view does no more work, and a small budget fills in over several calls', () => {
     const rec = stream(scene, FRAMES, 0.25)
-    const a = chartEnvelope(rec, { ids: ['bob.ek'], k0: 0, k1: FRAMES, columns: 300, budgetMs: 0 })
+    const a = chartEnvelope(rec, { ids: ['bob.ek'], k0: 0, k1: FRAMES, columns: 300, budget: 0 })
     expect(a.pending).toBe(true)
     const b = complete(rec, ['bob.ek'], 0, FRAMES, 300)
     const scans = lodCounters(rec).scans
@@ -145,6 +139,6 @@ describe('long-chart envelope', () => {
     const raw = complete(ref, ['bob.x'], 100, 400, 1000)
     const pr = envelopePlot(raw)
     expect(pr.t.length).toBe(301)
-    expect(pr.values.get('bob.x')![5]).toBe(frameState(ref, 105)[stateComponent(ref.system, 'bob.x')])
+    expect(pr.values.get('bob.x')![5]).toBe(frameState(ref, 105)[stateComponent(ref, 'bob.x')])
   })
 })

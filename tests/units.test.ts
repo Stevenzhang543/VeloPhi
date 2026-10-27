@@ -5,23 +5,26 @@
  */
 import { describe, expect, it } from 'vitest'
 import { TEMPLATES, buildTemplate } from '../src/templates'
-import { simulate } from '../src/core/solver/simulation'
-import { listQuantities } from '../src/core/observe/quantities'
+import { simulate } from './reference/core/solver/simulation'
+import { listQuantities } from './reference/core/observe/quantities'
 import { FORMULAS } from '../src/formula/library'
-import { recognize } from '../src/formula/situations'
-import { evaluateCard } from '../src/formula/match'
+import { recognize } from './reference/formula/situations'
+import { evaluateCard } from './reference/formula/match'
 import { UNITS } from '../src/formula/units'
 import type { Dim } from '../src/formula/units'
 import type { UnitKind } from '../src/units/units'
 import { kindOf } from '../src/units/units'
-import { FORCE_VARIABLES } from '../src/core/solver/forceExpr'
+import { FORCE_VARIABLES } from './reference/core/solver/forceExpr'
 
 const KIND_DIM: Record<UnitKind, Dim> = {
   length: [1, 0, 0], mass: [0, 1, 0], time: [0, 0, 1], velocity: [1, 0, -1], acceleration: [1, 0, -2], force: [1, 1, -2],
   energy: [2, 1, -2], power: [2, 1, -3], momentum: [1, 1, -1], angularMomentum: [2, 1, -1], angle: [0, 0, 0],
   angularVelocity: [0, 0, -1], angularAcceleration: [0, 0, -2], stiffness: [0, 1, -2], damping: [0, 1, -1],
   inertia: [2, 1, 0], torque: [2, 1, -2], frequency: [0, 0, -1],
-  quadDrag: [-1, 1, 0], cubicStiffness: [-2, 1, -2], gravConst: [3, -1, -2], area: [2, 0, 0], arealVelocity: [2, 0, -1]
+  quadDrag: [-1, 1, 0], cubicStiffness: [-2, 1, -2], gravConst: [3, -1, -2], area: [2, 0, 0], arealVelocity: [2, 0, -1],
+  // 26.54: charge as the fourth base dimension
+  charge: [0, 0, 0, 1], electricField: [1, 1, -2, -1], magneticField: [0, 1, -1, -1], coulombConst: [3, 1, -2, -2],
+  voltage: [2, 1, -2, -1], current: [0, 0, -1, 1], resistance: [2, 1, -1, -2], capacitance: [-2, -1, 2, 2]
 }
 
 function checkUnit(unit: string, where: string) {

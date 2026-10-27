@@ -26,7 +26,7 @@ await build({
   stdin: {
     contents: [
       "export { TEMPLATES, buildTemplate } from './src/templates/index.ts'",
-      "export { SimulationRun } from './src/core/solver/simulation.ts'",
+      "export { SimulationRun } from './tests/reference/core/solver/simulation.ts'",
       "export { instantiateEngine } from './src/engine/wasm.ts'"
     ].join('\n'),
     resolveDir: repo, loader: 'ts'

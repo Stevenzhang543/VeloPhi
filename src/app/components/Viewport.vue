@@ -16,35 +16,34 @@
 import { tl } from '../../i18n'
 import { msgText } from '../../i18n/locale'
 import { shownTime } from '../../units/clock'
-import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef, toRaw, watch } from 'vue'
 import { state, edit, markStale, viewCamera, problemLocked } from '../store'
 import { usePageActive } from '../live'
 import type { Selection } from '../store'
 import { calmMotion, settings, effectiveEffects, fmtQ, toDisp, unitLabel } from '../settings'
-import { compileModel } from '../../core/solver/model'
-import { buildSystem, initialState } from '../../core/solver/dynamics'
-import type { System } from '../../core/solver/dynamics'
-import type { Pose } from '../../core/solver/kinematics'
-import { computePoses, pulleyCenter } from '../../core/solver/kinematics'
-import { frameIsCheap, frameState } from '../../core/solver/simulation'
-import type { AnnotationDef, BodyDef } from '../../core/scene/types'
+import { EngineSession } from '../../engine/session'
+import type { FrameView } from '../../engine/views'
+import { featurePointsOf, frameView, posesAt, positions } from '../../engine/views'
+import type { EditView } from '../editing'
+import type { AnnotationDef, BodyDef, RegionDef } from '../../core/scene/types'
 import { connectorAnchors } from '../../core/scene/types'
 import { cloneScene, parseScene, serializeScene } from '../../core/scene/io'
 import type { Camera } from '../../render/renderer'
-import { DARK, LIGHT, computeTrajectories, drawScene, eventLabelAt, toScreen, toWorld, vectorScales } from '../../render/renderer'
+import { DARK, LIGHT, computeTrajectories, drawScene, eventLabelAt, forceArrowAt, sceneVectorScales, toScreen, toWorld, vectorScales } from '../../render/renderer'
 import { openEventDetail } from '../details'
 import type { FrameEffects } from '../../render/frame'
 import { DEFAULT_STYLE, PROJECTOR_STYLE, renderFrame } from '../../render/frame'
 import type { EditorOverlay, HandleKind } from '../../render/overlay'
 import { drawEditorOverlay, emptyOverlay } from '../../render/overlay'
 import { TEXT_SIZE, annotationPoints, rulerLabel } from '../../render/annotations'
+import { regionAt, regionHandles, resizeRegion } from '../../render/regions'
 import { anchorFor, createCentral, createConnector, createForce, createHinge, createPin, hitTest, moveObject, placeObject, wrapAt } from '../editing'
 import { combineBodies, cutBodies } from '../editor/shapeOps'
 import { editor, clearDrafts, notify } from '../editor/editorState'
 import type { MenuTarget } from '../editor/editorState'
 import type { Pt } from '../editor/geometry'
 import { bodyBounds, bodyCenter, outlineWorld, pulleyWorld } from '../editor/geometry'
-import { featurePoints, featureSnap, snapOn, snapPoint, snapStep } from '../editor/snap'
+import { featureSnap, snapOn, snapPoint, snapStep } from '../editor/snap'
 import type { ContactSnap, SnapMemory } from '../editor/objectSnap'
 import { outlinesOf, sceneFeatures, shifted, snapAngles, snapBodyMove, snapPointToObjects, snapRotation } from '../editor/objectSnap'
 import type { OverlayShape } from '../../render/overlay'
@@ -81,22 +80,25 @@ const editing = computed(() => state.stale || !state.recording)
 const canEditGeometry = computed(() => studio.value && (editing.value || (state.frame === 0 && !state.playing)))
 
 // ---- Edit-mode system ----
-// The scene's version counts mutations, so the compiled edit system is rebuilt only when the scene changed
+// The scene's version counts mutations, so the scene session of the core (compiled model, initial state and its
+// view) is rebuilt only when the scene changed; the previous one is released
 let sceneVersion = 0
 watch(() => state.scene, () => { sceneVersion++ }, { deep: true, flush: 'sync' })
-let editCache: { version: number; value: { sys: System; X: Float64Array; poses: Pose[] } | null } | null = null
-function editSystem(): { sys: System; X: Float64Array; poses: Pose[] } | null {
+interface EditSystem extends EditView { view: FrameView }
+let editCache: { version: number; value: EditSystem | null } | null = null
+function editSystem(): EditSystem | null {
   if (editCache && editCache.version === sceneVersion) return editCache.value
-  let value: { sys: System; X: Float64Array; poses: Pose[] } | null = null
+  editCache?.value?.session.free()
+  let value: EditSystem | null = null
   try {
-    const model = compileModel(cloneScene(state.scene))
-    const sys = buildSystem(model)
-    const X = initialState(sys)
-    value = { sys, X, poses: computePoses(model, X) }
+    const session = EngineSession.create(cloneScene(state.scene))
+    const view = frameView(session, 0)
+    value = { session, sys: session.system, view, poses: view.poses, t: 0 }
   } catch { value = null }
   editCache = { version: sceneVersion, value }
   return value
 }
+onBeforeUnmount(() => { editCache?.value?.session.free(); editCache = null })
 
 const trajectories = computed(() => (state.recording ? computeTrajectories(state.recording) : null))
 /**
@@ -105,9 +107,9 @@ const trajectories = computed(() => (state.recording ? computeTrajectories(state
  */
 function currentScales(): { v: number; a: number; f: number } {
   const rec = state.recording
-  if (rec && !state.stale) return vectorScales(rec, rec.system)
+  if (rec && !state.stale) return vectorScales(rec)
   const es = editSystem()
-  return es ? vectorScales(null, es.sys) : { v: 30, a: 30, f: 3 }
+  return es ? sceneVectorScales(es.session) : { v: 30, a: 30, f: 3 }
 }
 
 // ---- Drawing ----
@@ -119,10 +121,10 @@ function requestDraw() {
   raf = requestAnimationFrame(() => { raf = 0; draw() })
 }
 
+/** Size of the host box from the last resize (26.55, D97: reading clientWidth here forced a layout on every frame). */
+let hostW = 0, hostH = 0
 function visible(): boolean {
-  if (!pageActive.value) return false
-  const h = host.value
-  return !!h && h.clientWidth > 0 && h.clientHeight > 0
+  return pageActive.value && hostW >= 1 && hostH >= 1
 }
 
 let lastError = 0
@@ -147,10 +149,12 @@ function paint(ctx: CanvasRenderingContext2D) {
   const palette = state.theme === 'dark' ? DARK : LIGHT
   Object.assign(viewCamera, cam.value)
   const style = settings.projector ? PROJECTOR_STYLE : DEFAULT_STYLE
-  const units = settings.units
+  // 26.55 (D97): the renderer only reads; plain objects spare it Vue's reactive proxies on every property access
+  const units = toRaw(settings.units)
+  const display = toRaw(state.display)
   const pending = state.pendingConnector
   const pendingDraw = pending && studio.value ? { world: pending.first.world, cursor: cursorWorld.value, pulleys: pending.pulleys.map(p => pulleyNow(p.pulley) ?? pending.first.world) } : null
-  const annotations = state.scene.annotations
+  const annotations = toRaw(state.scene.annotations)
   if (!editing.value && state.recording) {
     const rec = state.recording
     const e = effectiveEffects()
@@ -164,16 +168,18 @@ function paint(ctx: CanvasRenderingContext2D) {
     }
     renderFrame(ctx, cam.value, {
       // While a problem is answered, forces, accelerations, trajectories and key moments are not drawn (26.52)
-      rec, time: state.time, options: problemLocked() ? { ...state.display, forces: false, forcesAll: false, acceleration: false, trajectory: false, labels: false, strobe: false } : state.display, palette, digits: state.digits, scales: currentScales(), trajectories: trajectories.value,
-      selectedId: state.selection?.id ?? null, hoverId: hover.value, effects: fx, annotations, selectedAnnotation: editor.annotationId, units, style
+      rec, time: state.time, options: problemLocked() ? { ...display, forces: false, forcesAll: false, acceleration: false, trajectory: false, labels: false, strobe: false } : display, palette, digits: state.digits, scales: currentScales(), trajectories: trajectories.value,
+      selectedId: state.selection?.id ?? null, hoverId: hover.value, effects: fx, annotations, selectedAnnotation: editor.annotationId, units, style,
+      // 26.53 (D72): what a hovered formula card or known variable refers to
+      highlight: state.rightTab === 'formula' && !problemLocked() ? toRaw(state.formulaHighlight) : null
     })
   } else {
     const es = editSystem()
     if (!es) { ctx.fillStyle = palette.bg; ctx.fillRect(0, 0, cam.value.width, cam.value.height); return }
     drawScene(ctx, cam.value, {
-      sys: es.sys, X: es.X, mode: null, sol: null, rec: null, frame: 0, time: 0, options: { ...state.display, forces: false, trajectory: false, acceleration: false },
+      sys: es.sys, view: es.view, rec: null, frame: 0, time: 0, options: { ...display, forces: false, trajectory: false, acceleration: false },
       selectedId: state.selection?.id ?? null, hoverId: hover.value, palette, scales: currentScales(), trajectories: null,
-      editing: true, pending: pendingDraw, digits: state.digits, units, style, annotations, selectedAnnotation: editor.annotationId
+      editing: true, pending: pendingDraw, digits: state.digits, units, style, annotations, selectedAnnotation: editor.annotationId, selectedRegion: editor.regionId
     })
   }
   if (studio.value) {
@@ -189,8 +195,9 @@ function paint(ctx: CanvasRenderingContext2D) {
 let fittedVisible = false
 function resize() {
   const h = host.value, c = canvas.value
-  if (!h || !c || !pageActive.value) return // Resized again when the page is shown
+  if (!h || !c || !pageActive.value) { hostW = hostH = 0; return } // Resized again when the page is shown
   const r = h.getBoundingClientRect()
+  hostW = r.width; hostH = r.height
   if (r.width < 1 || r.height < 1) return // Hidden: keep the last size, draw nothing
   const dpr = window.devicePixelRatio || 1
   c.width = Math.max(1, Math.round(r.width * dpr))
@@ -215,8 +222,12 @@ function fitView() {
     // motion — the scene's former duration — rather than everything computed so far
     const last = rec.unbounded ? Math.min(rec.frameCount - 1, Math.round(Math.max(1, state.scene.settings.legacyDuration ?? 3) / rec.dt)) : rec.frameCount - 1
     const stride = Math.max(1, Math.floor((last + 1) / 300))
-    for (const b of rec.system.model.dynamic) for (let k = 0; k <= last; k += stride) if (frameIsCheap(rec, k)) { const X = frameState(rec, k); grow(X[3 * b.index], X[3 * b.index + 1], b.bound) }
-    for (const b of rec.system.model.dynamic) { const X = frameState(rec, last); grow(X[3 * b.index], X[3 * b.index + 1], b.bound) }
+    const got = positions(rec, 0, last + 1, stride)
+    const lastPoses = posesAt(rec, { frames: [last] })[0]
+    for (const b of rec.system.model.dynamic) {
+      for (let p = 0; p < got.frames.length; p++) grow(got.xy[2 * (p * got.n + b.index)], got.xy[2 * (p * got.n + b.index) + 1], b.bound)
+      if (lastPoses) grow(lastPoses[b.global].x, lastPoses[b.global].y, b.bound)
+    }
   } else {
     for (const b of state.scene.bodies) if (b.kind !== 'static') grow(b.position.x, b.position.y, b.shape.type === 'circle' ? b.shape.radius : b.shape.type === 'box' ? Math.hypot(b.shape.width, b.shape.height) / 2 : 0.3)
   }
@@ -227,10 +238,16 @@ function fitView() {
       const reach = Math.hypot(p.position.x, p.position.y) + p.radius
       const lastK = rec!.unbounded ? Math.min(rec!.frameCount - 1, Math.round(Math.max(1, state.scene.settings.legacyDuration ?? 3) / rec!.dt)) : rec!.frameCount - 1
       const stride = Math.max(1, Math.floor((lastK + 1) / 300))
-      for (let k = 0; k <= lastK; k += stride) if (frameIsCheap(rec!, k)) { const X = frameState(rec!, k); grow(X[3 * carrier.index], X[3 * carrier.index + 1], reach) }
+      const got = positions(rec!, 0, lastK + 1, stride)
+      for (let q = 0; q < got.frames.length; q++) grow(got.xy[2 * (q * got.n + carrier.index)], got.xy[2 * (q * got.n + carrier.index) + 1], reach)
     } else { const c = pulleyWorld(state.scene, p); grow(c.x, c.y, p.radius) }
   }
   for (const c of state.scene.connectors) for (const a of connectorAnchors(c)) if (!a.body) grow(a.local.x, a.local.y)
+  // 26.55: field regions and liquids (not the ones that only stand for "everywhere")
+  for (const r of state.scene.settings.regions ?? []) {
+    const hw = r.shape === 'circle' ? (r.r ?? 1) : (r.w ?? 1) / 2, hh = r.shape === 'circle' ? (r.r ?? 1) : (r.h ?? 1) / 2
+    if (hw < 25 && hh < 25) { grow(r.x - hw, r.y - hh); grow(r.x + hw, r.y + hh) }
+  }
   if (!Number.isFinite(minX)) {
     const v = state.scene.view
     cam.value = { ...cam.value, cx: v.center.x, cy: v.center.y, ppm: v.pixelsPerMeter }
@@ -269,12 +286,27 @@ onBeforeUnmount(() => {
 watch(pageActive, on => { if (on) { resize(); requestDraw() } })
 watch(() => state.recording, () => { effectsBroken = false })
 watch(() => state.cameraRequest, fitView)
-watch(() => [state.recording, state.stale], () => { if (state.fitPending && state.recording && !state.stale && visible()) { state.fitPending = false; fitView() } })
-watch(() => [state.frame, state.time, state.recording, state.stale, state.playing, state.speed, state.selection, state.theme, state.digits, state.pendingConnector, state.tool, hover.value, hotHandle.value, { ...state.display }, problemLocked()], requestDraw, { deep: true })
+watch(() => [state.recording, state.stale], () => {
+  if (state.fitPending && state.recording && !state.stale && visible()) {
+    state.fitPending = false
+    fitView()
+    // 26.55: an unbounded run that has not yet reached the scene's former duration is fitted again when it has
+    // (unless the view is moved or zoomed by hand in the meantime)
+    const rec = state.recording
+    refitAt = rec.unbounded && (rec.frameCount - 1) * rec.dt < (state.scene.settings.legacyDuration ?? 0) ? state.scene.settings.legacyDuration : 0
+  }
+})
+/** Computed time at which the view is fitted once more (0: none). */
+let refitAt = 0
+watch(() => state.run.tComputed, t => { if (refitAt > 0 && t >= refitAt && state.recording && !state.stale && visible()) { refitAt = 0; fitView() } })
+// 26.55 (D97): plain values are compared shallowly (a deep watch walked the whole list on every frame); the objects
+// that change in place (display switches, selection, formula highlight) are watched deeply on their own
+watch(() => [state.frame, state.time, state.recording, state.stale, state.playing, state.speed, state.theme, state.digits, state.pendingConnector, state.tool, hover.value, hotHandle.value, problemLocked(), state.rightTab], requestDraw)
+watch(() => [state.selection, state.display, state.formulaHighlight], requestDraw, { deep: true })
 watch(() => state.scene, requestDraw, { deep: true })
 watch(settings, requestDraw, { deep: true })
 watch(editor, requestDraw, { deep: true })
-watch(() => state.selection, s => { if (s) editor.annotationId = null })
+watch(() => state.selection, s => { if (s) { editor.annotationId = null; editor.regionId = null } })
 watch(() => state.tool, () => { clearDrafts(); snapMark.value = null; snapGuides.value = [] })
 
 defineExpose({ canvas, cam, fitView })
@@ -384,20 +416,26 @@ function worldOf(e: MouseEvent | WheelEvent) {
   return toWorld(cam.value, sx, sy)
 }
 
-function currentPoses(): { sys: System; poses: Pose[] } | null {
+/** The shown state as the core sees it: the recording at the shown frame, or the scene being edited. */
+let shownCache: { rec: object; frame: number; value: EditSystem } | null = null
+function currentPoses(): EditSystem | null {
   if (!editing.value && state.recording) {
     const rec = state.recording
-    return { sys: rec.system, poses: computePoses(rec.system.model, frameState(rec, state.frame)) }
+    if (shownCache && shownCache.rec === rec && shownCache.frame === state.frame) return shownCache.value
+    const t = state.frame * rec.dt
+    const view = frameView(rec, t)
+    const value = { session: rec.session, sys: rec.system, view, poses: view.poses, t }
+    shownCache = { rec, frame: state.frame, value }
+    return value
   }
-  const es = editSystem()
-  return es ? { sys: es.sys, poses: es.poses } : null
+  return editSystem()
 }
 
 /** World centre of a pulley at the shown state (movable pulleys ride on their body). */
 function pulleyNow(id: string): Pt | null {
   const cp = currentPoses()
-  const pm = cp?.sys.model.pulleys.find(p => p.id === id)
-  if (cp && pm) return pulleyCenter(cp.poses, pm)
+  const pi = cp?.sys.model.pulleys.findIndex(p => p.id === id) ?? -1
+  if (cp && pi >= 0) return { x: cp.view.pulleys[2 * pi], y: cp.view.pulleys[2 * pi + 1] }
   const def = state.scene.pulleys.find(p => p.id === id)
   return def ? pulleyWorld(state.scene, def) : null
 }
@@ -449,7 +487,7 @@ function bodySize(def: BodyDef): [number, number] {
 function measureSnap(p: Pt, alt: boolean): Pt {
   if (!alt) {
     const cp = currentPoses()
-    if (cp) { const f = featureSnap(featurePoints(cp.sys.model, cp.poses), p, cam.value.ppm); if (f) return f }
+    if (cp) { const f = featureSnap(featurePointsOf(cp.session, cp.t), p, cam.value.ppm); if (f) return f }
   }
   return snapPoint(p, cam.value.ppm, alt)
 }
@@ -484,11 +522,13 @@ type Drag =
   | { kind: 'annot-create'; tool: 'measure-ruler' | 'annotate-arrow'; a: Pt; b: Pt; moved: boolean; sx: number; sy: number }
   | { kind: 'annot-move'; id: string; orig: AnnotationDef; point: number; start: Pt; snapshot: string; moved: boolean; sx: number; sy: number }
   | { kind: 'cut'; a: Pt; b: Pt; moved: boolean; sx: number; sy: number }
+  | { kind: 'region'; id: string; orig: RegionDef; handle: number; start: Pt; snapshot: string; moved: boolean; sx: number; sy: number }
 
 let drag: Drag | null = null
 
 function onWheel(e: WheelEvent) {
   e.preventDefault()
+  refitAt = 0
   const before = worldOf(e)
   const f = Math.exp(-e.deltaY * 0.0015)
   const ppm = Math.min(5000, Math.max(5, cam.value.ppm * f))
@@ -508,6 +548,7 @@ function onDown(e: MouseEvent) {
     e.preventDefault()
     if (spaceDown) editor.spacePanned = true
     drag = { kind: 'pan', lastX: e.clientX, lastY: e.clientY }
+    refitAt = 0
     cursor.value = 'grabbing'
     return
   }
@@ -522,7 +563,7 @@ function onDown(e: MouseEvent) {
   if (labelEvent !== null) { openEventDetail(labelEvent); return }
   if (!studio.value) {
     // Monitor: choose what to watch
-    state.selection = hitTest(cp.sys, cp.poses, p, tol)
+    state.selection = hitTest(cp, p, tol)
     return
   }
   const tool = state.tool
@@ -546,7 +587,7 @@ function onDown(e: MouseEvent) {
   // 26.52: central fields, cutting, combining
   if (tool === 'add-central') {
     let id: string | null = null
-    edit(scene => { id = createCentral(scene, cp.sys, cp.poses, sp) })
+    edit(scene => { id = createCentral(scene, cp, sp) })
     if (id) { state.selection = { kind: 'connector', id }; state.rightTab = 'inspect' }
     if (!e.shiftKey) state.tool = 'select'
     return
@@ -556,7 +597,7 @@ function onDown(e: MouseEvent) {
     return
   }
   if (tool === 'shape-combine') {
-    const hit = hitTest(cp.sys, cp.poses, p, tol)
+    const hit = hitTest(cp, p, tol)
     if (hit?.kind !== 'body') { notify(tl('请点击要组合的物体')); return }
     const i = editor.combineDraft.indexOf(hit.id)
     if (i >= 0) editor.combineDraft.splice(i, 1); else editor.combineDraft.push(hit.id)
@@ -565,7 +606,7 @@ function onDown(e: MouseEvent) {
   }
   if (tool === 'add-force') {
     let id: string | null = null
-    edit(scene => { id = createForce(scene, cp.sys, cp.poses, p) })
+    edit(scene => { id = createForce(scene, cp, p) })
     if (id) { state.selection = { kind: 'connector', id }; state.rightTab = 'inspect' } else notify(tl('请点击在可运动的物体上'))
     if (!e.shiftKey) state.tool = 'select'
     return
@@ -573,7 +614,7 @@ function onDown(e: MouseEvent) {
   if (tool === 'connect-hinge' || tool === 'connect-weld' || tool === 'connect-motor' || tool === 'connect-slider') {
     let id: string | null = null
     const kind = ({ 'connect-hinge': 'hinge', 'connect-weld': 'weld', 'connect-motor': 'motor', 'connect-slider': 'slider' } as const)[tool]
-    edit(scene => { id = createPin(scene, cp.sys, cp.poses, p, kind) })
+    edit(scene => { id = createPin(scene, cp, p, kind) })
     if (id) { state.selection = { kind: 'connector', id }; state.rightTab = 'inspect' } else notify(tl('请点击在可运动的物体上'))
     if (!e.shiftKey) state.tool = 'select'
     return
@@ -581,10 +622,10 @@ function onDown(e: MouseEvent) {
   if (tool === 'connect-rope' || tool === 'connect-rod' || tool === 'connect-spring' || tool === 'connect-damper' || tool === 'connect-gear') {
     const pending = state.pendingConnector
     if (tool === 'connect-rope' && pending) {
-      const hit = hitTest(cp.sys, cp.poses, p, tol)
+      const hit = hitTest(cp, p, tol)
       if (hit?.kind === 'pulley' && !pending.pulleys.some(q => q.pulley === hit.id)) { pending.pulleys.push({ pulley: hit.id, wrap: 'cw' }); requestDraw(); return }
     }
-    const anc = anchorFor(cp.sys, cp.poses, p, 10 / ppm)
+    const anc = anchorFor(cp, p, 10 / ppm)
     if (!pending) { state.pendingConnector = { tool, first: anc, pulleys: [] }; return }
     // Finish: wrap directions from the polyline
     const pts = [pending.first.world, ...pending.pulleys.map(q => pulleyNow(q.pulley) ?? pending.first.world), anc.world]
@@ -614,6 +655,12 @@ function onDown(e: MouseEvent) {
       return
     }
   }
+  // 26.55: resize handles of the selected region
+  const selReg = editor.regionId && canEditGeometry.value ? state.scene.settings.regions?.find(r => r.id === editor.regionId) : null
+  if (selReg) {
+    const idx = regionHandles(selReg).findIndex(h => { const [hx, hy] = toScreen(cam.value, h.x, h.y); return Math.abs(hx - sx) <= 7 && Math.abs(hy - sy) <= 7 })
+    if (idx >= 0) { drag = { kind: 'region', id: selReg.id, orig: { ...selReg }, handle: idx, start: p, snapshot: serializeScene(state.scene), moved: false, sx: e.clientX, sy: e.clientY }; return }
+  }
   // Annotations (drawn on top)
   const selAnn = editor.annotationId ? state.scene.annotations.find(a => a.id === editor.annotationId) : null
   if (selAnn) {
@@ -630,8 +677,15 @@ function onDown(e: MouseEvent) {
     drag = { kind: 'annot-move', id: ah.id, orig: JSON.parse(JSON.stringify(ah)), point: -1, start: p, snapshot: serializeScene(state.scene), moved: false, sx: e.clientX, sy: e.clientY }
     return
   }
+  // 26.53 (D72): with the formula tab open during playback, a click on a force arrow or a body filters the formulas
+  if (!editing.value && state.rightTab === 'formula' && state.tool === 'select' && canvas.value) {
+    const fa = forceArrowAt(canvas.value, sx, sy)
+    if (fa) { state.formulaPick = { body: fa.body, force: fa.kind }; return }
+    const bh = hitTest(cp, p, tol)
+    state.formulaPick = bh?.kind === 'body' && cp.sys.model.byId.get(bh.id)?.dynamic ? { body: bh.id, force: null } : null
+  }
   // Objects
-  let hit = hitTest(cp.sys, cp.poses, p, tol)
+  let hit = hitTest(cp, p, tol)
   const cur = state.selection
   if (!hit && cur?.kind === 'body' && canEditGeometry.value) {
     // A click right on the outline keeps the selection (so a double-click on an edge can add a vertex)
@@ -639,7 +693,18 @@ function onDown(e: MouseEvent) {
     if (def && edgeAt(def, p, 8 / ppm)) hit = cur
   }
   editor.annotationId = null
+  editor.regionId = null
   state.selection = hit
+  // 26.55: a click on empty space inside a field region or liquid selects it (edited in the scene tab)
+  if (!hit && canEditGeometry.value) {
+    const r = regionAt(state.scene.settings, p)
+    if (r) {
+      editor.regionId = r.id
+      state.rightTab = 'settings'
+      drag = { kind: 'region', id: r.id, orig: { ...r }, handle: -1, start: p, snapshot: serializeScene(state.scene), moved: false, sx: e.clientX, sy: e.clientY }
+      return
+    }
+  }
   // During playback a click on a moving body is a request for its readings
   if (!editing.value && hit?.kind === 'body' && state.rightTab === 'inspect' && cp.sys.model.byId.get(hit.id)?.dynamic) state.rightTab = 'watch'
   if (hit && (hit.kind === 'body' || hit.kind === 'pulley') && canEditGeometry.value) {
@@ -790,6 +855,18 @@ function onMove(e: MouseEvent) {
       requestDraw()
       return
     }
+    if (d.kind === 'region') {
+      if (!d.moved && dist < 3) return
+      d.moved = true
+      const r = state.scene.settings.regions?.find(x => x.id === d.id)
+      if (!r) return
+      const st = snapOn(e.altKey) ? snapStep(ppm) : 0
+      const sn = (v: number) => (st ? Math.round(v / st) * st : v)
+      if (d.handle >= 0) resizeRegion(r, d.orig, d.handle, { x: sn(p.x), y: sn(p.y) }, Math.max(st, 4 / ppm))
+      else { r.x = d.orig.x + sn(p.x - d.start.x); r.y = d.orig.y + sn(p.y - d.start.y) }
+      requestDraw()
+      return
+    }
     if (d.kind === 'annot-move') {
       if (!d.moved && dist < 3) return
       d.moved = true
@@ -812,7 +889,7 @@ function onMove(e: MouseEvent) {
   // Hover
   if (!studio.value) {
     const cp = currentPoses()
-    const h = cp ? hitTest(cp.sys, cp.poses, p, 8 / ppm) : null
+    const h = cp ? hitTest(cp, p, 8 / ppm) : null
     if ((h?.id ?? null) !== hover.value) hover.value = h?.id ?? null
     const [lx, ly] = screenOf(e)
     cursor.value = h || (!editing.value && canvas.value && eventLabelAt(canvas.value, lx, ly) !== null) ? 'pointer' : 'default'
@@ -829,7 +906,7 @@ function onMove(e: MouseEvent) {
   if (hot !== hotHandle.value) hotHandle.value = hot
   if (!hot) {
     const cp = currentPoses()
-    const h = cp ? hitTest(cp.sys, cp.poses, p, 8 / ppm) : null
+    const h = cp ? hitTest(cp, p, 8 / ppm) : null
     const id = h?.id ?? null
     if (id !== hover.value) hover.value = id
     if (tool === 'select') {
@@ -877,7 +954,7 @@ function onUp(e: MouseEvent) {
   if (!d) return
   if (d.kind === 'pan') { cursor.value = state.tool === 'pan' ? 'grab' : 'default'; return }
   if (d.kind === 'right') { if (studio.value) openMenu(e); return }
-  if (d.kind === 'move' || d.kind === 'handle') {
+  if (d.kind === 'move' || d.kind === 'handle' || d.kind === 'region') {
     if (d.moved) commitSnapshot(d.snapshot)
     snapMark.value = null
     requestDraw()
@@ -890,7 +967,7 @@ function onUp(e: MouseEvent) {
     if (pv?.ok) edit(scene => { made = createFromDrag(scene, d.tool, d.a, d.b, d.step) })
     else {
       const cp = currentPoses()
-      if (cp) edit(scene => { const id = placeObject(scene, cp.sys, cp.poses, d.tool, d.a); if (id) made = { id, kind: d.tool === 'add-pulley' ? 'pulley' : 'body' } })
+      if (cp) edit(scene => { const id = placeObject(scene, cp, d.tool, d.a); if (id) made = { id, kind: d.tool === 'add-pulley' ? 'pulley' : 'body' } })
     }
     const m = made as { id: string; kind: 'body' | 'pulley' } | null
     if (m) { editor.annotationId = null; state.selection = { kind: m.kind, id: m.id } }
@@ -983,6 +1060,86 @@ function onDblClick(e: MouseEvent) {
   notify(wasBox ? tl('已把矩形转为多边形并添加顶点；拖动顶点改形状，Alt+单击顶点删除') : tl('已添加顶点；拖动它改变形状'))
 }
 
+// ---- Touch (26.55, D42/D43 carried over): one finger works like the mouse (a drag on empty space pans), two
+// fingers pinch-zoom and pan, a long press opens the context menu, a double tap is a double click ----
+const fakeMouse = (x: number, y: number): MouseEvent => ({ clientX: x, clientY: y, button: 0, buttons: 1, altKey: false, shiftKey: false, ctrlKey: false, metaKey: false, detail: 1, preventDefault() {}, stopPropagation() {} }) as unknown as MouseEvent
+let pinch: { d0: number; ppm0: number; world: Pt } | null = null
+let longPress: ReturnType<typeof setTimeout> | null = null
+let touchStart: { x: number; y: number } | null = null
+let lastTap = 0
+function stopLongPress() { if (longPress) { clearTimeout(longPress); longPress = null } }
+function onTouchStart(e: TouchEvent) {
+  e.preventDefault()
+  stopLongPress()
+  if (e.touches.length === 1) {
+    const t = e.touches[0]
+    touchStart = { x: t.clientX, y: t.clientY }
+    const now = performance.now()
+    if (now - lastTap < 320) { lastTap = 0; onDblClick(fakeMouse(t.clientX, t.clientY)); return }
+    lastTap = now
+    onDown(fakeMouse(t.clientX, t.clientY))
+    // nothing picked up: the finger pans the view
+    if (!drag && (state.tool === 'select' || state.tool === 'pan' || !studio.value)) drag = { kind: 'pan', lastX: t.clientX, lastY: t.clientY }
+    longPress = setTimeout(() => {
+      longPress = null
+      if (!studio.value) return
+      const d = drag
+      if (d && 'moved' in d && d.moved) return
+      drag = null
+      openMenu(fakeMouse(t.clientX, t.clientY))
+    }, 550)
+    return
+  }
+  // a second finger: drop the one-finger gesture (a move in progress goes back) and start pinching
+  const d = drag
+  drag = null
+  if (d && (d.kind === 'move' || d.kind === 'handle' || d.kind === 'region') && d.moved) restoreSnapshot(d.snapshot)
+  const [a, b] = [e.touches[0], e.touches[1]]
+  pinch = { d0: Math.max(1, Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY)), ppm0: cam.value.ppm, world: worldOf(fakeMouse((a.clientX + b.clientX) / 2, (a.clientY + b.clientY) / 2)) }
+  refitAt = 0
+}
+function onTouchMove(e: TouchEvent) {
+  e.preventDefault()
+  if (pinch && e.touches.length >= 2) {
+    const [a, b] = [e.touches[0], e.touches[1]]
+    const ppm = Math.min(5000, Math.max(5, (pinch.ppm0 * Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY)) / pinch.d0))
+    cam.value = { ...cam.value, ppm }
+    // the world point first under the fingers stays under their midpoint (zoom and pan in one)
+    const after = worldOf(fakeMouse((a.clientX + b.clientX) / 2, (a.clientY + b.clientY) / 2))
+    cam.value = { ...cam.value, cx: cam.value.cx + pinch.world.x - after.x, cy: cam.value.cy + pinch.world.y - after.y }
+    requestDraw()
+    return
+  }
+  if (e.touches.length !== 1) return
+  const t = e.touches[0]
+  if (touchStart && Math.hypot(t.clientX - touchStart.x, t.clientY - touchStart.y) > 8) stopLongPress()
+  const d = drag
+  if (d && d.kind === 'pan') {
+    cam.value = { ...cam.value, cx: cam.value.cx - (t.clientX - d.lastX) / cam.value.ppm, cy: cam.value.cy + (t.clientY - d.lastY) / cam.value.ppm }
+    d.lastX = t.clientX; d.lastY = t.clientY
+    refitAt = 0
+    requestDraw()
+    return
+  }
+  onMove(fakeMouse(t.clientX, t.clientY))
+}
+function onTouchEnd(e: TouchEvent) {
+  e.preventDefault()
+  stopLongPress()
+  if (pinch) { if (e.touches.length < 2) pinch = null; return }
+  const t = e.changedTouches[0]
+  if (t && drag) onUp(fakeMouse(t.clientX, t.clientY))
+}
+
+/** What a screen reader hears (26.55, D43): notices, the selected object and the state of playback. */
+const liveText = computed(() => {
+  if (editor.notice) return editor.notice
+  const sel = state.selection
+  if (sel?.kind === 'body') { const b = state.scene.bodies.find(x => x.id === sel.id); if (b) return tl('已选中 {0}', [b.name]) }
+  if (editor.regionId) { const r = state.scene.settings.regions?.find(x => x.id === editor.regionId); if (r) return tl('已选中 {0}', [r.name]) }
+  return state.playing ? tl('正在播放') : ''
+})
+
 // ---- Context menu ----
 function openMenu(e: MouseEvent) {
   const p = worldOf(e)
@@ -992,7 +1149,7 @@ function openMenu(e: MouseEvent) {
   if (ah) { target = { kind: 'annotation', id: ah.id }; state.selection = null; editor.annotationId = ah.id }
   else {
     const cp = currentPoses()
-    const hit = cp ? hitTest(cp.sys, cp.poses, p, 8 / cam.value.ppm) : null
+    const hit = cp ? hitTest(cp, p, 8 / cam.value.ppm) : null
     if (hit) { target = hit; editor.annotationId = null; state.selection = hit }
   }
   editor.menu = { x: e.clientX, y: e.clientY, world: p, target }
@@ -1003,7 +1160,8 @@ const ADD_ITEMS: Array<{ tool: string; label: string; icon: string }> = [
   { tool: 'add-disc', label: tl('圆柱'), icon: 'disc' }, { tool: 'add-wedge', label: tl('楔块'), icon: 'wedge' },
   { tool: 'add-polygon', label: tl('多边形'), icon: 'polygon' }, { tool: 'add-ground', label: tl('地面'), icon: 'ground' },
   { tool: 'add-incline', label: tl('斜面'), icon: 'incline' }, { tool: 'add-wall', label: tl('墙'), icon: 'wall' },
-  { tool: 'add-conveyor', label: tl('传送带'), icon: 'conveyor' }, { tool: 'add-pulley', label: tl('定滑轮'), icon: 'pulley' }
+  { tool: 'add-conveyor', label: tl('传送带'), icon: 'conveyor' }, { tool: 'add-pulley', label: tl('定滑轮'), icon: 'pulley' },
+  { tool: 'add-charge', label: tl('带电小球'), icon: 'charge' }, { tool: 'add-fixed-charge', label: tl('固定电荷'), icon: 'fixedCharge' }
 ]
 
 const menuItems = computed<MenuItem[]>(() => {
@@ -1088,7 +1246,7 @@ function runMenu(id: string) {
       const cp = currentPoses()
       if (!cp) return
       let cid: string | null = null
-      edit(scene => { cid = id === 'force' ? createForce(scene, cp.sys, cp.poses, m.world) : createHinge(scene, cp.sys, cp.poses, m.world) })
+      edit(scene => { cid = id === 'force' ? createForce(scene, cp, m.world) : createHinge(scene, cp, m.world) })
       if (cid) { state.selection = { kind: 'connector', id: cid }; state.rightTab = 'inspect' } else notify(tl('此处不在可运动的物体上'))
       return
     }
@@ -1098,7 +1256,7 @@ function runMenu(id: string) {
     const cp = currentPoses()
     if (!cp) return
     let nid: string | null = null
-    edit(scene => { nid = placeObject(scene, cp.sys, cp.poses, tool, snapPoint(m.world, cam.value.ppm, false)) })
+    edit(scene => { nid = placeObject(scene, cp, tool, snapPoint(m.world, cam.value.ppm, false)) })
     if (nid) { editor.annotationId = null; state.selection = { kind: tool === 'add-pulley' ? 'pulley' : 'body', id: nid }; state.rightTab = 'inspect' }
   }
 }
@@ -1176,7 +1334,7 @@ function onKeyCapture(e: KeyboardEvent) {
     const busy = editor.polyDraft.length > 0 || editor.angleDraft.length > 0 || editor.combineDraft.length > 0 || (d !== null && d.kind !== 'pan')
     drag = null
     snapMark.value = null
-    if (d && (d.kind === 'move' || d.kind === 'handle') && d.moved) restoreSnapshot(d.snapshot)
+    if (d && (d.kind === 'move' || d.kind === 'handle' || d.kind === 'region') && d.moved) restoreSnapshot(d.snapshot)
     else if (d && d.kind === 'annot-move' && d.moved) { const a = state.scene.annotations.find(x => x.id === d.id); if (a) placeMoved(a, d.orig, 0, 0) }
     if (busy) { clearDrafts(); stop() }
     requestDraw()
@@ -1186,6 +1344,13 @@ function onKeyCapture(e: KeyboardEvent) {
   if (k === 'Enter' && state.tool === 'shape-combine' && editor.combineDraft.length) { stop(); finishCombine(); return }
   if (k === 'Backspace' && state.tool === 'add-polygon' && editor.polyDraft.length) { stop(); editor.polyDraft.pop(); return }
   if ((k === 'Delete' || k === 'Backspace') && editor.annotationId && !state.selection) { stop(); deleteSelection(); return }
+  if ((k === 'Delete' || k === 'Backspace') && editor.regionId && !state.selection && editing.value) {
+    stop()
+    const id = editor.regionId
+    edit(sc => { sc.settings.regions = (sc.settings.regions ?? []).filter(r => r.id !== id); if (!sc.settings.regions.length) delete sc.settings.regions })
+    editor.regionId = null
+    return
+  }
   if (!e.altKey && !e.shiftKey && TOOL_KEYS[lower]) {
     stop()
     state.tool = TOOL_KEYS[lower]
@@ -1231,7 +1396,7 @@ const toolHint = computed(() => {
     case 'measure-angle': return editor.angleDraft.length === 0 ? tl('点击角的顶点') : editor.angleDraft.length === 1 ? tl('点击第一条边上的一点') : tl('点击第二条边上的一点')
     case 'annotate-text': return tl('点击放置文字标注')
     case 'annotate-arrow': return tl('按住并拖动画箭头') + snap
-    case 'add-ball': case 'add-disc': case 'add-pulley': return tl('点击放置；按住拖动设定半径；按住 Shift 连续放置') + snap
+    case 'add-ball': case 'add-disc': case 'add-pulley': case 'add-charge': case 'add-fixed-charge': return tl('点击放置；按住拖动设定半径；按住 Shift 连续放置') + snap
     case 'add-ground': case 'add-conveyor': return tl('点击放置；按住水平拖动设定长度；按住 Shift 连续放置') + snap
     case 'add-incline': case 'add-wedge': return tl('点击放置；从直角处拖出底边和高；按住 Shift 连续放置') + snap
     default: return tl('点击放置（靠近表面时自动贴合）；按住拖动设定大小；按住 Shift 连续放置') + snap
@@ -1253,7 +1418,8 @@ const selectionHint = computed(() => {
 
 <template>
   <div ref="host" class="viewport" :class="[`v-${props.variant}`]">
-    <canvas ref="canvas" :style="{ cursor }" @wheel="onWheel" @mousedown="onDown" @mousemove="onMove" @mouseup="onUp" @mouseleave="onLeave" @dblclick="onDblClick" @contextmenu.prevent />
+    <canvas ref="canvas" :style="{ cursor }" tabindex="0" role="img" :aria-label="tl('场景画布：{0}', [state.scene.name])" @wheel="onWheel" @mousedown="onDown" @mousemove="onMove" @mouseup="onUp" @mouseleave="onLeave" @dblclick="onDblClick" @contextmenu.prevent @touchstart="onTouchStart" @touchmove="onTouchMove" @touchend="onTouchEnd" @touchcancel="onTouchEnd" />
+    <div class="sr-only" aria-live="polite">{{ liveText }}</div>
     <div class="overlay top-left">
       <span v-if="timeText && studio" class="time mono">{{ timeText }}</span>
       <span v-if="editing" class="badge warn">{{ studio ? tl('编辑中') : tl('未运行') }}{{ state.recording ? tl(' · 结果已过期') : '' }}</span>
@@ -1276,7 +1442,8 @@ const selectionHint = computed(() => {
 
 <style scoped>
 .viewport { position: relative; width: 100%; height: 100%; overflow: hidden; border-radius: var(--radius-pane); background: var(--canvas-bg); box-shadow: var(--shadow); }
-canvas { display: block; }
+canvas { display: block; touch-action: none; }
+canvas:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .overlay { position: absolute; display: flex; gap: 6px; align-items: center; pointer-events: none; }
 .overlay > * { pointer-events: auto; }
 .top-left { top: 10px; left: 12px; }

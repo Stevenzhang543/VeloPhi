@@ -20,6 +20,9 @@
  * Area (26.52, D64): Shift-drag across a chart integrates its curves over that span (teaching/area.ts, composite
  * Simpson on the recorded frames). The area is shaded (positive and negative parts in different colours) and its
  * value is shown next to the change of the quantity it is the rate of (v → displacement, a → Δv …).
+ *
+ * Phase portrait (26.54, D87): the "相图" mode plots one quantity against another (x–vₓ, θ–ω or any two) instead of
+ * the time charts (PhasePlot.vue).
  */
 import { tl, colonSep, paren } from '../../i18n'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
@@ -27,10 +30,11 @@ import uPlot from 'uplot'
 import 'uplot/dist/uPlot.min.css'
 import { state, seekTime, pause, showToast, problemLocked } from '../store'
 import ProblemLock from './ProblemLock.vue'
-import { canonicalQuantityId, evaluateQuantity, listQuantities, makeContext } from '../../core/observe/quantities'
-import type { Recording } from '../../core/solver/simulation'
+import PhasePlot from './PhasePlot.vue'
+import { canonicalQuantityId, listQuantities, quantitiesAtFrames } from '../../engine/observe'
+import type { Recording } from '../../engine/recording'
 import { parentRecording } from '../branches'
-import type { QuantityDef } from '../../core/observe/quantities'
+import type { QuantityDef } from '../../engine/observe'
 import { formatSig } from '../../units/units'
 import { fmtQ, fromDisp, toDisp, unitLabel } from '../settings'
 import { RECENT_SPAN, recentWindow, seriesFor, seriesWindow, useGated } from '../live'
@@ -74,7 +78,7 @@ function envelopeSeries(r: NonNullable<typeof rec.value>, ids: string[], columns
   const k0 = zoom.value ? Math.max(0, Math.floor(zoom.value.t0 / r.dt)) : 0
   const k1 = zoom.value ? Math.min(last, Math.ceil(zoom.value.t1 / r.dt)) : last
   // Every few passes also recompute one chunk that is not in memory (the stream verifies it)
-  const env = chartEnvelope(r, { ids, k0, k1, columns: Math.max(32, columns), rebuild: envPasses++ % 2 === 1, budgetMs: 40 })
+  const env = chartEnvelope(r, { ids, k0, k1, columns: Math.max(32, columns), rebuild: envPasses++ % 2 === 1, budget: 12000 })
   const plot = envelopePlot(env)
   const values = new Map<string, Float64Array>()
   for (const id of ids) {
@@ -92,11 +96,16 @@ function envelopeMode(r: NonNullable<typeof rec.value>): boolean {
   return r.unbounded ? longMode.value === 'all' : r.frameCount > LONG_FRAMES || zoom.value !== null
 }
 
+/** Time charts or the phase portrait (D87), and the two quantities of the phase portrait. */
+const mode = ref<'time' | 'phase'>('time')
+const phaseX = ref(''), phaseY = ref('')
+/** The time charts are drawn only in the time mode. */
+const chartsActive = computed(() => props.active && mode.value === 'time')
+
 /** A problem is being answered: curves are hidden (26.52). */
 const locked = computed(() => problemLocked())
 const rec = computed(() => (state.stale || locked.value ? null : state.recording))
-const system = computed(() => rec.value?.system ?? null)
-const quantities = computed<Map<string, QuantityDef>>(() => new Map((system.value ? listQuantities(system.value) : []).map(q => [q.id, q])))
+const quantities = computed<Map<string, QuantityDef>>(() => new Map((rec.value ? listQuantities(rec.value) : []).map(q => [q.id, q])))
 
 const COLORS = ['#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed', '#0891b2', '#db2777', '#4b5563']
 const COLORS_DARK = ['#60a5fa', '#f87171', '#4ade80', '#fbbf24', '#a78bfa', '#22d3ee', '#f472b6', '#9ca3af']
@@ -148,7 +157,7 @@ const origin = computed(() => rec.value?.scene.settings.startTime ?? 0)
 /** Overlay of the parent branch's curves (D52), on by default while a branch is shown. */
 const overlay = ref(true)
 const parentRec = computed<Recording | null>(() => (overlay.value && state.branch !== null && rec.value ? parentRecording() : null))
-const parentIds = computed(() => new Set(parentRec.value ? listQuantities(parentRec.value.system).map(q => q.id) : []))
+const parentIds = computed(() => new Set(parentRec.value ? listQuantities(parentRec.value).map(q => q.id) : []))
 /** Most parent samples per curve (each needs a mode solution); the line spans the gaps. */
 const OVERLAY_SAMPLES = 1500
 const overlayCache = new Map<string, Array<number | null>>()
@@ -161,12 +170,14 @@ function overlayValues(s: SeriesView, id: string, fv: number): Array<number | nu
   const po = p.scene.settings.startTime ?? 0, o = origin.value
   const every = Math.max(1, Math.ceil(s.t.length / OVERLAY_SAMPLES))
   const out: Array<number | null> = new Array(s.t.length).fill(null)
+  const at: number[] = [], frames: number[] = []
   for (let i = 0; i < s.t.length; i += every) {
     const k = Math.round((s.t[i] + o - po) / p.dt)
     if (k < 0 || k >= p.frameCount) continue
-    const v = evaluateQuantity(makeContext(p, k), id)
-    out[i] = Number.isFinite(v) ? v * fv : null
+    at.push(i); frames.push(k)
   }
+  const got = quantitiesAtFrames(p, [id], frames).values[0]
+  at.forEach((i, j) => { const v = got[j]; out[i] = Number.isFinite(v) ? v * fv : null })
   if (overlayCache.size > 40) overlayCache.delete(overlayCache.keys().next().value!)
   overlayCache.set(key, out)
   return out
@@ -334,7 +345,7 @@ function compareText(row: AreaRow): string {
 /** Bring the charts up to date (build, add new frames, or resize). */
 function sync() {
   const r = rec.value, el = host.value
-  if (!props.active || !el) return
+  if (!chartsActive.value || !el) return
   if (!r || groups.value.length === 0) { if (plots.length) destroy(); return }
   if (el.clientWidth === 0 || el.clientHeight === 0) return
   const ids = groups.value.flatMap(([, list]) => list.map(q => q.id))
@@ -359,14 +370,14 @@ function sync() {
 let timer: ReturnType<typeof setTimeout> | null = null
 let lastSync = 0
 function schedule() {
-  if (!props.active) return
+  if (!chartsActive.value) return
   if (timer) return
   const wait = state.computing ? Math.max(0, 400 - (performance.now() - lastSync)) : 0
   timer = setTimeout(() => { timer = null; lastSync = performance.now(); sync() }, wait)
 }
 
 // Cursor: follows the continuous playback time, only while visible
-const tCursor = useGated(() => props.active, () => state.time)
+const tCursor = useGated(() => chartsActive.value, () => state.time)
 function placeCursor() {
   const r = rec.value
   const td = toDisp(tCursor.value + origin.value, 's')
@@ -394,7 +405,7 @@ const windowKey = computed(() => {
 })
 watch(() => state.runId, () => { zoom.value = null; area.value = null })
 watch(longMode, () => { zoom.value = null })
-watch([rec, buildKey, () => state.runId, () => props.active, windowKey, longMode], () => nextTick(schedule))
+watch([rec, buildKey, () => state.runId, chartsActive, windowKey, longMode], () => nextTick(schedule))
 onBeforeUnmount(() => { ro?.disconnect(); if (timer) clearTimeout(timer); destroy() })
 
 function preset(kind: 'kin' | 'energy' | 'force') {
@@ -406,11 +417,43 @@ function preset(kind: 'kin' | 'energy' | 'force') {
   else if (kind === 'kin' && body) state.chart = [`${body.id}.x`, `${body.id}.vx`, `${body.id}.ax`]
   else if (kind === 'force' && body) state.chart = [...quantities.value.values()].filter(q => q.id.startsWith(`contact.${body.id}|`) && (q.id.endsWith('.N') || q.id.endsWith('.f'))).map(q => q.id).concat(r.system.model.ropes.map(x => `${x.id}.T`))
 }
+
+/** All quantities for the axis pickers of the phase portrait. */
+const quantityList = computed(() => [...quantities.value.values()])
+/** Phase-portrait axes from a preset: x–vₓ or θ–ω of the selected (or first moving) body. */
+function phasePreset(kind: 'xv' | 'theta') {
+  const r = rec.value
+  if (!r) return
+  const sel = state.selection?.kind === 'body' ? r.system.model.byId.get(state.selection.id) : null
+  const body = sel && sel.dynamic ? sel : r.system.model.dynamic[0]
+  if (!body) return
+  const [a, b] = kind === 'xv' ? [`${body.id}.x`, `${body.id}.vx`] : [`${body.id}.angle`, `${body.id}.omega`]
+  if (quantities.value.has(a) && quantities.value.has(b)) { phaseX.value = a; phaseY.value = b }
+}
+/** Switch between the time charts and the phase portrait; the portrait starts from the first two charted quantities. */
+function toggleMode() {
+  mode.value = mode.value === 'time' ? 'phase' : 'time'
+  if (mode.value !== 'phase' || (quantities.value.has(phaseX.value) && quantities.value.has(phaseY.value))) return
+  const charted = state.chart.map(id => canonicalQuantityId(id)).filter(id => quantities.value.has(id))
+  if (charted.length >= 2) { phaseX.value = charted[0]; phaseY.value = charted[1] } else phasePreset('xv')
+}
 </script>
 
 <template>
   <div class="charts-wrap" :class="`variant-${variant}`">
     <div class="chart-bar">
+      <button class="btn small" :class="{ active: mode === 'phase' }" :aria-pressed="mode === 'phase'" :title="tl('相图：一个量对另一个量的曲线（如 x–vₓ、θ–ω），代替随时间的曲线')" @click="toggleMode">{{ tl('相图') }}</button>
+      <template v-if="mode === 'phase'">
+        <button class="btn small" :disabled="!rec" @click="phasePreset('xv')">x–vₓ</button>
+        <button class="btn small" :disabled="!rec" @click="phasePreset('theta')">θ–ω</button>
+        <label class="small muted axis-pick">{{ tl('横轴') }}
+          <select v-model="phaseX" class="field small"><option v-for="q in quantityList" :key="q.id" :value="q.id">{{ q.owner }} {{ q.label }}</option></select>
+        </label>
+        <label class="small muted axis-pick">{{ tl('纵轴') }}
+          <select v-model="phaseY" class="field small"><option v-for="q in quantityList" :key="q.id" :value="q.id">{{ q.owner }} {{ q.label }}</option></select>
+        </label>
+      </template>
+      <template v-else>
       <span class="small muted">{{ tl('曲线：') }}</span>
       <button class="btn small" :disabled="!rec" @click="preset('kin')">x‑t / v‑t / a‑t</button>
       <button class="btn small" :disabled="!rec" @click="preset('energy')">{{ tl('能量') }}</button>
@@ -421,8 +464,9 @@ function preset(kind: 'kin' | 'energy' | 'force') {
       <button v-if="zoom" class="btn small" :title="tl('双击曲线也可恢复')" @click="zoom = null; schedule()">{{ `${toDisp(zoom.t0 + origin, 's').toPrecision(4)}–${toDisp(zoom.t1 + origin, 's').toPrecision(4)} ${unitLabel('s')}` }} ✕</button>
       <span v-if="variant === 'studio' && !area" class="tiny muted hint">{{ tl('（在“监视”页点图表按钮可加入任意量；点击曲线跳到该时刻，拖动选择区间放大，Shift+拖动求面积，双击还原；虚线为事件时刻）') }}</span>
       <span v-else-if="groups.length >= limit" class="tiny muted hint">{{ tl('最多显示 {0} 张图', [limit]) }}</span>
+      </template>
     </div>
-    <div v-if="area" class="area-bar small">
+    <div v-if="area && mode === 'time'" class="area-bar small">
       <span class="area-span">{{ tl('面积 {0}–{1}', [fmtQ(area.t0 + origin, 's', 4), fmtQ(area.t1 + origin, 's', 4)]) }}</span>
       <span v-for="row in area.rows" :key="row.id" class="area-row" :title="tl('正面积 {0}，负面积 {1}', [fmtQ(row.positive, row.unit), fmtQ(row.negative, row.unit)])">
         <i class="swatch" :style="{ background: row.color }" />{{ row.label }}{{ colonSep() }}<b class="mono">S = {{ fmtQ(row.area, row.unit) }}</b>
@@ -433,8 +477,9 @@ function preset(kind: 'kin' | 'energy' | 'force') {
     </div>
     <ProblemLock v-if="locked" />
     <div v-else-if="!rec" class="empty">{{ tl('运行仿真后显示曲线。') }}</div>
+    <PhasePlot v-else-if="mode === 'phase'" :x="quantities.get(phaseX) ?? null" :y="quantities.get(phaseY) ?? null" :active="active" />
     <div v-else-if="!groups.length" class="empty">{{ tl('选择上方的预设或在“监视”页添加曲线。') }}</div>
-    <div v-show="!locked" ref="host" class="charts" />
+    <div v-show="!locked && mode === 'time'" ref="host" class="charts" />
   </div>
 </template>
 
@@ -446,6 +491,8 @@ function preset(kind: 'kin' | 'energy' | 'force') {
 .area-span { color: var(--text-3); }
 .area-row { display: inline-flex; align-items: center; gap: 4px; }
 .swatch { width: 10px; height: 3px; border-radius: 2px; display: inline-block; }
+.axis-pick { display: inline-flex; align-items: center; gap: 4px; }
+.axis-pick select { max-width: 180px; height: 24px; }
 .hint { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
 .charts { flex: 1; min-height: 0; display: flex; gap: 8px; overflow-x: auto; overflow-y: hidden; }
 .variant-monitor .charts { gap: 10px; align-content: flex-start; }

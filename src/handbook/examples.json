@@ -4,8 +4,8 @@
   "t": 0.3
  },
  "incline.a.up": {
-  "template": "conveyor-incline",
-  "t": 0.05096267875313283
+  "template": "slope-up",
+  "t": 6.25000596333339e-11
  },
  "incline.a.stick": {
   "template": "incline",
@@ -652,6 +652,179 @@
  "gear.beta": {
   "template": "gears",
   "t": 0.5
+ },
+ "ce.a": {
+  "template": "charge-deflection",
+  "t": 0.13916666666666755
+ },
+ "ce.x": {
+  "template": "charge-deflection",
+  "t": 0.13916666666666755
+ },
+ "ce.y": {
+  "template": "charge-deflection",
+  "t": 0.13916666666666755
+ },
+ "ce.vx": {
+  "template": "charge-deflection",
+  "t": 0.13916666666666755
+ },
+ "ce.vy": {
+  "template": "charge-deflection",
+  "t": 0.13916666666666755
+ },
+ "ce.drift": {
+  "template": "charge-deflection",
+  "t": 0.13916666666666755
+ },
+ "ce.yL": {
+  "template": "charge-deflection",
+  "t": 0.13916666666666755
+ },
+ "ce.tan": {
+  "template": "charge-deflection",
+  "t": 0.13916666666666755
+ },
+ "ce.W": {
+  "template": "charge-deflection",
+  "t": 0.13916666666666755
+ },
+ "cb.F": {
+  "template": "cyclotron",
+  "t": 0.9424777960769379
+ },
+ "cb.r": {
+  "template": "cyclotron",
+  "t": 0.9424777960769379
+ },
+ "cb.T": {
+  "template": "cyclotron",
+  "t": 0.9424777960769379
+ },
+ "cb.v": {
+  "template": "cyclotron",
+  "t": 0.9424777960769379
+ },
+ "cb.P": {
+  "template": "cyclotron",
+  "t": 0.9424777960769379
+ },
+ "sel.v": {
+  "template": "velocity-selector",
+  "t": 0.475
+ },
+ "sel.F": {
+  "template": "velocity-selector",
+  "t": 0.475
+ },
+ "ceb.W": {
+  "template": "velocity-selector",
+  "params": {
+   "v0": 3
+  },
+  "t": 0.16605380946949203
+ },
+ "ceb.P": {
+  "template": "velocity-selector",
+  "params": {
+   "v0": 3
+  },
+  "t": 0.16605380946949203
+ },
+ "cl.F": {
+  "template": "two-charges",
+  "t": 0.5
+ },
+ "cl.E": {
+  "template": "two-charges",
+  "t": 0.5
+ },
+ "cl.rmin": {
+  "template": "alpha-scattering",
+  "params": {
+   "b": 0
+  },
+  "t": 1.5
+ },
+ "rail.emf": {
+  "template": "rail-force",
+  "t": 1.25
+ },
+ "rail.I": {
+  "template": "rail-force",
+  "t": 1.25
+ },
+ "rail.F": {
+  "template": "rail-force",
+  "t": 1.25
+ },
+ "rail.a": {
+  "template": "rail-force",
+  "t": 1.25
+ },
+ "rail.v": {
+  "template": "rail-coast",
+  "t": 0.75
+ },
+ "rail.vT": {
+  "template": "rail-force",
+  "t": 2.5
+ },
+ "rail.Q": {
+  "template": "rail-force",
+  "t": 1.25
+ },
+ "fl.F": {
+  "template": "sinking-ball",
+  "t": 0.2
+ },
+ "fl.eq": {
+  "template": "floating-block",
+  "t": 3
+ },
+ "fl.ratio": {
+  "template": "floating-block",
+  "t": 3
+ },
+ "fl.h": {
+  "template": "floating-block",
+  "t": 3
+ },
+ "fl.a": {
+  "template": "sinking-ball",
+  "t": 0.2
+ },
+ "zb.F": {
+  "template": "mass-spectrometer",
+  "t": 2.3926990816998277
+ },
+ "zb.r": {
+  "template": "mass-spectrometer",
+  "t": 2.3926990816998277
+ },
+ "zb.v": {
+  "template": "mass-spectrometer",
+  "t": 2.3926990816998277
+ },
+ "zb.t": {
+  "template": "mass-spectrometer",
+  "t": 2.3926990816998277
+ },
+ "zb.d": {
+  "template": "mass-spectrometer",
+  "t": 2.3926990816998277
+ },
+ "ze.a": {
+  "template": "oscilloscope",
+  "t": 0.25000000000019557
+ },
+ "ze.v": {
+  "template": "oscilloscope",
+  "t": 0.25000000000019557
+ },
+ "ze.W": {
+  "template": "oscilloscope",
+  "t": 0.25000000000019557
  },
  "en.ledger": {
   "template": "incline",

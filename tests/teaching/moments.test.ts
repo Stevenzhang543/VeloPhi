@@ -1,8 +1,8 @@
 /** Key moments, readouts, formula cards at moments, still-image helpers, chart ticks. */
 import { describe, expect, it } from 'vitest'
 import { buildTemplate } from '../../src/templates'
-import { simulate } from '../../src/core/solver/simulation'
-import { recognize } from '../../src/formula/situations'
+import { simulate } from '../../src/engine/recording'
+import { recognize } from '../../src/formula/recognize'
 import { cardsForMoment, defaultReadoutIds, keyMoments, momentFileStem, readoutsAt, reducedNotice } from '../../src/export/moments'
 import { backgroundPalette, exportCamera } from '../../src/export/still'
 import { DARK, LIGHT } from '../../src/render/renderer'
@@ -38,7 +38,7 @@ describe('key moments', () => {
   })
 
   it('compares the ending stage just before the event', () => {
-    const cards = cardsForMoment(sits, stick.t, 8)
+    const cards = cardsForMoment(rec, sits, stick.t, 8)
     const tc = cards.find(c => c.formula.id === 'bb.t')!
     expect(tc.verdict).toBe('match')
     expect(tc.theory!).toBeCloseTo(t1, 9)
@@ -102,11 +102,11 @@ describe('new change types and display units on cards', () => {
   })
 
   it('writes the substituted line in display units', () => {
-    const cards = cardsForMoment(sits, stick.t, 6, presetChoice('lab'))
+    const cards = cardsForMoment(rec, sits, stick.t, 6, presetChoice('lab'))
     const a1card = cards.find(c => c.formula.id === 'bb.a1')!
     expect(a1card.substituted).toContain('980')
     expect(a1card.substituted).toContain('cm')
-    const si = cardsForMoment(sits, stick.t, 6).find(c => c.formula.id === 'bb.a1')!
+    const si = cardsForMoment(rec, sits, stick.t, 6).find(c => c.formula.id === 'bb.a1')!
     expect(si.substituted).not.toContain('cm')
   })
 

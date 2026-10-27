@@ -1,9 +1,9 @@
 /** Prediction & compare: targets, formula values, grades, persistence in scene.extra. */
 import { describe, expect, it } from 'vitest'
 import { buildTemplate } from '../../src/templates'
-import { simulate } from '../../src/core/solver/simulation'
-import { recognize } from '../../src/formula/situations'
-import { listQuantities } from '../../src/core/observe/quantities'
+import { simulate } from '../../src/engine/recording'
+import { recognize } from '../../src/formula/recognize'
+import { listQuantities } from '../../src/engine/observe'
 import { parseScene, serializeScene } from '../../src/core/scene/io'
 import type { Prediction } from '../../src/analysis/prediction'
 import { comparePrediction, evaluateTarget, gradeOf, newPredictionId, readPredictions, relativeError, targetLabel, targetUnit, writePredictions } from '../../src/analysis/prediction'
@@ -41,7 +41,7 @@ describe('prediction targets', () => {
   })
 
   it('labels and units', () => {
-    const quantities = new Map(listQuantities(rec.system).map(q => [q.id, q]))
+    const quantities = new Map(listQuantities(rec).map(q => [q.id, q]))
     const ctx = { quantities, bodyName: (id: string) => (id === 'block' ? '物块' : id), time: (t: number) => `t = ${t} s` }
     expect(targetLabel({ kind: 'event', event: 'stick', body: 'block' }, ctx)).toBe('首次共速（相对静止）的时刻（物块）')
     expect(targetLabel({ kind: 'quantity', id: 'block.vx', t: 0.5 }, ctx)).toContain('t = 0.5 s 时 物块')

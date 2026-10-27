@@ -1,31 +1,35 @@
 /**
- * Unbounded runs end to end (decision D26): the worker job computes ahead of the playhead and pauses, resumes when
- * the playhead moves or a time is requested, and stops on request; the store shows the growing recording,
- * recognises situations incrementally and ends with the whole-run recognition; incremental recognition of a
- * growing recording ends with the situations of a full recognition.
+ * Unbounded runs end to end (decision D26): the simulation job computes ahead of the playhead and pauses, resumes
+ * when the playhead moves or a time is requested, and stops on request; the store shows the growing recording,
+ * recognises situations incrementally and ends with the whole-run recognition; incremental recognition in the core
+ * (26.53) of a growing recording ends with the situations of a full recognition, which are those of the TypeScript
+ * reference.
  */
 import { describe, expect, it } from 'vitest'
 import { buildTemplate, TEMPLATES } from '../../src/templates'
-import { SimulationRun, frameState } from '../../src/core/solver/simulation'
-import { StreamRecording } from '../../src/core/solver/stream'
+import { usesFields } from '../../src/core/scene/types'
+import { SimulationRun, frameState as refState } from '../reference/core/solver/simulation'
 import { cloneScene } from '../../src/core/scene/io'
+import { core } from '../../src/engine/core'
+import { RecordingStore, frameState, simulate } from '../../src/engine/recording'
 import type { FromWorker } from '../../src/worker/simJob'
 import { startSimJob } from '../../src/worker/simJob'
-import { IncrementalRecognizer } from '../../src/analysis/recognition'
-import { recognize } from '../../src/formula/situations'
+import { recognize } from '../../src/formula/recognize'
+import { recognize as refRecognize } from '../reference/formula/situations'
+import { streamRun } from '../helpers/stream'
 
 describe('worker job with look-ahead', () => {
   it('pauses at the look-ahead, resumes with the playhead and computeTo, stops on request', () => {
     const scene = buildTemplate('pendulum')
     const queue: Array<() => void> = []
     const msgs: FromWorker[] = []
-    const job = startSimJob(cloneScene(scene), 60000, m => msgs.push(structuredClone(m)), fn => queue.push(fn), { sliceMs: 5, lookAhead: 4 })
+    const job = startSimJob(core(), cloneScene(scene), 60000, m => msgs.push(structuredClone(m)), fn => queue.push(fn), { sliceMs: 5, lookAhead: 4, transfer: false })
     const drain = () => { while (queue.length) queue.shift()!() }
     const started = msgs[0] as Extract<FromWorker, { type: 'started' }>
     expect(started.duration).toBeNull()
-    const stream = new StreamRecording({ scene: cloneScene(scene), chunkFrames: started.chunkFrames, duration: null })
+    const stream = new RecordingStore(cloneScene(scene), { chunkFrames: started.chunkFrames, duration: null })
     let seen = 1
-    const take = () => { for (; seen < msgs.length; seen++) { const m = msgs[seen]; if (m.type === 'partial' || m.type === 'done') stream.apply(m.delta) } }
+    const take = () => { for (; seen < msgs.length; seen++) { const m = msgs[seen]; if ((m.type === 'partial' || m.type === 'done') && m.delta) stream.apply(m.delta) } }
     const last = () => msgs[msgs.length - 1] as Extract<FromWorker, { type: 'partial' }>
     drain(); take()
     // Look-ahead 4 s (at least 3 s × rate 1) from playhead 0, rounded up to a chunk boundary
@@ -53,7 +57,7 @@ describe('worker job with look-ahead', () => {
     ref.advance(Infinity, 15 * 600)
     ref.stop()
     expect(rec.hash).toBe(ref.result().hash)
-    expect(Array.from(frameState(rec, 7777))).toEqual(Array.from(frameState(ref.result(), 7777)))
+    expect(Array.from(frameState(rec, 7777))).toEqual(Array.from(refState(ref.result(), 7777)))
   })
 })
 
@@ -84,27 +88,34 @@ describe('store with an unbounded scene', () => {
     expect(state.recording?.stopReason).toBe('user')
     expect(state.recording?.hash).toMatch(/^[0-9a-f]{64}$/)
     expect(state.situations.map(s => s.key)).toEqual(recognize(state.recording!).map(s => s.key))
+    expect(recognize(state.recording!).map(s => s.key)).toEqual(recognize(simulate(buildTemplate('spring'), { duration: null, until: state.recording!.frameCount * state.recording!.dt - 1e-9 })).map(s => s.key))
   })
 })
 
 describe('incremental recognition', () => {
   for (const t of TEMPLATES) {
-    it(`${t.id}: the growing recording ends with the situations of a full recognition`, () => {
+    it(`${t.id}: the growing recording ends with the situations of a full recognition (and of the reference)`, () => {
       const scene = buildTemplate(t.id)
-      const run = new SimulationRun(scene, { duration: null, chunkSeconds: 0.25 })
-      const inc = new IncrementalRecognizer()
-      const end = Math.round(Math.max(3, scene.settings.legacyDuration * 1.5) / run.dt)
-      let shown = inc.update(run.partial())
-      while (!run.finished && run.k < end) {
-        run.advance(Infinity, Math.min(end, run.k + run.chunkFrames))
-        shown = inc.update(run.partial())
-      }
-      run.stop()
-      const final = run.result()
-      const full = recognize(final).map(s => `${s.key}|${s.t0}|${s.t1}`).sort()
-      shown = inc.update(final)
-      expect(shown.map(s => `${s.key}|${s.t0}|${s.t1}`).sort()).toEqual(full)
-      expect(inc.passes).toBeGreaterThan(2)
+      const shown: string[][] = []
+      const frames = Math.round(Math.max(3, scene.settings.legacyDuration * 1.5) * 600)
+      const { store, rec } = streamRun(scene, { duration: null, frames, chunkSeconds: 0.25, onDelta: (_d, st) => { if (st.frameCount > 1) shown.push(recognize(st.snapshot()).map(s => s.key)) } })
+      void store
+      const key = (s: { key: string; t0: number; t1: number }) => `${s.key}|${s.t0}|${s.t1}`
+      const final = recognize(rec).map(key).sort()
+      const passes = rec.session.call<{ passes: number }>({ op: 'situations' }).passes
+      expect(shown.length).toBeGreaterThan(2)
+      expect(passes).toBeGreaterThan(2)
+      // A fresh session over the same recording recognises the whole run at once: the same situations
+      const until = Math.ceil(frames / rec.chunkFrames) * rec.chunkFrames
+      const once = simulate(cloneScene(scene), { duration: null, until: until * rec.dt, chunkSeconds: 0.25 })
+      expect(once.hash).toBe(rec.hash)
+      expect(recognize(once).map(key).sort()).toEqual(final)
+      // The TypeScript reference (not for the Rust-only physics of 26.54, D77)
+      if (usesFields(scene)) return
+      const run = new SimulationRun(cloneScene(scene), { duration: null, chunkSeconds: 0.25 })
+      run.advance(Infinity, until)
+      if (!run.finished) run.stop()
+      expect(refRecognize(run.result()).map(key).sort()).toEqual(final)
     })
   }
 })

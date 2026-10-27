@@ -26,6 +26,8 @@ pub enum EventType {
     Mlock,
     RollStart,
     RollStop,
+    /// 26.55 (D90): a charged body's centre crosses the boundary of a field region.
+    Zone,
 }
 
 /// A rope end closer than this to the pulley it runs onto has reached it (m).
@@ -50,6 +52,7 @@ impl EventType {
             EventType::Mlock => "mlock",
             EventType::RollStart => "rollStart",
             EventType::RollStop => "rollStop",
+            EventType::Zone => "zone",
         }
     }
 }
@@ -119,6 +122,11 @@ pub enum EventValue {
         unit: usize,
         r: i8,
     },
+    /// 26.55: zone pair `pair`, frozen inside (b = 1) or outside (b = −1): b × signed distance to the boundary.
+    Zone {
+        pair: usize,
+        b: i8,
+    },
 }
 
 /// An event function of the current mode with its hysteresis state.
@@ -181,6 +189,7 @@ pub fn event_value(sys: &System, mode: &Mode, f: &EventFn, poses: &[Pose], s: &M
         }
         EventValue::RollStart { unit, cap } => cap * s.units[unit].normal - s.units[unit].roll.abs(),
         EventValue::RollStop { unit, r } => f64::from(r) * s.units[unit].wr,
+        EventValue::Zone { pair, b } => f64::from(b) * crate::regions::zone_value(&sys.model, pair, poses),
     }
 }
 
@@ -255,9 +264,15 @@ pub fn build_event_fns(sys: &System, mode: &Mode, poses: &[Pose], sol: &ModeSolu
         }
     }
     if let Some(sw) = &mode.sw {
-        if sw.len() == model.arena.switches.len() {
+        if sw.len() == crate::dynamics::branch_count(model) {
+            let ns = model.arena.switches.len();
             for (k, &b) in sw.iter().enumerate() {
-                add(EventType::Switch, SWITCH_EPS, EventValue::Switch { k, b }, -1);
+                if k < ns {
+                    add(EventType::Switch, SWITCH_EPS, EventValue::Switch { k, b }, -1);
+                } else {
+                    // 26.55 (D90): entering or leaving a field region
+                    add(EventType::Zone, tol::EXT, EventValue::Zone { pair: k - ns, b }, -1);
+                }
             }
         }
     }

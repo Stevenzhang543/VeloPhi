@@ -7,9 +7,9 @@
  */
 import { tl } from '../../i18n'
 import { computed } from 'vue'
-import type { Recording } from '../../core/solver/simulation'
-import { frameLedger, frameIsCheap } from '../../core/solver/simulation'
-import type { Ledger } from '../../core/solver/simulation'
+import type { Recording } from '../../engine/recording'
+import { frameLedger, frameIsCheap } from '../../engine/recording'
+import type { Ledger } from '../../engine/recording'
 import { fmtQ } from '../settings'
 
 const props = defineProps<{ rec: Recording; frame: number; runId: number }>()

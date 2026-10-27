@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { buildTemplate } from '../src/templates'
-import { simulate } from '../src/core/solver/simulation'
+import { simulate } from './reference/core/solver/simulation'
 import { addBody, addConnector, addGround, anchor, emptyScene } from '../src/core/scene/build'
 import type { Scene, SpringDef } from '../src/core/scene/types'
 

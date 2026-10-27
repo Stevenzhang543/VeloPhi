@@ -8,7 +8,8 @@
  * scaled to the output, so labels and strokes keep their on-screen proportions at any resolution.
  */
 import { tl } from '../i18n'
-import type { Recording } from '../core/solver/simulation'
+import type { Recording } from '../engine/recording'
+import type { FrameView } from '../engine/views'
 import type { AnnotationDef } from '../core/scene/types'
 import type { Camera, DrawOptions, Palette, Trajectories } from '../render/renderer'
 import { LIGHT, computeTrajectories, vectorScales } from '../render/renderer'
@@ -80,7 +81,7 @@ export function exportCamera(view: ExportView, width: number, height: number): {
 
 /** Vector scales of the screen adapted to the export camera (arrows keep their length relative to the scene). */
 export function exportScales(rec: Recording, view: ExportView, scales?: { v: number; a: number; f: number }) {
-  const s = scales ?? vectorScales(rec, rec.system)
+  const s = scales ?? vectorScales(rec)
   const k = REFERENCE_HEIGHT / Math.max(1, view.viewHeight)
   return { v: s.v * k, a: s.a * k, f: s.f * k }
 }
@@ -117,8 +118,8 @@ export function drawOverlay(ctx: CanvasRenderingContext2D, o: OverlayText, palet
   ctx.restore()
 }
 
-/** Draw the recording at time t into `ctx` (output pixels). Returns the drawn state. */
-export function drawStill(ctx: CanvasRenderingContext2D, rec: Recording, t: number, o: StillOptions): Float64Array {
+/** Draw the recording at time t into `ctx` (output pixels). Returns the drawn view. */
+export function drawStill(ctx: CanvasRenderingContext2D, rec: Recording, t: number, o: StillOptions): FrameView {
   const { cam, scale } = exportCamera(o.view, o.width, o.height)
   const palette = backgroundPalette(o.palette, o.background)
   ctx.setTransform(1, 0, 0, 1, 0, 0)

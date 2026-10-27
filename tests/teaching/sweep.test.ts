@@ -1,7 +1,7 @@
 /** Parameter sweep: parameter catalogue, scene edits, measures, sequential runs, cancellation. */
 import { describe, expect, it } from 'vitest'
 import { buildTemplate } from '../../src/templates'
-import { simulate } from '../../src/core/solver/simulation'
+import { simulate } from '../../src/engine/recording'
 import type { Scene } from '../../src/core/scene/types'
 import type { SweepRunner } from '../../src/analysis/sweep'
 import { MAX_SWEEP_POINTS, linspace, listSweepParams, measureRecording, runSweep, sceneWith, unchangedTemplate } from '../../src/analysis/sweep'
@@ -10,7 +10,7 @@ const runner: SweepRunner = (scene: Scene, onProgress) => {
   let cancelled = false
   return {
     cancel() { cancelled = true },
-    done: new Promise(resolve => setTimeout(() => resolve(cancelled ? null : simulate(scene, { progress: (t, T) => { onProgress(t / T); return !cancelled } })), 0))
+    done: new Promise(resolve => setTimeout(() => { if (cancelled) return resolve(null); const rec = simulate(scene); onProgress(1); resolve(rec) }, 0))
   }
 }
 
@@ -105,6 +105,28 @@ describe('sweep runs', () => {
     expect(bad[1].result).not.toBeNull()
     let n = 0
     const some = await runSweep(scene, { param, values: [0.35, 0.4, 0.45, 0.5], measure: { kind: 'final', id: 'block.vx' } }, runner, { cancelled: () => n >= 2, onPoint: () => { n++ } })
+    expect(some.length).toBe(2)
+  })
+
+  it('parallel points (D68) are reported in order and equal a sequential sweep', async () => {
+    const param = listSweepParams(scene).find(p => p.id === 'template:mu1')!
+    const values = [0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6]
+    // A runner whose runs finish in reverse order
+    let started = 0
+    const slow: SweepRunner = (sc, onProgress) => {
+      let cancelled = false
+      const delay = 40 - 5 * (started++ % 7)
+      return { cancel() { cancelled = true }, done: new Promise(resolve => setTimeout(() => { if (cancelled) return resolve(null); const rec = simulate(sc); onProgress(1); resolve(rec) }, delay)) }
+    }
+    const order: number[] = []
+    const measure = { kind: 'final' as const, id: 'block.vx' }
+    const seq = await runSweep(scene, { param, values, measure }, runner, { cancelled: () => false })
+    const par = await runSweep(scene, { param, values, measure }, slow, { cancelled: () => false, onPoint: (_p, i) => order.push(i) }, 3)
+    expect(order).toEqual(values.map((_v, i) => i))
+    expect(par.map(p => [p.value, p.result, p.hash])).toEqual(seq.map(p => [p.value, p.result, p.hash]))
+    // Cancelled after two points: the points still running are stopped
+    let n = 0
+    const some = await runSweep(scene, { param, values, measure }, slow, { cancelled: () => n >= 2, onPoint: () => { n++ } }, 3)
     expect(some.length).toBe(2)
   })
 })

@@ -5,7 +5,7 @@
  */
 import type { BodyDef, PulleyDef, Scene } from '../../core/scene/types'
 import { connectorAnchors } from '../../core/scene/types'
-import { compoundMass, polygonIsSimple, shapeOutline } from '../../core/solver/model'
+import { compoundMass, polygonIsSimple, shapeOutline } from '../../engine/calc'
 
 /** A point (m). */
 export interface Pt { x: number; y: number }
@@ -19,6 +19,15 @@ export const MIN_SIZE = 5e-3
 
 /** Remove floating noise from sums and differences of snapped coordinates (0.6000000000000001 → 0.6). */
 export function clean(v: number): number { return Number(v.toPrecision(12)) }
+
+/**
+ * A coordinate written by the shape operations (26.53, D74): the nearest multiple of 10⁻⁹ (m, or rad for angles), so
+ * combining and cutting leave no rounding residue such as 2×10⁻¹² m; −0 becomes 0.
+ */
+export function q9(v: number): number {
+  const r = Math.round(v * 1e9) / 1e9
+  return r === 0 ? 0 : r
+}
 
 /** Cross product (a − o) × (b − o): positive when o → a → b turns left. */
 export function cross3(o: Pt, a: Pt, b: Pt): number { return (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x) }

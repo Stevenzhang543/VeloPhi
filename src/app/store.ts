@@ -13,12 +13,13 @@ import { MessageError } from '../i18n/message'
 import { markRaw, reactive, watch, watchEffect } from 'vue'
 import type { Scene } from '../core/scene/types'
 import { cloneScene, parseScene, serializeScene, validateScene } from '../core/scene/io'
-import type { Recording, RollingFingerprint } from '../core/solver/simulation'
-import type { Situation } from '../formula/situations'
-import { recognize } from '../formula/situations'
-import { IncrementalRecognizer } from '../analysis/recognition'
-import { StreamRecording } from '../core/solver/stream'
-import { canonicalQuantityId } from '../core/observe/quantities'
+import type { Recording, RollingFingerprint } from '../engine/recording'
+import { prefetchChunk } from '../engine/recording'
+import type { Situation } from '../formula/recognize'
+import type { Highlight } from '../formula/panel'
+import type { ForceKind } from '../engine/views'
+import { recognize } from '../formula/recognize'
+import { canonicalQuantityId } from '../engine/observe'
 import { logEvent } from './trialLog'
 import { buildTemplate } from '../templates'
 import { startSimulation } from './simClient'
@@ -41,12 +42,14 @@ export type Tool =
   | 'measure-ruler' | 'measure-angle' | 'annotate-text' | 'annotate-arrow'
   // 26.52: central fields, cutting and combining bodies
   | 'add-central' | 'shape-cut' | 'shape-combine'
+  // 26.54 (D78): charges (moving and fixed); the field buttons switch the scene's uniform fields on
+  | 'add-charge' | 'add-fixed-charge' | 'field-electric' | 'field-magnetic'
 
 /** Selected object, if any. */
 export type Selection = { kind: 'body' | 'connector' | 'pulley'; id: string } | null
 
 /** Top-level page. */
-export type Page = 'studio' | 'monitor' | 'settings'
+export type Page = 'studio' | 'lab' | 'monitor' | 'settings'
 
 /** The run in flight or last run, for the timeline and the solver-information panel (decision D26). */
 export interface RunInfo {
@@ -66,7 +69,7 @@ export interface RunInfo {
   /** Chunks recomputed from checkpoints on this thread. */
   rebuilds: number
   /** Engine that computes the run, and why Rust/WASM is not used (null when it is). */
-  engine: 'wasm' | 'ts'
+  engine: 'native' | 'wasm'
   engineReason: string | null
   /** Computing waits for the playhead (look-ahead full). */
   paused: boolean
@@ -76,7 +79,7 @@ export interface RunInfo {
 
 /** RunInfo before any run. */
 function emptyRun(): RunInfo {
-  return { unbounded: false, tComputed: 0, tTarget: 0, speed: 0, memoryBytes: 0, chunks: 0, residentChunks: 0, checkpoints: 0, rebuilds: 0, engine: 'ts', engineReason: null, paused: false, fingerprint: null }
+  return { unbounded: false, tComputed: 0, tTarget: 0, speed: 0, memoryBytes: 0, chunks: 0, residentChunks: 0, checkpoints: 0, rebuilds: 0, engine: 'wasm', engineReason: null, paused: false, fingerprint: null }
 }
 
 /** A problem being answered or written (26.52, D40): answers in SI (numeric) or option indices (choice). */
@@ -164,8 +167,18 @@ export interface AppState {
   /** 26.51 learning handbook (D46): settings section to open, formula entry to show there. */
   settingsSection: string | null
   handbookFocus: string | null
+  /** 26.55 (D96): handbook topic or concept page (`concept:<id>`) to show; learning path and global search dialogs. */
+  handbookTopic: string | null
+  showLearning: boolean
+  showPalette: boolean
   /** Formula card to bring into view in the formula panel (opened from the handbook). */
   formulaFocus: string | null
+  /** Situation to bring into view in the formula panel (clicked on the formula timeline, D71). */
+  formulaSituation: string | null
+  /** What the canvas emphasises while a formula card or a known variable is hovered (D72). */
+  formulaHighlight: Highlight | null
+  /** Body or force picked on the canvas to filter the formula panel (D72). */
+  formulaPick: { body: string; force: ForceKind | null } | null
   /** Time to show as soon as the recording reaches it (an example opened from the handbook). */
   pendingSeek: number | null
   /** 26.51 branches (D52): the branch shown (null: the main scene). */
@@ -229,9 +242,15 @@ export const state = reactive<AppState>({
   fitPending: true,
   settingsSection: null,
   handbookFocus: null,
+  handbookTopic: null,
+  showLearning: false,
+  showPalette: false,
   branch: null,
   mainScene: null,
   formulaFocus: null,
+  formulaSituation: null,
+  formulaHighlight: null,
+  formulaPick: null,
   pendingSeek: null
 }) as AppState
 
@@ -297,6 +316,8 @@ function normalizeWatch(scene: Scene) {
 /** Replace the whole document (new, open, template). */
 export function loadScene(scene: Scene, name: string | null, path: string | null = null) {
   normalizeWatch(scene)
+  state.formulaPick = null
+  state.formulaHighlight = null
   state.problem = null
   state.branch = null
   state.mainScene = null
@@ -323,8 +344,8 @@ export function defaultChart(scene: Scene): string[] {
 let autoTimer: ReturnType<typeof setTimeout> | null = null
 let runToken = 0
 let handle: SimHandle | null = null
-/** Incremental situation recognition of the run in flight. */
-let recognizer: IncrementalRecognizer | null = null
+/** Situations of the run in flight are recognised as it grows (incrementally, in the core). */
+let recognizer: boolean | null = null
 let lastRecognition = 0
 /** Least wall-clock time between two incremental recognitions (ms). */
 const RECOGNITION_INTERVAL_MS = 400
@@ -389,9 +410,10 @@ export function applyLookAhead() {
 /** Change the memory budget of the current recording (settings page). */
 export function applyMemoryBudget() {
   const bytes = settings.sim.memoryMB * 1024 * 1024
-  const frames = state.recording?.frames
-  if (frames instanceof StreamRecording) frames.setBudget(bytes)
-  handle?.stream()?.setBudget(bytes)
+  const store = state.recording?.store
+  if (store) store.setBudget(bytes)
+  const live = handle?.stream()
+  if (live && live !== store) live.setBudget(bytes)
 }
 
 /**
@@ -399,7 +421,10 @@ export function applyMemoryBudget() {
  * edited since the last run (start from frame 0); otherwise the frame shown before the run (`keepFrame`) is kept.
  */
 function acceptRecording(rec: Recording, first: boolean, freshScene: boolean, keepFrame: number) {
+  // The recording replaced is released in the core (its frames can be hundreds of megabytes)
+  const old = state.recording
   state.recording = markRaw(rec)
+  if (old && old.session !== rec.session) old.session.free()
   if (first && freshScene) state.situations = []
   state.stale = false
   const last = rec.frameCount - 1
@@ -429,7 +454,7 @@ function recognizeGrowing(rec: Recording, token: number) {
     return
   }
   lastRecognition = performance.now()
-  try { state.situations = markRaw(recognizer.update(rec)) } catch { /* Recognition of a partial recording is best effort */ }
+  try { state.situations = markRaw(recognize(rec)) } catch { /* Recognition of a partial recording is best effort */ }
 }
 
 /**
@@ -441,9 +466,8 @@ export function recognizeAgain() {
   if (!rec) return
   try {
     if (recognizer) {
-      recognizer = new IncrementalRecognizer()
       lastRecognition = performance.now()
-      state.situations = markRaw(recognizer.update(rec))
+      state.situations = markRaw(recognize(rec))
     } else if (!state.computing) state.situations = markRaw(recognize(rec))
   } catch { /* Recognition of a partial recording is best effort */ }
 }
@@ -464,6 +488,7 @@ export function runSimulation(): Promise<void> {
     scene = cloneScene(state.scene)
     validateScene(scene)
   } catch (e) {
+    state.recording?.session.free()
     state.recording = null
     state.situations = []
     state.simError = e instanceof MessageError ? e.msg : (e as Error).message
@@ -472,14 +497,14 @@ export function runSimulation(): Promise<void> {
   }
   const unbounded = scene.settings.duration === null
   state.run = { ...emptyRun(), unbounded, tTarget: unbounded ? settings.sim.lookAheadSeconds : Infinity }
-  recognizer = new IncrementalRecognizer()
+  recognizer = true
   lastRecognition = 0
   let delivered = false
   const started = performance.now()
   const playhead = freshScene ? 0 : state.time
   const h = startSimulation(scene, {
     budgetMs: settings.sim.budgetSeconds * 1000, useWorker: settings.sim.worker, progressive: settings.sim.progressive || unbounded,
-    lookAhead: settings.sim.lookAheadSeconds, memoryBytes: settings.sim.memoryMB * 1024 * 1024, engine: settings.sim.engine
+    lookAhead: settings.sim.lookAheadSeconds, memoryBytes: settings.sim.memoryMB * 1024 * 1024
   }, {
     onPartial: rec => {
       if (token !== runToken || rec.frameCount < 2) return
@@ -521,6 +546,7 @@ export function runSimulation(): Promise<void> {
     if (token !== runToken) return
     handle = null
     recognizer = null
+    state.recording?.session.free()
     state.recording = null
     state.situations = []
     state.simError = e instanceof MessageError ? e.msg : (e as Error).message
@@ -621,8 +647,7 @@ export function play() {
     } else if (state.buffering) state.buffering = false
     setTime(t, now, false)
     // The next chunk, if evicted, is recomputed off this thread before playback reaches it (26.51)
-    const F = r.frames.chunkFrames
-    if (F && r.frames.prefetch) r.frames.prefetch(Math.floor(state.frame / F) + 1)
+    prefetchChunk(r, Math.floor(state.frame / r.chunkFrames) + 1)
     rafId = requestAnimationFrame(tick)
   }
   rafId = requestAnimationFrame(tick)

@@ -12,7 +12,7 @@ import { exportSituations, inExportLanguage } from '../exportLang'
 import { computed, reactive, ref } from 'vue'
 import { state, showToast, viewCamera } from '../store'
 import { settings, toDisp, unitLabel, effectiveCurriculum } from '../settings'
-import { listQuantities } from '../../core/observe/quantities'
+import { listQuantities } from '../../engine/observe'
 import { DARK, LIGHT, computeTrajectories, vectorScales } from '../../render/renderer'
 import { PROJECTOR_STYLE } from '../../render/frame'
 import { defaultCsvIds } from '../../export/csv'
@@ -22,7 +22,7 @@ import { shownCards } from '../../export/formulaImage'
 import { buildCourseware, coursewareZip, safeName } from '../../export/courseware'
 import type { CoursewareFile } from '../../export/courseware'
 import type { ImageBackground } from '../../export/still'
-import { timeLabel } from '../../export/video'
+import { timeLabel } from '../../export/timeLabel'
 import { saveFile } from '../../platform/files'
 import type { FileFilter } from '../../platform/files'
 import { logEvent } from '../trialLog'
@@ -70,7 +70,7 @@ const opt = reactive({
 const readoutChoices = computed(() => {
   const r = rec.value
   if (!r) return []
-  const defs = new Map(listQuantities(r.system).map(q => [q.id, q]))
+  const defs = new Map(listQuantities(r).map(q => [q.id, q]))
   const ids = [...new Set([...r.scene.watch, ...defaultReadoutIds(r), ...r.system.model.dynamic.flatMap(b => [`${b.id}.v`, `${b.id}.a`, `${b.id}.ek`]), ...r.system.model.forces.flatMap(f => [`${f.id}.F`, `${f.id}.P`])])]
   return ids.filter(id => defs.has(id)).map(id => defs.get(id)!)
 })
@@ -87,7 +87,7 @@ const shotSize = computed(() => {
 const cardCount = computed(() => {
   if (!rec.value || !(opt.cardsPng || opt.cardsSvg || opt.pptx)) return 0
   const level = opt.levelOnly ? { curriculum: effectiveCurriculum(), level: settings.knowledge.level } : null
-  return moments.value.reduce((n, m) => n + new Set(shownCards(cardsForMoment(state.situations, m.t, state.digits), level).map(c => c.key)).size, 0)
+  return moments.value.reduce((n, m) => n + new Set(shownCards(cardsForMoment(rec.value!, state.situations, m.t, state.digits), level).map(c => c.key)).size, 0)
 })
 const summary = computed(() => {
   const parts: string[] = []
@@ -156,7 +156,7 @@ async function runInner() {
     const result = await buildCourseware(r, exportSituations(r, state.situations), {
       title: state.scene.name, description: state.scene.description, moments: relabelMoments(r, moments.value),
       units: settings.units, digits: state.digits, theme: state.theme,
-      still: { view, options: { ...state.display }, palette, digits: state.digits, selectedId: state.selection?.id ?? null, effects: null, annotations: state.scene.annotations, units: settings.units, style, trajectories: computeTrajectories(r), scales: vectorScales(r, r.system) },
+      still: { view, options: { ...state.display }, palette, digits: state.digits, selectedId: state.selection?.id ?? null, effects: null, annotations: state.scene.annotations, units: settings.units, style, trajectories: computeTrajectories(r), scales: vectorScales(r) },
       screenshots: opt.shots ? { ...shotSize.value, background: opt.shotBg } : null,
       formulas: opt.cardsPng || opt.cardsSvg ? { png: opt.cardsPng, svg: opt.cardsSvg, background: opt.cardBg } : null,
       csv: opt.csv ? { ids: defaultCsvIds(r), stride: Math.max(1, Math.ceil(r.frameCount / 5000)), units: opt.csvUnits, separator: settings.export.csvSeparator, decimal: settings.export.csvDecimal } : null,

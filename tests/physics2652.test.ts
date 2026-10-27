@@ -6,10 +6,10 @@
 import { describe, expect, it } from 'vitest'
 import { addBody, addConnector, addGround, anchor, emptyScene } from '../src/core/scene/build'
 import type { CentralDef, HingeDef, MotorDef, Scene, SliderDef } from '../src/core/scene/types'
-import type { Recording } from '../src/core/solver/simulation'
-import { SimulationRun, frameLedger, frameSolution, frameState, rebuildChunk, simulate } from '../src/core/solver/simulation'
+import type { Recording } from './reference/core/solver/simulation'
+import { SimulationRun, frameLedger, frameSolution, frameState, rebuildChunk, simulate } from './reference/core/solver/simulation'
 import { parseScene, serializeScene } from '../src/core/scene/io'
-import { decodeCheckpoint, encodeCheckpoint } from '../src/core/solver/checkpoint'
+import { decodeCheckpoint, encodeCheckpoint } from './reference/core/solver/checkpoint'
 
 /** Largest drift of the ledger balance relative to the largest energy term. */
 function ledgerDrift(rec: Recording): number {

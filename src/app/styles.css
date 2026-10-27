@@ -356,3 +356,6 @@ kbd { font-family: var(--font-mono); font-size: var(--type-tiny); background: va
 @keyframes amb-drift-a { from { transform: translate3d(0, 0, 0) scale(1); } to { transform: translate3d(22vmax, 12vmax, 0) scale(1.18); } }
 @keyframes amb-drift-b { from { transform: translate3d(0, 0, 0) scale(1.1); } to { transform: translate3d(-20vmax, 16vmax, 0) scale(0.92); } }
 @keyframes amb-drift-c { from { transform: translate3d(0, 0, 0) scale(0.95); } to { transform: translate3d(16vmax, -14vmax, 0) scale(1.15); } }
+
+/* 26.55 (D43): text only for screen readers (live announcements) */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }

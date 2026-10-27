@@ -7,12 +7,12 @@
 import { describe, expect, it } from 'vitest'
 import { addBody, addConnector, addGround, anchor, emptyScene } from '../src/core/scene/build'
 import type { HingeDef, Scene } from '../src/core/scene/types'
-import { simulate } from '../src/core/solver/simulation'
-import { compileModel } from '../src/core/solver/model'
-import { buildSystem, initialState, kineticEnergy } from '../src/core/solver/dynamics'
-import { resolveImpact, strongeImpact } from '../src/core/solver/impact'
-import { computePoses, contactKin } from '../src/core/solver/kinematics'
-import { touchingFeatures } from '../src/core/solver/modes'
+import { simulate } from './reference/core/solver/simulation'
+import { compileModel } from './reference/core/solver/model'
+import { buildSystem, initialState, kineticEnergy } from './reference/core/solver/dynamics'
+import { resolveImpact, strongeImpact } from './reference/core/solver/impact'
+import { computePoses, contactKin } from './reference/core/solver/kinematics'
+import { touchingFeatures } from './reference/core/solver/modes'
 
 /** Disc (uniform, I = ½mr²) just above rough ground, moving down at u with (vx, ω); no gravity. */
 function discDrop(o: { u: number; vx: number; w: number; mu: number; e: number; r?: number; m?: number }): Scene {
@@ -168,8 +168,8 @@ describe('randomized impacts never increase the kinetic energy', () => {
 
 describe('oblique collision of rough discs', () => {
   it('normal components follow Newton, friction spins the discs, momentum and angular momentum are conserved', async () => {
-    const { recognize } = await import('../src/formula/situations')
-    const { evaluateCard } = await import('../src/formula/match')
+    const { recognize } = await import('./reference/formula/situations')
+    const { evaluateCard } = await import('./reference/formula/match')
     const { FORMULAS } = await import('../src/formula/library')
     const s = emptyScene('discs')
     s.settings.gravity = { x: 0, y: 0 }

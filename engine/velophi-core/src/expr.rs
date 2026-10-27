@@ -54,7 +54,7 @@ pub enum Node {
 /// Functions of the language with their arity (formula/expr.ts FUNCS).
 fn func_arity(name: &str) -> Option<usize> {
     Some(match name {
-        "sin" | "cos" | "tan" | "asin" | "acos" | "atan" | "sqrt" | "abs" | "exp" | "ln" | "log" | "lg" | "sign" | "step" | "ellipK" => 1,
+        "sin" | "cos" | "tan" | "asin" | "acos" | "atan" | "sqrt" | "abs" | "exp" | "tanh" | "ln" | "log" | "lg" | "sign" | "step" | "ellipK" => 1,
         "atan2" | "ellipF" | "min" | "max" => 2,
         "clamp" | "if" => 3,
         _ => return None,
@@ -88,6 +88,8 @@ struct Parser<'a> {
     src: Vec<u16>,
     text: &'a str,
     pos: usize,
+    /// Named constants: pi and e for force expressions, only pi for the formula language.
+    constant: fn(&str) -> Option<f64>,
 }
 
 const SP: u16 = b' ' as u16;
@@ -226,7 +228,7 @@ impl<'a> Parser<'a> {
                     }
                     return Ok(Node::Call(name, args));
                 }
-                let constant = force_constant(&name);
+                let constant = (self.constant)(&name);
                 if func_arity(&name).is_some() && constant.is_none() {
                     return Err(Message::new("expr.functionNeedsParens").text("name", name));
                 }
@@ -306,7 +308,27 @@ pub fn parse(src: &str) -> EResult<Node> {
     if src.trim().is_empty() {
         return Err(Message::new("expr.empty"));
     }
-    let mut p = Parser { src: src.encode_utf16().collect(), text: src, pos: 0 };
+    parse_with(src, force_constant)
+}
+
+/// Constants of the formula language (formula/expr.ts DEFAULT_CONSTANTS): only pi.
+fn formula_constant(name: &str) -> Option<f64> {
+    match name {
+        "pi" => Some(dmath::PI_VALUE),
+        _ => None,
+    }
+}
+
+/// Parse an expression of the formula language (library formulas, custom quantities): constant pi only.
+pub fn parse_formula(src: &str) -> EResult<Node> {
+    if src.trim().is_empty() {
+        return Err(Message::new("expr.empty"));
+    }
+    parse_with(src, formula_constant)
+}
+
+fn parse_with(src: &str, constant: fn(&str) -> Option<f64>) -> EResult<Node> {
+    let mut p = Parser { src: src.encode_utf16().collect(), text: src, pos: 0, constant };
     let node = p.sum()?;
     if let Some(ch) = p.peek() {
         if ch == b'<' as u16 || ch == b'>' as u16 {
@@ -323,20 +345,20 @@ pub fn parse(src: &str) -> EResult<Node> {
 // ---- Dimensions ----
 /// Physical dimension as exponents of (length, mass, time).
 pub type Dim = [f64; 3];
-const DIMLESS: Dim = [0.0, 0.0, 0.0];
+pub const DIMLESS: Dim = [0.0, 0.0, 0.0];
 const FORCE_DIM: Dim = [1.0, 1.0, -2.0];
 
-fn dim_equal(a: &Dim, b: &Dim) -> bool {
+pub fn dim_equal(a: &Dim, b: &Dim) -> bool {
     (a[0] - b[0]).abs() < 1e-12 && (a[1] - b[1]).abs() < 1e-12 && (a[2] - b[2]).abs() < 1e-12
 }
-fn dim_mul(a: &Dim, b: &Dim) -> Dim {
+pub fn dim_mul(a: &Dim, b: &Dim) -> Dim {
     [a[0] + b[0], a[1] + b[1], a[2] + b[2]]
 }
-fn dim_pow(a: &Dim, p: f64) -> Dim {
+pub fn dim_pow(a: &Dim, p: f64) -> Dim {
     [a[0] * p, a[1] * p, a[2] * p]
 }
 
-const UNITS: [(&str, Dim); 21] = [
+pub const UNITS: [(&str, Dim); 26] = [
     ("", DIMLESS),
     ("rad", DIMLESS),
     ("m", [1.0, 0.0, 0.0]),
@@ -358,9 +380,15 @@ const UNITS: [(&str, Dim); 21] = [
     ("N·m", [2.0, 1.0, -2.0]),
     ("Hz", [0.0, 0.0, -1.0]),
     ("1/s", [0.0, 0.0, -1.0]),
+    // 26.51: drag, gravitation, areal velocity, nonlinear springs
+    ("N·s²/m²", [-1.0, 1.0, 0.0]),
+    ("N·m²/kg²", [3.0, -1.0, -2.0]),
+    ("m²/s", [2.0, 0.0, -1.0]),
+    ("m²", [2.0, 0.0, 0.0]),
+    ("N/m³", [-2.0, 1.0, -2.0]),
 ];
 
-fn format_dim(d: &Dim) -> String {
+pub fn format_dim(d: &Dim) -> String {
     let names = ["m", "kg", "s"];
     let mut parts = Vec::new();
     for (i, e) in d.iter().enumerate() {
@@ -937,5 +965,304 @@ mod tests {
         assert!(check_force_expr("5.").is_err());
         assert!(check_force_expr(".5*m*g").is_ok());
         assert!(check_force_expr("1e3*m*g").is_ok());
+    }
+}
+
+// ---- Formula language: evaluation, variables, dimensions (formula/expr.ts, 26.53) ----
+
+/// The display unit of a dimension (first match in UNITS, else the base-unit form) — formula/units.ts unitFor.
+pub fn unit_for(d: &Dim) -> String {
+    for (u, dim) in UNITS.iter() {
+        if *u != "rad" && dim_equal(dim, d) {
+            return (*u).to_string();
+        }
+    }
+    format_dim(d)
+}
+
+/// Dimension of a unit of UNITS (None for unknown units).
+pub fn unit_dim(unit: &str) -> Option<Dim> {
+    UNITS.iter().find(|(u, _)| *u == unit).map(|(_, d)| *d)
+}
+
+fn sign_of(x: f64) -> f64 {
+    if x > 0.0 {
+        1.0
+    } else if x < 0.0 {
+        -1.0
+    } else if x == 0.0 {
+        0.0
+    } else {
+        f64::NAN
+    }
+}
+
+fn step_of(x: f64) -> f64 {
+    if x >= 0.0 {
+        1.0
+    } else if x < 0.0 {
+        0.0
+    } else {
+        f64::NAN
+    }
+}
+
+/// Hyperbolic tangent through the deterministic exp (stable for large |x|).
+pub fn tanh_of(x: f64) -> f64 {
+    let e = dmath::exp(-2.0 * x.abs());
+    (if x < 0.0 { -1.0 } else { 1.0 }) * (1.0 - e) / (1.0 + e)
+}
+
+/// A function of the formula language applied to evaluated arguments (FUNCS[fn].fn).
+pub fn apply_function(name: &str, a: &[f64]) -> f64 {
+    match name {
+        "sin" => dmath::sin(a[0]),
+        "cos" => dmath::cos(a[0]),
+        "tan" => dmath::tan(a[0]),
+        "asin" => dmath::asin(a[0]),
+        "acos" => dmath::acos(a[0]),
+        "atan" => dmath::atan(a[0]),
+        "atan2" => dmath::atan2(a[0], a[1]),
+        "sqrt" => a[0].sqrt(),
+        "abs" => a[0].abs(),
+        "exp" => dmath::exp(a[0]),
+        "tanh" => tanh_of(a[0]),
+        "ln" | "log" => dmath::log(a[0]),
+        "lg" => dmath::log(a[0]) / dmath::log(10.0),
+        "sign" => sign_of(a[0]),
+        "step" => step_of(a[0]),
+        "clamp" => js_min(js_max(a[0], a[1]), a[2]),
+        "ellipK" => crate::numeric::elliptic_k(a[0]),
+        "ellipF" => crate::numeric::elliptic_f(a[0], a[1]),
+        "min" => js_min(a[0], a[1]),
+        "max" => js_max(a[0], a[1]),
+        _ => f64::NAN,
+    }
+}
+
+fn compare(op: CmpOp, a: f64, b: f64) -> bool {
+    match op {
+        CmpOp::Lt => a < b,
+        CmpOp::Le => a <= b,
+        CmpOp::Gt => a > b,
+        CmpOp::Ge => a >= b,
+    }
+}
+
+/// Evaluate with variable values from `vars` (deterministic math); an unset variable is an error
+/// (`expr.unsetVariable`).
+pub fn evaluate(node: &Node, vars: &dyn Fn(&str) -> Option<f64>) -> EResult<f64> {
+    Ok(match node {
+        Node::Num(v) => *v,
+        Node::Var(name) => return vars(name).ok_or_else(|| Message::new("expr.unsetVariable").text("name", name.clone())),
+        Node::Neg(a) => -evaluate(a, vars)?,
+        Node::Bin(op, l, r) => {
+            let a = evaluate(l, vars)?;
+            let b = evaluate(r, vars)?;
+            match op {
+                BinOp::Add => a + b,
+                BinOp::Sub => a - b,
+                BinOp::Mul => a * b,
+                BinOp::Div => a / b,
+                BinOp::Pow => dmath::pow(a, b),
+            }
+        }
+        Node::Cmp(op, l, r) => {
+            if compare(*op, evaluate(l, vars)?, evaluate(r, vars)?) {
+                1.0
+            } else {
+                0.0
+            }
+        }
+        Node::Call(f, args) => {
+            if f == "if" {
+                // JavaScript truthiness of the condition: 0 and NaN are false
+                let c = evaluate(&args[0], vars)?;
+                return if c != 0.0 && !c.is_nan() { evaluate(&args[1], vars) } else { evaluate(&args[2], vars) };
+            }
+            let mut v = Vec::with_capacity(args.len());
+            for a in args {
+                v.push(evaluate(a, vars)?);
+            }
+            apply_function(f, &v)
+        }
+    })
+}
+
+/// Evaluate and record the value of every node in pre-order (node, then its children left to right); nodes that
+/// are not evaluated (the branch of an `if` not taken) get NaN. The trace lets the interface print a step-by-step
+/// solution with the exact doubles of every subtree (formula/solve.ts).
+pub fn evaluate_trace(node: &Node, vars: &dyn Fn(&str) -> Option<f64>) -> EResult<Vec<f64>> {
+    fn count(n: &Node) -> usize {
+        1 + match n {
+            Node::Num(_) | Node::Var(_) => 0,
+            Node::Neg(a) => count(a),
+            Node::Bin(_, l, r) | Node::Cmp(_, l, r) => count(l) + count(r),
+            Node::Call(_, args) => args.iter().map(count).sum(),
+        }
+    }
+    fn go(n: &Node, vars: &dyn Fn(&str) -> Option<f64>, out: &mut Vec<f64>, at: usize) -> EResult<f64> {
+        let mut child = at + 1;
+        let v = match n {
+            Node::Num(v) => *v,
+            Node::Var(name) => vars(name).ok_or_else(|| Message::new("expr.unsetVariable").text("name", name.clone()))?,
+            Node::Neg(a) => -go(a, vars, out, child)?,
+            Node::Bin(op, l, r) => {
+                let a = go(l, vars, out, child)?;
+                child += count(l);
+                let b = go(r, vars, out, child)?;
+                match op {
+                    BinOp::Add => a + b,
+                    BinOp::Sub => a - b,
+                    BinOp::Mul => a * b,
+                    BinOp::Div => a / b,
+                    BinOp::Pow => dmath::pow(a, b),
+                }
+            }
+            Node::Cmp(op, l, r) => {
+                let a = go(l, vars, out, child)?;
+                child += count(l);
+                let b = go(r, vars, out, child)?;
+                if compare(*op, a, b) {
+                    1.0
+                } else {
+                    0.0
+                }
+            }
+            Node::Call(f, args) => {
+                if f == "if" {
+                    let c = go(&args[0], vars, out, child)?;
+                    let c1 = child + count(&args[0]);
+                    let c2 = c1 + count(&args[1]);
+                    if c != 0.0 && !c.is_nan() {
+                        go(&args[1], vars, out, c1)?
+                    } else {
+                        go(&args[2], vars, out, c2)?
+                    }
+                } else {
+                    let mut v = Vec::with_capacity(args.len());
+                    for a in args {
+                        v.push(go(a, vars, out, child)?);
+                        child += count(a);
+                    }
+                    apply_function(f, &v)
+                }
+            }
+        };
+        out[at] = v;
+        Ok(v)
+    }
+    let mut out = vec![f64::NAN; count(node)];
+    go(node, vars, &mut out, 0)?;
+    Ok(out)
+}
+
+/// Names of the variables used, in first-use order (a JavaScript Set).
+pub fn variables(node: &Node, out: &mut Vec<String>) {
+    match node {
+        Node::Var(name) => {
+            if !out.iter().any(|v| v == name) {
+                out.push(name.clone());
+            }
+        }
+        Node::Neg(a) => variables(a, out),
+        Node::Bin(_, l, r) | Node::Cmp(_, l, r) => {
+            variables(l, out);
+            variables(r, out);
+        }
+        Node::Call(_, args) => {
+            for a in args {
+                variables(a, out);
+            }
+        }
+        Node::Num(_) => {}
+    }
+}
+
+/// Unit name of a dimension for formula messages ('无量纲' for pure numbers) — formula/expr.ts dimName.
+fn formula_dim_name(d: &Dim) -> String {
+    if dim_equal(d, &DIMLESS) {
+        "无量纲".into()
+    } else {
+        unit_for(d)
+    }
+}
+
+/// Physical dimension of a library expression; errors on inconsistent sums or dimensioned function arguments
+/// (formula/expr.ts dimension).
+pub fn dimension(node: &Node, dims: &dyn Fn(&str) -> Option<Dim>) -> EResult<Dim> {
+    fn same(args: &[Dim], what: String) -> EResult<Dim> {
+        for a in args {
+            if !dim_equal(a, &args[0]) {
+                return Err(Message::new("{0} 的参数量纲不同：{1} 与 {2}").text("0", what).text("1", formula_dim_name(&args[0])).text("2", formula_dim_name(a)));
+            }
+        }
+        Ok(args[0])
+    }
+    match node {
+        Node::Num(_) => Ok(DIMLESS),
+        Node::Var(name) => dims(name).ok_or_else(|| Message::new("变量 {0} 没有量纲").text("0", name.clone())),
+        Node::Neg(a) => dimension(a, dims),
+        Node::Cmp(op, l, r) => {
+            let a = dimension(l, dims)?;
+            let b = dimension(r, dims)?;
+            same(&[a, b], format!("比较 {}", op.text()))?;
+            Ok(DIMLESS)
+        }
+        Node::Bin(op, l, r) => {
+            let a = dimension(l, dims)?;
+            if *op == BinOp::Pow {
+                return match exponent_of(r) {
+                    None => {
+                        if !dim_equal(&a, &DIMLESS) {
+                            return Err(Message::new("有量纲的量只能取数字次幂"));
+                        }
+                        Ok(DIMLESS)
+                    }
+                    Some(p) => Ok(dim_pow(&a, p)),
+                };
+            }
+            let b = dimension(r, dims)?;
+            match op {
+                BinOp::Add | BinOp::Sub => {
+                    if !dim_equal(&a, &b) {
+                        return Err(Message::new("量纲不一致：{0} {1} {2}").text("0", format_dim(&a)).text("1", if *op == BinOp::Add { "+" } else { "-" }).text("2", format_dim(&b)));
+                    }
+                    Ok(a)
+                }
+                BinOp::Mul => Ok(dim_mul(&a, &b)),
+                _ => Ok(dim_mul(&a, &dim_pow(&b, -1.0))),
+            }
+        }
+        Node::Call(f, args) => {
+            if f == "if" {
+                dimension(&args[0], dims)?;
+                let a = dimension(&args[1], dims)?;
+                let b = dimension(&args[2], dims)?;
+                return same(&[a, b], "if".into());
+            }
+            let mut d = Vec::with_capacity(args.len());
+            for a in args {
+                d.push(dimension(a, dims)?);
+            }
+            match f.as_str() {
+                "sqrt" => Ok(dim_pow(&d[0], 0.5)),
+                "abs" => Ok(d[0]),
+                "sign" | "step" => Ok(DIMLESS),
+                "min" | "max" | "clamp" => same(&d, f.clone()),
+                "atan2" => {
+                    same(&d, f.clone())?;
+                    Ok(DIMLESS)
+                }
+                _ => {
+                    for a in &d {
+                        if !dim_equal(a, &DIMLESS) {
+                            return Err(Message::new("{0} 的参数必须无量纲，实为 {1}").text("0", f.clone()).text("1", format_dim(a)));
+                        }
+                    }
+                    Ok(DIMLESS)
+                }
+            }
+        }
     }
 }

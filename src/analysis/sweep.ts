@@ -15,10 +15,9 @@ import { tl } from '../i18n'
 import { msgText } from '../i18n/locale'
 import type { Scene } from '../core/scene/types'
 import { finiteDuration } from '../core/scene/types'
-import type { ChangeType, Recording } from '../core/solver/simulation'
+import type { ChangeType, Recording } from '../engine/recording'
 import { cloneScene, serializeScene, validateScene } from '../core/scene/io'
-import { evaluateQuantity, listQuantities, makeContext } from '../core/observe/quantities'
-import { observeAt } from '../formula/situations'
+import { extremeOf, listQuantities, valueAt, valueAtFrame } from '../engine/observe'
 import { buildTemplate, templateById } from '../templates'
 import { firstEvent } from './prediction'
 
@@ -190,24 +189,19 @@ export function measureUnit(m: SweepMeasure, unitOf: (id: string) => string): st
  */
 export function measureRecording(rec: Recording, m: SweepMeasure): number | null {
   if (m.kind === 'eventTime') return firstEvent(rec, m.event, m.body)?.t ?? null
-  if (!listQuantities(rec.system).some(q => q.id === m.id)) return null
+  if (!listQuantities(rec).some(q => q.id === m.id)) return null
   const tMax = (rec.frameCount - 1) * rec.dt
   if (m.kind === 'valueAt') {
     if (m.t < 0 || m.t > tMax + 1e-12) return null
-    const v = evaluateQuantity(observeAt(rec, m.t), m.id)
+    const v = valueAt(rec, m.t, m.id)
     return Number.isFinite(v) ? v : null
   }
   if (m.kind === 'final') {
-    const v = evaluateQuantity(makeContext(rec, rec.frameCount - 1), m.id)
+    const v = valueAtFrame(rec, rec.frameCount - 1, m.id)
     return Number.isFinite(v) ? v : null
   }
-  let best: number | null = null
-  for (let k = 0; k < rec.frameCount; k++) {
-    const v = evaluateQuantity(makeContext(rec, k), m.id)
-    if (!Number.isFinite(v)) continue
-    if (best === null || (m.kind === 'max' ? v > best : v < best)) best = v
-  }
-  return best
+  const best = extremeOf(rec, m.id, m.kind)
+  return Number.isFinite(best) ? best : null
 }
 
 /** One run of a sweep. */
@@ -240,32 +234,61 @@ export interface SweepSpec { param: SweepParam; values: number[]; measure: Sweep
 
 const yieldToUi = () => new Promise<void>(r => setTimeout(r, 0))
 
-/** Run the sweep. Resolves with the points computed so far (all of them unless cancelled). */
-export async function runSweep(base: Scene, spec: SweepSpec, runner: SweepRunner, cb: SweepCallbacks): Promise<SweepPoint[]> {
+/**
+ * Run the sweep. Resolves with the points computed so far (all of them unless cancelled). Up to `concurrency` points
+ * run at once (26.53, D68: the desktop engine computes each run in its own thread); points are reported in order
+ * and each is the same as in a sequential sweep.
+ */
+export async function runSweep(base: Scene, spec: SweepSpec, runner: SweepRunner, cb: SweepCallbacks, concurrency = 1): Promise<SweepPoint[]> {
   const out: SweepPoint[] = []
   const n = spec.values.length
-  for (let i = 0; i < n; i++) {
-    if (cb.cancelled()) break
+  const fractions = new Float64Array(n)
+  const progress = () => cb.onProgress?.(Math.min(1, fractions.reduce((a, b) => a + b, 0) / n))
+  let stopped = false
+
+  /** One point: run, measure, release. null when the run was cancelled. */
+  const point = async (i: number): Promise<SweepPoint | null> => {
     const value = spec.values[i]
-    let point: SweepPoint
     try {
       const scene = sceneWith(base, spec.param, value)
       // Sweeps always run bounded: an unbounded scene runs for its legacyDuration
       scene.settings.duration = finiteDuration(scene.settings)
-      const handle = runner(scene, f => cb.onProgress?.((i + Math.max(0, Math.min(1, f))) / n))
+      const handle = runner(scene, f => { fractions[i] = Math.max(0, Math.min(1, f)); progress() })
       // Cancel the running simulation as soon as the sweep is cancelled
-      const poll = setInterval(() => { if (cb.cancelled()) handle.cancel() }, 50)
+      const poll = setInterval(() => { if (cb.cancelled() || stopped) handle.cancel() }, 50)
       let rec: Recording | null
       try { rec = await handle.done } finally { clearInterval(poll) }
-      if (!rec) break
-      point = { value, result: measureRecording(rec, spec.measure), incomplete: !rec.completed, hash: rec.hash, error: rec.error ? msgText(rec.error) : undefined }
+      if (!rec) return null
+      try {
+        return { value, result: measureRecording(rec, spec.measure), incomplete: !rec.completed, hash: rec.hash, error: rec.error ? msgText(rec.error) : undefined }
+      } finally {
+        // The run's frames live in the core: release them once measured
+        rec.session.free()
+      }
     } catch (e) {
-      point = { value, result: null, incomplete: false, error: (e as Error).message }
+      return { value, result: null, incomplete: false, error: (e as Error).message }
     }
-    out.push(point)
-    cb.onPoint?.(point, i)
-    cb.onProgress?.((i + 1) / n)
+  }
+
+  const width = Math.max(1, Math.floor(concurrency))
+  const running = new Map<number, Promise<SweepPoint | null>>()
+  let next = 0
+  for (let i = 0; i < n; i++) {
+    if (cb.cancelled()) break
+    while (next < n && running.size < width && !cb.cancelled()) { running.set(next, point(next)); next++ }
+    const p = running.get(i)
+    if (!p) break
+    const result = await p
+    running.delete(i)
+    if (!result) break
+    out.push(result)
+    fractions[i] = 1
+    cb.onPoint?.(result, i)
+    progress()
     await yieldToUi()
   }
+  // Cancelled or a run ended without a recording: stop the points still running
+  stopped = true
+  await Promise.all(running.values())
   return out
 }

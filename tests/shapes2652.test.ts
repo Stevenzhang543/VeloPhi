@@ -5,10 +5,10 @@
 import { describe, expect, it } from 'vitest'
 import { addBody, addGround, emptyScene } from '../src/core/scene/build'
 import type { Scene, ShapeDef } from '../src/core/scene/types'
-import { compileModel, polygonIsConvex, polygonIsSimple } from '../src/core/solver/model'
-import { computePoses, pairFeatures, signedDistance } from '../src/core/solver/kinematics'
-import { buildSystem, initialState } from '../src/core/solver/dynamics'
-import { SimulationRun, frameLedger, frameState, rebuildChunk, simulate } from '../src/core/solver/simulation'
+import { compileModel, polygonIsConvex, polygonIsSimple } from './reference/core/solver/model'
+import { computePoses, pairFeatures, signedDistance } from './reference/core/solver/kinematics'
+import { buildSystem, initialState } from './reference/core/solver/dynamics'
+import { SimulationRun, frameLedger, frameState, rebuildChunk, simulate } from './reference/core/solver/simulation'
 import { parseScene, serializeScene, SceneFileError } from '../src/core/scene/io'
 
 const L_SHAPE = [{ x: 0, y: 0 }, { x: 2, y: 0 }, { x: 2, y: 1 }, { x: 1, y: 1 }, { x: 1, y: 2 }, { x: 0, y: 2 }]

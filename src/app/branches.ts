@@ -10,8 +10,8 @@ import { markRaw } from 'vue'
 import type { BranchDef, Scene } from '../core/scene/types'
 import { cloneScene, serializeScene } from '../core/scene/io'
 import { branchScene, nextBranchId, startTimeOf, withoutBranch } from '../core/scene/branch'
-import type { Recording } from '../core/solver/simulation'
-import { simulate } from '../core/solver/simulation'
+import type { Recording } from '../engine/recording'
+import { simulate } from '../engine/recording'
 import { documentScene, markStale, runSimulation, showToast, state } from './store'
 import { fmtTime } from './settings'
 import { logEvent } from './trialLog'
@@ -119,8 +119,8 @@ export function branchDepth(id: string): number {
 const parentCache = new Map<string, Recording>()
 
 /**
- * Recording of the parent of the branch shown (computed once with the TypeScript engine, up to the end of the
- * branch), or null on the main scene or when it cannot be computed in time.
+ * Recording of the parent of the branch shown (computed once in the core on this thread, up to the end of the
+ * branch), or null on the main scene or when it cannot be computed.
  */
 export function parentRecording(): Recording | null {
   if (state.branch === null || !state.mainScene) return null
@@ -136,8 +136,12 @@ export function parentRecording(): Recording | null {
   const hit = parentCache.get(key)
   if (hit) return hit
   try {
-    const rec = markRaw(simulate(parent, { duration: Math.max(end, parent.settings.outputStep), budgetMs: 8000 }))
-    if (parentCache.size > 4) parentCache.delete(parentCache.keys().next().value!)
+    const rec = markRaw(simulate(parent, { duration: Math.max(end, parent.settings.outputStep), maxSteps: 2_000_000 }))
+    if (parentCache.size > 4) {
+      const oldKey = parentCache.keys().next().value!
+      parentCache.get(oldKey)?.session.free()
+      parentCache.delete(oldKey)
+    }
     parentCache.set(key, rec)
     return rec
   } catch {

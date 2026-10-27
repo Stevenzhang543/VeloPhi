@@ -9,17 +9,16 @@
  */
 import { tl } from '../i18n'
 import { BufferTarget, CanvasSource, Mp4OutputFormat, Output, WebMOutputFormat, getFirstEncodableVideoCodec } from 'mediabunny'
-import type { Recording } from '../core/solver/simulation'
+import type { Recording } from '../engine/recording'
 import type { AnnotationDef } from '../core/scene/types'
 import type { DrawOptions, Palette } from '../render/renderer'
 import { computeTrajectories, vectorScales } from '../render/renderer'
 import type { FrameEffects, RenderStyle } from '../render/frame'
-import { evaluateQuantity, listQuantities } from '../core/observe/quantities'
-import { observeAt } from '../formula/situations'
+import { listQuantities, valuesAt } from '../engine/observe'
 import { ENGINE_VERSION } from '../core/scene/types'
 import type { UnitChoice } from '../units/units'
-import { shownTime } from '../units/clock'
-import { defaultChoice, displayLabel, formatQuantity, toDisplay } from '../units/units'
+import { defaultChoice, formatQuantity } from '../units/units'
+import { timeLabel } from './timeLabel'
 import { drawStill } from './still'
 import { fingerprintShort } from './fingerprint'
 
@@ -57,12 +56,7 @@ export interface VideoOptions {
 /** Encoded video and its container format. */
 export interface VideoResult { data: Uint8Array; extension: 'mp4' | 'webm'; mime: string; frames: number }
 
-/** Time label such as "t = 1.250 s" in the display time unit (recording clock as shown, see units/clock). */
-export function timeLabel(t: number, units: UnitChoice): string {
-  const label = displayLabel('s', units)
-  const v = toDisplay(shownTime(t), 's', units)
-  return `t = ${v.toFixed(label === 'ms' ? 0 : 3)} ${label}`
-}
+export { timeLabel } from './timeLabel'
 
 /** Number of video frames for a time range. */
 export function videoFrameCount(t0: number, t1: number, speed: number, fps: number): number {
@@ -88,8 +82,8 @@ export async function exportVideo(rec: Recording, o: VideoOptions, progress: (p:
 
   const units = o.units ?? defaultChoice()
   const trajectories = computeTrajectories(rec)
-  const scales = vectorScales(rec, rec.system)
-  const defs = new Map(listQuantities(rec.system).map(q => [q.id, q]))
+  const scales = vectorScales(rec)
+  const defs = new Map(listQuantities(rec).map(q => [q.id, q]))
   const tEnd = Math.min(o.t1, (rec.frameCount - 1) * rec.dt)
   const count = videoFrameCount(o.t0, tEnd, o.speed, o.fps)
   const footer = tl('VeloPhi {0} · 仿真结果可复现 · {1}', [ENGINE_VERSION, fingerprintShort(rec)])
@@ -100,11 +94,11 @@ export async function exportVideo(rec: Recording, o: VideoOptions, progress: (p:
       const t = Math.min(tEnd, o.t0 + (i / o.fps) * o.speed)
       const lines = [`${timeLabel(t, units)}${o.speed !== 1 ? tl('   ({0}× 速度)', [o.speed]) : ''}`]
       if (overlayIds.length) {
-        const c = observeAt(rec, t)
-        for (const id of overlayIds) {
+        const values = valuesAt(rec, t, overlayIds)
+        overlayIds.forEach((id, j) => {
           const q = defs.get(id)!
-          lines.push(`${q.owner} ${q.label} = ${formatQuantity(evaluateQuantity(c, id), q.unit, units, Math.min(o.digits, 8))}`)
-        }
+          lines.push(`${q.owner} ${q.label} = ${formatQuantity(values[j], q.unit, units, Math.min(o.digits, 8))}`)
+        })
       }
       drawStill(ctx, rec, t, {
         width, height, view: o.view, options: o.options, palette: o.palette, background: 'theme', digits: o.digits,

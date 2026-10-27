@@ -13,8 +13,9 @@ import { fmtQ, settings } from '../settings'
 import NumField from './NumField.vue'
 import Icon from './Icon.vue'
 import Section from './Section.vue'
+import RegionsSection from './RegionsSection.vue'
 import type { IntegratorKind, StopKind } from '../../core/scene/types'
-import { MAX_DURATION, STOP_KINDS, finiteDuration } from '../../core/scene/types'
+import { COULOMB_K, MAX_DURATION, STOP_KINDS, finiteDuration } from '../../core/scene/types'
 
 const s = computed(() => state.scene.settings)
 const gMag = computed(() => Math.hypot(s.value.gravity.x, s.value.gravity.y))
@@ -32,6 +33,18 @@ function setGDir(d: number) { const v = gMag.value; edit(sc => { sc.settings.gra
 const G_REAL = 6.674e-11
 function setGravitation(on: boolean) { edit(sc => { if (on) sc.settings.gravitation = { G: sc.settings.gravitation?.G ?? G_REAL }; else delete sc.settings.gravitation }) }
 function setGConst(v: number) { if (v > 0) edit(sc => { sc.settings.gravitation = { G: v } }) }
+// 26.54 (D78): uniform electric and magnetic fields and the Coulomb force
+const eMag = computed(() => Math.hypot(s.value.electric?.E.x ?? 0, s.value.electric?.E.y ?? 0))
+const eDir = computed(() => (eMag.value > 0 ? Math.atan2(s.value.electric!.E.y, s.value.electric!.E.x) : -Math.PI / 2))
+function setElectric(on: boolean) { edit(sc => { if (on) sc.settings.electric = sc.settings.electric ?? { E: { x: 0, y: -100 } }; else delete sc.settings.electric }) }
+function setE(v: number) { const d = eDir.value; edit(sc => { sc.settings.electric = { E: gravityOf(v, d) } }) }
+function setEDir(d: number) { const v = eMag.value; edit(sc => { sc.settings.electric = { E: gravityOf(v, d) } }) }
+function setMagnetic(on: boolean) { edit(sc => { if (on) sc.settings.magnetic = sc.settings.magnetic ?? { B: 1 }; else delete sc.settings.magnetic }) }
+function setB(v: number) { edit(sc => { sc.settings.magnetic = { B: v } }) }
+function setCoulomb(on: boolean) { edit(sc => { if (on) sc.settings.coulomb = sc.settings.coulomb ?? { k: COULOMB_K }; else delete sc.settings.coulomb }) }
+function setK(v: number) { if (v > 0) edit(sc => { sc.settings.coulomb = { k: v } }) }
+const charged = computed(() => state.scene.bodies.filter(b => b.charge).length)
+const fieldCount = computed(() => [s.value.electric, s.value.magnetic, s.value.coulomb].filter(Boolean).length || null)
 const rec = computed(() => (state.stale ? null : state.recording))
 const frames = computed(() => Math.round(finiteDuration(s.value) / s.value.outputStep) + 1)
 
@@ -56,14 +69,15 @@ const fingerprint = computed(() => {
   return f ? { hash: f.hash, upTo: f.t } : null
 })
 const STOP_REASONS: Record<string, string> = { duration: tl('到达设定时长'), stopAt: tl('到达停止条件'), rest: tl('检测到永久静止'), user: tl('已手动停止'), error: tl('出错停止'), pulley: tl('物体到达滑轮'), restApprox: tl('近似静止（速度与加速度持续 1 s 低于 10⁻⁶）') }
-/** Engine line of the solver information (D29): Rust/WASM, or the TypeScript fallback and why. */
+/** Engine line of the solver information (D29, D68): native Rust threads (desktop) or the WebAssembly core. */
 const engineText = computed(() => {
   const r = state.run
-  if (r.engine === 'wasm') return `Rust${paren('WebAssembly')}`
-  const why = r.engineReason === 'settings' ? tl('设置中选择') : r.engineReason === 'no-worker' ? tl('未使用后台线程') : r.engineReason ? tl('Rust 引擎不可用：{0}', [r.engineReason]) : ''
-  return why ? `TypeScript${paren(why)}` : 'TypeScript'
+  if (r.engine === 'native') return tl('原生 Rust（多线程）')
+  return `Rust${paren('WebAssembly')}`
 })
 const MB = (bytes: number) => `${(bytes / 1048576).toFixed(bytes < 10 * 1048576 ? 1 : 0)} MB`
+/** Wall time of a run (26.53: the native engine reports fractions of a millisecond). */
+const wallText = (ms: number) => (ms >= 100 ? ms.toFixed(0) : ms >= 1 ? ms.toFixed(1) : ms.toPrecision(2))
 function copyFingerprint(hash: string) {
   navigator.clipboard?.writeText(hash).then(() => showToast(tl('指纹已复制')), () => showToast(tl('无法访问剪贴板'), true))
 }
@@ -93,6 +107,29 @@ const reducedFrom = computed(() => rec.value?.reducedFrom ?? null)
         <div class="row"><label>{{ tl('势能零点 y₀') }}</label><NumField class="grow" :model-value="s.energyZeroY" unit="m" @update:model-value="v => edit(sc => { sc.settings.energyZeroY = v })" /></div>
       </div>
     </Section>
+
+    <Section id="scene.fields" :title="tl('电场与磁场')" :open="!!fieldCount || charged > 0" :count="fieldCount">
+      <div class="group">
+        <div class="row"><label>{{ tl('匀强电场') }}</label><label class="check grow"><input type="checkbox" :checked="!!s.electric" @change="setElectric(($event.target as HTMLInputElement).checked)" />{{ tl('带电体受电场力 F = qE') }}</label></div>
+        <template v-if="s.electric">
+          <div class="row"><label>{{ tl('场强 E') }}</label><NumField class="grow" :model-value="eMag" unit="V/m" :min="0" @update:model-value="setE" /></div>
+          <div class="row"><label>{{ tl('方向') }}</label><NumField class="grow" :model-value="eDir" unit="rad" @update:model-value="setEDir" /></div>
+        </template>
+        <div class="row"><label>{{ tl('匀强磁场') }}</label><label class="check grow"><input type="checkbox" :checked="!!s.magnetic" @change="setMagnetic(($event.target as HTMLInputElement).checked)" />{{ tl('运动电荷受洛伦兹力 F = qv×B') }}</label></div>
+        <template v-if="s.magnetic">
+          <div class="row"><label>{{ tl('磁感应强度 B') }}</label><NumField class="grow" :model-value="s.magnetic.B" unit="T" @update:model-value="setB" /></div>
+          <div class="tiny muted note">{{ tl('磁场垂直于纸面：B > 0 指向纸外（⊙），B < 0 指向纸里（×）。') }}</div>
+        </template>
+        <div class="row"><label>{{ tl('库仑力') }}</label><label class="check grow"><input type="checkbox" :checked="!!s.coulomb" @change="setCoulomb(($event.target as HTMLInputElement).checked)" />{{ tl('带电体之间 F = kq₁q₂/r²') }}</label></div>
+        <template v-if="s.coulomb">
+          <div class="row"><label>{{ tl('静电力常量 k') }}</label><NumField class="grow" :model-value="s.coulomb.k" unit="N·m²/C²" :min="1e-30" @update:model-value="setK" /></div>
+          <div class="row"><label /><span class="grow"><button class="btn small" @click="setK(COULOMB_K)">{{ tl('真实值') }}</button> <button class="btn small" @click="setK(1)">{{ tl('教学用 k = 1') }}</button></span></div>
+        </template>
+        <div class="tiny muted note">{{ charged ? tl('场景中有 {0} 个带电体。电场力与库仑力的电势能计入机械能；洛伦兹力不做功。', [charged]) : tl('在物体的“属性”中设置电荷量 q，或从模板“电与磁”开始。') }}</div>
+      </div>
+    </Section>
+
+    <RegionsSection />
 
     <Section id="scene.solver" :title="tl('求解与记录')" :open="false">
       <div class="group">
@@ -163,7 +200,7 @@ const reducedFrom = computed(() => rec.value?.reducedFrom ?? null)
           <div class="row"><label>{{ tl('积分步 / 拒绝') }}</label><span class="mono">{{ rec.stats.steps }} / {{ rec.stats.rejected }}</span></div>
           <div class="row"><label>{{ tl('事件数') }}</label><span class="mono">{{ rec.stats.events }}</span></div>
           <div class="row"><label>{{ tl('约束投影') }}</label><span class="mono">{{ tl('位置 ≤ {0}，速度 ≤ {1}', [fmtQ(rec.stats.maxPositionCorrection, 'm', 2), fmtQ(rec.stats.maxVelocityCorrection, 'm/s', 2)]) }}</span></div>
-          <div class="row"><label>{{ tl('计算耗时') }}</label><span class="mono">{{ rec.stats.wallMs }} ms</span></div>
+          <div class="row"><label>{{ tl('计算耗时') }}</label><span class="mono">{{ wallText(rec.stats.wallMs) }} ms</span></div>
           <div v-if="fingerprint" class="row"><label>{{ tl('结果指纹') }}</label><span class="mono fp" :title="fingerprint.hash">{{ fingerprint.upTo !== null ? tl('截至 {0} · ', [fmtQ(fingerprint.upTo, 's', 4)]) : '' }}SHA-256 {{ fingerprint.hash.slice(0, 16) }}…</span><button class="btn small ghost" :title="tl('复制完整指纹')" @click="copyFingerprint(fingerprint.hash)">{{ tl('复制') }}</button></div>
           <div v-for="(w, i) in rec.warnings" :key="i" class="row warn-row"><span class="badge warn">{{ tl('提示') }}</span><span class="grow">{{ msgText(w) }}</span></div>
           <div class="row">

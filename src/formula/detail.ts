@@ -3,13 +3,14 @@
  * applicability conditions and the comparison with the simulation, for one formula card. Pure (no Vue): the detail
  * panel and the exports call `buildFormulaDetail` and render the returned DetailView.
  *
- * The card is evaluated with the same `evaluateCard` and the same sample time as the formula panel, and the
- * generated solution (formula/solve.ts) ends on a value bit-identical to the card's theoretical value.
+ * The card is evaluated in the core (the `card` operation) at the same sample time as the formula panel, and the
+ * generated solution (formula/solve.ts) is built from the values the core computed for the nodes of the formula,
+ * so it ends on the card's theoretical value.
  *
  * Situation texts (situation title, variable, measurement and condition labels) are taken from the situation as
  * they are; `situationText` is the single place that turns them into display text.
  */
-import type { Recording } from '../core/solver/simulation'
+import type { Recording } from '../engine/recording'
 import type { Lang, Tri } from '../i18n/tri'
 import { fillParams, triText } from '../i18n/tri'
 import type { UnitChoice } from '../units/units'
@@ -18,7 +19,7 @@ import type { FormulaDef } from './library'
 import { FORMULAS } from './library'
 import type { FormulaCard, Verdict } from './match'
 import { THRESHOLDS, activeSituations, evaluateCard } from './match'
-import type { Condition, Situation } from './situations'
+import type { Condition, Situation } from './recognize'
 import type { Derivation, SharedSteps } from './derivations/types'
 import { getDerivation, getShared } from './derivations'
 import { solveFormula } from './solve'
@@ -145,11 +146,9 @@ export function cardTime(s: Situation, t: number): number {
   return Math.min(Math.max(t, s.t0), s.t1)
 }
 
-/** The formula card a detail is about, evaluated exactly as the formula panel does. */
-export function detailCard(situation: Situation, formulaId: string, time: number, digits = 4): FormulaCard | null {
-  const f = FORMULAS.find(x => x.id === formulaId)
-  if (!f) return null
-  return evaluateCard(f, situation, situation.sample(cardTime(situation, time)), { digits })
+/** The formula card a detail is about, evaluated exactly as the formula panel does (with the node values). */
+export function detailCard(rec: Recording, situation: Situation, formulaId: string, time: number, digits = 4): FormulaCard | null {
+  return evaluateCard(rec, situation, formulaId, cardTime(situation, time), { digits })
 }
 
 /** Derivation sections: shared steps first, then the formula's own steps (each with its basis). */
@@ -179,7 +178,7 @@ function derivationBlocks(f: FormulaDef, d: Derivation | null, lang: Lang, share
  * Build the detail view of formula `formulaId` for `situation` at playback time `time` (the card's time; it is
  * clamped into the situation like the cards), in language `lang`.
  */
-export function buildFormulaDetail(rec: Recording | null, situation: Situation, formulaId: string, time: number, lang: Lang, opts: DetailOptions = {}): DetailView {
+export function buildFormulaDetail(rec: Recording, situation: Situation, formulaId: string, time: number, lang: Lang, opts: DetailOptions = {}): DetailView {
   const tr = (t: Tri, params?: Record<string, string | number>) => fillParams(triText(t, lang), params)
   const digits = opts.digits ?? 4
   const units = opts.units ?? defaultChoice()
@@ -188,8 +187,9 @@ export function buildFormulaDetail(rec: Recording | null, situation: Situation, 
   const d = (opts.derivation ?? getDerivation)(formulaId)
   const shared = opts.shared ?? getShared
   const tc = cardTime(situation, time)
-  const sample = situation.sample(tc)
-  const card = evaluateCard(f, situation, sample, { digits })
+  const card = evaluateCard(rec, situation, formulaId, tc, { digits })
+  if (!card) return { kind: 'formula', title: tr(FORMULA_TEXT.unknownFormula, { id: formulaId }), subtitle: '', headline: null, badges: [], sections: [] }
+  const sample = card.sample
   const q = (v: number | null, nd = digits) => formatQuantity(v, f.unit, units, nd)
   const st = (s: string) => situationText(s, lang)
 
@@ -197,7 +197,7 @@ export function buildFormulaDetail(rec: Recording | null, situation: Situation, 
   const derivation: DetailSection = { id: 'derivation', title: tr(FORMULA_TEXT.derivation), blocks: derivationBlocks(f, d, lang, shared) }
 
   // ---- Worked solution (D45): given / find / solution / answer ----
-  const sol = solveFormula(f, sample, { digits, units, lang })
+  const sol = solveFormula(f, sample, { digits, units, lang }, card.trace, card.reason)
   const solution: DetailSection = { id: 'solution', title: tr(FORMULA_TEXT.solution), blocks: [] }
   if (sol.known.length) {
     solution.blocks.push({ kind: 'subhead', text: tr(FORMULA_TEXT.given) })
@@ -252,7 +252,8 @@ export function buildFormulaDetail(rec: Recording | null, situation: Situation, 
     [{ text: tr(FORMULA_TEXT.theory) }, { text: q(card.theory, Math.max(digits, 6)), mono: true }],
     [{ text: tr(FORMULA_TEXT.sim, { m: measureLabel }) }, { text: q(card.sim, Math.max(digits, 6)), mono: true }],
     [{ text: tr(FORMULA_TEXT.error) }, { text: card.absError === null ? '—' : q(card.absError, 3), mono: true }],
-    [{ text: tr(FORMULA_TEXT.relError) }, { text: relText(card.relError), mono: true, tone: v.tone }]
+    // A theoretical value of exactly 0: a relative deviation means nothing (26.54)
+    [{ text: tr(FORMULA_TEXT.relError) }, { text: card.theory === 0 ? '—' : relText(card.relError), mono: true, tone: v.tone }]
   ]
   compare.blocks.push({ kind: 'table', rows, align: ['left', 'right'] })
   const colon = lang === 'zh' ? '：' : ': '

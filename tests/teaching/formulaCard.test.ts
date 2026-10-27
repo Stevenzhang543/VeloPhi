@@ -1,8 +1,8 @@
 /** Formula card markup and font-face selection (the browser part is checked in Chromium). */
 import { describe, expect, it } from 'vitest'
 import { buildTemplate } from '../../src/templates'
-import { simulate } from '../../src/core/solver/simulation'
-import { recognize } from '../../src/formula/situations'
+import { simulate } from '../../src/engine/recording'
+import { recognize } from '../../src/formula/recognize'
 import { cardsForMoment } from '../../src/export/moments'
 import type { FaceRule } from '../../src/export/formulaImage'
 import { cardCss, cardHtml, parseUnicodeRange, parseWeight, pickFontSource, relErrorText, selectFaces, shownCards, splitFamilies } from '../../src/export/formulaImage'
@@ -12,7 +12,7 @@ describe('formula card markup', () => {
   const rec = simulate(buildTemplate('board-block'))
   const sits = recognize(rec)
   const t = rec.events.find(e => e.changes.some(c => c.type === 'stick'))!.t
-  const cards = shownCards(cardsForMoment(sits, t, 6))
+  const cards = shownCards(cardsForMoment(rec, sits, t, 6))
 
   it('renders title, verdict, KaTeX and values in display units', () => {
     const a1 = cards.find(c => c.formula.id === 'bb.a1')!

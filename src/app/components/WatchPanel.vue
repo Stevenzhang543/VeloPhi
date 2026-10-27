@@ -7,9 +7,9 @@ import { tl, paren } from '../../i18n'
 import { computed, ref } from 'vue'
 import { state, edit, problemLocked } from '../store'
 import ProblemLock from './ProblemLock.vue'
-import { canonicalQuantityId, customQuantities, customScope, evaluateQuantity, groupLabel, listQuantities, makeContext } from '../../core/observe/quantities'
-import type { QuantityDef } from '../../core/observe/quantities'
-import { compileCustom, nextCustomId } from '../../core/observe/custom'
+import { canonicalQuantityId, checkCustom, customStatus, groupLabel, listQuantities, nextCustomId, valuesAtFrame } from '../../engine/observe'
+import type { QuantityDef } from '../../engine/observe'
+import { msgText } from '../../i18n/locale'
 import { useGated } from '../live'
 import { fmtNum, unitLabel } from '../settings'
 import Tex from './Tex.vue'
@@ -18,26 +18,26 @@ import Section from './Section.vue'
 
 const props = withDefaults(defineProps<{ active?: boolean }>(), { active: true })
 
-const system = computed(() => state.recording?.system ?? null)
-const quantities = computed<QuantityDef[]>(() => (system.value ? listQuantities(system.value) : []))
+const quantities = computed<QuantityDef[]>(() => (state.recording ? listQuantities(state.recording) : []))
 const byIdMap = computed(() => new Map(quantities.value.map(q => [q.id, q])))
 /** Definition of a watched id (ids are compared in their listed form: pair.b|a ≡ pair.a|b). */
 const qOf = (id: string) => byIdMap.value.get(canonicalQuantityId(id))
 const watched = computed(() => new Set(state.scene.watch.map(canonicalQuantityId)))
 const frame = useGated(() => props.active, () => state.panelFrame)
 
-/** One observation context per frame, shared by the list and the readings card. */
-const ctx = computed(() => {
+/** The frame read (null without a current recording). */
+const shownFrame = computed(() => {
   const rec = state.recording
   if (!rec || state.stale) return null
-  return makeContext(rec, Math.min(frame.value, rec.frameCount - 1))
+  return Math.min(frame.value, rec.frameCount - 1)
 })
 
 const values = computed(() => {
-  const c = ctx.value
+  const rec = state.recording, k = shownFrame.value
   const out = new Map<string, number>()
-  if (!c) return out
-  for (const id of state.scene.watch) out.set(id, evaluateQuantity(c, id))
+  if (!rec || k === null || !state.scene.watch.length) return out
+  const v = valuesAtFrame(rec, k, state.scene.watch)
+  state.scene.watch.forEach((id, i) => out.set(id, v[i]))
   return out
 })
 
@@ -54,16 +54,17 @@ const groups = computed(() => {
 /** All readings of the selected body at the current frame (the "click to read" card). */
 const readings = computed(() => {
   const rec = state.recording
-  const c = ctx.value
+  const k = shownFrame.value
   const sel = state.selection
-  if (!rec || !c || !sel || sel.kind !== 'body') return null
+  if (!rec || k === null || !sel || sel.kind !== 'body') return null
   const body = rec.system.model.byId.get(sel.id)
   if (!body || !body.dynamic) return null
   const qs = quantities.value.filter(q => q.id.startsWith(`${body.id}.`) || (q.id.startsWith(`contact.${body.id}|`) && (q.id.endsWith('.N') || q.id.endsWith('.f'))))
-  const items = qs.map(q => ({ q, v: evaluateQuantity(c, q.id) })).filter(x => !(x.q.id.startsWith('contact.') && x.v === 0))
+  const v = valuesAtFrame(rec, k, [...qs.map(q => q.id), `${body.id}.omega`])
+  const items = qs.map((q, i) => ({ q, v: v[i] })).filter(x => !(x.q.id.startsWith('contact.') && x.v === 0))
   // Angular momentum about the centre of mass
   if (body.invInertia > 0) {
-    const w = c.X[3 * rec.system.n + 3 * body.index + 2]
+    const w = v[qs.length]
     items.push({ q: { id: `${body.id}.Lc`, label: tl('对质心角动量 Iω'), symbol: 'L_C', unit: 'kg·m²/s', group: '物体', owner: body.name }, v: body.inertia * w })
   }
   return { name: body.name, items }
@@ -90,15 +91,16 @@ const unitText = (u: string) => unitLabel(u) || tl('无量纲')
 // ---- Custom (expression) quantities, 26.51 ----
 const customs = computed(() => state.scene.customQuantities ?? [])
 /** Compile errors of the scene's custom quantities in the current recording. */
-const customErrors = computed(() => new Map((system.value ? customQuantities(system.value) : []).filter(e => e.error).map(e => [e.def.id, e.error!])))
-const scope = computed(() => (system.value ? customScope(system.value) : null))
+const customErrors = computed(() => new Map((state.recording ? customStatus(state.recording) : []).filter(e => e.error).map(e => [e.id, msgText(e.error)])))
 /** The form: a new quantity (editing null) or an existing one. */
 const form = ref<{ editing: string | null; name: string; expr: string } | null>(null)
 /** Unit or error of the expression in the form, checked as it is typed. */
 const formCheck = computed<{ unit: string } | { error: string } | null>(() => {
   const f = form.value
-  if (!f || !scope.value || !f.expr.trim()) return null
-  try { return { unit: compileCustom(f.expr, scope.value).unit } } catch (e) { return { error: (e as Error).message } }
+  const rec = state.recording
+  if (!f || !rec || !f.expr.trim()) return null
+  const r = checkCustom(rec, f.expr)
+  return r.ok ? { unit: r.unit } : { error: msgText(r.error) }
 })
 /** An example expression with the first moving body of the scene. */
 const example = computed(() => {

@@ -6,9 +6,10 @@
  */
 import { describe, expect, it } from 'vitest'
 import { buildTemplate, setTemplateGravity, templateGravity, TEMPLATES } from '../src/templates'
-import type { Recording } from '../src/core/solver/simulation'
-import { frameLedger, frameSolution, frameState, simulate } from '../src/core/solver/simulation'
-import { recognize } from '../src/formula/situations'
+import type { Recording } from '../src/engine/recording'
+import { eventStates, frameLedger, frameState, simulate } from '../src/engine/recording'
+import { valueAtFrame } from '../src/engine/observe'
+import { recognize } from '../src/formula/recognize'
 import type { FormulaCard } from '../src/formula/match'
 import { evaluateCard } from '../src/formula/match'
 import { FORMULAS } from '../src/formula/library'
@@ -19,8 +20,8 @@ const G = 9.8
 function allCards(rec: Recording): FormulaCard[] {
   const cards: FormulaCard[] = []
   for (const s of recognize(rec)) {
-    const sample = s.sample(s.tEvent ?? (s.t0 + s.t1) / 2)
-    for (const f of FORMULAS.filter(f => f.situation === s.type)) cards.push(evaluateCard(f, s, sample, { digits: 8 }))
+    const t = s.tEvent ?? (s.t0 + s.t1) / 2
+    for (const f of FORMULAS.filter(f => f.situation === s.type)) { const c = evaluateCard(rec, s, f.id, t, { digits: 8 }); if (c) cards.push(c) }
   }
   return cards
 }
@@ -71,7 +72,7 @@ describe('vertical circle on a rope', () => {
     expect(Math.abs(slack[0].t - sum * hq / 3)).toBeLessThan(1e-9)
     // No spurious event before the slack
     expect(rec.events[0].changes.some(c => c.type === 'slack')).toBe(true)
-    const y = slack[0].after[1]
+    const y = eventStates(rec, slack[0].index).after[1]
     expect(Math.abs(y - 1.2 - (v0 * v0 - 2 * G * L) / (3 * G))).toBeLessThan(1e-9)
     expectCards(rec, ['vc.r.T0', 'vc.r.slackv', 'vc.r.phiS', 'vc.r.hS', 'vc.r.vS', 'vc.r.tS', 'en.ledger'], ['vc.r.vtop', 'vc.r.Ttop'])
     expect(ledgerDrift(rec)).toBeLessThan(1e-8)
@@ -110,8 +111,8 @@ describe('movable pulley with two fixed pulleys', () => {
     const rec = simulate(buildTemplate('movable-pulley'))
     expect(rec.error).toBeNull()
     expectCards(rec, ['mp.rel', 'mp.a1', 'mp.a2', 'mp.T', 'mp.T1', 'mp.T2', 'en.ledger'])
-    const sol = frameSolution(rec, 100)
-    expect(Math.abs(sol.ropeTension[0] - 3 * 1 * 1.5 * G / 5.5)).toBeLessThan(1e-9)
+    const T = valueAtFrame(rec, 100, `${rec.system.model.ropes[0].id}.T`)
+    expect(Math.abs(T - 3 * 1 * 1.5 * G / 5.5)).toBeLessThan(1e-9)
     expect(ledgerDrift(rec)).toBeLessThan(1e-8)
   })
   it('the movable load is not mistaken for a projectile', () => {
@@ -132,7 +133,7 @@ describe('movable wedge on a smooth floor', () => {
       expect(Math.abs(M * X[3 * n + 3 * iW] + m * X[3 * n + 3 * iB])).toBeLessThan(1e-12)
     }
     const A = m * G * Math.sin(th) * Math.cos(th) / (M + m * Math.sin(th) ** 2)
-    expect(Math.abs(Math.abs(frameSolution(rec, 10).acc[3 * iW]) - A) / A).toBeLessThan(1e-9)
+    expect(Math.abs(Math.abs(valueAtFrame(rec, 10, 'wedge.ax')) - A) / A).toBeLessThan(1e-9)
   })
   it('a rough floor: the wedge formulas are not offered', () => {
     const s = buildTemplate('movable-wedge')
@@ -164,7 +165,7 @@ describe('rolling with slipping (uniform cylinder, 2D)', () => {
     const stick = events(rec, 'stick')
     expect(Math.abs(stick[0].t - v0 / (3 * mu * G))).toBeLessThan(1e-9)
     const n = rec.system.n
-    expect(Math.abs(stick[0].after[3 * n] - 2 * v0 / 3)).toBeLessThan(1e-9)
+    expect(Math.abs(eventStates(rec, stick[0].index).after[3 * n] - 2 * v0 / 3)).toBeLessThan(1e-9)
     const cards = expectCards(rec, ['rs.a', 'rs.beta', 'rs.t', 'rs.v', 'rs.cyl.t', 'rs.cyl.v', 'rs.Q', 'rl.a.slip', 'rl.vw', 'en.ledger'])
     expect(Math.abs(cards.find(c => c.formula.id === 'rs.Q')!.sim! - m * v0 * v0 / 6)).toBeLessThan(1e-9)
   })

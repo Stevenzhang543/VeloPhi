@@ -6,8 +6,8 @@
  * The orchestration needs a DOM (canvas, video encoder); the parts it combines are tested on their own.
  */
 import { tl } from '../i18n'
-import type { Recording } from '../core/solver/simulation'
-import type { Situation } from '../formula/situations'
+import type { Recording } from '../engine/recording'
+import type { Situation } from '../formula/recognize'
 import type { FormulaCard } from '../formula/match'
 import { ENGINE_VERSION } from '../core/scene/types'
 import type { UnitChoice } from '../units/units'
@@ -31,6 +31,7 @@ import { fingerprintShort, fingerprintText } from './fingerprint'
 import type { Lang } from '../i18n/tri'
 import type { DerivationPage } from './derivationPages'
 import { derivationPages } from './derivationPages'
+import { safeName } from './safeName'
 
 /** What to put into the package. */
 export interface CoursewareOptions {
@@ -67,11 +68,7 @@ export interface CoursewareResult {
   notice: string | null
 }
 
-/** File-name-safe text: characters Windows does not allow become '_'; trailing dots and spaces are dropped. */
-export function safeName(s: string, fallback = 'velophi'): string {
-  const t = s.replace(/[\\/:*?"<>|\u0000-\u001f]+/g, '_').trim().replace(/[. ]+$/, '')
-  return t || fallback
-}
+export { safeName }
 
 /** Plan of the work (for progress weights). */
 function weights(o: CoursewareOptions) {
@@ -157,7 +154,7 @@ export async function buildCourseware(rec: Recording, sits: Situation[], o: Cour
     const f = o.formulas ?? { png: false, svg: false, background: 'white' as ImageBackground }
     const lists = o.moments.map(m => {
       const seen = new Set<string>()
-      return shownCards(cardsForMoment(sits, m.t, o.digits, o.units), o.level ?? null).filter(c => (seen.has(c.key) ? false : (seen.add(c.key), true)))
+      return shownCards(cardsForMoment(rec, sits, m.t, o.digits, o.units), o.level ?? null).filter(c => (seen.has(c.key) ? false : (seen.add(c.key), true)))
     })
     const count = lists.reduce((a, l) => a + l.length, 0)
     let k = 0

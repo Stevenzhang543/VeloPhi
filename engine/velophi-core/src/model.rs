@@ -94,6 +94,8 @@ pub struct BodyModel {
     pub attract: f64,
     /// Centre of attraction of a static body (world, m): its area centroid; dynamic bodies use their centre of mass.
     pub grav_pos: Vec2,
+    /// Electric charge (C; 26.54, D78): at the centre of mass, or at `grav_pos` for a static body.
+    pub charge: f64,
 }
 
 /// Anchor resolved to its body (global index; None: the world).
@@ -237,6 +239,81 @@ pub struct ForceModel {
     pub expr: Option<(usize, usize)>,
 }
 
+/// A bounded field region (26.55, D90).
+#[derive(Clone, Debug)]
+pub struct FieldZone {
+    pub id: String,
+    pub name: String,
+    pub shape: crate::scene::RegionShape,
+    pub e: Vec2,
+    pub b: f64,
+    /// E alternates as cos(ωt + φ) when ω ≠ 0.
+    pub omega: f64,
+    pub phase: f64,
+}
+
+impl FieldZone {
+    /// Signed distance of a point to the region boundary: positive inside, negative outside, 0 on it.
+    pub fn depth(&self, x: f64, y: f64) -> f64 {
+        zone_depth(&self.shape, x, y)
+    }
+}
+
+/// Signed distance to the boundary of a region shape (positive inside).
+pub fn zone_depth(shape: &crate::scene::RegionShape, x: f64, y: f64) -> f64 {
+    match *shape {
+        crate::scene::RegionShape::Rect { x: cx, y: cy, w, h } => {
+            let dx = (x - cx).abs() - 0.5 * w;
+            let dy = (y - cy).abs() - 0.5 * h;
+            if dx <= 0.0 && dy <= 0.0 {
+                -js_max(dx, dy)
+            } else {
+                -(js_max(dx, 0.0).powi(2) + js_max(dy, 0.0).powi(2)).sqrt()
+            }
+        }
+        crate::scene::RegionShape::Circle { x: cx, y: cy, r } => r - ((x - cx) * (x - cx) + (y - cy) * (y - cy)).sqrt(),
+    }
+}
+
+/// A liquid (26.55, D92): the rectangle [x0, x1] × [y0, y1] with its surface at y1.
+#[derive(Clone, Debug)]
+pub struct LiquidModel {
+    pub id: String,
+    pub name: String,
+    pub x0: f64,
+    pub y0: f64,
+    pub x1: f64,
+    pub y1: f64,
+    pub rho: f64,
+    pub depth: f64,
+    pub drag_lin: f64,
+    pub drag_quad: f64,
+}
+
+/// A rail loop (26.55, D91) on dynamic body `body` (global index).
+#[derive(Clone, Debug)]
+pub struct RailModel {
+    pub id: String,
+    pub name: String,
+    pub body: usize,
+    pub ux: f64,
+    pub uy: f64,
+    pub l: f64,
+    pub r: f64,
+    pub b: f64,
+}
+
+impl RailModel {
+    /// Damping coefficient B²L²/R of the motion along the rails (N·s/m).
+    pub fn k(&self) -> f64 {
+        if self.r > 0.0 {
+            self.b * self.b * self.l * self.l / self.r
+        } else {
+            0.0
+        }
+    }
+}
+
 /// The compiled model of a scene.
 #[derive(Clone, Debug)]
 pub struct Model {
@@ -265,6 +342,24 @@ pub struct Model {
     pub g_const: f64,
     /// Global indices of the bodies with a gravitating mass, in scene order.
     pub attractors: Vec<usize>,
+    /// 26.54 (D78): some charged body feels a field or another charge. Scenes without it are computed exactly as
+    /// in 26.53 (no electric terms anywhere).
+    pub electric: bool,
+    /// Uniform electric field (V/m), magnetic field B_z (T) and Coulomb constant (0: off) when `electric`.
+    pub e_field: Vec2,
+    pub b_field: f64,
+    pub k_coulomb: f64,
+    /// Global indices of the charged bodies, in scene order.
+    pub charged: Vec<usize>,
+    /// 26.55: field regions with the (zone, charged dynamic body) pairs whose inside/outside state is frozen in the
+    /// mode after the switches (D90); liquids (D92); rail loops (D91). Empty in scenes without them.
+    pub zones: Vec<FieldZone>,
+    pub zone_pairs: Vec<(usize, usize)>,
+    pub liquids: Vec<LiquidModel>,
+    pub rails: Vec<RailModel>,
+    /// The state carries the ledger entries of these features (and the time when a region alternates).
+    pub extra_ledger: bool,
+    pub timed: bool,
     pub n: usize,
     /// Pair keys of bodies that never collide (joined by a hinge), in insertion order.
     pub no_collide: Vec<String>,
@@ -682,6 +777,17 @@ fn compile_shape(shape: &ShapeDef, dynamic: bool, warnings: &mut Vec<Message>, n
     ShapeModel::Polygon { verts, normals, lengths }
 }
 
+/// Outline of a shape as the solver places it in body coordinates (dynamic bodies about their centre of mass): a
+/// circle, one polygon, or the parts of a concave or compound shape (model.ts `shapeOutline`).
+pub fn shape_outline(shape: &ShapeDef, dynamic: bool) -> Vec<ShapePiece> {
+    let mut w = Vec::new();
+    match compile_shape(shape, dynamic, &mut w, "") {
+        ShapeModel::Circle { radius } => vec![ShapePiece::Circle { center: Vec2::default(), radius }],
+        ShapeModel::Polygon { verts, normals, .. } => vec![ShapePiece::Polygon { verts, normals }],
+        ShapeModel::Complex(c) => c.outline,
+    }
+}
+
 fn bound_radius(shape: &ShapeModel) -> f64 {
     match shape {
         ShapeModel::Circle { radius } => *radius,
@@ -1004,9 +1110,99 @@ pub fn compile_model(scene: &Scene) -> SimResult<Model> {
             }
         }
     }
+    // 26.54 (D78): charges in fields and Coulomb forces at the start (absent in older scenes)
+    let charged: Vec<usize> = (0..bodies.len()).filter(|&k| bodies[k].charge != 0.0).collect();
+    let e_field = scene.settings.electric.unwrap_or_default();
+    let b_field = scene.settings.magnetic.unwrap_or(0.0);
+    let k_coulomb = match scene.settings.coulomb {
+        Some(k) if k > 0.0 => k,
+        _ => 0.0,
+    };
+    let fields = e_field.x != 0.0 || e_field.y != 0.0 || b_field != 0.0;
+    let electric = charged.iter().any(|&k| bodies[k].dynamic) && (fields || (k_coulomb > 0.0 && charged.len() > 1));
+    if electric {
+        let em = (e_field.x * e_field.x + e_field.y * e_field.y).sqrt();
+        for &k in &charged {
+            let b = &bodies[k];
+            if !b.dynamic {
+                continue;
+            }
+            let v = (b.def_velocity.x * b.def_velocity.x + b.def_velocity.y * b.def_velocity.y).sqrt();
+            force_scale += b.charge.abs() * (em + v * b_field.abs());
+        }
+        if k_coulomb > 0.0 {
+            for i in 0..charged.len() {
+                for j in i + 1..charged.len() {
+                    let (a, b) = (&bodies[charged[i]], &bodies[charged[j]]);
+                    if !a.dynamic && !b.dynamic {
+                        continue;
+                    }
+                    let dx = b.grav_pos.x - a.grav_pos.x;
+                    let dy = b.grav_pos.y - a.grav_pos.y;
+                    let f = coulomb_scalar(k_coulomb, a.charge, b.charge, (dx * dx + dy * dy).sqrt(), a.bound + b.bound).abs();
+                    if f.is_finite() {
+                        force_scale += f;
+                    }
+                }
+            }
+        }
+    }
+    // 26.55 (D90–D92): field regions, liquids, rail loops
+    let mut zones = Vec::new();
+    let mut liquids = Vec::new();
+    for r in &scene.settings.regions {
+        match (&r.kind, &r.shape) {
+            (crate::scene::RegionKind::Field { e, b, omega, phase }, shape) => zones.push(FieldZone { id: r.id.clone(), name: r.name.clone(), shape: shape.clone(), e: *e, b: *b, omega: *omega, phase: *phase }),
+            (crate::scene::RegionKind::Liquid { rho, depth, drag_lin, drag_quad }, crate::scene::RegionShape::Rect { x, y, w, h }) => liquids.push(LiquidModel {
+                id: r.id.clone(),
+                name: r.name.clone(),
+                x0: x - 0.5 * w,
+                y0: y - 0.5 * h,
+                x1: x + 0.5 * w,
+                y1: y + 0.5 * h,
+                rho: *rho,
+                depth: *depth,
+                drag_lin: *drag_lin,
+                drag_quad: *drag_quad,
+            }),
+            // a liquid is a rectangle; a circular one is ignored
+            _ => {}
+        }
+    }
+    let mut zone_pairs = Vec::new();
+    for (zi, z) in zones.iter().enumerate() {
+        for &k in &charged {
+            if !bodies[k].dynamic {
+                continue;
+            }
+            zone_pairs.push((zi, k));
+            let b = &bodies[k];
+            let v = (b.def_velocity.x * b.def_velocity.x + b.def_velocity.y * b.def_velocity.y).sqrt();
+            force_scale += b.charge.abs() * ((z.e.x * z.e.x + z.e.y * z.e.y).sqrt() + v * z.b.abs());
+        }
+    }
+    for l in &liquids {
+        for &bg in &dynamic {
+            let b = &bodies[bg];
+            force_scale += l.rho * g * std::f64::consts::PI * b.bound * b.bound * l.depth;
+        }
+    }
+    let mut rails = Vec::new();
+    for rl in &scene.settings.rail_loops {
+        let Some(k) = bodies.iter().position(|b| b.id == rl.body) else { continue };
+        if !bodies[k].dynamic {
+            continue;
+        }
+        let rm = RailModel { id: rl.id.clone(), name: rl.name.clone(), body: k, ux: crate::dmath::cos(rl.angle), uy: crate::dmath::sin(rl.angle), l: rl.l, r: rl.r, b: rl.b };
+        let b = &bodies[k];
+        force_scale += rm.k() * (b.def_velocity.x * b.def_velocity.x + b.def_velocity.y * b.def_velocity.y).sqrt();
+        rails.push(rm);
+    }
+    let extra_ledger = !zone_pairs.is_empty() || !liquids.is_empty() || !rails.is_empty();
+    let timed = zones.iter().any(|z| z.omega != 0.0);
     force_scale = js_max(force_scale, 1e-6);
     let mut accel_scale = js_max(g, 1.0);
-    if g_const > 0.0 || !centrals.is_empty() {
+    if g_const > 0.0 || !centrals.is_empty() || electric || extra_ledger {
         for &bg in &dynamic {
             accel_scale = js_max(accel_scale, force_scale * bodies[bg].inv_mass);
         }
@@ -1037,6 +1233,17 @@ pub fn compile_model(scene: &Scene) -> SimResult<Model> {
         centrals,
         g_const,
         attractors,
+        electric,
+        e_field,
+        b_field,
+        k_coulomb,
+        charged,
+        zones,
+        zone_pairs,
+        liquids,
+        rails,
+        extra_ledger,
+        timed,
         no_collide,
         arena,
         switch_force,
@@ -1086,6 +1293,7 @@ fn body_model(def: &BodyDef, global: usize, index: i32, shape: ShapeModel, mass:
         },
         attract: 0.0,
         grav_pos: def.position,
+        charge: def.charge,
     }
 }
 
@@ -1104,6 +1312,35 @@ pub fn pair_material(model: &Model, a: &BodyModel, b: &BodyModel) -> Material {
         mu_k: js_min(a.material.mu_k, b.material.mu_k),
         restitution: js_min(a.material.restitution, b.material.restitution),
         rolling: if rolling > 0.0 { rolling } else { 0.0 },
+    }
+}
+
+/// Coulomb interaction of two charges (26.54, D78): the force on charge a is `s·(b − a)/d` with the returned `s`
+/// (negative: repulsion). Softened like gravitation inside `rr` (the sum of the bounding radii): the force falls
+/// linearly to 0 at d = 0, as between two uniformly charged spheres that overlap.
+pub fn coulomb_scalar(k: f64, qa: f64, qb: f64, d: f64, rr: f64) -> f64 {
+    if d >= rr {
+        -k * qa * qb / (d * d)
+    } else {
+        -k * qa * qb * d / (rr * rr * rr)
+    }
+}
+
+/// Potential energy of the Coulomb interaction (J), consistent with `coulomb_scalar`.
+pub fn coulomb_potential(k: f64, qa: f64, qb: f64, d: f64, rr: f64) -> f64 {
+    if d >= rr {
+        k * qa * qb / d
+    } else {
+        k * qa * qb * (3.0 * rr * rr - d * d) / (2.0 * rr * rr * rr)
+    }
+}
+
+impl Model {
+    /// The electric forces include external ones (26.54): a uniform field, or a Coulomb force from a fixed charge.
+    /// Coulomb forces between moving charges alone keep the total momentum.
+    pub fn electric_external(&self) -> bool {
+        self.electric
+            && (self.e_field.x != 0.0 || self.e_field.y != 0.0 || self.b_field != 0.0 || (self.k_coulomb > 0.0 && self.charged.iter().any(|&g| !self.bodies[g].dynamic)))
     }
 }
 

@@ -29,9 +29,9 @@ mkdirSync(out, { recursive: true })
 const entry = join(out, 'entry.ts')
 writeFileSync(entry, [
   `export { buildTemplate } from '${join(repo, 'src/templates/index.ts')}'`,
-  `export { SimulationRun, frameState, exactStateAt, frameLedger } from '${join(repo, 'src/core/solver/simulation.ts')}'`,
-  `export { StreamRecording } from '${join(repo, 'src/core/solver/stream.ts')}'`,
-  `export { DeltaWriter } from '${join(repo, 'src/core/solver/transport.ts')}'`
+  `export { SimulationRun, frameState, exactStateAt, frameLedger } from '${join(repo, 'tests/reference/core/solver/simulation.ts')}'`,
+  `export { StreamRecording } from '${join(repo, 'tests/reference/core/solver/stream.ts')}'`,
+  `export { DeltaWriter } from '${join(repo, 'tests/reference/core/solver/transport.ts')}'`
 ].join('\n'))
 const bundle = join(out, 'bundle.mjs')
 await build({ entryPoints: [entry], bundle: true, format: 'esm', platform: 'node', outfile: bundle, logLevel: 'error' })

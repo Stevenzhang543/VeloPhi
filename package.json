@@ -1,7 +1,7 @@
 {
   "name": "velophi",
   "private": true,
-  "version": "26.52.0",
+  "version": "26.55.0",
   "type": "module",
   "description": "VeloPhi: physics simulation and teaching engine with verifiable results",
   "license": "UNLICENSED",

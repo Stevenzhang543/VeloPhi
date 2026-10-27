@@ -5,8 +5,8 @@
 import { describe, expect, it } from 'vitest'
 import { addBody, addConnector, addGround, anchor, emptyScene } from '../src/core/scene/build'
 import type { DamperDef, GearDef, HingeDef, MotorDef, Scene, SliderDef, SpringDef, WeldDef } from '../src/core/scene/types'
-import type { Recording } from '../src/core/solver/simulation'
-import { frameLedger, frameState, simulate } from '../src/core/solver/simulation'
+import type { Recording } from './reference/core/solver/simulation'
+import { frameLedger, frameState, simulate } from './reference/core/solver/simulation'
 import { parseScene, serializeScene } from '../src/core/scene/io'
 
 /** Largest drift of the ledger balance relative to the largest energy term. */
@@ -245,10 +245,10 @@ describe('connectors of 26.51 (D51)', () => {
 describe('26.50 carry-overs: reaching a pulley, approximate rest', () => {
   it('a block pulled up to its pulley ends the run there with an event', async () => {
     const { buildTemplate } = await import('../src/templates')
-    const { simulate: sim } = await import('../src/core/solver/simulation')
-    const { ropePath } = await import('../src/core/solver/kinematics')
-    const { computePoses } = await import('../src/core/solver/kinematics')
-    const { PULLEY_REACH } = await import('../src/core/solver/events')
+    const { simulate: sim } = await import('./reference/core/solver/simulation')
+    const { ropePath } = await import('./reference/core/solver/kinematics')
+    const { computePoses } = await import('./reference/core/solver/kinematics')
+    const { PULLEY_REACH } = await import('./reference/core/solver/events')
     const rec = sim(buildTemplate('atwood', {}), { duration: 10 })
     expect(rec.stopReason).toBe('pulley')
     expect(rec.error).toBeNull()
@@ -263,7 +263,7 @@ describe('26.50 carry-overs: reaching a pulley, approximate rest', () => {
 
   it('an unbounded run that settles only asymptotically stops at approximate rest', async () => {
     const { buildTemplate } = await import('../src/templates')
-    const { SimulationRun, REST_TOL } = await import('../src/core/solver/simulation')
+    const { SimulationRun, REST_TOL } = await import('./reference/core/solver/simulation')
     const s = buildTemplate('damped-spring', {})
     s.settings.duration = null
     const run = new SimulationRun(s, { duration: null })

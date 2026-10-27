@@ -97,7 +97,20 @@ export const LEVELS: Record<string, readonly [CnLevel, IbLevel]> = {
   // Rotation under a torque (IB A.4, HL)
   'spin.beta': ['u', 'hl'], 'spin.omega': ['u', 'hl'], 'spin.theta': ['u', 'hl'], 'spin.W': ['u', 'hl'],
   // Gears: equal speeds at the rim are upper secondary (传动装置); the effective inertia is rotational dynamics
-  'gear.w': ['s1', 'sl'], 'gear.v': ['s1', 'sl'], 'gear.beta': ['u', 'hl']
+  'gear.w': ['s1', 'sl'], 'gear.v': ['s1', 'sl'], 'gear.beta': ['u', 'hl'],
+  // Charges in fields (26.54): charged particles in an electric field and Coulomb's law are 必修 3 / SL; the Lorentz
+  // force and circular motion in B are 选择性必修 2 / SL; Coulomb potential energy is university / HL
+  'ce.a': ['s1', 'sl'], 'ce.x': ['s1', 'sl'], 'ce.y': ['s1', 'sl'], 'ce.vx': ['s1', 'sl'], 'ce.vy': ['s1', 'sl'], 'ce.drift': ['s1', 'sl'], 'ce.yL': ['s1', 'sl'], 'ce.tan': ['s1', 'sl'], 'ce.W': ['s1', 'sl'],
+  'cb.F': ['s2', 'sl'], 'cb.r': ['s2', 'sl'], 'cb.T': ['s2', 'sl'], 'cb.v': ['s2', 'sl'], 'cb.P': ['s2', 'sl'],
+  'sel.v': ['s2', 'sl'], 'sel.F': ['s2', 'sl'], 'ceb.W': ['s2', 'sl'], 'ceb.P': ['s2', 'sl'],
+  'cl.F': ['s1', 'sl'], 'cl.E': ['u', 'hl'], 'cl.rmin': ['u', 'hl'],
+  // 26.55: motional emf and the rail loop are 选择性必修 2 / HL (IB D.4); the exponential approach is university.
+  // Archimedes' principle and floating are lower secondary (MYP); the acceleration in a liquid is upper secondary.
+  // Charges in bounded regions follow the 26.54 tags.
+  'rail.emf': ['s2', 'hl'], 'rail.I': ['s2', 'hl'], 'rail.F': ['s2', 'hl'], 'rail.a': ['s2', 'hl'], 'rail.v': ['u', 'u'], 'rail.vT': ['s2', 'hl'], 'rail.Q': ['s2', 'hl'],
+  'fl.F': ['j', 'myp'], 'fl.eq': ['j', 'myp'], 'fl.ratio': ['j', 'myp'], 'fl.h': ['j', 'myp'], 'fl.a': ['s1', 'sl'],
+  'zb.F': ['s2', 'sl'], 'zb.r': ['s2', 'sl'], 'zb.v': ['s2', 'sl'], 'zb.t': ['s2', 'sl'], 'zb.d': ['s2', 'sl'],
+  'ze.a': ['s1', 'sl'], 'ze.v': ['s1', 'sl'], 'ze.W': ['s1', 'sl']
 }
 
 /** Tags of a formula (formulas without tags count as university, so a missing tag never hides a basic one). */

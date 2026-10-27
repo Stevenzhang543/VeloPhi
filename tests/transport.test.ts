@@ -1,14 +1,16 @@
 /**
- * Worker transport (decision D13): decode(encode(rec)) reproduces the recording bit for bit (hash, frame
- * states, mode solutions, events); a progressive run posted in slices assembles into the same recording
- * and every partial is a prefix of it; the client's main-thread fallback gives the same hash as simulate().
+ * Delta transport (decisions D13, D66): the deltas of a run replayed into a fresh recording store reproduce it bit
+ * for bit (fingerprint, frame states, segments, events, solutions) and a tampered delta is refused; a progressive
+ * job run in slices assembles into the same recording as a synchronous simulation and every partial is a prefix of
+ * it; the client's main-thread fallback gives the same recording; the Rust recordings carry the fingerprints of the
+ * TypeScript reference engine.
  */
 import { describe, expect, it } from 'vitest'
 import { buildTemplate } from '../src/templates'
-import type { Recording } from '../src/core/solver/simulation'
-import { SimulationRun, frameImpactLoss, frameSegment, frameSolution, frameState, recordingHash, recordingStates, simulate } from '../src/core/solver/simulation'
-import { decodeRecording, encodeRecording } from '../src/core/solver/transport'
-import { StreamRecording } from '../src/core/solver/stream'
+import type { Recording, RecordingEnd } from '../src/engine/recording'
+import { RecordingStore, eventStates, frameImpactLoss, frameSegment, frameState, simulate } from '../src/engine/recording'
+import { frameView } from '../src/engine/views'
+import { core } from '../src/engine/core'
 import { startSimJob } from '../src/worker/simJob'
 import type { FromWorker } from '../src/worker/simJob'
 import { startSimulation } from '../src/app/simClient'
@@ -16,6 +18,11 @@ import { cloneScene } from '../src/core/scene/io'
 import { addBody, addConnector, addGround, anchor, emptyScene } from '../src/core/scene/build'
 import type { ForceDef, Scene } from '../src/core/scene/types'
 import { finiteDuration } from '../src/core/scene/types'
+import type { Message } from '../src/i18n/message'
+import { MessageError } from '../src/i18n/message'
+import { renderMessage } from '../src/i18n/coreText'
+import { simulate as refSimulate } from './reference/core/solver/simulation'
+import { streamRun } from './helpers/stream'
 
 /** Variable force with jumps, a rough floor and a bouncing rough disc: switches, frictional impacts, slips. */
 function mixedScene(): Scene {
@@ -37,66 +44,92 @@ const cases: Array<[string, () => Scene]> = [
   ['mixed', mixedScene]
 ]
 
+/** A scene with its duration made finite (the jobs run bounded). */
+function bounded(make: () => Scene): Scene {
+  const scene = cloneScene(make())
+  scene.settings.duration = finiteDuration(scene.settings)
+  return scene
+}
+
 function expectSame(a: Recording, b: Recording) {
   expect(b.hash).toBe(a.hash)
-  const sa = recordingStates(a), sb = recordingStates(b)
-  expect(recordingHash(sb, b.events)).toBe(a.hash)
   expect(b.frameCount).toBe(a.frameCount)
-  expect(Buffer.from(sb.buffer).equals(Buffer.from(sa.buffer))).toBe(true)
   for (let k = 0; k < a.frameCount; k++) {
+    const x = frameState(a, k), y = frameState(b, k)
+    for (let i = 0; i < x.length; i++) if (!Object.is(x[i], y[i])) expect([k, i, y[i]]).toEqual([k, i, x[i]])
     if (frameSegment(b, k) !== frameSegment(a, k)) expect(frameSegment(b, k)).toBe(frameSegment(a, k))
     if (!Object.is(frameImpactLoss(b, k), frameImpactLoss(a, k))) expect(frameImpactLoss(b, k)).toBe(frameImpactLoss(a, k))
   }
   expect(b.segments.map(s => [s.t0, s.t1, s.label, s.impactLoss])).toEqual(a.segments.map(s => [s.t0, s.t1, s.label, s.impactLoss]))
   expect(b.events.map(e => [e.t, e.triggers, e.changes, e.segment])).toEqual(a.events.map(e => [e.t, e.triggers, e.changes, e.segment]))
-  expect(b.events.map(e => e.impact?.points.map(p => [p.pair?.key, p.feature?.key, p.impulse, p.tangentImpulse]))).toEqual(a.events.map(e => e.impact?.points.map(p => [p.pair?.key, p.feature?.key, p.impulse, p.tangentImpulse])))
+  expect(b.events.map(e => e.impact?.points.map(p => [p.pair, p.rope, p.impulse, p.vnAfter]))).toEqual(a.events.map(e => e.impact?.points.map(p => [p.pair, p.rope, p.impulse, p.vnAfter])))
+  for (let i = 0; i < a.events.length; i++) expect(Array.from(eventStates(b, i).after)).toEqual(Array.from(eventStates(a, i).after))
   expect([b.completed, b.error, b.warnings]).toEqual([a.completed, a.error, a.warnings])
   for (let k = 0; k < a.frameCount; k += Math.max(1, Math.floor(a.frameCount / 37))) {
-    const sa = frameSolution(a, k), sb = frameSolution(b, k)
-    expect(Array.from(sb.acc)).toEqual(Array.from(sa.acc))
-    expect(Array.from(sb.lambda)).toEqual(Array.from(sa.lambda))
-    expect(sb.ropeTension).toEqual(sa.ropeTension)
+    const va = frameView(a, k * a.dt, { forces: 'all' }), vb = frameView(b, k * b.dt, { forces: 'all' })
+    expect(Array.from(vb.acc ?? [])).toEqual(Array.from(va.acc ?? []))
+    expect(vb.ropes).toEqual(va.ropes)
+    expect([...vb.forces]).toEqual([...va.forces])
   }
 }
 
-describe('decode(encode(recording))', () => {
+describe('deltas replayed into a fresh store', () => {
   for (const [name, make] of cases) {
     it(name, () => {
-      const rec = simulate(make())
-      const posted = structuredClone(encodeRecording(rec))
-      const back = decodeRecording(make(), posted)
-      expectSame(rec, back)
+      const scene = bounded(make)
+      const ref = simulate(cloneScene(scene))
+      const deltas: Uint8Array[] = []
+      // Small advance calls: tail deltas of unfinished chunks as well as closed chunks
+      const { rec } = streamRun(scene, { steps: 300, onDelta: d => deltas.push(d) })
+      expect(deltas.length).toBeGreaterThan(2)
+      expectSame(ref, rec)
+      const store = new RecordingStore(cloneScene(scene), { chunkFrames: rec.chunkFrames, duration: scene.settings.duration })
+      for (const d of deltas) store.apply(structuredClone(d))
+      const end: RecordingEnd = { completed: rec.completed, error: rec.error, hash: rec.hash, stopReason: rec.stopReason }
+      expectSame(ref, store.final(end))
+      // The Rust recording carries the fingerprint of the TypeScript reference engine
+      expect(rec.hash).toBe(refSimulate(cloneScene(scene)).hash)
     })
   }
-  it('a tampered recording is refused', () => {
-    const rec = simulate(buildTemplate('incline'))
-    const enc = encodeRecording(rec)
-    enc.delta.states[100] += 1e-9
-    expect(() => decodeRecording(buildTemplate('incline'), enc)).toThrow(/fingerprint/)
+  it('a tampered delta is refused', () => {
+    const scene = bounded(() => buildTemplate('incline'))
+    const deltas: Uint8Array[] = []
+    const { rec } = streamRun(scene, { onDelta: d => deltas.push(d) })
+    const store = new RecordingStore(cloneScene(scene), { chunkFrames: rec.chunkFrames, duration: scene.settings.duration })
+    const bad = deltas[0].slice()
+    // Flip the lowest mantissa bit of one frame state (the container's JSON points into its blob, offsets in bytes)
+    const n = bad[4] | (bad[5] << 8) | (bad[6] << 16) | (bad[7] << 24)
+    const ref = (JSON.parse(new TextDecoder().decode(bad.subarray(8, 8 + n))) as { states: { $f64: [number, number] } }).states.$f64
+    expect(ref[1]).toBeGreaterThan(10)
+    bad[Math.ceil((8 + n) / 8) * 8 + ref[0] + 8 * 7] ^= 1
+    expect(() => {
+      store.apply(bad)
+      for (const d of deltas.slice(1)) store.apply(d)
+      store.final({ completed: rec.completed, error: rec.error, hash: rec.hash, stopReason: rec.stopReason })
+    }).toThrow()
   })
 })
 
 describe('progressive worker job', () => {
   for (const [name, make] of cases) {
     it(`${name}: slices assemble into the same recording, partials are prefixes`, () => {
-      const scene = cloneScene(make())
-      scene.settings.duration = finiteDuration(scene.settings)
+      const scene = bounded(make)
       const ref = simulate(cloneScene(scene))
       const queue: Array<() => void> = []
       const msgs: FromWorker[] = []
-      startSimJob(structuredClone(scene), 60000, m => msgs.push(structuredClone(m)), fn => queue.push(fn), 2)
+      startSimJob(core(), cloneScene(scene), 60000, m => msgs.push(structuredClone(m)), fn => queue.push(fn), { sliceMs: 2, transfer: false })
       while (queue.length) queue.shift()!()
       expect(msgs[0].type).toBe('started')
       const started = msgs[0] as Extract<FromWorker, { type: 'started' }>
       expect(started.duration).toBe(scene.settings.duration)
-      const asm = new StreamRecording({ scene, chunkFrames: started.chunkFrames, duration: started.duration })
+      const store = new RecordingStore(cloneScene(scene), { chunkFrames: started.chunkFrames, duration: started.duration })
       let partials = 0, lastFrames = 0
       for (const m of msgs.slice(1)) {
         if (m.type === 'error') throw new Error(m.message)
         if (m.type === 'started' || m.type === 'engine') continue
-        asm.apply(m.delta)
+        if (m.delta) store.apply(m.delta)
         if (m.type === 'partial') {
-          const p = asm.snapshot()
+          const p = store.snapshot()
           partials++
           expect(p.completed).toBe(false)
           expect(p.hash).toBe('')
@@ -106,32 +139,27 @@ describe('progressive worker job', () => {
           expect(Array.from(frameState(p, k))).toEqual(Array.from(frameState(ref, k)))
           expect(p.events.length).toBeLessThanOrEqual(ref.events.length)
           if (p.events.length) expect(p.events[p.events.length - 1].t).toBe(ref.events[p.events.length - 1].t)
-          const sp = frameSolution(p, k), sr = frameSolution(ref, k)
-          expect(Array.from(sp.acc)).toEqual(Array.from(sr.acc))
+          expect(Array.from(frameView(p, k * p.dt).acc ?? [])).toEqual(Array.from(frameView(ref, k * ref.dt).acc ?? []))
         } else {
-          expectSame(ref, asm.final(m.end))
+          expectSame(ref, store.final(m.end))
         }
       }
       expect(partials).toBeGreaterThan(0)
       expect(msgs[msgs.length - 1].type).toBe('done')
     })
   }
-  it('incremental runs on this thread match simulate() whatever the slicing', () => {
-    const scene = mixedScene()
-    const ref = simulate(cloneScene(scene))
-    const run = new SimulationRun(cloneScene(scene))
-    let slices = 0
-    while (!run.advance(Date.now() - 1)) slices++
-    expect(slices).toBeGreaterThan(100)
-    expect(run.result().hash).toBe(ref.hash)
-  })
   it('a scene error is posted as an error message', () => {
     const s = mixedScene()
     const f = s.connectors.find(c => c.type === 'force')
     if (f?.type === 'force') f.expr = { x: 'x + vx', y: '0' }
     const msgs: FromWorker[] = []
-    startSimJob(s, 1000, m => msgs.push(m), fn => fn())
-    expect(msgs).toEqual([{ type: 'error', message: expect.stringContaining('量纲') }])
+    startSimJob(core(), s, 1000, m => msgs.push(m), fn => fn())
+    expect(msgs).toHaveLength(1)
+    expect(msgs[0].type).toBe('error')
+    if (msgs[0].type === 'error') {
+      expect(msgs[0].msg?.key).toBe('scene.forceExprInvalid')
+      expect((msgs[0].msg?.params.reason as Message).key).toMatch(/^expr\./)
+    }
   })
 })
 
@@ -164,6 +192,8 @@ describe('simulation client (main-thread fallback in Node)', () => {
     const s = mixedScene()
     const f = s.connectors.find(c => c.type === 'force')
     if (f?.type === 'force') f.expr = { x: 'sin(t)', y: '0' }
-    await expect(startSimulation(s, { budgetMs: 1000, useWorker: false, progressive: false }).done).rejects.toThrow(/无量纲/)
+    const err = await startSimulation(s, { budgetMs: 1000, useWorker: false, progressive: false }).done.catch(e => e)
+    expect(err).toBeInstanceOf(MessageError)
+    expect(renderMessage((err as MessageError).msg, 'zh')).toMatch(/无量纲/)
   })
 })

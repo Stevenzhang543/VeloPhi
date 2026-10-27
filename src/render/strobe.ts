@@ -2,12 +2,11 @@
  * Stroboscopic picture (manual 26.50, D33): the textbook "频闪照片" — the bodies drawn at the instants t − n·τ
  * (n = 1 … N) as semi-transparent outlines, older images fainter, optionally with their times. It is another way
  * of drawing the recording, not new data: every image is the exact state at its instant (`exactStateAt`, one
- * integration step from the nearest frame), so the spacing of the images shows the motion as a real
+ * integration step from the nearest frame, computed in the core), so the spacing of the images shows the motion as a real
  * stroboscope would. Exports draw it the same way (render/frame.ts).
  */
-import type { Recording } from '../core/solver/simulation'
-import { exactStateAt } from '../core/solver/simulation'
-import { computePoses } from '../core/solver/kinematics'
+import type { Recording } from '../engine/recording'
+import { posesAt } from '../engine/views'
 import type { Camera, Palette } from './renderer'
 import { bodyPath, tag, toScreen } from './renderer'
 import { font, lw } from './style'
@@ -62,11 +61,12 @@ export function drawStrobe(ctx: CanvasRenderingContext2D, cam: Camera, rec: Reco
   const tMax = (rec.frameCount - 1) * rec.dt
   const times = strobeTimes(Math.min(t, tMax), o)
   const N = times.length
+  const images = N ? posesAt(rec, { times, exact: true }) : []
   // Oldest first, so newer images are drawn on top
   for (let i = N - 1; i >= 0; i--) {
     const tn = times[i]
-    const X = exactStateAt(rec, tn)
-    const poses = computePoses(model, X)
+    const poses = images[i]
+    if (!poses) continue
     const alpha = strobeAlpha(i + 1, N, o.opacity)
     for (const b of model.dynamic) {
       bodyPath(ctx, cam, b, poses[b.global])

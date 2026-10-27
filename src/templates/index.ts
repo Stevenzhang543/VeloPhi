@@ -12,9 +12,11 @@
  */
 import { tl, trDeep } from '../i18n'
 import type { Scene } from '../core/scene/types'
+import { COULOMB_K, usesFields } from '../core/scene/types'
 import { DEG, cos, sin, tan } from '../core/math/dmath'
 import { addBody, addConnector, addGround, addIncline, addPulley, anchor, defaultGravity, emptyScene, onIncline, setDefaultGravity } from '../core/scene/build'
 import type { ForceDef, RodDef, RopeDef, SpringDef, HingeDef, WeldDef, MotorDef, GearDef, CentralDef, SliderDef } from '../core/scene/types'
+import { TEMPLATES_2655 } from './t2655'
 
 /** A template parameter: key, label, display unit ('°' for angles), default value and limits. */
 export interface TemplateParam { key: string; label: string; unit: string; value: number; min?: number; max?: number; step?: number }
@@ -414,6 +416,200 @@ function variableForce(v: Record<string, number>): Scene {
   return s
 }
 
+// ---- 26.54: charges and fields (D78) and the mechanics A group (D87) ----
+const MC = 1e-3, UC = 1e-6, G_ = 1e-3
+
+/** A thin static plate (capacitor plate, screen) from x0 to x1 at height y, or vertical at x from y0 to y1. */
+function plate(s: Scene, id: string, name: string, x0: number, y0: number, x1: number, y1: number) {
+  const w = Math.max(Math.abs(x1 - x0), 0.02), h = Math.max(Math.abs(y1 - y0), 0.02)
+  addBody(s, { id, name, kind: 'static', role: 'wall', shape: { type: 'box', width: w, height: h }, position: { x: (x0 + x1) / 2, y: (y0 + y1) / 2 }, material: { muS: 0, muK: 0, restitution: 0 } })
+}
+
+function chargeDeflection(v: Record<string, number>): Scene {
+  const s = emptyScene(tl('带电粒子在电场中的偏转'))
+  s.description = tl('带正电的小球以初速度 v₀ 垂直于电场方向射入两板之间（不计重力）：沿初速度方向匀速、沿电场方向匀加速，轨迹为抛物线。电场充满整个区域（有界场区在 26.55 加入），右侧为荧光屏。')
+  const d = 0.5, L = v.L
+  plate(s, 'top', tl('上极板'), 0, d / 2 + 0.01, L, d / 2 + 0.01)
+  plate(s, 'bottom', tl('下极板'), 0, -d / 2 - 0.01, L, -d / 2 - 0.01)
+  plate(s, 'screen', tl('荧光屏'), L + 0.5, -0.9, L + 0.5, 0.9)
+  addBody(s, { id: 'p', name: tl('带电小球'), kind: 'particle', role: 'ball', shape: { type: 'circle', radius: 0.02 }, position: { x: 0, y: 0 }, velocity: { x: v.v0, y: 0 }, mass: v.m * G_, material: { restitution: 0 }, color: '#ef4444', charge: v.q * MC })
+  s.settings.gravity = { x: 0, y: 0 }
+  s.settings.electric = { E: { x: 0, y: -v.E } }
+  // The field fills all space: end the run soon after the ball hits a plate or the screen
+  s.settings.stopAt = { on: 'impact', after: 0.3 }
+  s.settings.legacyDuration = Math.min(60, (L + 0.5) / Math.max(v.v0, 1e-3))
+  s.view = { center: { x: L / 2 + 0.2, y: -0.1 }, pixelsPerMeter: Math.max(60, Math.min(400, 520 / (L + 0.8))) }
+  s.watch = ['p.x', 'p.y', 'p.vy', 'p.FE', 'system.eE']
+  return s
+}
+
+function cyclotron(v: Record<string, number>): Scene {
+  const s = emptyScene(tl('带电粒子在匀强磁场中的圆周运动'))
+  s.description = tl('带正电的小球在垂直纸面向外的匀强磁场中运动（不计重力）：洛伦兹力提供向心力，r = mv/(qB)，周期 T = 2πm/(qB) 与速度无关。')
+  const r = (v.m * G_ * v.v) / (v.q * MC * v.B)
+  addBody(s, { id: 'p', name: tl('带电小球'), kind: 'particle', role: 'ball', shape: { type: 'circle', radius: Math.max(0.005, Math.min(0.03, r * 0.05)) }, position: { x: 0, y: 0 }, velocity: { x: v.v, y: 0 }, mass: v.m * G_, color: '#ef4444', charge: v.q * MC })
+  s.settings.gravity = { x: 0, y: 0 }
+  s.settings.magnetic = { B: v.B }
+  s.settings.legacyDuration = Math.min(600, 1.2 * 2 * Math.PI * v.m * G_ / (v.q * MC * v.B))
+  s.view = { center: { x: 0, y: -r }, pixelsPerMeter: Math.max(20, Math.min(600, 150 / Math.max(r, 1e-3))) }
+  s.watch = ['p.v', 'p.FB', 'p.a']
+  return s
+}
+
+function velocitySelector(v: Record<string, number>): Scene {
+  const s = emptyScene(tl('速度选择器'))
+  s.description = tl('两板间有竖直向下的匀强电场 E 和垂直纸面向里的匀强磁场 B。带正电的小球（不计重力）以 v₀ 水平射入：v₀ = E/B 时电场力与洛伦兹力平衡，做匀速直线运动；否则偏转。')
+  const d = 0.8, L = 3
+  plate(s, 'top', tl('上极板'), 0, d / 2 + 0.01, L, d / 2 + 0.01)
+  plate(s, 'bottom', tl('下极板'), 0, -d / 2 - 0.01, L, -d / 2 - 0.01)
+  addBody(s, { id: 'p', name: tl('带电小球'), kind: 'particle', role: 'ball', shape: { type: 'circle', radius: 0.02 }, position: { x: -0.4, y: 0 }, velocity: { x: v.v0, y: 0 }, mass: v.m * G_, material: { restitution: 0 }, color: '#ef4444', charge: v.q * MC })
+  s.settings.gravity = { x: 0, y: 0 }
+  s.settings.electric = { E: { x: 0, y: -v.E } }
+  s.settings.magnetic = { B: -v.B }
+  s.settings.legacyDuration = Math.min(60, (L + 0.8) / Math.max(v.v0, 1e-3))
+  s.view = { center: { x: 1.3, y: 0 }, pixelsPerMeter: 150 }
+  s.watch = ['p.vx', 'p.vy', 'p.FE', 'p.FB']
+  return s
+}
+
+function twoCharges(v: Record<string, number>): Scene {
+  const s = emptyScene(tl('两个带电小球'))
+  s.description = tl('光滑水平面上（俯视，不计重力）两个带电小球由静止释放，相互作用的库仑力 F = kq₁q₂/r² 大小相等、方向相反：同种电荷相互排斥，异种电荷相互吸引（相碰后弹开）。系统的总动量守恒，动能与电势能之和守恒。')
+  const r = 0.04
+  addBody(s, { id: 'A', name: tl('小球A'), kind: 'particle', role: 'ball', shape: { type: 'circle', radius: r }, position: { x: -v.d / 2, y: 0 }, mass: v.m1 * G_, material: { restitution: 1 }, color: '#ef4444', charge: v.q1 * UC })
+  addBody(s, { id: 'B', name: tl('小球B'), kind: 'particle', role: 'ball', shape: { type: 'circle', radius: r }, position: { x: v.d / 2, y: 0 }, mass: v.m2 * G_, material: { restitution: 1 }, color: '#2563eb', charge: v.q2 * UC })
+  s.settings.gravity = { x: 0, y: 0 }
+  s.settings.coulomb = { k: COULOMB_K }
+  s.settings.legacyDuration = 2
+  s.view = { center: { x: 0, y: 0 }, pixelsPerMeter: 220 }
+  s.watch = ['A.Fc', 'A.vx', 'B.vx', 'system.px', 'system.eE']
+  return s
+}
+
+function alphaScattering(v: Record<string, number>): Scene {
+  const s = emptyScene(tl('α 粒子散射'))
+  s.description = tl('带正电的 α 粒子从远处射向固定的原子核（教学单位：k = 1），瞄准距离为 b。库仑斥力使它沿双曲线偏转，b 越小偏转越大，正对射入时被弹回。最近距离与偏转角可与卢瑟福的公式对照。')
+  addBody(s, { id: 'nucleus', name: tl('原子核'), kind: 'static', role: 'generic', shape: { type: 'circle', radius: 0.05 }, position: { x: 0, y: 0 }, color: '#dc2626', charge: v.Q })
+  addBody(s, { id: 'alpha', name: tl('α 粒子'), kind: 'particle', role: 'ball', shape: { type: 'circle', radius: 0.03 }, position: { x: -6, y: v.b }, velocity: { x: v.v0, y: 0 }, mass: v.m, color: '#f59e0b', charge: v.q })
+  s.settings.gravity = { x: 0, y: 0 }
+  s.settings.coulomb = { k: 1 }
+  s.settings.legacyDuration = Math.min(60, 12 / Math.max(v.v0, 0.05))
+  s.view = { center: { x: 0, y: 0 }, pixelsPerMeter: 70 }
+  s.watch = ['alpha.v', 'alpha.Fc', 'system.e', 'system.eE']
+  return s
+}
+
+function inertia(v: Record<string, number>): Scene {
+  const s = emptyScene(tl('惯性：快速抽出纸条'))
+  s.description = tl('物块放在一张纸条上，用较大的力 F 迅速抽出纸条：物块与纸条间的摩擦力很小、作用时间很短，物块几乎留在原处（惯性）。减小 F 再试，物块会随纸条一起移动。')
+  addGround(s, { id: 'table', name: tl('桌面'), top: 0, left: -1, right: 3, material: { muS: 0.6, muK: 0.6 } })
+  const paper = addBody(s, { id: 'paper', name: tl('纸条'), role: 'board', shape: { type: 'box', width: 1, height: 0.01 }, position: { x: 0.5, y: 0.005 }, mass: 0.01, material: { muS: 0, muK: 0 }, color: '#e5e7eb' })
+  addBody(s, { id: 'block', name: tl('物块'), role: 'block', shape: { type: 'box', width: 0.2, height: 0.15 }, position: { x: 0.5, y: 0.01 + 0.075 }, mass: v.m, material: { muS: v.mu, muK: v.mu } })
+  s.contactPairs.push({ a: 'block', b: 'paper', muS: v.mu, muK: v.mu, restitution: 0 })
+  s.contactPairs.push({ a: 'paper', b: 'table', muS: 0, muK: 0, restitution: 0 })
+  s.contactPairs.push({ a: 'block', b: 'table', muS: 0.6, muK: 0.6, restitution: 0 })
+  addConnector<ForceDef>(s, { id: 'pull', name: tl('拉力'), type: 'force', a: anchor(paper, { x: 0.5, y: 0 }), force: { x: v.F, y: 0 } })
+  s.settings.gravity = { x: 0, y: -v.g }
+  s.settings.legacyDuration = 0.6
+  s.view = { center: { x: 0.9, y: 0.3 }, pixelsPerMeter: 260 }
+  s.watch = ['block.x', 'paper.x', 'block.vx', 'contact.block|paper.f']
+  return s
+}
+
+function elevator(v: Record<string, number>): Scene {
+  const s = emptyScene(tl('电梯中的弹簧秤'))
+  s.description = tl('电梯厢在竖直滑轨上由拉力 F 带动加速上升，厢顶用弹簧秤挂一个质量 m 的物体（弹簧有阻尼，振动很快消失）。稳定后弹簧秤示数 F弹 = m(g + a)：加速上升时超重，减速上升或加速下降时失重。')
+  const cabin = addBody(s, { id: 'cabin', name: tl('电梯厢顶'), role: 'block', shape: { type: 'box', width: 0.8, height: 0.08 }, position: { x: 0, y: 1.2 }, mass: v.M, fixedRotation: true, color: '#64748b' })
+  addConnector<SliderDef>(s, { id: 'rail', name: tl('滑轨'), type: 'slider', a: anchor(null, { x: 0, y: 1.2 }), b: anchor(cabin), axis: { x: 0, y: 1 } })
+  const L0 = 0.4, ext = (v.m * v.g) / v.k
+  const load = addBody(s, { id: 'load', name: tl('物体'), kind: 'particle', role: 'ball', shape: { type: 'circle', radius: 0.06 }, position: { x: 0, y: 1.2 - 0.04 - L0 - ext }, mass: v.m, color: '#f59e0b' })
+  addConnector<SpringDef>(s, { id: 'scale', name: tl('弹簧秤'), type: 'spring', a: anchor(cabin, { x: 0, y: -0.04 }), b: anchor(load), stiffness: v.k, restLength: L0, damping: v.c })
+  addConnector<ForceDef>(s, { id: 'lift', name: tl('拉力 F'), type: 'force', a: anchor(cabin), force: { x: 0, y: v.F } })
+  s.settings.gravity = { x: 0, y: -v.g }
+  s.settings.legacyDuration = 3
+  s.view = { center: { x: 0, y: 2.2 }, pixelsPerMeter: 110 }
+  s.watch = ['scale.F', 'cabin.ay', 'load.ay', 'cabin.vy']
+  return s
+}
+
+function cosmicVelocity(v: Record<string, number>): Scene {
+  const s = emptyScene(tl('宇宙速度'))
+  s.description = tl('在地球表面附近水平发射卫星（教学单位 G = 1，地球质量 M、半径 R）。v = v₁ = √(GM/R)（k = 1）时贴地做圆周运动，第一宇宙速度；v₁ < v < √2·v₁ 为椭圆轨道；v ≥ √2·v₁（第二宇宙速度）时逃离地球；v < v₁ 时落回地面。')
+  s.settings.gravitation = { G: 1 }
+  s.settings.gravity = { x: 0, y: 0 }
+  addBody(s, { id: 'earth', name: tl('地球'), kind: 'static', role: 'generic', shape: { type: 'circle', radius: v.R }, position: { x: 0, y: 0 }, mass: v.M, color: '#2563eb', material: { muS: 0, muK: 0, restitution: 0 } })
+  const r0 = v.R + 0.03 + 1e-3
+  const v1 = Math.sqrt(v.M / r0)
+  addBody(s, { id: 'sat', name: tl('卫星'), kind: 'particle', role: 'ball', shape: { type: 'circle', radius: 0.03 }, position: { x: 0, y: r0 }, velocity: { x: -v.k * v1, y: 0 }, mass: 1, color: '#f59e0b', material: { restitution: 0 } })
+  const eps = (v.k * v1) ** 2 / 2 - v.M / r0
+  const a = eps < 0 ? -v.M / (2 * eps) : 3 * r0
+  s.settings.legacyDuration = Math.min(600, eps < 0 ? 1.15 * 2 * Math.PI * Math.sqrt(a ** 3 / v.M) : 20 * r0 / v1)
+  s.view = { center: { x: 0, y: eps < 0 ? r0 - a : 0 }, pixelsPerMeter: Math.max(10, Math.min(300, 260 / Math.max(a, r0))) }
+  s.watch = ['sat.v', 'sat.Fg', 'system.e']
+  return s
+}
+
+function resonance(v: Record<string, number>): Scene {
+  const s = emptyScene(tl('受迫振动与共振'))
+  s.description = tl('有阻尼的弹簧振子受周期性驱动力 F = F₀ sin(ωt)。稳定后以驱动频率振动，振幅 A = F₀/√((k − mω²)² + (cω)²)；ω 接近固有频率 ω₀ = √(k/m) 时振幅最大（共振）。')
+  addGround(s, { id: 'ground', top: 0, left: -0.4, right: 3 })
+  const L0 = 0.8, w = 0.2
+  addBody(s, { id: 'wall', name: tl('墙'), kind: 'static', role: 'wall', shape: { type: 'box', width: 0.1, height: 0.6 }, position: { x: -0.05, y: 0.3 } })
+  const b = addBody(s, { id: 'block', name: tl('振子'), role: 'block', shape: { type: 'box', width: w, height: w }, position: { x: L0 + w / 2, y: w / 2 }, mass: v.m })
+  addConnector<SpringDef>(s, { id: 'spring', name: tl('弹簧'), type: 'spring', a: anchor(b, { x: -w / 2, y: 0 }), b: anchor(null, { x: 0, y: w / 2 }), stiffness: v.k, restLength: L0, damping: v.c })
+  addConnector<ForceDef>(s, { id: 'drive', name: tl('驱动力'), type: 'force', a: anchor(b), force: { x: 0, y: 0 }, expr: { x: `${num(v.F0)}*sin(${num(v.omega)}*t)`, y: '0' } })
+  s.settings.gravity = { x: 0, y: -v.g }
+  s.settings.legacyDuration = 20
+  s.view = { center: { x: 1, y: 0.4 }, pixelsPerMeter: 200 }
+  s.watch = ['block.x', 'block.vx', 'spring.F', 'drive.Fx']
+  return s
+}
+
+function inclineEfficiency(v: Record<string, number>): Scene {
+  const s = emptyScene(tl('斜面的机械效率'))
+  s.description = tl('用平行于斜面的拉力 F 把物块匀速拉上倾角 θ 的粗糙斜面。有用功是克服重力做的功 W有 = mgh，总功 W总 = Fs = mgh + Q（Q 为摩擦生热），机械效率 η = W有/W总 = sinθ/(sinθ + μcosθ)。')
+  const th = v.theta * DEG, base = 4
+  addIncline(s, { id: 'incline', angle: th, base, material: { muS: v.mu, muK: v.mu } })
+  const w = 0.3, h = 0.2
+  // near the foot of the slope (onIncline measures from the top)
+  const pl = onIncline(th, base, base / cos(th) - 0.8, w, h)
+  const blk = addBody(s, { id: 'block', name: tl('物块'), role: 'block', shape: { type: 'box', width: w, height: h }, position: pl.position, angle: pl.angle, mass: v.m, material: { muS: v.mu, muK: v.mu } })
+  // uniform motion up the slope: F = mg(sin θ + μ cos θ) along the slope, starting with speed v up the slope
+  const F = v.m * v.g * (sin(th) + v.mu * cos(th))
+  const up = { x: -cos(th), y: sin(th) }
+  addConnector<ForceDef>(s, { id: 'pull', name: tl('拉力'), type: 'force', a: anchor(blk), force: { x: F * up.x, y: F * up.y } })
+  blk.velocity = { x: v.v0 * up.x, y: v.v0 * up.y }
+  s.settings.gravity = { x: 0, y: -v.g }
+  s.settings.energyZeroY = pl.position.y
+  s.settings.legacyDuration = 1.2
+  s.customQuantities = [{ id: 'eta', name: tl('机械效率 η'), expr: 'ep(block)/(ep(block) + heat(block, incline))' }]
+  s.view = { center: { x: 2, y: 1.2 }, pixelsPerMeter: 150 }
+  s.watch = ['custom.eta', 'pull.P', 'block.v', 'ledger.appliedWork', 'pair.block|incline.heat']
+  return s
+}
+
+function wheelAxle(v: Record<string, number>): Scene {
+  const s = emptyScene(tl('轮轴'))
+  s.description = tl('轮（半径 R）和轴（半径 r）固定在一起，绕共同的中心转动。轴上用绳挂重物 G = mg，轮的边缘用绳竖直向下拉住，轮轴静止。拉力 F = G·r/R：轮半径是轴半径的几倍，所用的力就是物重的几分之一（省力），但拉绳移动的距离是重物移动距离的 R/r 倍。')
+  const pivot = { x: 0, y: 1.2 }
+  const R = Math.max(v.R, v.r + 0.02), r = v.r
+  const wheel = addBody(s, { id: 'wheel', name: tl('轮'), role: 'generic', shape: { type: 'circle', radius: R }, position: pivot, mass: v.M, color: '#94a3b8' })
+  const axle = addBody(s, { id: 'axle', name: tl('轴'), role: 'generic', shape: { type: 'circle', radius: r }, position: pivot, mass: 0.2 * v.M * (r / R) ** 2, color: '#475569' })
+  addConnector<HingeDef>(s, { id: 'hinge', name: tl('转轴'), type: 'hinge', a: anchor(wheel), b: anchor(null, pivot) })
+  addConnector<WeldDef>(s, { id: 'weld', name: tl('轮与轴固定'), type: 'weld', a: anchor(axle), b: anchor(wheel) })
+  const box = 0.16
+  const load = addBody(s, { id: 'load', name: tl('重物'), kind: 'particle', role: 'block', shape: { type: 'box', width: box, height: box }, position: { x: pivot.x + r, y: pivot.y - R - 0.45 }, mass: v.m, color: '#b45309' })
+  addConnector<RopeDef>(s, { id: 'loadRope', name: tl('挂重物的绳'), type: 'rope', a: anchor(axle, { x: r, y: 0 }), b: anchor(load, { x: 0, y: box / 2 }), pulleys: [], length: null })
+  addConnector<RopeDef>(s, { id: 'effort', name: tl('拉绳'), type: 'rope', a: anchor(wheel, { x: -R, y: 0 }), b: anchor(null, { x: pivot.x - R, y: pivot.y - R - 0.5 }), pulleys: [], length: null })
+  s.settings.gravity = { x: 0, y: -v.g }
+  s.settings.legacyDuration = 1
+  // G/F equals R/r while the wheel and axle is at rest (F·R = G·r)
+  s.customQuantities = [{ id: 'gain', name: tl('省力倍数 G/F（R/r = {0}）', [Number((R / r).toPrecision(4))]), expr: 'T(loadRope)/T(effort)' }]
+  s.view = { center: { x: 0, y: 0.75 }, pixelsPerMeter: 240 }
+  s.watch = ['effort.T', 'loadRope.T', 'custom.gain', 'wheel.omega']
+  return s
+}
+
 /** All templates, in gallery order. */
 export const TEMPLATES: TemplateInfo[] = trDeep([
   { id: 'incline', group: '斜面与摩擦', name: '斜面滑块', description: '物块沿斜面下滑；μ 可为 0', params: [p('theta', '倾角 θ', '°', 30, 1, 80), p('m', '质量 m', 'kg', 2, 0.01), p('mu', '动摩擦因数 μ', '', 0.2, 0, 2, 0.01), gp()], build: inclineBlock },
@@ -453,8 +649,26 @@ export const TEMPLATES: TemplateInfo[] = trDeep([
   { id: 'central-spring', group: '有心力', name: '弹性中心力', description: '有心力 F = k·r：以力心为中心的椭圆，周期与振幅无关', params: [p('k', '强度 k', 'N/m', 20, 0.01), p('m', '质量 m', 'kg', 0.5, 0.001), p('A', '初始距离 A', 'm', 0.5, 0.05, 5), p('v0', '初速度 v₀', 'm/s', 2, 0)], build: centralSpring },
   { id: 'slider-stop', group: '连接体', name: '滑轨限位', description: '滑块撞上滑轨限位后按恢复系数 e 反弹', params: [p('theta', '倾角 θ', '°', 30, 5, 80), p('L', '到限位的距离 L', 'm', 1, 0.1, 5), p('m', '质量 m', 'kg', 1, 0.01), p('e', '限位恢复系数 e', '', 0.5, 0, 1, 0.05), gp()], build: sliderStop },
   { id: 'rolling-resistance', group: '刚体转动', name: '滚动阻力', description: '滚动阻力偶 M = C_rr·N·r 使滚动的圆柱停下', params: [p('r', '半径 r', 'm', 0.15, 0.01), p('m', '质量 m', 'kg', 1, 0.001), p('v0', '初速度 v₀', 'm/s', 2), p('crr', '滚动阻力系数 C_rr', '', 0.05, 0.001, 0.5, 0.005), p('mu', '摩擦因数 μ', '', 0.5, 0.05, 2, 0.01), gp()], build: rollingResistance },
-  { id: 'v-groove', group: '凹形与复合体', name: 'V 形槽中的小球', description: '凹形物体：小球在两个槽面间来回滚动，经过槽底时碰撞', params: [p('theta', '槽面倾角 θ', '°', 35, 10, 70), p('h', '释放高度 h', 'm', 0.5, 0.05, 0.7), p('r', '小球半径 r', 'm', 0.08, 0.02, 0.2), p('m', '质量 m', 'kg', 0.5, 0.001), p('mu', '摩擦因数 μ', '', 0.5, 0, 2, 0.01), gp()], build: vGroove }
+  { id: 'v-groove', group: '凹形与复合体', name: 'V 形槽中的小球', description: '凹形物体：小球在两个槽面间来回滚动，经过槽底时碰撞', params: [p('theta', '槽面倾角 θ', '°', 35, 10, 70), p('h', '释放高度 h', 'm', 0.5, 0.05, 0.7), p('r', '小球半径 r', 'm', 0.08, 0.02, 0.2), p('m', '质量 m', 'kg', 0.5, 0.001), p('mu', '摩擦因数 μ', '', 0.5, 0, 2, 0.01), gp()], build: vGroove },
+  // 26.54: charges and fields (D78)
+  { id: 'charge-deflection', group: '电与磁', name: '带电粒子在电场中的偏转', description: '类平抛：沿初速度匀速、沿电场匀加速（不计重力）', params: [p('q', '电荷量 q', 'mC', 1, 1e-6), p('m', '质量 m', 'g', 1, 1e-6), p('E', '场强 E', 'V/m', 2, 0), p('v0', '初速度 v₀', 'm/s', 3, 0.01), p('L', '极板长 L', 'm', 1.2, 0.1, 5)], build: chargeDeflection },
+  { id: 'cyclotron', group: '电与磁', name: '磁场中的圆周运动', description: '洛伦兹力提供向心力：r = mv/(qB)，T = 2πm/(qB)', params: [p('q', '电荷量 q', 'mC', 1, 1e-6), p('m', '质量 m', 'g', 1, 1e-6), p('B', '磁感应强度 B', 'T', 2, 1e-6), p('v', '速度 v', 'm/s', 1, 0.001)], build: cyclotron },
+  { id: 'velocity-selector', group: '电与磁', name: '速度选择器', description: 'v₀ = E/B 时匀速直线通过，否则偏转', params: [p('E', '场强 E', 'V/m', 4, 0), p('B', '磁感应强度 B', 'T', 2, 1e-6), p('v0', '入射速度 v₀', 'm/s', 2, 0.01), p('q', '电荷量 q', 'mC', 1, 1e-6), p('m', '质量 m', 'g', 1, 1e-6)], build: velocitySelector },
+  { id: 'two-charges', group: '电与磁', name: '两个带电小球', description: '库仑定律；同种相斥、异种相吸；动量守恒', params: [p('q1', '电荷量 q₁', 'μC', 1), p('q2', '电荷量 q₂', 'μC', 1), p('m1', '质量 m₁', 'g', 10, 0.001), p('m2', '质量 m₂', 'g', 10, 0.001), p('d', '初始距离 d', 'm', 0.3, 0.1, 2)], build: twoCharges },
+  { id: 'alpha-scattering', group: '电与磁', name: 'α 粒子散射', description: '库仑斥力使 α 粒子偏转；b 越小偏转越大（k = 1）', params: [p('Q', '原子核电荷 Q', 'C', 2, 0.01), p('q', 'α 粒子电荷 q', 'C', 1, 0.01), p('m', 'α 粒子质量 m', 'kg', 1, 0.001), p('v0', '初速度 v₀', 'm/s', 2, 0.05), p('b', '瞄准距离 b', 'm', 0.5, 0, 3, 0.05)], build: alphaScattering },
+  // 26.54: mechanics A group (D87)
+  { id: 'inertia', group: '力与平衡', name: '惯性：抽纸条', description: '快速抽出纸条，物块几乎不动', params: [p('F', '拉力 F', 'N', 20, 0), p('m', '物块质量 m', 'kg', 0.5, 0.01), p('mu', '物块—纸条 μ', '', 0.15, 0, 2, 0.01), gp()], build: inertia },
+  { id: 'elevator', group: '超重与失重', name: '电梯中的弹簧秤', description: '加速上升超重，F弹 = m(g + a)', params: [p('F', '拉力 F', 'N', 80, 0), p('M', '厢顶质量 M', 'kg', 5, 0.01), p('m', '物体质量 m', 'kg', 1, 0.01), p('k', '弹簧劲度系数 k', 'N/m', 400, 1), p('c', '弹簧阻尼 c', 'N·s/m', 12, 0), gp()], build: elevator },
+  { id: 'cosmic-velocity', group: '万有引力', name: '宇宙速度', description: '第一宇宙速度贴地环绕，√2 倍时逃逸（G = 1）', params: [p('M', '地球质量 M', 'kg', 1000, 1), p('R', '地球半径 R', 'm', 1, 0.1, 10), p('k', '速度倍数 k = v/v₁', '', 1, 0.5, 1.6, 0.05)], build: cosmicVelocity },
+  { id: 'resonance', group: '振动', name: '受迫振动与共振', description: '驱动频率接近固有频率时振幅最大', params: [p('k', '劲度系数 k', 'N/m', 50, 0.01), p('m', '质量 m', 'kg', 0.5, 0.001), p('c', '阻尼系数 c', 'N·s/m', 0.5, 0), p('F0', '驱动力幅值 F₀', 'N', 1, 0), p('omega', '驱动角频率 ω', 'rad/s', 10, 0.01), gp()], build: resonance },
+  { id: 'incline-efficiency', group: '斜面与摩擦', name: '斜面的机械效率', description: '匀速拉上斜面：η = mgh/(Fs)', params: [p('theta', '倾角 θ', '°', 30, 1, 80), p('m', '质量 m', 'kg', 2, 0.01), p('mu', '动摩擦因数 μ', '', 0.2, 0, 2, 0.01), p('v0', '速度 v', 'm/s', 0.5, 0.01), gp()], build: inclineEfficiency },
+  { id: 'wheel-axle', group: '力与平衡', name: '轮轴', description: '轮轴平衡：F·R = G·r，轮半径越大越省力', params: [p('R', '轮半径 R', 'm', 0.3, 0.05, 1), p('r', '轴半径 r', 'm', 0.1, 0.02, 0.8), p('m', '重物质量 m', 'kg', 3, 0.01), p('M', '轮的质量 M', 'kg', 1, 0.01), gp()], build: wheelAxle },
+  // 26.55: regions, rail loops, liquids and more classic models
+  ...TEMPLATES_2655
 ])
+
+/** Templates the TypeScript reference can run (D77): the ones without charges or fields. */
+export function referenceTemplates(): TemplateInfo[] { return TEMPLATES.filter(t => !usesFields(t.build(Object.fromEntries(t.params.map(p => [p.key, p.value]))))) }
 
 // ---- 26.51 models (graded formula library, D44; fields and connectors, D50/D51) ----
 function uniformMotion(v: Record<string, number>): Scene {

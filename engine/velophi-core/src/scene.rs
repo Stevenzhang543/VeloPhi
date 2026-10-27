@@ -95,6 +95,8 @@ pub struct BodyDef {
     pub belt_speed: f64,
     /// Air drag (26.51); None: none.
     pub drag: Option<DragDef>,
+    /// Electric charge (C; 26.54, D78) at the centre of mass of a dynamic body, or at the centroid of a static one.
+    pub charge: f64,
 }
 
 /// Pulley wheel: fixed in the world, or carried by a body (`body`).
@@ -295,6 +297,54 @@ pub struct SceneSettings {
     pub start_time: f64,
     /// Energy ledger at the start of a branch (D52); None: all zero.
     pub start_ledger: Option<StartLedger>,
+    /// Uniform electric field E (V/m; 26.54, D78); None: none.
+    pub electric: Option<Vec2>,
+    /// Uniform magnetic field B_z (T, positive out of the page; 26.54, D78); None: none.
+    pub magnetic: Option<f64>,
+    /// Coulomb constant k of the interaction between charged bodies (N·m²/C²; 26.54, D78); None: off.
+    pub coulomb: Option<f64>,
+    /// Bounded field regions and liquids (26.55, D90, D92), in file order.
+    pub regions: Vec<RegionDef>,
+    /// Rail loops (26.55, D91): a body moving along rails in a magnetic field, closed by a resistor.
+    pub rail_loops: Vec<RailLoopDef>,
+}
+
+/// Shape of a region: an axis-aligned rectangle (centre, width, height) or a circle.
+#[derive(Clone, Debug, PartialEq)]
+pub enum RegionShape {
+    Rect { x: f64, y: f64, w: f64, h: f64 },
+    Circle { x: f64, y: f64, r: f64 },
+}
+
+/// What a region holds (26.55): uniform fields acting on charges inside it (E optionally alternating as
+/// E·cos(ωt + φ)), or a liquid whose surface is the region's top.
+#[derive(Clone, Debug, PartialEq)]
+pub enum RegionKind {
+    Field { e: Vec2, b: f64, omega: f64, phase: f64 },
+    /// Density (kg/m³), thickness of the bodies perpendicular to the page (m), drag coefficients scaled by the
+    /// submerged fraction: linear (N·s/m) and quadratic (N·s²/m²).
+    Liquid { rho: f64, depth: f64, drag_lin: f64, drag_quad: f64 },
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RegionDef {
+    pub id: String,
+    pub name: String,
+    pub shape: RegionShape,
+    pub kind: RegionKind,
+}
+
+/// Rail loop: `body` slides along rails at `angle` (rad); rails `l` apart, loop resistance `r`, field `b` (T, out of
+/// the page positive).
+#[derive(Clone, Debug, PartialEq)]
+pub struct RailLoopDef {
+    pub id: String,
+    pub name: String,
+    pub body: String,
+    pub angle: f64,
+    pub l: f64,
+    pub r: f64,
+    pub b: f64,
 }
 
 /// Initial values of the energy ledger (26.51, D52).
@@ -307,6 +357,8 @@ pub struct StartLedger {
     pub impact_loss: f64,
     /// (pair key, sliding distance, friction heat) in file order.
     pub pairs: Vec<(String, f64, f64)>,
+    /// 26.55: work of the field regions, buoyancy work, Joule heat of the rail loops, heat of the liquid drag.
+    pub extra: [f64; 4],
 }
 
 impl SceneSettings {
@@ -327,8 +379,9 @@ pub struct Scene {
     pub contact_pairs: Vec<ContactPairDef>,
 }
 
-/// Current scene file format version.
-pub const SCENE_VERSION: f64 = 5.0;
+/// Current scene file format version (26.54: 6 for scenes with charges or fields; 26.55: 7 for field regions, liquids
+/// and rail loops; 5 and 6 are read unchanged).
+pub const SCENE_VERSION: f64 = 7.0;
 /// Default gravity magnitude of new scenes (m/s²).
 pub const DEFAULT_G: f64 = 9.8;
 
@@ -430,8 +483,9 @@ pub fn parse_scene_value(raw: &Value) -> PResult<(Scene, Vec<Message>)> {
             st.insert("legacyDuration".into(), d);
             st.insert("stopAt".into(), Value::Null);
             doc.insert("settings".into(), Value::Object(st));
-        } else if version == 3.0 || version == 4.0 {
-            // 26.50 -> 26.51 and 26.51 -> 26.52: the new physics are optional fields; nothing to change
+        } else if version == 3.0 || version == 4.0 || version == 5.0 || version == 6.0 {
+            // 26.50 -> 26.51, 26.51 -> 26.52, 26.53 -> 26.54 and 26.54 -> 26.55: the new physics are optional fields;
+            // nothing to change
         } else {
             return Err(Message::new("scene.cannotMigrate").num("version", version));
         }
@@ -479,6 +533,18 @@ pub fn parse_scene_value(raw: &Value) -> PResult<(Scene, Vec<Message>)> {
             Some(Value::Object(o)) => Some(num(o.get("G"), "settings.gravitation.G", None)?),
             _ => None,
         },
+        electric: match st.get("electric") {
+            Some(Value::Object(o)) => Some(vec2(o.get("E"), "settings.electric.E", None)?),
+            _ => None,
+        },
+        magnetic: match st.get("magnetic") {
+            Some(Value::Object(o)) => Some(num(o.get("B"), "settings.magnetic.B", None)?),
+            _ => None,
+        },
+        coulomb: match st.get("coulomb") {
+            Some(Value::Object(o)) => Some(num(o.get("k"), "settings.coulomb.k", None)?),
+            _ => None,
+        },
         start_time: match st.get("startTime") {
             None | Some(Value::Null) => 0.0,
             v => num(v, "settings.startTime", None)?,
@@ -500,10 +566,18 @@ pub fn parse_scene_value(raw: &Value) -> PResult<(Scene, Vec<Message>)> {
                     belt_work: num(o.get("beltWork"), "settings.startLedger.beltWork", Some(0.0))?,
                     impact_loss: num(o.get("impactLoss"), "settings.startLedger.impactLoss", Some(0.0))?,
                     pairs,
+                    extra: [
+                        num(o.get("fieldWork"), "settings.startLedger.fieldWork", Some(0.0))?,
+                        num(o.get("buoyancyWork"), "settings.startLedger.buoyancyWork", Some(0.0))?,
+                        num(o.get("jouleHeat"), "settings.startLedger.jouleHeat", Some(0.0))?,
+                        num(o.get("liquidHeat"), "settings.startLedger.liquidHeat", Some(0.0))?,
+                    ],
                 })
             }
             _ => None,
         },
+        regions: parse_regions(st.get("regions"))?,
+        rail_loops: parse_rail_loops(st.get("railLoops"))?,
     };
     let mut bodies = Vec::new();
     if let Some(list) = present(doc.get("bodies")) {
@@ -576,6 +650,30 @@ fn parse_part_shape(shape: &serde_json::Map<String, Value>, path: &str) -> PResu
     })
 }
 
+/// A body shape from its JSON form (any type, compound included); used by the stateless calculations.
+pub fn parse_shape_value(v: &Value) -> PResult<ShapeDef> {
+    let shape = v.as_object().ok_or_else(|| err_path("scene.shapeMissing", "shape"))?;
+    if shape.get("type").and_then(|v| v.as_str()) == Some("compound") {
+        let list = shape.get("parts").and_then(|p| p.as_array()).ok_or_else(|| err_path("scene.notList", "shape.parts"))?;
+        let mut parts = Vec::with_capacity(list.len());
+        for (i, p) in list.iter().enumerate() {
+            let pp = format!("shape.parts[{i}]");
+            let o = p.as_object().ok_or_else(|| err_path("scene.shapeMissing", &format!("{pp}.shape")))?;
+            let ps = match o.get("shape") {
+                Some(Value::Object(x)) => x,
+                _ => return Err(err_path("scene.shapeMissing", &format!("{pp}.shape"))),
+            };
+            parts.push(ShapePart {
+                shape: parse_part_shape(ps, &format!("{pp}.shape"))?,
+                position: vec2(o.get("position"), &format!("{pp}.position"), Some(Vec2::default()))?,
+                angle: num(o.get("angle"), &format!("{pp}.angle"), Some(0.0))?,
+            });
+        }
+        return Ok(ShapeDef::Compound { parts });
+    }
+    parse_part_shape(shape, "shape")
+}
+
 fn parse_body(v: &Value, path: &str) -> PResult<BodyDef> {
     let b = v.as_object().ok_or_else(|| err_path("scene.notObject", path))?;
     let shape = match b.get("shape") {
@@ -642,6 +740,7 @@ fn parse_body(v: &Value, path: &str) -> PResult<BodyDef> {
             }),
             _ => None,
         },
+        charge: opt_num(b.get("charge"), &format!("{path}.charge"))?.unwrap_or(0.0),
     })
 }
 
@@ -655,6 +754,65 @@ fn parse_anchor(v: Option<&Value>, path: &str) -> PResult<Anchor> {
         _ => None,
     };
     Ok(Anchor { body, local: vec2(o.get("local"), &format!("{path}.local"), None)? })
+}
+
+/// 26.55 (D90, D92): `settings.regions`.
+fn parse_regions(v: Option<&Value>) -> PResult<Vec<RegionDef>> {
+    let mut out = Vec::new();
+    let Some(list) = v.filter(|v| !v.is_null()) else { return Ok(out) };
+    let list = list.as_array().ok_or_else(|| Message::new("scene.notList").text("path", "settings.regions"))?;
+    for (i, r) in list.iter().enumerate() {
+        let path = format!("settings.regions[{i}]");
+        let o = r.as_object().ok_or_else(|| err_path("scene.notObject", &path))?;
+        let shape = if o.get("shape").and_then(|v| v.as_str()) == Some("circle") {
+            RegionShape::Circle { x: num(o.get("x"), &format!("{path}.x"), Some(0.0))?, y: num(o.get("y"), &format!("{path}.y"), Some(0.0))?, r: num(o.get("r"), &format!("{path}.r"), Some(1.0))?.abs() }
+        } else {
+            RegionShape::Rect {
+                x: num(o.get("x"), &format!("{path}.x"), Some(0.0))?,
+                y: num(o.get("y"), &format!("{path}.y"), Some(0.0))?,
+                w: num(o.get("w"), &format!("{path}.w"), Some(1.0))?.abs(),
+                h: num(o.get("h"), &format!("{path}.h"), Some(1.0))?.abs(),
+            }
+        };
+        let kind = if o.get("kind").and_then(|v| v.as_str()) == Some("liquid") {
+            RegionKind::Liquid {
+                rho: num(o.get("density"), &format!("{path}.density"), Some(1000.0))?.max(0.0),
+                depth: num(o.get("depth"), &format!("{path}.depth"), Some(0.1))?.abs(),
+                drag_lin: num(o.get("dragLinear"), &format!("{path}.dragLinear"), Some(0.0))?.max(0.0),
+                drag_quad: num(o.get("dragQuadratic"), &format!("{path}.dragQuadratic"), Some(0.0))?.max(0.0),
+            }
+        } else {
+            RegionKind::Field {
+                e: vec2(o.get("E"), &format!("{path}.E"), Some(Vec2::new(0.0, 0.0)))?,
+                b: num(o.get("B"), &format!("{path}.B"), Some(0.0))?,
+                omega: num(o.get("omega"), &format!("{path}.omega"), Some(0.0))?,
+                phase: num(o.get("phase"), &format!("{path}.phase"), Some(0.0))?,
+            }
+        };
+        out.push(RegionDef { id: text(o.get("id"), &format!("{path}.id"), None)?, name: text(o.get("name"), &format!("{path}.name"), Some("区域"))?, shape, kind });
+    }
+    Ok(out)
+}
+
+/// 26.55 (D91): `settings.railLoops`.
+fn parse_rail_loops(v: Option<&Value>) -> PResult<Vec<RailLoopDef>> {
+    let mut out = Vec::new();
+    let Some(list) = v.filter(|v| !v.is_null()) else { return Ok(out) };
+    let list = list.as_array().ok_or_else(|| Message::new("scene.notList").text("path", "settings.railLoops"))?;
+    for (i, r) in list.iter().enumerate() {
+        let path = format!("settings.railLoops[{i}]");
+        let o = r.as_object().ok_or_else(|| err_path("scene.notObject", &path))?;
+        out.push(RailLoopDef {
+            id: text(o.get("id"), &format!("{path}.id"), None)?,
+            name: text(o.get("name"), &format!("{path}.name"), Some("导轨回路"))?,
+            body: text(o.get("body"), &format!("{path}.body"), None)?,
+            angle: num(o.get("angle"), &format!("{path}.angle"), Some(0.0))?,
+            l: num(o.get("L"), &format!("{path}.L"), Some(0.5))?.abs(),
+            r: num(o.get("R"), &format!("{path}.R"), Some(1.0))?.abs(),
+            b: num(o.get("B"), &format!("{path}.B"), Some(1.0))?,
+        });
+    }
+    Ok(out)
 }
 
 /// A length that may be null ("the initial value").

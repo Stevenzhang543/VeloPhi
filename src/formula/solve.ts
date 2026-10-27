@@ -7,9 +7,9 @@
  *   2. The expression with the situation's symbols, then with the SI values and their units substituted.
  *   3. Reduction, innermost operations first: every line evaluates all operations whose operands are already
  *      numbers (a chain of + − or of × ÷ counts as one operation, so a product is computed in one go), until one
- *      number is left. Each evaluated subtree is replaced by a leaf holding the exact double that `evaluate`
- *      returns for it, so the last leaf is bit-identical to `evaluate` on the whole tree, i.e. to the card's
- *      theoretical value. Displayed numbers use the card's rules (`latexNumber`, the readout digits).
+ *      number is left. Each evaluated subtree is replaced by a leaf holding the value the Rust core computed for
+ *      that node of the tree (26.53: the card's `trace`, the value of every node in pre-order), so the last leaf
+ *      is the card's theoretical value. Displayed numbers use the card's rules (`latexNumber`, the readout digits).
  *   4. The result with its SI unit (and in the display unit when that differs).
  *
  * Angles: a quantity in rad (an angle variable, an inverse trigonometric function, a multiple of an angle) is shown
@@ -21,9 +21,9 @@
  * products, sums), with the function values spelled out; unit conversions are listed as their own step.
  */
 import type { Node } from './expr'
-import { FUNCS, evaluate, parse, variables } from './expr'
+import { FUNCS, parse, variables } from './expr'
 import type { FormulaDef } from './library'
-import type { Sample } from './situations'
+import type { Sample } from './recognize'
 import type { UnitChoice } from '../units/units'
 import { defaultChoice, displayLabel, isConverted, latexNumber, latexQuantity, toDisplay, unitLatex } from '../units/units'
 import type { Lang, Tri } from '../i18n/tri'
@@ -262,6 +262,34 @@ interface Work {
   next: number
   /** Operations evaluated in the current level: their kind and (for functions) the evaluated subtree and leaf. */
   ops: Array<{ kind: string; node: Node; leaf: Node }>
+  /** Pre-order index of every node (rebuilt nodes keep the index of the node they replace) and the core's values. */
+  ids: WeakMap<Node, number>
+  trace: number[]
+}
+
+/** Pre-order indices of the nodes of a tree (the order of the core's trace). */
+function numberNodes(n: Node, ids: WeakMap<Node, number>, next = 0): number {
+  ids.set(n, next++)
+  switch (n.type) {
+    case 'neg': return numberNodes(n.arg, ids, next)
+    case 'bin': case 'cmp': return numberNodes(n.right, ids, numberNodes(n.left, ids, next))
+    case 'call': for (const a of n.args) next = numberNodes(a, ids, next); return next
+    default: return next
+  }
+}
+
+/** `made` stands for node `from`: it keeps its index. */
+function keep<T extends Node>(w: Work, from: Node, made: T): T {
+  const id = w.ids.get(from)
+  if (id !== undefined) w.ids.set(made, id)
+  return made
+}
+
+/** The core's value of (the original node behind) `n`. */
+function valueOf(w: Work, n: Node): number {
+  const id = w.ids.get(n)
+  if (id === undefined) throw new Error('solve: node without a value')
+  return w.trace[id]
 }
 
 function newLeaf(w: Work, value: number, angle: boolean): Node {
@@ -285,11 +313,11 @@ function chainOperands(n: Node): Node[] {
 }
 
 /** The chain rooted at n with its operands replaced (in order) by `f`. */
-function mapChain(n: Node, f: (x: Node) => Node): Node {
+function mapChain(w: Work, n: Node, f: (x: Node) => Node): Node {
   if (n.type !== 'bin') return f(n)
   const cls = chainClass(n.op)
-  const left = n.left.type === 'bin' && chainClass(n.left.op) === cls ? mapChain(n.left, f) : f(n.left)
-  return { type: 'bin', op: n.op, left, right: f(n.right) }
+  const left = n.left.type === 'bin' && chainClass(n.left.op) === cls ? mapChain(w, n.left, f) : f(n.left)
+  return keep(w, n, { type: 'bin', op: n.op, left, right: f(n.right) })
 }
 
 /**
@@ -299,27 +327,27 @@ function mapChain(n: Node, f: (x: Node) => Node): Node {
 function reduceLevel(n: Node, w: Work): Node {
   const angle = (x: Node) => isAngle(x, name => w.angles.has(name))
   const done = (x: Node) => {
-    const leaf = newLeaf(w, evaluate(x, w.values), angle(x))
+    const leaf = newLeaf(w, valueOf(w, x), angle(x))
     w.ops.push({ kind: opKind(x), node: x, leaf })
     return leaf
   }
   const sub = (x: Node) => (isAtom(x) ? x : reduceLevel(x, w))
   switch (n.type) {
     case 'num': case 'var': return n
-    case 'neg': return isLeaf(n.arg) ? done(n) : { type: 'neg', arg: reduceLevel(n.arg, w) }
-    case 'cmp': return { type: 'cmp', op: n.op, left: sub(n.left), right: sub(n.right) }
+    case 'neg': return isLeaf(n.arg) ? done(n) : keep(w, n, { type: 'neg', arg: reduceLevel(n.arg, w) })
+    case 'cmp': return keep(w, n, { type: 'cmp', op: n.op, left: sub(n.left), right: sub(n.right) })
     case 'bin': {
-      if (chainClass(n.op)) return chainOperands(n).every(isAtom) ? done(n) : mapChain(n, sub)
-      return isAtom(n.left) && isAtom(n.right) ? done(n) : { type: 'bin', op: n.op, left: sub(n.left), right: sub(n.right) }
+      if (chainClass(n.op)) return chainOperands(n).every(isAtom) ? done(n) : mapChain(w, n, sub)
+      return isAtom(n.left) && isAtom(n.right) ? done(n) : keep(w, n, { type: 'bin', op: n.op, left: sub(n.left), right: sub(n.right) })
     }
     case 'call': {
       if (n.fn === 'if') {
         const cond = n.args[0]
-        // `evaluate` evaluates only the branch the condition selects: so does the reduction
-        if (cond.type === 'cmp' && isAtom(cond.left) && isAtom(cond.right)) { w.ops.push({ kind: 'pick', node: n, leaf: n }); return evaluate(cond, w.values) ? n.args[1] : n.args[2] }
-        return { type: 'call', fn: n.fn, args: [sub(cond), n.args[1], n.args[2]] }
+        // The core evaluates only the branch the condition selects: so does the reduction
+        if (cond.type === 'cmp' && isAtom(cond.left) && isAtom(cond.right)) { w.ops.push({ kind: 'pick', node: n, leaf: n }); const c = valueOf(w, cond); return c !== 0 && !Number.isNaN(c) ? n.args[1] : n.args[2] }
+        return keep(w, n, { type: 'call', fn: n.fn, args: [sub(cond), n.args[1], n.args[2]] })
       }
-      return n.args.every(isAtom) ? done(n) : { type: 'call', fn: n.fn, args: n.args.map(sub) }
+      return n.args.every(isAtom) ? done(n) : keep(w, n, { type: 'call', fn: n.fn, args: n.args.map(sub) })
     }
   }
 }
@@ -341,14 +369,14 @@ function substitute(n: Node, vars: Record<string, number>, w: Work, angleVar: (n
     case 'var': {
       const v = vars[n.name]
       if (v === undefined) return n
-      const leaf = newLeaf(w, v, angleVar(n.name))
+      const leaf = keep(w, n, newLeaf(w, v, angleVar(n.name)))
       map.set((leaf as { name: string }).name, n.name)
       return leaf
     }
-    case 'neg': return { type: 'neg', arg: substitute(n.arg, vars, w, angleVar, map) }
-    case 'bin': return { type: 'bin', op: n.op, left: substitute(n.left, vars, w, angleVar, map), right: substitute(n.right, vars, w, angleVar, map) }
-    case 'cmp': return { type: 'cmp', op: n.op, left: substitute(n.left, vars, w, angleVar, map), right: substitute(n.right, vars, w, angleVar, map) }
-    case 'call': return { type: 'call', fn: n.fn, args: n.args.map(a => substitute(a, vars, w, angleVar, map)) }
+    case 'neg': return keep(w, n, { type: 'neg', arg: substitute(n.arg, vars, w, angleVar, map) })
+    case 'bin': return keep(w, n, { type: 'bin', op: n.op, left: substitute(n.left, vars, w, angleVar, map), right: substitute(n.right, vars, w, angleVar, map) })
+    case 'cmp': return keep(w, n, { type: 'cmp', op: n.op, left: substitute(n.left, vars, w, angleVar, map), right: substitute(n.right, vars, w, angleVar, map) })
+    case 'call': return keep(w, n, { type: 'call', fn: n.fn, args: n.args.map(a => substitute(a, vars, w, angleVar, map)) })
   }
 }
 
@@ -356,15 +384,16 @@ function substitute(n: Node, vars: Record<string, number>, w: Work, angleVar: (n
 const MAX_LINES = 7
 
 /**
- * Generate the step-by-step solution of formula `f` for a situation sample. The value is evaluated exactly as the
- * card does (`evaluate` on the parsed expression with the sample's SI values), level by level.
+ * Generate the step-by-step solution of formula `f` for a situation sample. `trace` holds the value of every node of
+ * the formula's expression in pre-order as the core computed it for the card (FormulaCard.trace); `error` is the
+ * card's reason when it has no trace.
  */
-export function solveFormula(f: FormulaDef, sample: Sample, opts: SolveOptions): Solution {
-  return solveTree(formulaTree(f), f.lhs, f.unit, sample, opts)
+export function solveFormula(f: FormulaDef, sample: Sample, opts: SolveOptions, trace: number[] | null | undefined, error = ''): Solution {
+  return solveTree(formulaTree(f), f.lhs, f.unit, sample, opts, trace, error)
 }
 
 /** `solveFormula` for any expression tree, left-hand side and result unit. */
-export function solveTree(tree: Node, lhs: string, unit: string, sample: Sample, opts: SolveOptions): Solution {
+export function solveTree(tree: Node, lhs: string, unit: string, sample: Sample, opts: SolveOptions, trace: number[] | null | undefined, error = ''): Solution {
   const { digits, units, lang } = opts
   const si = siChoice(units)
   const vars: Record<string, number> = {}
@@ -391,8 +420,10 @@ export function solveTree(tree: Node, lhs: string, unit: string, sample: Sample,
   const fail = (error: string): Solution => ({ known, converted, lhs, rhs, value: null, resultSi: '', resultDisplay: '', error, coloredSymbolic, coloredSubstituted: '', lines, conversions })
   const missing = used.filter(name => vars[name] === undefined)
   if (missing.length) return fail(`${missing.join(', ')}?`)
+  if (!trace || !trace.length) return fail(error || '—')
 
-  const w: Work = { values: {}, angles: new Set(), next: 0, ops: [] }
+  const w: Work = { values: {}, angles: new Set(), next: 0, ops: [], ids: new WeakMap(), trace }
+  numberNodes(tree, w.ids)
   const origin = new Map<string, string>()
   const angleVar = (name: string) => sample.vars[name]?.unit === 'rad'
   let work = substitute(tree, vars, w, angleVar, origin)
@@ -439,7 +470,7 @@ export function solveTree(tree: Node, lhs: string, unit: string, sample: Sample,
   } catch (e) {
     return fail((e as Error).message)
   }
-  const value = evaluate(work, w.values)
+  const value = work.type === 'var' ? w.values[work.name] : trace[0]
   // The final leaf takes the result's unit: an angle result is an angle whatever its operands were
   if (work.type === 'var' && rootAngle) w.angles.add(work.name)
   // Merge levels pairwise while there are too many lines (the last level is always shown)

@@ -1,7 +1,7 @@
 /** CSV: separators, decimal mark, SI and display units, events table. */
 import { describe, expect, it } from 'vitest'
 import { buildTemplate } from '../../src/templates'
-import { simulate } from '../../src/core/solver/simulation'
+import { simulate } from '../../src/engine/recording'
 import { effectiveSeparator, eventsCsv, recordingCsv, tableCsv } from '../../src/export/csv'
 import { presetChoice } from '../../src/units/units'
 

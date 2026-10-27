@@ -14,7 +14,10 @@ export const HANDBOOK_VARIANTS: Array<[string, Record<string, number>]> = [
   ['orbit', { k: 0.8 }],
   ['drag-fall', { b: 0, c: 0.05 }],
   ['vertical-circle-rope', { v0: 5.5 }],
-  ['vertical-circle-rod', { v0: 3 }]
+  ['vertical-circle-rod', { v0: 3 }],
+  ['alpha-scattering', { b: 0 }],
+  ['velocity-selector', { v0: 3 }],
+  ['floating-block', { c: 30 }]
 ]
 
 /**
@@ -29,5 +32,8 @@ export const PREFERRED_TEMPLATE: Record<string, string> = {
   'vcircle-rope': 'vertical-circle-rope', 'vcircle-rod': 'vertical-circle-rod', 'movable-pulley': 'movable-pulley', wedge: 'movable-wedge',
   'spring-pair': 'spring-blocks', 'roll-slip': 'rolling-slip', 'var-force': 'variable-force', energy: 'incline', momentum: 'collision-1d',
   'ff.v': 'free-fall', 'ff.h': 'free-fall', 'ff.v2': 'free-fall', 'pr.E': 'free-fall', 'pr.v': 'projectile', 'col.angle': 'collision-2d',
-  'col.tangent': 'collision-2d', 'col.py': 'collision-2d'
+  'col.tangent': 'collision-2d', 'col.py': 'collision-2d', 'charge-e': 'charge-deflection', 'charge-b': 'cyclotron',
+  selector: 'velocity-selector', 'charge-eb': 'velocity-selector', coulomb: 'two-charges', 'cl.rmin': 'alpha-scattering',
+  // 26.55
+  rail: 'rail-force', 'rail.v': 'rail-coast', float: 'floating-block', 'fl.F': 'sinking-ball', 'fl.a': 'sinking-ball', 'zone-b': 'mass-spectrometer', 'zone-e': 'oscilloscope'
 }

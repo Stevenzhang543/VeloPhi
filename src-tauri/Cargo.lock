@@ -3690,7 +3690,7 @@ dependencies = [
 
 [[package]]
 name = "velophi"
-version = "26.52.0"
+version = "26.55.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -3698,6 +3698,23 @@ dependencies = [
  "tauri-build",
  "tauri-plugin-dialog",
  "tauri-plugin-fs",
+ "velophi-native",
+]
+
+[[package]]
+name = "velophi-core"
+version = "26.55.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "velophi-native"
+version = "26.55.0"
+dependencies = [
+ "serde_json",
+ "velophi-core",
 ]
 
 [[package]]

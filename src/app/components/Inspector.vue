@@ -12,9 +12,10 @@ import NumField from './NumField.vue'
 import Icon from './Icon.vue'
 import Section from './Section.vue'
 import type { BodyDef, CentralDef, ConnectorDef, ForceDef, PulleyDef, Scene, SliderDef } from '../../core/scene/types'
-import { shapeInertia } from '../../core/solver/model'
-import { checkForceExpr, FORCE_EXPR_HELP } from '../../core/solver/forceExpr'
-import { canonicalQuantityId } from '../../core/observe/quantities'
+import { shapeInertia } from '../../engine/calc'
+import { checkForceExpr } from '../../engine/calc'
+import { FORCE_EXPR_HELP } from '../../core/scene/forceHelp'
+import { canonicalQuantityId } from '../../engine/observe'
 import { deleteObject, duplicateBody } from '../editing'
 import { explodeCompound } from '../editor/shapeOps'
 import { fmtQ } from '../settings'
@@ -23,6 +24,8 @@ const body = computed<BodyDef | null>(() => (state.selection?.kind === 'body' ? 
 const pulley = computed<PulleyDef | null>(() => (state.selection?.kind === 'pulley' ? state.scene.pulleys.find(b => b.id === state.selection!.id) ?? null : null))
 const conn = computed<ConnectorDef | null>(() => (state.selection?.kind === 'connector' ? state.scene.connectors.find(b => b.id === state.selection!.id) ?? null : null))
 const force = computed<ForceDef | null>(() => (conn.value?.type === 'force' ? conn.value : null))
+/** The scene has an electric or magnetic field or the Coulomb force (26.54): the charge section opens. */
+const hasFields = computed(() => { const st = state.scene.settings; return !!(st.electric || st.magnetic || st.coulomb || st.regions?.some(r => r.kind === 'field')) })
 
 /** Edit the selected object through the undo history. */
 function setBody(fn: (b: BodyDef, s: Scene) => void) {
@@ -330,6 +333,14 @@ function setPulleyBody(bodyId: string) {
           </div>
         </Section>
       </template>
+
+      <!-- 26.54 (D78): electric charge; folded unless the body is charged or the scene has fields -->
+      <Section id="inspect.charge" :title="tl('电荷')" :open="!!body.charge || hasFields" :count="body.charge ? fmtQ(body.charge, 'C') : null">
+        <div class="group">
+          <div class="row"><label>{{ tl('电荷量 q') }}</label><NumField class="grow" :model-value="body.charge ?? 0" unit="C" @update:model-value="v => setBody(b => { if (v !== 0) b.charge = v; else delete b.charge })" /></div>
+          <div class="tiny muted note">{{ body.kind === 'static' ? tl('固定物体的电荷是不动的点电荷，对其他带电体有库仑力（需在“场景”中打开库仑力）。') : tl('电荷集中在质心。电场力 qE、洛伦兹力 qv×B 与库仑力在“场景”页设置。') }}</div>
+        </div>
+      </Section>
 
       <Section id="inspect.material" :title="tl('材料')">
         <div class="group">

@@ -15,7 +15,7 @@ import { state, seekAfter, seekTime, showToast } from '../store'
 import { settings } from '../settings'
 import { locale } from '../../i18n/locale'
 import { buildFormulaDetail, findSituation } from '../../formula/detail'
-import { buildEventDetail } from '../../formula/eventDetail'
+import { buildEventDetail, eventDataOf } from '../../formula/eventDetail'
 import type { DetailView } from '../../formula/detailTypes'
 import { detailLatex } from '../../formula/detailTypes'
 import { detailImage } from '../../export/detailImage'
@@ -71,7 +71,7 @@ const built = computed<{ view: DetailView | null; message: string }>(() => {
       if (!sit) return { view: null, message: UI.noSituation }
       return { view: buildFormulaDetail(r, sit, t.formulaId, t.time, locale.lang, opts), message: '' }
     }
-    return { view: buildEventDetail(r, t.eventIndex, locale.lang, opts), message: '' }
+    return { view: buildEventDetail(eventDataOf(r, t.eventIndex), t.eventIndex, locale.lang, opts), message: '' }
   } catch (e) {
     return { view: null, message: UI.failed + (e as Error).message }
   }

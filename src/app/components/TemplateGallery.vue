@@ -27,7 +27,7 @@ choose(TEMPLATES[0])
 const GROUPS: Array<[string, string]> = [
   ['直线运动', 'block'], ['力与平衡', 'force'], ['斜面与摩擦', 'incline'], ['传送带', 'conveyor'], ['抛体', 'ball'], ['圆周运动', 'disc'],
   ['万有引力', 'orbit'], ['碰撞', 'ball'], ['动量守恒', 'layers'], ['振动', 'spring'], ['连接体', 'pulley'], ['刚体转动', 'gear'],
-  ['空气阻力', 'wind'], ['变力', 'force']
+  ['空气阻力', 'wind'], ['变力', 'force'], ['电与磁', 'efield'], ['电磁感应', 'compass'], ['流体', 'wave']
 ]
 // Keyed by the translated name (the template groups are read in the interface language)
 const GROUP_ORDER = GROUPS.map(([g]) => tl(g))

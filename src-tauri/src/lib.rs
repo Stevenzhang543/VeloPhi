@@ -1,14 +1,49 @@
-//! VeloPhi desktop shell. The whole application (solver, editor, formulas, export) is the web front end;
-//! the shell only hosts it in WebView2 and provides native open/save dialogs and file writes for the
-//! paths the user picks in those dialogs.
+//! VeloPhi desktop shell. The interface (editor, formulas, export) is the web front end in WebView2; the shell
+//! provides native open/save dialogs and file writes for the paths the user picks in them, and (26.53, D68) runs the
+//! Rust physics core natively: simulations in their own threads, streamed to the page as raw delta containers over a
+//! Tauri channel, and rebuilds of evicted chunks (`engine_*` commands, engine/velophi-native). The page falls back to
+//! the WebAssembly core in a Web Worker when these commands are unavailable; both give the same bits.
 //!
 //! Startup (26.52, D54): the main window is created hidden with the dark background of the opening screen and
 //! is maximised and shown only when the page has loaded, so no white or small window appears first. A timer
 //! shows it anyway after a few seconds should the page never report.
 
+use std::sync::Arc;
 use std::time::Duration;
+use tauri::ipc::{Channel, InvokeResponseBody, Response};
 use tauri::webview::PageLoadEvent;
 use tauri::Manager;
+
+/// The native engine shared by the commands.
+struct NativeEngine(Arc<velophi_native::Engine>);
+
+/// Version of the native engine: `{ core, abi, threads }` (the page uses it only when `abi` is 2).
+#[tauri::command]
+fn engine_info() -> serde_json::Value {
+    velophi_native::info()
+}
+
+/// Start a run (`{ sceneText, budgetMs, duration, lookAhead, playhead, rate }`) in its own thread; its messages
+/// (framed bytes, see engine/velophi-native) go to `channel`. Returns the run's id.
+#[tauri::command]
+fn engine_run_start(engine: tauri::State<'_, NativeEngine>, request: serde_json::Value, channel: Channel<InvokeResponseBody>) -> u32 {
+    engine.0.start(request, Box::new(move |m| channel.send(InvokeResponseBody::Raw(m)).is_ok()))
+}
+
+/// Control a run (`{ type: 'playhead' | 'computeTo' | 'lookAhead' | 'stop' | 'cancel', … }`); false when it has ended.
+#[tauri::command]
+fn engine_run_control(engine: tauri::State<'_, NativeEngine>, id: u32, msg: serde_json::Value) -> bool {
+    velophi_native::Control::from_json(&msg).map(|c| engine.0.control(id, c)).unwrap_or(false)
+}
+
+/// Recompute an evicted chunk (`{ sceneText, duration, chunkFrames, checkpointHex, endFrame }`): the rebuild container
+/// as raw bytes. Runs off the main thread.
+#[tauri::command]
+async fn engine_rebuild(engine: tauri::State<'_, NativeEngine>, request: serde_json::Value) -> Result<Response, String> {
+    let e = Arc::clone(&engine.0);
+    let r = tauri::async_runtime::spawn_blocking(move || e.rebuild(request)).await.map_err(|e| e.to_string())?;
+    r.map(Response::new).map_err(|m| m.to_json().to_string())
+}
 
 /// Report file of the release self-check (26.51): `velophi.exe --selftest <file>`; None in normal use.
 #[tauri::command]
@@ -83,10 +118,19 @@ fn migrate_old_profile() {}
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     migrate_old_profile();
+    let engine = Arc::new(velophi_native::Engine::new());
+    let on_close = Arc::clone(&engine);
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
-        .invoke_handler(tauri::generate_handler![selftest_target, selftest_report])
+        .manage(NativeEngine(engine))
+        .invoke_handler(tauri::generate_handler![selftest_target, selftest_report, engine_info, engine_run_start, engine_run_control, engine_rebuild])
+        .on_window_event(move |_window, event| {
+            // Runs of a closed window stop at once (their channel is gone too)
+            if let tauri::WindowEvent::Destroyed = event {
+                on_close.cancel_all();
+            }
+        })
         .on_page_load(|webview, payload| {
             if payload.event() == PageLoadEvent::Finished {
                 if let Some(window) = webview.app_handle().get_webview_window("main") {

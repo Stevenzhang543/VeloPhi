@@ -4,12 +4,12 @@
  */
 import { describe, expect, it } from 'vitest'
 import { buildTemplate } from '../src/templates'
-import { simulate } from '../src/core/solver/simulation'
-import { recognize } from '../src/formula/situations'
+import { simulate } from '../src/engine/recording'
+import { recognize } from '../src/formula/recognize'
 import { keyMoments } from '../src/export/moments'
 import { derivationTargets } from '../src/export/derivationPages'
 import { buildFormulaDetail } from '../src/formula/detail'
-import { buildEventDetail } from '../src/formula/eventDetail'
+import { buildEventDetail, eventDataOf } from '../src/formula/eventDetail'
 import { getDerivation } from '../src/formula/derivations'
 import { defaultChoice } from '../src/units/units'
 
@@ -21,7 +21,7 @@ describe('derivation pages of exports', () => {
       const sits = recognize(rec)
       const moments = keyMoments(rec, { events: true, segments: true, ends: true })
       const units = defaultChoice()
-      const targets = derivationTargets(sits, moments, 4, units)
+      const targets = derivationTargets(rec, sits, moments, 4, units)
       expect(targets.length).toBeGreaterThan(0)
       expect(new Set(targets.map(t => `${t.situation.key}|${t.formulaId}`)).size).toBe(targets.length)
       for (const t of targets) {
@@ -32,7 +32,7 @@ describe('derivation pages of exports', () => {
         }
       }
       for (const m of moments.filter(m => m.eventIndex !== undefined)) {
-        const view = buildEventDetail(rec, m.eventIndex!, 'de', { digits: 4, units })
+        const view = buildEventDetail(eventDataOf(rec, m.eventIndex!), m.eventIndex!, 'de', { digits: 4, units })
         expect(view.sections.length).toBeGreaterThan(0)
       }
     })

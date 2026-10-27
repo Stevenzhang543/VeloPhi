@@ -16,7 +16,7 @@ use crate::impact::{ImpactKind, ImpactResult};
 use crate::js::js_min;
 use crate::message::num_json;
 use crate::sha256::to_hex;
-use crate::simulation::{ChangeDetail, ClosedChunk, Segment, SimEvent, SimStats, SimulationRun};
+use crate::simulation::{ChangeDetail, ChangeType, ClosedChunk, Segment, SimEvent, SimStats, SimulationRun};
 
 /// Magic of the container.
 pub const MAGIC: &[u8; 4] = b"VRD1";
@@ -475,4 +475,228 @@ pub fn read_i32s(blob: &[u8], r: &Value) -> Option<Vec<i32>> {
     let len = a.get(1)?.as_u64()? as usize;
     let bytes = blob.get(off..off + 4 * len)?;
     Some(bytes.chunks_exact(4).map(|c| i32::from_le_bytes(c.try_into().expect("4 bytes"))).collect())
+}
+
+// ---- Decoding (receiving side: the session of the interface thread, 26.53 D66) ----
+
+/// A number of a container: a JSON number, `{"$num": …}`, a non-finite string or null (NaN).
+pub fn dnum(v: &Value) -> f64 {
+    match v {
+        Value::Number(n) => n.as_f64().unwrap_or(f64::NAN),
+        Value::Object(o) => o.get("$num").map(dnum).unwrap_or(f64::NAN),
+        Value::String(s) => match s.as_str() {
+            "Infinity" => f64::INFINITY,
+            "-Infinity" => f64::NEG_INFINITY,
+            "-0" => -0.0,
+            _ => f64::NAN,
+        },
+        _ => f64::NAN,
+    }
+}
+
+fn dusize(v: &Value) -> usize {
+    v.as_u64().unwrap_or_else(|| dnum(v) as u64) as usize
+}
+
+/// Read a `$u8` reference of a container.
+pub fn read_u8s(blob: &[u8], r: &Value) -> Option<Vec<u8>> {
+    let a = r.get("$u8")?.as_array()?;
+    let off = a.first()?.as_u64()? as usize;
+    let len = a.get(1)?.as_u64()? as usize;
+    Some(blob.get(off..off + len)?.to_vec())
+}
+
+fn i8s(v: &Value) -> Option<Vec<i8>> {
+    v.as_array().map(|a| a.iter().map(|x| dnum(x) as i8).collect())
+}
+
+/// Mode from its plain form (`mode_json`).
+pub fn mode_from_json(v: &Value) -> Mode {
+    let units = v
+        .get("units")
+        .and_then(|u| u.as_array())
+        .map(|a| {
+            a.iter()
+                .map(|u| crate::dynamics::UnitMode {
+                    pair: dusize(&u["pair"]),
+                    ref_: dusize(&u["ref"]),
+                    points: u["points"].as_array().map(|p| p.iter().map(dusize).collect()).unwrap_or_default(),
+                    open: u["open"].as_array().map(|p| p.iter().map(dusize).collect()).unwrap_or_default(),
+                    friction: crate::dynamics::Friction::from_code(dnum(&u["friction"])),
+                    s: dnum(&u["s"]),
+                    roll: match u.get("roll") {
+                        Some(Value::Null) | None => None,
+                        Some(r) => Some(dnum(r) as i8),
+                    },
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    Mode {
+        units,
+        taut: v.get("taut").and_then(|t| t.as_array()).map(|a| a.iter().map(|x| x.as_bool().unwrap_or(false)).collect()).unwrap_or_default(),
+        sw: v.get("sw").and_then(i8s),
+        limit: v.get("limit").and_then(i8s),
+        slip: v.get("slip").and_then(i8s),
+    }
+}
+
+/// Segment from its plain form (`segment_json`).
+pub fn segment_from_json(v: &Value, blob: &[u8]) -> Option<Segment> {
+    Some(Segment {
+        index: dusize(&v["index"]),
+        t0: dnum(&v["t0"]),
+        t1: dnum(&v["t1"]),
+        mode: mode_from_json(&v["mode"]),
+        x0: read_f64s(blob, &v["X0"])?,
+        label: v["label"].as_str().unwrap_or("").to_string(),
+        impact_loss: dnum(&v["impactLoss"]),
+        reduced: v.get("reduced").and_then(|r| r.as_bool()).unwrap_or(false),
+    })
+}
+
+impl ChangeType {
+    /// From the name of the TypeScript engine.
+    pub fn from_name(s: &str) -> Option<ChangeType> {
+        use ChangeType::*;
+        Some(match s {
+            "impact" => Impact,
+            "touch" => Touch,
+            "separate" => Separate,
+            "stick" => Stick,
+            "slip" => Slip,
+            "reverse" => Reverse,
+            "leave" => Leave,
+            "slack" => Slack,
+            "taut" => Taut,
+            "switch" => Switch,
+            "timestep" => Timestep,
+            "pulley" => Pulley,
+            "limit" => Limit,
+            "unlimit" => Unlimit,
+            "motorSlip" => MotorSlip,
+            "motorLock" => MotorLock,
+            "rollStop" => RollStop,
+            "rollStart" => RollStart,
+            "zoneEnter" => ZoneEnter,
+            "zoneLeave" => ZoneLeave,
+            _ => return None,
+        })
+    }
+}
+
+impl EventType {
+    /// From the name of the TypeScript engine.
+    pub fn from_name(s: &str) -> Option<EventType> {
+        use EventType::*;
+        Some(match s {
+            "contact" => Contact,
+            "liftoff" => Liftoff,
+            "leave" => Leave,
+            "slip" => Slip,
+            "stop" => Stop,
+            "slack" => Slack,
+            "taut" => Taut,
+            "switch" => Switch,
+            "pulley" => Pulley,
+            "limit" => Limit,
+            "unlimit" => Unlimit,
+            "mslip" => Mslip,
+            "mlock" => Mlock,
+            "rollStart" => RollStart,
+            "rollStop" => RollStop,
+            "zone" => Zone,
+            _ => return None,
+        })
+    }
+}
+
+fn onum(o: &Value, k: &str) -> Option<f64> {
+    o.get(k).map(dnum)
+}
+
+/// Change detail from its plain form (`change_json`; null numbers are NaN).
+pub fn change_from_json(v: &Value) -> ChangeDetail {
+    let pt = |k: &str| v.get(k).map(|p| (dnum(&p["x"]), dnum(&p["y"])));
+    ChangeDetail {
+        ty: v["type"].as_str().and_then(ChangeType::from_name),
+        subject: v["subject"].as_str().unwrap_or("").to_string(),
+        bodies: v["bodies"].as_array().map(|a| a.iter().filter_map(|b| b.as_str().map(String::from)).collect()).unwrap_or_default(),
+        impulse: onum(v, "impulse"),
+        vn_before: onum(v, "vnBefore"),
+        vn_after: onum(v, "vnAfter"),
+        restitution: onum(v, "restitution"),
+        point: pt("point"),
+        normal: pt("normal"),
+        tangent_impulse: onum(v, "tangentImpulse"),
+        vt_before: onum(v, "vtBefore"),
+        vt_after: onum(v, "vtAfter"),
+        switch_index: v.get("switchIndex").map(dusize),
+        branch: v.get("branch").map(|b| dnum(b) as i8),
+        kink: v.get("kink").and_then(|k| k.as_bool()),
+    }
+}
+
+fn impact_from_json(v: &Value, blob: &[u8]) -> Option<ImpactResult> {
+    let points = v["points"]
+        .as_array()?
+        .iter()
+        .map(|p| {
+            let pair = dnum(&p["pair"]);
+            let feature = dnum(&p["feature"]);
+            crate::impact::ImpactPoint {
+                kind: match p["kind"].as_str() {
+                    Some("rope") => ImpactKind::Rope,
+                    Some("limit") => ImpactKind::Limit,
+                    _ => ImpactKind::Contact,
+                },
+                pair: if pair >= 0.0 { Some(pair as usize) } else { None },
+                feature: if pair >= 0.0 && feature >= 0.0 { Some(feature as usize) } else { None },
+                rope: dnum(&p["rope"]) as i32,
+                vn_before: dnum(&p["vnBefore"]),
+                vn_after: dnum(&p["vnAfter"]),
+                impulse: dnum(&p["impulse"]),
+                restitution: dnum(&p["restitution"]),
+                cx: dnum(&p["cx"]),
+                cy: dnum(&p["cy"]),
+                nx: dnum(&p["nx"]),
+                ny: dnum(&p["ny"]),
+                tangent_impulse: onum(p, "tangentImpulse"),
+                vt_before: onum(p, "vtBefore"),
+                vt_after: onum(p, "vtAfter"),
+                friction: match p.get("friction").and_then(|f| f.as_str()) {
+                    Some("slip") => Some("slip"),
+                    Some("stick") => Some("stick"),
+                    Some("reverse") => Some("reverse"),
+                    _ => None,
+                },
+            }
+        })
+        .collect();
+    Some(ImpactResult {
+        x: read_f64s(blob, &v["X"])?,
+        points,
+        energy_before: dnum(&v["energyBefore"]),
+        energy_after: dnum(&v["energyAfter"]),
+        loss: dnum(&v["loss"]),
+        // The warning stays in the recording's warnings; events never need it again
+        warning: None,
+    })
+}
+
+/// Event from its plain form (`event_json`).
+pub fn event_from_json(v: &Value, blob: &[u8]) -> Option<SimEvent> {
+    Some(SimEvent {
+        index: dusize(&v["index"]),
+        t: dnum(&v["t"]),
+        triggers: v["triggers"].as_array().map(|a| a.iter().filter_map(|t| t.as_str().and_then(EventType::from_name)).collect()).unwrap_or_default(),
+        changes: v["changes"].as_array().map(|a| a.iter().map(change_from_json).collect()).unwrap_or_default(),
+        before: read_f64s(blob, &v["before"])?,
+        after: read_f64s(blob, &v["after"])?,
+        impact: match &v["impact"] {
+            Value::Null => None,
+            i => Some(impact_from_json(i, blob)?),
+        },
+        segment: dusize(&v["segment"]),
+    })
 }

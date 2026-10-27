@@ -4,9 +4,11 @@
  */
 import { describe, expect, it } from 'vitest'
 import { TEMPLATES, buildTemplate } from '../../src/templates'
-import { compileModel } from '../../src/core/solver/model'
-import { buildSystem } from '../../src/core/solver/dynamics'
-import { canonicalQuantityId, listQuantities } from '../../src/core/observe/quantities'
+import { compileModel } from '../reference/core/solver/model'
+import { buildSystem } from '../reference/core/solver/dynamics'
+import { canonicalQuantityId, listQuantities } from '../reference/core/observe/quantities'
+import { usesFields } from '../../src/core/scene/types'
+import { simulate } from '../../src/engine/recording'
 
 describe('watched quantity ids', () => {
   it('pair ids are canonical in either order', () => {
@@ -19,7 +21,9 @@ describe('watched quantity ids', () => {
   for (const t of TEMPLATES) {
     it(`template ${t.id}: every watched id has a label`, () => {
       const scene = buildTemplate(t.id)
-      const listed = new Map(listQuantities(buildSystem(compileModel(scene))).map(q => [q.id, q]))
+      // Charges and fields (26.54): the listing of the Rust core
+      const list = usesFields(scene) ? simulate(scene, { duration: 0.1 }).session.call<{ quantities: Array<{ id: string; label: unknown }> }>({ op: 'quantities' }).quantities : listQuantities(buildSystem(compileModel(scene)))
+      const listed = new Map<string, { id: string; label: unknown }>(list.map(q => [q.id, q]))
       for (const id of scene.watch) {
         const q = listed.get(canonicalQuantityId(id))
         expect(q, `${t.id}: ${id}`).toBeDefined()

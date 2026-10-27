@@ -14,5 +14,5 @@ export default defineConfig({
   build: { target: 'es2022', outDir: 'dist', chunkSizeWarningLimit: 2500 },
   // The solver worker (src/worker/sim.worker.ts) is an ES module worker that shares chunks with the app
   worker: { format: 'es' },
-  test: { include: ['tests/**/*.test.ts'], testTimeout: 120000 }
+  test: { include: ['tests/**/*.test.ts'], setupFiles: ['tests/setup/core.ts'], testTimeout: 120000 }
 })

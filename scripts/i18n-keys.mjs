@@ -7,6 +7,10 @@
  *   node scripts/i18n-keys.mjs                 summary
  *   node scripts/i18n-keys.mjs --missing en    keys without an English entry (JSON), likewise de
  *
+ * 26.53: the texts of the Rust core — `t!("…")`, `tx("…")` and `Message::new("…")` with Chinese source keys in
+ * engine/velophi-core/src (situations, formula cards, quantities, expression checks) — and the `t('…')` texts of
+ * src/i18n/coreText.ts (expression and scene messages) are interface texts too.
+ *
  * Used by tests/i18n.test.ts.
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs'
@@ -62,10 +66,53 @@ function add(keys, text, file) {
   else keys.set(text, { files: new Set([file]) })
 }
 
+/** Unescape a Rust string literal body. */
+function rustUnescape(s) {
+  return s.replace(/\\(u\{([0-9a-fA-F]+)\}|n|t|r|0|\\|"|')/g, (_m, e, hex) => (hex ? String.fromCodePoint(parseInt(hex, 16)) : e === 'n' ? '\n' : e === 't' ? '\t' : e === 'r' ? '\r' : e === '0' ? '\0' : e))
+}
+
+function walkRust(dir, out = []) {
+  for (const name of readdirSync(dir)) {
+    const p = join(dir, name)
+    if (statSync(p).isDirectory()) walkRust(p, out)
+    else if (name.endsWith('.rs')) out.push(p)
+  }
+  return out
+}
+
+/**
+ * Chinese source texts of the Rust core: every string literal with Chinese text outside comments (`t!`, `tx`,
+ * `Message::new` keys, and the labels of quantities and force arrows the interface translates with `tl`).
+ */
+function scanRust(keys) {
+  const re = /"((?:[^"\\]|\\.)*)"/g
+  for (const p of walkRust(join(repo, 'engine', 'velophi-core', 'src'))) {
+    const file = relative(repo, p).split('\\').join('/')
+    const src = readFileSync(p, 'utf8').replace(/^\s*\/\/.*$/gm, '').replace(/#\[cfg\(test\)\][\s\S]*$/, '')
+    for (const m of src.matchAll(re)) {
+      const text = rustUnescape(m[1])
+      if (CJK.test(text)) add(keys, text, file)
+    }
+  }
+}
+
+/** The `t('…')` texts of the core message renderer. */
+function scanCoreText(keys) {
+  const file = 'src/i18n/coreText.ts'
+  const sf = ts.createSourceFile('x.ts', readFileSync(join(repo, file), 'utf8'), ts.ScriptTarget.Latest, true, ts.ScriptKind.TS)
+  const visit = n => {
+    if (ts.isCallExpression(n) && n.expression.getText(sf) === 't' && n.arguments.length && ts.isStringLiteral(n.arguments[0]) && CJK.test(n.arguments[0].text)) add(keys, n.arguments[0].text, file)
+    ts.forEachChild(n, visit)
+  }
+  visit(sf)
+}
+
 /** All keys: Map<text, { files }>, and problems. */
 export function extractKeys() {
   const keys = new Map()
   const problems = []
+  scanRust(keys)
+  scanCoreText(keys)
   for (const p of walkFiles(join(repo, 'src'))) {
     const file = relative(repo, p).split('\\').join('/')
     if (file.startsWith('src/i18n/') || file.startsWith('src/formula/derivations/')) continue

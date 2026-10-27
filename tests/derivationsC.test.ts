@@ -12,13 +12,13 @@ import { DERIVATIONS_C as DERIVATIONS_A, GROUP_C_SITUATIONS as GROUP_A_SITUATION
 import type { Derivation, DerivationStep, SharedSteps } from '../src/formula/derivations/types'
 import type { Tri } from '../src/i18n/tri'
 import { LANGS } from '../src/i18n/tri'
-import type { Node } from '../src/formula/expr'
-import { dimension, evaluate, parse, variables } from '../src/formula/expr'
+import type { Node } from './reference/formula/expr'
+import { dimension, evaluate, parse, variables } from './reference/formula/expr'
 import type { Dim } from '../src/formula/units'
 import { dimEqual, formatDim, unitDim } from '../src/formula/units'
 import { buildTemplate } from '../src/templates'
-import { simulate } from '../src/core/solver/simulation'
-import { recognize } from '../src/formula/situations'
+import { simulate } from './reference/core/solver/simulation'
+import { recognize } from './reference/formula/situations'
 
 const GROUP = new Set(GROUP_A_SITUATIONS)
 const formulasA = FORMULAS.filter(f => GROUP.has(f.situation))

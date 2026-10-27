@@ -2,12 +2,12 @@
  * Small expression language shared by the formula library and the variable forces of the solver: numbers,
  * variables, + − * / ^, unary minus, parentheses, the functions below and a conditional
  * `if(a < b, x, y)` (comparisons < <= > >= are allowed only as the condition of `if`). Expressions are
- * parsed once into an AST that can be evaluated (with the deterministic math library), checked for physical
- * dimensions, and printed as LaTeX with the variable values substituted.
+ * parsed once into an AST that can be checked for physical dimensions and printed as LaTeX with the variable values
+ * substituted. Evaluation is done by the Rust core (expr.rs; 26.53), which returns the value of every node when the
+ * interface needs the steps (formula/solve.ts).
  */
 import { tl } from '../i18n'
 import * as dm from '../core/math/dmath'
-import { ellipticF, ellipticK } from './elliptic'
 import type { Dim } from './units'
 import { DIMLESS, dimEqual, dimMul, dimPow, formatDim, unitFor } from './units'
 
@@ -24,42 +24,30 @@ export type Node =
   /** Comparison; only the condition of `if`. */
   | { type: 'cmp'; op: CmpOp; left: Node; right: Node }
 
-const LN10 = dm.log(10)
-
-function signOf(x: number): number { return x > 0 ? 1 : x < 0 ? -1 : x === 0 ? 0 : Number.NaN }
-function stepOf(x: number): number { return x >= 0 ? 1 : x < 0 ? 0 : Number.NaN }
-function clampOf(x: number, lo: number, hi: number): number { return Math.min(Math.max(x, lo), hi) }
-
-/** Functions of the language. `if` is listed for its arity and LaTeX; its condition is a comparison node. */
-/** Hyperbolic tangent through the deterministic exp (stable for large |x|). */
-function tanhOf(x: number): number {
-  const e = dm.exp(-2 * Math.abs(x))
-  return (x < 0 ? -1 : 1) * (1 - e) / (1 + e)
-}
-
-export const FUNCS: Record<string, { arity: number; fn: (...a: number[]) => number; latex: string }> = {
-  sin: { arity: 1, fn: dm.sin, latex: '\\sin' },
-  cos: { arity: 1, fn: dm.cos, latex: '\\cos' },
-  tan: { arity: 1, fn: dm.tan, latex: '\\tan' },
-  asin: { arity: 1, fn: dm.asin, latex: '\\arcsin' },
-  acos: { arity: 1, fn: dm.acos, latex: '\\arccos' },
-  atan: { arity: 1, fn: dm.atan, latex: '\\arctan' },
-  atan2: { arity: 2, fn: dm.atan2, latex: '\\operatorname{atan2}' },
-  sqrt: { arity: 1, fn: Math.sqrt, latex: '\\sqrt' },
-  abs: { arity: 1, fn: Math.abs, latex: '' },
-  exp: { arity: 1, fn: dm.exp, latex: '\\exp' },
-  tanh: { arity: 1, fn: tanhOf, latex: '\\tanh' },
-  ln: { arity: 1, fn: dm.log, latex: '\\ln' },
-  log: { arity: 1, fn: dm.log, latex: '\\ln' },
-  lg: { arity: 1, fn: x => dm.log(x) / LN10, latex: '\\lg' },
-  sign: { arity: 1, fn: signOf, latex: '\\operatorname{sgn}' },
-  step: { arity: 1, fn: stepOf, latex: '\\operatorname{step}' },
-  clamp: { arity: 3, fn: clampOf, latex: '\\operatorname{clamp}' },
-  ellipK: { arity: 1, fn: ellipticK, latex: 'K' },
-  ellipF: { arity: 2, fn: ellipticF, latex: 'F' },
-  min: { arity: 2, fn: Math.min, latex: '\\min' },
-  max: { arity: 2, fn: Math.max, latex: '\\max' },
-  if: { arity: 3, fn: (c, a, b) => (c ? a : b), latex: '' }
+/** Functions of the language with their arity and LaTeX (evaluated in the core). */
+export const FUNCS: Record<string, { arity: number; latex: string }> = {
+  sin: { arity: 1, latex: '\\sin' },
+  cos: { arity: 1, latex: '\\cos' },
+  tan: { arity: 1, latex: '\\tan' },
+  asin: { arity: 1, latex: '\\arcsin' },
+  acos: { arity: 1, latex: '\\arccos' },
+  atan: { arity: 1, latex: '\\arctan' },
+  atan2: { arity: 2, latex: '\\operatorname{atan2}' },
+  sqrt: { arity: 1, latex: '\\sqrt' },
+  abs: { arity: 1, latex: '' },
+  exp: { arity: 1, latex: '\\exp' },
+  tanh: { arity: 1, latex: '\\tanh' },
+  ln: { arity: 1, latex: '\\ln' },
+  log: { arity: 1, latex: '\\ln' },
+  lg: { arity: 1, latex: '\\lg' },
+  sign: { arity: 1, latex: '\\operatorname{sgn}' },
+  step: { arity: 1, latex: '\\operatorname{step}' },
+  clamp: { arity: 3, latex: '\\operatorname{clamp}' },
+  ellipK: { arity: 1, latex: 'K' },
+  ellipF: { arity: 2, latex: 'F' },
+  min: { arity: 2, latex: '\\min' },
+  max: { arity: 2, latex: '\\max' },
+  if: { arity: 3, latex: '' }
 }
 
 /** Parse, evaluation or dimension error with a user-facing message. */
@@ -154,44 +142,6 @@ export function parse(src: string, opts: ParseOptions = {}): Node {
     throw new ExprError(tl('多余字符 “{0}”（位置 {1}）：{2}', [ch, pos + 1, src]))
   }
   return node
-}
-
-function compare(op: CmpOp, a: number, b: number): boolean {
-  switch (op) {
-    case '<': return a < b
-    case '<=': return a <= b
-    case '>': return a > b
-    default: return a >= b
-  }
-}
-
-/** Evaluate with the given variable values (deterministic math); throws ExprError for an unset variable. */
-export function evaluate(node: Node, vars: Record<string, number>): number {
-  switch (node.type) {
-    case 'num': return node.value
-    case 'var': {
-      const v = vars[node.name]
-      if (v === undefined) throw new ExprError(tl('变量 {0} 没有取值', [node.name]))
-      return v
-    }
-    case 'neg': return -evaluate(node.arg, vars)
-    case 'bin': {
-      const a = evaluate(node.left, vars), b = evaluate(node.right, vars)
-      switch (node.op) {
-        case '+': return a + b
-        case '-': return a - b
-        case '*': return a * b
-        case '/': return a / b
-        case '^': return dm.pow(a, b)
-      }
-    }
-    // eslint-disable-next-line no-fallthrough
-    case 'cmp': return compare(node.op, evaluate(node.left, vars), evaluate(node.right, vars)) ? 1 : 0
-    case 'call': {
-      if (node.fn === 'if') return evaluate(node.args[0], vars) ? evaluate(node.args[1], vars) : evaluate(node.args[2], vars)
-      return FUNCS[node.fn].fn(...node.args.map(a => evaluate(a, vars)))
-    }
-  }
 }
 
 /** Names of the variables used, added to `out`. */

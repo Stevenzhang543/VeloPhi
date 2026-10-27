@@ -5,19 +5,25 @@
  */
 import { describe, expect, it } from 'vitest'
 import { TEMPLATES, buildTemplate } from '../src/templates'
-import type { Recording } from '../src/core/solver/simulation'
-import { simulate } from '../src/core/solver/simulation'
+import type { Recording } from '../src/engine/recording'
+import { simulate } from '../src/engine/recording'
+import { calc } from '../src/engine/core'
 import type { Scene, ForceDef } from '../src/core/scene/types'
-import type { EventType } from '../src/core/solver/events'
-import type { ChangeType } from '../src/core/solver/simulation'
-import type { Situation } from '../src/formula/situations'
-import { recognize } from '../src/formula/situations'
+import type { ChangeType, EventType } from '../src/engine/types'
+import type { Situation } from '../src/formula/recognize'
+import { recognize } from '../src/formula/recognize'
 import { cardsAt } from '../src/formula/match'
+import { solveFormula as refSolveFormula } from './reference/formula/solve'
 import { FORMULAS } from '../src/formula/library'
-import { evaluate } from '../src/formula/expr'
+import { evaluate } from './reference/formula/expr'
 import { formulaTree, solveFormula } from '../src/formula/solve'
 import { FORMULA_TEXT, buildFormulaDetail, cardTime, findSituation } from '../src/formula/detail'
-import { CHANGE_TEXT, EVENT_TEXT, TRIGGER_TEXT, buildEventDetail } from '../src/formula/eventDetail'
+import { CHANGE_TEXT, EVENT_TEXT, TRIGGER_TEXT, buildEventDetail as buildEventDetailOf, eventDataOf } from '../src/formula/eventDetail'
+import type { DetailOptions } from '../src/formula/detail'
+import type { Lang } from '../src/i18n/tri'
+
+/** Event detail of event i of a recording (its numbers from the core). */
+const buildEventDetail = (r: Recording, i: number, lang: Lang, opts: DetailOptions = {}) => buildEventDetailOf(eventDataOf(r, i), i, lang, opts)
 import type { DetailView } from '../src/formula/detailTypes'
 import { chainLatex, detailLatex, splitMath } from '../src/formula/detailTypes'
 import { detailHtml } from '../src/export/detailImage'
@@ -67,7 +73,7 @@ function texts(v: DetailView): string[] {
 }
 
 describe('generated solution', () => {
-  it('ends on the card theoretical value bit for bit (every template, situation, card, several times)', () => {
+  it('ends on the card theoretical value bit for bit, and equals the 26.52 solution (every template, situation, card, several times)', () => {
     let checked = 0
     const unitSets = [defaultChoice(), presetChoice('lab'), presetChoice('si-rad')]
     for (const [id, scene] of scenes()) {
@@ -75,16 +81,20 @@ describe('generated solution', () => {
       for (const s of recognize(r)) {
         const times = [s.tEvent ?? s.t0, (s.t0 + s.t1) / 2, s.t1, s.t0 + 0.37 * (s.t1 - s.t0)]
         for (const t of times) {
-          const sample = s.sample(cardTime(s, t))
-          for (const card of cardsAt([s], t, { digits: 4 })) {
+          for (const card of cardsAt(r, t, { digits: 4, trace: true }, [s])) {
+            const sample = card.sample
+            expect(card.time).toBe(cardTime(s, t))
             for (const units of unitSets) {
-              const sol = solveFormula(card.formula, sample, { digits: 4, units, lang: 'zh' })
+              const sol = solveFormula(card.formula, sample, { digits: 4, units, lang: 'zh' }, card.trace, card.reason)
+              // The 26.52 solution (TypeScript evaluation of every subtree) is the same, line for line
+              const ref = refSolveFormula(card.formula, sample, { digits: 4, units, lang: 'zh' })
               if (card.theory === null) { expect(sol.value, `${id} ${card.key}`).toBeNull(); continue }
+              expect(sol, `${id} ${card.key} t=${t}`).toEqual(ref)
               expect(Object.is(sol.value, card.theory), `${id} ${card.key} t=${t}: ${sol.value} vs ${card.theory}`).toBe(true)
               checked++
             }
             // The chain starts with the symbolic expression and ends with the result and its unit
-            const sol = solveFormula(card.formula, sample, { digits: 4, units: defaultChoice(), lang: 'en' })
+            const sol = solveFormula(card.formula, sample, { digits: 4, units: defaultChoice(), lang: 'en' }, card.trace, card.reason)
             if (card.theory !== null && Number.isFinite(card.theory)) {
               expect(sol.rhs.length).toBeGreaterThanOrEqual(1)
               expect(sol.rhs[sol.rhs.length - 1]).toBe(sol.resultDisplay)
@@ -98,7 +108,7 @@ describe('generated solution', () => {
 
   it('covers every library formula that some template recognises', () => {
     const seen = new Set<string>()
-    for (const [id, scene] of scenes()) for (const s of recognize(rec(id, scene))) for (const c of cardsAt([s], s.tEvent ?? s.t0)) seen.add(c.formula.id)
+    for (const [id, scene] of scenes()) { const rr = rec(id, scene); for (const s of recognize(rr)) for (const c of cardsAt(rr, s.tEvent ?? s.t0, { digits: 6 }, [s])) seen.add(c.formula.id) }
     // Every formula's tree evaluates identically through solveFormula when all its variables are given
     for (const f of FORMULAS) {
       const vars: Record<string, number> = {}
@@ -112,8 +122,10 @@ describe('generated solution', () => {
         if (n.type === 'call') n.args.forEach(collect)
       }
       collect(tree)
-      const sol = solveFormula(f, sample, { digits: 4, units: defaultChoice(), lang: 'de' })
+      const core = calc<{ value: number; trace: number[] }>({ op: 'evaluateExpr', expr: f.expr, vars })
+      const sol = solveFormula(f, sample, { digits: 4, units: defaultChoice(), lang: 'de' }, core.trace)
       expect(Object.is(sol.value, evaluate(tree, vars)), f.id).toBe(true)
+      expect(sol, f.id).toEqual(refSolveFormula(f, sample, { digits: 4, units: defaultChoice(), lang: 'de' }))
     }
     expect(seen.size).toBeGreaterThan(60)
   })
@@ -121,15 +133,16 @@ describe('generated solution', () => {
   it('shows known values in display units and converts to SI before substituting', () => {
     const r = rec('incline', buildTemplate('incline'))
     const s = recognize(r).find(x => x.type === 'incline')!
-    const card = cardsAt([s], 0.5).find(c => c.formula.id === 'incline.s')!
-    const sol = solveFormula(card.formula, s.sample(0.5), { digits: 4, units: presetChoice('lab'), lang: 'zh' })
+    const card = cardsAt(r, 0.5, { digits: 6, trace: true }, [s]).find(c => c.formula.id === 'incline.s')!
+    const sol = solveFormula(card.formula, card.sample, { digits: 4, units: presetChoice('lab'), lang: 'zh' }, card.trace)
     expect(sol.converted).toBe(true)
     expect(sol.known.find(k => k.name === 'a')!.display).toContain('cm')
     expect(sol.known.find(k => k.name === 'a')!.si).toContain('m/s^2')
     expect(sol.rhs[sol.rhs.length - 1]).toContain('cm')
     expect(sol.rhs[sol.rhs.length - 2]).toContain('\\mathrm{m}')
     // Angles are shown in degrees in every line
-    const a = solveFormula(FORMULAS.find(f => f.id === 'incline.a.down')!, s.sample(0.5), { digits: 4, units: defaultChoice(), lang: 'zh' })
+    const ca = cardsAt(r, 0.5, { digits: 6, trace: true }, [s]).find(c => c.formula.id === 'incline.a.down')!
+    const a = solveFormula(ca.formula, ca.sample, { digits: 4, units: defaultChoice(), lang: 'zh' }, ca.trace)
     expect(a.rhs[1]).toContain('30^{\\circ}')
   })
 })
@@ -190,7 +203,7 @@ describe('formula detail', () => {
     for (const [id, scene] of scenes()) {
       const rr = rec(id, scene)
       for (const s of recognize(rr)) {
-        for (const c of cardsAt([s], s.tEvent ?? s.t0)) {
+        for (const c of cardsAt(rr, s.tEvent ?? s.t0, { digits: 6 }, [s])) {
           const v = buildFormulaDetail(rr, s, c.formula.id, s.tEvent ?? s.t0, 'de', { units: presetChoice('lab') })
           expect(v.sections.length, `${id} ${c.key}`).toBe(4)
         }
@@ -251,7 +264,7 @@ describe('event detail', () => {
     const rough = buildTemplate('projectile')
     for (const b of rough.bodies) b.material = { ...b.material, muS: 0.3, muK: 0.3, restitution: 0.6 }
     const r = rec('projectile(rough)', rough)
-    const i = r.events.findIndex(e => e.impact?.points.some(p => p.tangentImpulse !== undefined))
+    const i = r.events.findIndex(e => e.impact?.points.some(p => p.friction !== null))
     expect(i).toBeGreaterThanOrEqual(0)
     const impact = buildEventDetail(r, i, 'de').sections.find(s => s.id === 'impact')!
     const phaseText = impact.blocks.find(b => b.kind === 'text' && b.text === EVENT_TEXT.phases.de)
@@ -278,7 +291,7 @@ describe('event detail', () => {
 describe('templates', () => {
   const tri = (t: { zh: string; en: string; de: string }) => LANGS.every(l => t[l].trim().length > 0)
   it('every event function type has a trilingual template', () => {
-    const types: EventType[] = ['contact', 'liftoff', 'leave', 'slip', 'stop', 'slack', 'taut', 'switch', 'pulley', 'limit', 'unlimit', 'mslip', 'mlock', 'rollStart', 'rollStop']
+    const types: EventType[] = ['contact', 'liftoff', 'leave', 'slip', 'stop', 'slack', 'taut', 'switch', 'pulley', 'limit', 'unlimit', 'mslip', 'mlock', 'rollStart', 'rollStop', 'zone']
     expect(Object.keys(TRIGGER_TEXT).sort()).toEqual([...types].sort())
     for (const t of types) {
       expect(tri(TRIGGER_TEXT[t].name) && tri(TRIGGER_TEXT[t].meaning), t).toBe(true)
@@ -286,7 +299,7 @@ describe('templates', () => {
     }
   })
   it('every change type has a trilingual template', () => {
-    const types: ChangeType[] = ['impact', 'touch', 'separate', 'stick', 'slip', 'reverse', 'leave', 'slack', 'taut', 'switch', 'timestep', 'pulley', 'limit', 'unlimit', 'motorSlip', 'motorLock', 'rollStop', 'rollStart']
+    const types: ChangeType[] = ['impact', 'touch', 'separate', 'stick', 'slip', 'reverse', 'leave', 'slack', 'taut', 'switch', 'timestep', 'pulley', 'limit', 'unlimit', 'motorSlip', 'motorLock', 'rollStop', 'rollStart', 'zoneEnter', 'zoneLeave']
     expect(Object.keys(CHANGE_TEXT).sort()).toEqual([...types].sort())
     for (const t of types) expect(tri(CHANGE_TEXT[t].name) && tri(CHANGE_TEXT[t].text) && tri(CHANGE_TEXT[t].law), t).toBe(true)
   })

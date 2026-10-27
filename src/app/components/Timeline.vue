@@ -7,13 +7,23 @@
  * the track can show everything or a recent window. `active` = false (hidden page) stops it from following
  * playback. 26.51 (D52): "branch from this moment", the branch selector, and markers where branches leave the
  * scene on screen; times are shown on the clock of that scene (a branch starts at its branch point).
+ * 26.53 (D71): the formula timeline under the track — each recognised situation as a bar (colour: its category; the
+ * line under it: the verdicts of its formulas, green all agree, red some deviate, yellow approximate; ★ favourites),
+ * event situations as marks; a click jumps there and shows the situation in the formula panel, a double click zooms
+ * the track to it.
  */
 import { tl, listSep } from '../../i18n'
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { state, play, pause, seekFrame, seekTime, seekAfter, computeTo, stopRun } from '../store'
 import { useGated } from '../live'
-import { fmtNum, fmtTime, unitLabel } from '../settings'
+import { fmtNum, fmtTime, settings, unitLabel } from '../settings'
+import { formulaTimeline } from '../../formula/match'
+import type { TimelineBar } from '../../formula/panel'
+import { timelineBars } from '../../formula/panel'
+import { locale } from '../../i18n/locale'
 import Icon from './Icon.vue'
+import TimelineMarks from './TimelineMarks.vue'
+import FormulaTrack from './FormulaTrack.vue'
 import { eventLabel } from '../../render/renderer'
 import { openEventDetail } from '../details'
 import { branchDepth, branchHere, branchList, canBranch, deleteBranch, showBranch } from '../branches'
@@ -43,8 +53,12 @@ const zoom = ref<'all' | 'recent'>('all')
 /** Span of the recent window (s). */
 const WINDOW = 60
 /** Visible range of the track (s), moving in quarter-window steps. */
+/** A range chosen on the formula timeline (double click), until reset. */
+const range = ref<{ t0: number; t1: number } | null>(null)
+watch(rec, () => { range.value = null })
 const view = computed(() => {
   const end = duration.value
+  if (range.value) return { t0: Math.max(0, range.value.t0), t1: Math.min(Math.max(end, range.value.t1), range.value.t1) }
   if (zoom.value === 'all' || end <= WINDOW) return { t0: 0, t1: end }
   const step = WINDOW / 4
   const t0 = Math.max(0, Math.min(Math.floor((tNow.value - 0.75 * WINDOW) / step) * step, end - WINDOW))
@@ -116,6 +130,34 @@ function onMarker(m: { index: number; t: number }) {
 /** Fixed decimals (the readout must not jitter), fine enough for Δt, in the display time unit. */
 const fmtT = (t: number) => fmtTime(t, rec.value?.dt ?? 1e-3, false)
 
+// ---- Formula timeline (D71) ----
+const fu = settings.ui.formula
+/** Bars of the formula timeline, recomputed at most every 400 ms while a run grows. */
+const fbars = shallowRef<TimelineBar[]>([])
+let fTimer: ReturnType<typeof setTimeout> | null = null
+function updateBars() {
+  fTimer = null
+  const r = rec.value
+  fbars.value = r && fu.timeline && state.situations.length ? timelineBars(formulaTimeline(r, state.situations), fu.pinned) : []
+}
+watch(() => [rec.value, rec.value?.frameCount, state.situations, fu.timeline, fu.pinned.length, locale.lang], () => {
+  if (!fTimer) fTimer = setTimeout(updateBars, state.computing ? 400 : 0)
+}, { immediate: true })
+onBeforeUnmount(() => { if (fTimer) clearTimeout(fTimer) })
+const lanes = computed(() => fbars.value.reduce((n, b) => Math.max(n, b.lane + 1), 1))
+const visibleBars = computed(() => fbars.value.filter(b => b.t1 >= view.value.t0 - 1e-12 && b.t0 <= view.value.t1 + 1e-12))
+function onBar(b: TimelineBar) {
+  pause()
+  seekTime(b.t0)
+  state.rightTab = 'formula'
+  state.formulaSituation = b.entry.situation.key
+}
+function zoomTo(b: TimelineBar) {
+  const d = duration.value
+  const pad = Math.max((b.t1 - b.t0) * 0.15, d * 0.02, rec.value?.dt ?? 0)
+  range.value = { t0: Math.max(0, b.t0 - pad), t1: Math.min(d, b.t1 + pad) }
+}
+
 // ---- Branches (D52) ----
 const branches = computed(() => branchList())
 const branchOptions = computed(() => [{ id: '', label: tl('主线') }, ...branches.value.map(b => ({ id: b.id, label: `${'　'.repeat(branchDepth(b.id) - 1)}↳ ${b.name}` }))])
@@ -137,7 +179,7 @@ async function removeBranch() {
 
 <template>
   <div class="timeline">
-    <div class="controls">
+    <div class="controls" :class="{ unb: unbounded }">
       <button class="btn icon ghost" :title="tl('回到开始（Home）')" :disabled="!rec" @click="pause(); seekFrame(0)"><Icon name="start" /></button>
       <button class="btn icon ghost" :title="tl('上一帧（←）')" :disabled="!rec" @click="step(-1)"><Icon name="stepb" /></button>
       <button class="btn icon primary play" :title="state.playing ? tl('暂停（空格）') : tl('播放（空格）')" :disabled="!rec" @click="toggle"><Icon :name="state.playing ? 'pause' : 'play'" /></button>
@@ -165,6 +207,9 @@ async function removeBranch() {
         </select>
         <button v-if="state.branch" class="btn icon ghost" :title="tl('删除此分支')" @click="removeBranch"><Icon name="trash" :size="15" /></button>
       </template>
+      <span class="sep" />
+      <button class="btn ghost small ftl-btn" :class="{ active: fu.timeline }" :aria-pressed="fu.timeline" :title="tl('在时间轴下方显示公式时间轴：各情形的时间段与公式判定')" @click="fu.timeline = !fu.timeline">{{ tl('公式') }}</button>
+      <button v-if="range" class="btn ghost small" :title="tl('时间轴恢复显示全程')" @click="range = null">{{ tl('显示全程') }}</button>
       <span class="spacer" />
       <span v-if="state.buffering" class="badge warn computing" :title="tl('播放追上了计算，等待新的帧')">{{ tl('缓冲中…') }}</span>
       <template v-if="unbounded">
@@ -182,10 +227,11 @@ async function removeBranch() {
       <div class="played" :style="{ transform: `scaleX(${playedFraction})` }" />
       <input type="range" :min="kMin" :max="kMax" step="1" :value="rec ? Math.round(tNow / rec.dt) : 0" :disabled="!rec" :aria-label="tl('时间')" @input="onTrack" @pointerdown="scrubbing = true" @pointerup="scrubbing = false" @pointercancel="scrubbing = false" @blur="scrubbing = false" />
       <div v-if="scrubbing && rec" class="bubble mono" :style="{ left: `calc(7px + (100% - 14px) * ${playedFraction})` }">{{ fmtT(tNow) }} {{ unitLabel('s') }}</div>
-      <div class="markers">
-        <button v-for="m in markers" :key="m.index" class="marker" :style="{ left: `${m.left}%` }" :title="tl('{0}（点击查看详情）', [m.text])" @click="onMarker(m)" />
-        <button v-for="b in branchMarks" :key="`br-${b.id}`" class="marker branch" :style="{ left: `${b.left}%` }" :title="tl('分支“{0}”从这里开始（点击切换）', [b.name])" @click="showBranch(b.id)" />
-      </div>
+      <TimelineMarks :markers="markers" :branch-marks="branchMarks" @marker="onMarker" @branch="showBranch" />
+    </div>
+    <div v-if="fu.timeline && fbars.length" class="ftrack" :style="{ height: `${lanes * 11 + 3}px` }" role="list" :aria-label="tl('公式时间轴')">
+      <FormulaTrack :bars="visibleBars" :t0="view.t0" :span="span" @bar="onBar" @zoom="zoomTo" />
+      <div class="fnow" :style="{ left: `calc(${playedFraction * 100}%)` }" />
     </div>
   </div>
 </template>
@@ -200,6 +246,8 @@ async function removeBranch() {
 .computing { margin-right: 4px; flex: 0 1 auto; min-width: 6em; display: block; line-height: 20px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Narrow: drop the secondary texts before anything gets squeezed */
 @container (max-width: 820px) { .frames, .ev-lbl, .zoom-btn, .br-lbl { display: none; } }
+/* A continuing run also shows how far it has computed, a stop and a range button (26.53) */
+@container (max-width: 1080px) { .unb .frames, .unb .ev-lbl, .unb .br-lbl { display: none; } }
 .branch-sel { width: 180px; flex: 0 1 auto; min-width: 80px; }
 .branch-btn { display: inline-flex; align-items: center; gap: 2px; white-space: nowrap; }
 @container (max-width: 560px) { .computing, .sep, .stop-btn { display: none; } .speed { width: 62px; } }
@@ -221,9 +269,9 @@ async function removeBranch() {
 .track input:hover::-webkit-slider-thumb { transform: scale(1.15); }
 .track.scrub input::-webkit-slider-thumb { transform: scale(1.4); }
 .bubble { position: absolute; bottom: calc(100% + 2px); transform: translateX(-50%); background: var(--text); color: var(--pane); font-size: var(--type-tiny); padding: 2px 7px; border-radius: 7px; pointer-events: none; white-space: nowrap; box-shadow: var(--shadow); animation: pop-in var(--dur-2) var(--ease-out); z-index: 2; }
-.markers { position: absolute; left: 7px; right: 7px; top: 0; height: 100%; pointer-events: none; }
-.marker { position: absolute; top: 0; width: 8px; height: 8px; margin-left: -4px; border-radius: 2px; transform: rotate(45deg); background: var(--warning); border: 0; padding: 0; cursor: pointer; pointer-events: auto; }
-.marker:hover { transform: rotate(45deg) scale(1.35); }
-.marker.branch { width: 4px; height: 18px; margin-left: -2px; top: 2px; border-radius: 2px; transform: none; background: var(--accent); }
-.marker.branch:hover { transform: scaleX(1.6); }
+.ftl-btn.active { color: var(--accent); }
+.ftrack { position: relative; margin: 0 7px 2px; }
+/* A situation with nothing to compare at all: an outline only */
+.fnow { position: absolute; top: 0; bottom: 0; width: 1.5px; margin-left: -0.75px; background: var(--accent); pointer-events: none; opacity: 0.8; }
+@container (max-width: 560px) { .ftl-btn { display: none; } }
 </style>

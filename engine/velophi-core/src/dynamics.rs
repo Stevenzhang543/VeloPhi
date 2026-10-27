@@ -9,7 +9,7 @@ use crate::kinematics::{
 };
 use crate::linalg::{solve_dense_into, LinWork};
 use crate::message::{Message, SimResult};
-use crate::model::{central_force, central_potential, pair_key, pair_material, Model, SliderModel};
+use crate::model::{central_force, central_potential, coulomb_potential, coulomb_scalar, pair_key, pair_material, Model, SliderModel};
 use crate::scene::Material;
 
 /// Tolerances shared by the solver (TOL of dynamics.ts).
@@ -174,6 +174,8 @@ pub struct Rates {
     pub belt_work: f64,
     pub pair_slide: Vec<f64>,
     pub pair_heat: Vec<f64>,
+    /// 26.55: rates of the ledger extras (regions::X_FIELD …), also counted in applied_work / damping.
+    pub extra: [f64; crate::regions::EXTRA_LEN],
 }
 
 impl Rates {
@@ -183,6 +185,7 @@ impl Rates {
         self.applied_work = 0.0;
         self.damping = 0.0;
         self.belt_work = 0.0;
+        self.extra = [0.0; crate::regions::EXTRA_LEN];
         set_len(&mut self.pair_slide, pairs);
         self.pair_slide.fill(0.0);
         set_len(&mut self.pair_heat, pairs);
@@ -229,6 +232,7 @@ struct SolveWork {
     a0: Vec<f64>,
     g: Vec<f64>,
     lin: LinWork,
+    weights: Vec<f64>,
     rope_rows: Vec<(RowJ, f64)>,
     eqs: Vec<EqualityKin>,
 }
@@ -256,8 +260,10 @@ pub struct System {
     pub n: usize,
     pub pairs: Vec<PairInfo>,
     pub aux_base: usize,
-    /// Index of the time entry (scenes with variable forces), None otherwise.
+    /// Index of the time entry (scenes with variable forces or alternating field regions), None otherwise.
     pub time_slot: Option<usize>,
+    /// 26.55: first index of the ledger extras (scenes with field regions, liquids or rail loops), None otherwise.
+    pub extra_slot: Option<usize>,
     pub size: usize,
 }
 
@@ -283,9 +289,13 @@ pub fn build_system(model: Model) -> System {
     }
     let n = model.n;
     let aux_base = 6 * n;
-    let time_slot = if model.has_expr { Some(aux_base + AUX_FIXED + 2 * pairs.len()) } else { None };
-    let size = aux_base + AUX_FIXED + 2 * pairs.len() + usize::from(model.has_expr);
-    let mut sys = System { model, n, pairs, aux_base, time_slot, size };
+    // 26.55: the ledger extras after the pairs, the time last (scenes without the new features: unchanged layout)
+    let extra_slot = if model.extra_ledger { Some(aux_base + AUX_FIXED + 2 * pairs.len()) } else { None };
+    let after = aux_base + AUX_FIXED + 2 * pairs.len() + if model.extra_ledger { crate::regions::EXTRA_LEN } else { 0 };
+    let timed = model.has_expr || model.timed;
+    let time_slot = if timed { Some(after) } else { None };
+    let size = after + usize::from(timed);
+    let mut sys = System { model, n, pairs, aux_base, time_slot, extra_slot, size };
     let x0 = initial_state(&sys);
     let mut poses = Vec::new();
     compute_poses_into(&sys.model, &x0, &mut poses);
@@ -357,6 +367,9 @@ pub fn initial_state(sys: &System) -> Vec<f64> {
                 x[a + AUX_FIXED + 2 * p.index] = *slide;
                 x[a + AUX_FIXED + 2 * p.index + 1] = *heat;
             }
+        }
+        if let Some(e) = sys.extra_slot {
+            x[e..e + crate::regions::EXTRA_LEN].copy_from_slice(&l.extra);
         }
     }
     x
@@ -499,10 +512,39 @@ fn gravity_size(model: &Model) -> f64 {
     (g.x * g.x + g.y * g.y).sqrt()
 }
 
-/// Frozen branches to use: `sw` when it covers every switch, else None (exact evaluation).
+/// Frozen branches to use: `sw` when it covers every switch (and, 26.55, every zone pair after them), else None
+/// (exact evaluation). Only the switches' part.
 #[inline]
 fn effective_sw<'a>(model: &Model, sw: Option<&'a [i8]>) -> Option<&'a [i8]> {
-    sw.filter(|s| s.len() == model.arena.switches.len())
+    sw.filter(|s| s.len() == model.arena.switches.len() + model.zone_pairs.len()).map(|s| &s[..model.arena.switches.len()])
+}
+
+/// Length of the frozen branch vector of a mode: switches, then zone pairs (26.55, D90).
+#[inline]
+pub fn branch_count(model: &Model) -> usize {
+    model.arena.switches.len() + model.zone_pairs.len()
+}
+
+/// Frozen inside/outside state of the zone pairs, when `sw` covers them.
+#[inline]
+pub fn zone_sw<'a>(model: &Model, sw: Option<&'a [i8]>) -> Option<&'a [i8]> {
+    sw.filter(|s| s.len() == branch_count(model)).map(|s| &s[model.arena.switches.len()..])
+}
+
+/// Branches of the switches and the zone pairs at state X (exact), the `sw` of a new mode; None without either.
+pub fn mode_branches(sys: &System, x: &[f64]) -> Option<Vec<i8>> {
+    let model = &sys.model;
+    if branch_count(model) == 0 {
+        return None;
+    }
+    let mut out = switch_branches(sys, x);
+    if !model.zone_pairs.is_empty() {
+        let poses = crate::kinematics::compute_poses(model, x);
+        for k in 0..model.zone_pairs.len() {
+            out.push(crate::regions::zone_branch(model, k, &poses));
+        }
+    }
+    Some(out)
 }
 
 /// Value of variable force k at state X (world components, N); an error when not finite.
@@ -622,6 +664,22 @@ pub fn applied_forces_into(sys: &System, poses: &[Pose], mut rates: Option<&mut 
             }
         }
     }
+    // 26.54 (D78): charges in the uniform fields (qE and the Lorentz force q v × B, B along z) and the Coulomb
+    // interaction; qE and Coulomb are conservative (their potential is part of the mechanical energy), the Lorentz
+    // force does no work
+    if model.electric {
+        electric_forces(model, poses, q);
+    }
+    // 26.55 (D90–D92): field regions, liquids, rail loops
+    if !model.zone_pairs.is_empty() {
+        crate::regions::zone_forces(sys, poses, x, zone_sw(model, sw), rates.as_deref_mut(), q);
+    }
+    if !model.liquids.is_empty() {
+        crate::regions::liquid_forces(sys, poses, rates.as_deref_mut(), q);
+    }
+    if !model.rails.is_empty() {
+        crate::regions::rail_forces(sys, poses, rates.as_deref_mut(), q);
+    }
     // 26.52 (D60): central fields; conservative (the potential is part of the mechanical energy)
     for c in &model.centrals {
         let p = anchor_state(poses, &c.a);
@@ -722,6 +780,128 @@ pub fn applied_forces_into(sys: &System, poses: &[Pose], mut rates: Option<&mut 
         }
     }
     Ok(())
+}
+
+/// Position of a charge (26.54): the centre of mass of a dynamic body, the centroid of a static one.
+#[inline]
+pub fn charge_pos(model: &Model, poses: &[Pose], g: usize) -> (f64, f64) {
+    let b = &model.bodies[g];
+    if b.dynamic {
+        (poses[g].x, poses[g].y)
+    } else {
+        (b.grav_pos.x, b.grav_pos.y)
+    }
+}
+
+/// Electric and magnetic forces on charge `g` (26.54, D78): (qE, q v × B, Coulomb force of the other charges).
+pub fn electric_parts(model: &Model, poses: &[Pose], g: usize) -> [(f64, f64); 3] {
+    let b = &model.bodies[g];
+    let qc = b.charge;
+    let p = &poses[g];
+    let fe = (qc * model.e_field.x, qc * model.e_field.y);
+    let fb = (qc * p.vy * model.b_field, -qc * p.vx * model.b_field);
+    let (mut cx, mut cy) = (0.0, 0.0);
+    if model.k_coulomb > 0.0 {
+        let (px, py) = charge_pos(model, poses, g);
+        for &o in &model.charged {
+            if o == g {
+                continue;
+            }
+            let ob = &model.bodies[o];
+            let (ox, oy) = charge_pos(model, poses, o);
+            let dx = ox - px;
+            let dy = oy - py;
+            let d = (dx * dx + dy * dy).sqrt();
+            #[allow(clippy::neg_cmp_op_on_partial_ord)]
+            if !(d > 0.0) {
+                continue;
+            }
+            let f = coulomb_scalar(model.k_coulomb, qc, ob.charge, d, b.bound + ob.bound);
+            cx += f * dx / d;
+            cy += f * dy / d;
+        }
+    }
+    [fe, fb, (cx, cy)]
+}
+
+/// Add the electric and magnetic forces to the generalised forces (26.54, D78). Coulomb pairs act and react like
+/// gravitation (each pair once, Newton's third law exact).
+fn electric_forces(model: &Model, poses: &[Pose], q: &mut [f64]) {
+    let (ex, ey) = (model.e_field.x, model.e_field.y);
+    let bz = model.b_field;
+    for &g in &model.charged {
+        let b = &model.bodies[g];
+        if !b.dynamic {
+            continue;
+        }
+        let p = &poses[g];
+        let i = b.index as usize;
+        q[3 * i] += b.charge * (ex + p.vy * bz);
+        q[3 * i + 1] += b.charge * (ey - p.vx * bz);
+    }
+    if model.k_coulomb > 0.0 {
+        let ch = &model.charged;
+        for i in 0..ch.len() {
+            for j in i + 1..ch.len() {
+                let a = &model.bodies[ch[i]];
+                let b = &model.bodies[ch[j]];
+                if !a.dynamic && !b.dynamic {
+                    continue;
+                }
+                let (pax, pay) = charge_pos(model, poses, ch[i]);
+                let (pbx, pby) = charge_pos(model, poses, ch[j]);
+                let dx = pbx - pax;
+                let dy = pby - pay;
+                let d = (dx * dx + dy * dy).sqrt();
+                #[allow(clippy::neg_cmp_op_on_partial_ord)]
+                if !(d > 0.0) {
+                    continue;
+                }
+                let f = coulomb_scalar(model.k_coulomb, a.charge, b.charge, d, a.bound + b.bound);
+                let fx = f * dx / d;
+                let fy = f * dy / d;
+                if a.dynamic {
+                    let k = a.index as usize;
+                    q[3 * k] += fx;
+                    q[3 * k + 1] += fy;
+                }
+                if b.dynamic {
+                    let k = b.index as usize;
+                    q[3 * k] -= fx;
+                    q[3 * k + 1] -= fy;
+                }
+            }
+        }
+    }
+}
+
+/// Electric potential energy of state X (26.54, D78): −q E·r of the moving charges (zero at the origin) plus the
+/// Coulomb energy of every pair with a moving charge.
+pub fn electric_energy(model: &Model, poses: &[Pose]) -> f64 {
+    let mut e = 0.0;
+    for &g in &model.charged {
+        let b = &model.bodies[g];
+        if b.dynamic {
+            e -= b.charge * (model.e_field.x * poses[g].x + model.e_field.y * poses[g].y);
+        }
+    }
+    if model.k_coulomb > 0.0 {
+        let ch = &model.charged;
+        for i in 0..ch.len() {
+            for j in i + 1..ch.len() {
+                let a = &model.bodies[ch[i]];
+                let b = &model.bodies[ch[j]];
+                if !a.dynamic && !b.dynamic {
+                    continue;
+                }
+                let (pax, pay) = charge_pos(model, poses, ch[i]);
+                let (pbx, pby) = charge_pos(model, poses, ch[j]);
+                let d = ((pbx - pax) * (pbx - pax) + (pby - pay) * (pby - pay)).sqrt();
+                e += coulomb_potential(model.k_coulomb, a.charge, b.charge, d, a.bound + b.bound);
+            }
+        }
+    }
+    e
 }
 
 /// Surface speed of the face owner of a feature (conveyors).
@@ -899,6 +1079,56 @@ pub fn build_rows(sys: &System, poses: &[Pose], mode: &Mode) -> Vec<Row> {
     sol.rows
 }
 
+/// How far constraint forces leave the conditions of their mode (26.53, D73): pulling contact points, pushing ropes
+/// and end stops, sticking friction outside μs·N and rolling couples outside their limit (0: within; tolerance as in
+/// the mode check).
+fn force_excess(sys: &System, mode: &Mode, rows: &[Row], lambda: &[f64]) -> f64 {
+    let eps = tol::FORCE * sys.model.force_scale;
+    let nu = mode.units.len();
+    let mut normal = vec![0.0; nu];
+    let mut tangent = vec![0.0; nu];
+    let mut roll = vec![0.0; nu];
+    let mut v = 0.0;
+    for (r, row) in rows.iter().enumerate() {
+        let l = lambda[r];
+        match row.kind {
+            RowKind::Normal => {
+                if l < -eps {
+                    v += -l;
+                }
+                normal[row.owner] += l;
+            }
+            RowKind::Tangent => tangent[row.owner] = l,
+            RowKind::Roll => roll[row.owner] = l,
+            RowKind::Rope | RowKind::Limit => {
+                if l < -eps {
+                    v += -l;
+                }
+            }
+            _ => {}
+        }
+    }
+    for (ui, u) in mode.units.iter().enumerate() {
+        if u.points.is_empty() {
+            continue;
+        }
+        let pair = &sys.pairs[u.pair];
+        if u.friction == Friction::Stick {
+            let margin = pair.material.mu_s * normal[ui] - tangent[ui].abs();
+            if margin < -eps {
+                v += -margin;
+            }
+        }
+        if u.roll == Some(0) {
+            let margin = pair.material.rolling * roll_radius(&sys.model, &pair.features[u.ref_]) * normal[ui] - roll[ui].abs();
+            if margin < -eps {
+                v += -margin;
+            }
+        }
+    }
+    v
+}
+
 /// Solve the dynamics of a mode at state X into `sol`. With `poses_in` the poses are taken as given.
 pub fn solve_mode_into(sys: &System, x: &[f64], mode: &Mode, poses_in: Option<&[Pose]>, sol: &mut ModeSolution) -> SimResult<()> {
     let model = &sys.model;
@@ -946,7 +1176,20 @@ pub fn solve_mode_into(sys: &System, x: &[f64], mode: &Mode, poses_in: Option<&[
             }
             w.rhs[r] = -(row_dot(jr, &w.a0, 0) + sol.rows[r].c);
         }
-        let (rank, residual, consistent) = solve_dense_into(m, &mut w.a, &mut w.rhs, 1e-12, &mut sol.lambda, &mut w.lin);
+        // 26.53 (D73): at rest, redundant contacts (statically indeterminate) take the least friction, then the least
+        // force; in motion the basic solution of 26.52 stays (the choice among equivalent forces then decides when
+        // contacts start to slide, and switching it within a step makes the right-hand side jump)
+        set_len(&mut w.weights, m);
+        for r in 0..m {
+            w.weights[r] = if sol.rows[r].kind == RowKind::Tangent { 1e12 } else { 1.0 };
+        }
+        let at_rest = x[3 * n..6 * n].iter().all(|v| v.abs() <= tol::VEL);
+        let (rank, residual, consistent) = solve_dense_into(m, &mut w.a, &mut w.rhs, 1e-12, &mut sol.lambda, &mut w.lin, if at_rest { Some(&w.weights) } else { None });
+        // A least-friction choice that needs a pulling contact, a pushing rope or a force outside a friction cone is
+        // not taken: the basic solution stays (26.53; otherwise every mode of such a contact set looked inconsistent)
+        if !w.lin.basic().is_empty() && force_excess(sys, mode, &sol.rows, &sol.lambda) > 0.0 {
+            sol.lambda.copy_from_slice(w.lin.basic());
+        }
         sol.rank = rank;
         sol.residual = residual;
         sol.consistent = consistent;
@@ -1108,6 +1351,9 @@ pub fn derivative(sys: &System, x: &[f64], mode: &Mode, out: &mut [f64], sol: &m
         out[base + AUX_FIXED + 2 * p] = sol.rates.pair_slide[p];
         out[base + AUX_FIXED + 2 * p + 1] = sol.rates.pair_heat[p];
     }
+    if let Some(e) = sys.extra_slot {
+        out[e..e + crate::regions::EXTRA_LEN].copy_from_slice(&sol.rates.extra);
+    }
     if let Some(slot) = sys.time_slot {
         out[slot] = 1.0;
     }
@@ -1123,6 +1369,8 @@ pub struct EnergyParts {
     pub spring: f64,
     /// Potential of the central fields (26.52, D60).
     pub field: f64,
+    /// Electric potential energy (26.54, D78; 0 without charges in fields).
+    pub electric: f64,
     pub total: f64,
 }
 
@@ -1191,7 +1439,14 @@ pub fn energy(sys: &System, x: &[f64], poses: &[Pose]) -> EnergyParts {
         }
     }
     let total = if model.centrals.is_empty() { kinetic + gravity + spring } else { kinetic + gravity + spring + field };
-    EnergyParts { kinetic, gravity, spring, field, total }
+    // 26.54 (D78): scenes without charges in fields keep the sum of 26.53
+    let (electric, total) = if model.electric {
+        let e = electric_energy(model, poses);
+        (e, total + e)
+    } else {
+        (0.0, total)
+    };
+    EnergyParts { kinetic, gravity, spring, field, electric, total }
 }
 
 /// Kinetic energy of state X (J).

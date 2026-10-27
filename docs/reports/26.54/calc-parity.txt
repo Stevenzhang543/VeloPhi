@@ -1,0 +1,3 @@
+    Finished `release` profile [optimized] target(s) in 0.01s
+calc parity: 504 runs (0 random scenes refused by the scene check, as in parity.mjs), 66920 requests compared (10676 situations, 9464 samples, 93946 formula cards); TS 224580 ms, Rust 18636 ms
+  0 mismatches: bit-identical

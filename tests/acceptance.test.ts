@@ -5,9 +5,9 @@
  */
 import { describe, expect, it } from 'vitest'
 import { buildTemplate } from '../src/templates'
-import type { Recording } from '../src/core/solver/simulation'
-import { frameLedger, frameState, simulate } from '../src/core/solver/simulation'
-import { recognize } from '../src/formula/situations'
+import type { Recording } from '../src/engine/recording'
+import { frameLedger, frameState, simulate } from '../src/engine/recording'
+import { recognize } from '../src/formula/recognize'
 import type { FormulaCard } from '../src/formula/match'
 import { evaluateCard } from '../src/formula/match'
 import { FORMULAS } from '../src/formula/library'
@@ -18,8 +18,8 @@ const rad = (d: number) => (d * Math.PI) / 180
 function allCards(rec: Recording): FormulaCard[] {
   const cards: FormulaCard[] = []
   for (const s of recognize(rec)) {
-    const sample = s.sample(s.tEvent ?? (s.t0 + s.t1) / 2)
-    for (const f of FORMULAS.filter(f => f.situation === s.type)) cards.push(evaluateCard(f, s, sample, { digits: 8 }))
+    const t = s.tEvent ?? (s.t0 + s.t1) / 2
+    for (const f of FORMULAS.filter(f => f.situation === s.type)) { const c = evaluateCard(rec, s, f.id, t, { digits: 8 }); if (c) cards.push(c) }
   }
   return cards
 }

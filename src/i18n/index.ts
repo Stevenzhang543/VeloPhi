@@ -14,11 +14,14 @@
 import { activeLang, locale } from './locale'
 import type { Lang } from './tri'
 import { buildTables } from './tables'
+import { setTranslator } from './coreText'
 
 export { locale, pick, msgText, activeLang, exportOverride } from './locale'
 export type { Lang, Tri } from './tri'
 
 const TABLES: Record<Exclude<Lang, 'zh'>, Record<string, string>> = buildTables()
+// Texts of the Rust calculation layer and the expression messages are interface texts (coreText.ts)
+setTranslator((lang, zh, params) => tIn(lang, zh, params))
 
 /** Translations missing at run time (diagnostics; the tests keep this empty). */
 export const missing = new Set<string>()
@@ -84,12 +87,23 @@ const CJK = /[一-鿿]/
 export function trDeep<T extends object>(data: T): T {
   const cached = deepCache.get(data)
   if (cached) return cached as T
+  // 26.55 (D97): translating a string is a table lookup plus a regular-expression test; reading the same label
+  // again (every redraw of a panel) repeats both. Each property remembers its last translation together with the
+  // source string and the language it was made for, so a getter whose value changes (template parameters) or a
+  // language switch is never served a stale text. The value itself is always read from the data.
+  const memo = new Map<PropertyKey, { src: string; lang: Lang; v: string }>()
   const view = new Proxy(data, {
     get(target, key, receiver) {
-      const v = Reflect.get(target, key, receiver)
-      if (typeof v === 'string') return CJK.test(v) ? tl(v) : v
-      if (v && typeof v === 'object') return trDeep(v as object)
-      return v
+      const v0 = Reflect.get(target, key, receiver)
+      if (typeof v0 === 'string') {
+        const lang = activeLang()
+        const m = memo.get(key)
+        if (m !== undefined && m.src === v0 && m.lang === lang) return m.v
+        const v = CJK.test(v0) ? tIn(lang, v0) : v0
+        memo.set(key, { src: v0, lang, v })
+        return v
+      }
+      return v0 && typeof v0 === 'object' ? trDeep(v0 as object) : v0
     }
   })
   deepCache.set(data, view)

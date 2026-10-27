@@ -1,7 +1,7 @@
 /**
  * 26.52 shape operations (D35): cutting polygons along a line (convex and concave), cutting bodies (mass by area,
  * rigid velocities, anchors handed over), combining bodies into a compound and splitting it again, and object
- * snapping with concave and compound outlines.
+ * snapping with concave and compound outlines. 26.53 (D74): every coordinate they write lies on the 10⁻⁹ grid.
  */
 import { describe, expect, it } from 'vitest'
 import { addBody, addConnector, addGround, emptyScene } from '../../src/core/scene/build'
@@ -77,6 +77,39 @@ describe('cutting, combining and splitting bodies', () => {
     expect(xs[1]).toBeCloseTo(1.5, 12)
     // Masses by area of the combined body (uniform density)
     expect(parts.find(p => p.position.x > 1)!.mass).toBeCloseTo(4 * 2 / 3, 12)
+  })
+
+  it('D74: combined, cut and split coordinates lie on the 10⁻⁹ grid (no rounding residue)', () => {
+    const onGrid = (v: number) => Object.is(Math.round(v * 1e9) / 1e9, v) || (v === 0)
+    const coords = (b: BodyDef): number[] => {
+      const out = [b.position.x, b.position.y, b.angle]
+      if (b.shape.type === 'polygon') for (const p of b.shape.points) out.push(p.x, p.y)
+      if (b.shape.type === 'compound') for (const pt of b.shape.parts) {
+        out.push(pt.position.x, pt.position.y, pt.angle)
+        if (pt.shape.type === 'polygon') for (const p of pt.shape.points) out.push(p.x, p.y)
+      }
+      return out
+    }
+    const s = emptyScene('grid')
+    // Thirds and a rotated triangle: centroids and offsets that are not representable exactly
+    const a = addBody(s, { id: 'a', name: 'A', shape: { type: 'polygon', points: [{ x: 0, y: 0 }, { x: 1 / 3, y: 0 }, { x: 0, y: 1 / 7 }] }, position: { x: 0.1, y: 0.2 }, angle: 0.3, mass: 1 })
+    const b = addBody(s, { id: 'b', name: 'B', shape: { type: 'box', width: 0.7, height: 0.3 }, position: { x: -0.1 / 3, y: 0.2 }, mass: 2 })
+    const r = combineBodies(s, [a.id, b.id]) as { id: string }
+    const c = s.bodies.find(x => x.id === r.id)!
+    expect(coords(c).every(onGrid)).toBe(true)
+    // A symmetric pair combines exactly at the origin
+    const s2 = emptyScene('sym')
+    const p = addBody(s2, { id: 'p', name: 'P', shape: { type: 'box', width: 0.3, height: 0.1 }, position: { x: -0.7, y: 0.1 }, mass: 1 })
+    const q = addBody(s2, { id: 'q', name: 'Q', shape: { type: 'box', width: 0.3, height: 0.1 }, position: { x: 0.7, y: 0.1 }, mass: 1 })
+    const r2 = combineBodies(s2, [p.id, q.id]) as { id: string }
+    expect(s2.bodies.find(x => x.id === r2.id)!.position.x).toBe(0)
+    const s3 = emptyScene('cut')
+    addBody(s3, { id: 't', name: 'T', shape: { type: 'polygon', points: [{ x: 0, y: 0 }, { x: 1 / 3, y: 0 }, { x: 0.1, y: 1 / 7 }] }, position: { x: 0.1, y: 0.2 }, angle: 0.3, mass: 1 })
+    const cut = cutBodies(s3, { x: -1, y: 0.24 }, { x: 1, y: 0.26 })
+    expect(cut.length).toBe(2)
+    for (const id of cut) expect(coords(s3.bodies.find(x => x.id === id)!).every(onGrid)).toBe(true)
+    explodeCompound(s, c.id)
+    for (const body of s.bodies) expect(coords(body).every(onGrid)).toBe(true)
   })
 
   it('does not mix fixed and moving bodies, and needs two', () => {

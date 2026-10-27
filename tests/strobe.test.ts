@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest'
 import { STROBE_MAX, strobeAlpha, strobeTimes } from '../src/render/strobe'
 import { buildTemplate } from '../src/templates'
-import { exactStateAt, frameState, simulate } from '../src/core/solver/simulation'
+import { exactStateAt, frameState, simulate } from './reference/core/solver/simulation'
 
 describe('stroboscope', () => {
   const o = { interval: 0.1, count: 10, opacity: 0.6, labels: false }

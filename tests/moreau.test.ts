@@ -6,11 +6,11 @@
 import { describe, expect, it } from 'vitest'
 import { addBody, addGround, emptyScene } from '../src/core/scene/build'
 import type { Scene } from '../src/core/scene/types'
-import { exactStateAt, frameImpactLoss, frameState, simulate } from '../src/core/solver/simulation'
-import { energy } from '../src/core/solver/dynamics'
-import { computePoses, probeValue } from '../src/core/solver/kinematics'
-import { decodeRecording, encodeRecording } from '../src/core/solver/transport'
-import { recognize } from '../src/formula/situations'
+import { exactStateAt, frameImpactLoss, frameState, simulate } from './reference/core/solver/simulation'
+import { energy } from './reference/core/solver/dynamics'
+import { computePoses, probeValue } from './reference/core/solver/kinematics'
+import { decodeRecording, encodeRecording } from './reference/core/solver/transport'
+import { recognize } from './reference/formula/situations'
 import { parseScene, serializeScene } from '../src/core/scene/io'
 
 /** A wall-less pile: a row of boxes on rough ground, more boxes and discs dropped on top. */

@@ -7,12 +7,12 @@
 import { describe, expect, it } from 'vitest'
 import { addBody, addGround, emptyScene } from '../src/core/scene/build'
 import type { Scene } from '../src/core/scene/types'
-import { simulate } from '../src/core/solver/simulation'
-import { compileModel } from '../src/core/solver/model'
-import { buildSystem, initialState, kineticEnergy } from '../src/core/solver/dynamics'
-import { resolveImpact } from '../src/core/solver/impact'
-import { computePoses } from '../src/core/solver/kinematics'
-import { touchingFeatures } from '../src/core/solver/modes'
+import { simulate } from './reference/core/solver/simulation'
+import { compileModel } from './reference/core/solver/model'
+import { buildSystem, initialState, kineticEnergy } from './reference/core/solver/dynamics'
+import { resolveImpact } from './reference/core/solver/impact'
+import { computePoses } from './reference/core/solver/kinematics'
+import { touchingFeatures } from './reference/core/solver/modes'
 
 /** Static wall whose right face is at x, from `bottom` to `top`. */
 function addWall(s: Scene, o: { id: string; x: number; bottom: number; top: number; material: { muS: number; muK: number; restitution: number } }) {

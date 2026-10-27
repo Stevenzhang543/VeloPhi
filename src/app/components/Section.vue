@@ -70,7 +70,7 @@ function onEnd(e: TransitionEvent) { if (e.target === e.currentTarget && isOpen.
 .sec-actions { display: flex; align-items: center; gap: 4px; flex: 0 0 auto; }
 .sec-body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows var(--dur-3) var(--ease-out); }
 .open .sec-body { grid-template-rows: 1fr; }
-.sec-inner { min-height: 0; overflow: hidden; }
+.sec-inner { min-height: 0; min-width: 0; overflow: hidden; }
 .settled .sec-inner { overflow: visible; }
 .sec:not(.open) .sec-inner { visibility: hidden; transition: visibility 0s linear var(--dur-3); }
 </style>

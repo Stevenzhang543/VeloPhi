@@ -10,7 +10,7 @@ import { inExportLanguage } from '../exportLang'
 import { computed, ref } from 'vue'
 import { state, showToast, viewCamera } from '../store'
 import { effectiveEffects, settings, toDisp, unitLabel } from '../settings'
-import { listQuantities } from '../../core/observe/quantities'
+import { listQuantities } from '../../engine/observe'
 import { defaultCsvIds, effectiveSeparator, recordingCsv } from '../../export/csv'
 import { exportVideo } from '../../export/video'
 import type { FrameEffects } from '../../render/frame'
@@ -24,7 +24,7 @@ import Icon from './Icon.vue'
 const tab = ref<'csv' | 'video'>('csv')
 const rec = computed(() => state.recording!)
 const total = computed(() => (rec.value.frameCount - 1) * rec.value.dt)
-const all = computed(() => listQuantities(rec.value.system))
+const all = computed(() => listQuantities(rec.value))
 const picked = ref<string[]>(defaultCsvIds(rec.value))
 const stride = ref(1)
 const t0 = ref(0)

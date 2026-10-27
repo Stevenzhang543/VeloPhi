@@ -1,7 +1,7 @@
 //! Mode determination (port of `src/core/solver/modes.ts`). Features are referred to by their index in the
 //! pair's feature list; the TypeScript identity comparisons of touches and features become index comparisons.
 
-use crate::dynamics::{roll_radius, row_dot, solve_mode_into, switch_branches, tol, Friction, Mode, ModeSolution, PairInfo, System, UnitMode};
+use crate::dynamics::{mode_branches, roll_radius, row_dot, solve_mode_into, tol, Friction, Mode, ModeSolution, PairInfo, System, UnitMode};
 use crate::kinematics::{compute_poses, contact_kin, drive_kin, rope_kin, slider_axis_kin, ContactKin, Pose};
 use crate::message::SimResult;
 use crate::model::ShapeModel;
@@ -468,7 +468,7 @@ pub fn determine_mode(sys: &System, x: &[f64], max_tries: usize, prefer_slack: &
         limit: if model.has_limits { Some(limit_cand.clone()) } else { None },
     };
     let (nu, nr, nl) = (candidates.len(), rope_options.len(), limit_options.len());
-    let sw = if !model.arena.switches.is_empty() { Some(switch_branches(sys, x)) } else { None };
+    let sw = mode_branches(sys, x);
     let mut best: Option<ModeChoice> = None;
     let mut tried = 0usize;
     let mut sol = ModeSolution::default();
@@ -568,7 +568,7 @@ pub fn state_mode(sys: &System, x: &[f64], stick_speed: f64) -> Mode {
         }
     }
     let taut = model.ropes.iter().map(|r| rope_kin(model, &poses, r).0.value <= tol::TOUCH).collect();
-    let sw = if !model.arena.switches.is_empty() { Some(switch_branches(sys, x)) } else { None };
+    let sw = mode_branches(sys, x);
     let limit = if model.has_limits {
         Some(
             model

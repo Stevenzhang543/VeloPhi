@@ -1,0 +1,76 @@
+/** Interface texts added in 26.53 (VeloPhi): Chinese source → [English, German]. */
+export const TEXTS_2653: Record<string, readonly [string, string]> = {
+  // Scene errors of the core (engine/MESSAGES.md)
+  '场景文件版本 {0} 比本程序新，请升级 VeloPhi': ['The scene file has version {0}, which is newer than this program; please update VeloPhi', 'Die Szenendatei hat die Version {0} und ist neuer als dieses Programm; bitte VeloPhi aktualisieren'],
+  '计算请求中没有场景': ['The calculation request contains no scene', 'Die Berechnungsanfrage enthält keine Szene'],
+  '计算请求的选项 {0} 无效': ['Invalid option {0} in the calculation request', 'Ungültige Option {0} in der Berechnungsanfrage'],
+  // Engine settings
+  '所有计算都由 Rust 引擎完成。桌面版默认在原生线程中运行（最快）；也可改用 WebAssembly 后台线程（网页版始终使用），两者结果逐位相同。更改后下次启动生效。': [
+    'All calculations are done by the Rust engine. The desktop version runs it in native threads by default (fastest); it can also use a WebAssembly background thread (always used by the web version) — both give bit-identical results. Changes take effect at the next start.',
+    'Alle Berechnungen führt die Rust-Engine aus. Die Desktop-Version rechnet standardmäßig in nativen Threads (am schnellsten); alternativ in einem WebAssembly-Hintergrund-Thread (immer in der Web-Version) — beide liefern bitgleiche Ergebnisse. Änderungen gelten ab dem nächsten Start.'
+  ],
+  '原生 Rust（自动）': ['Native Rust (automatic)', 'Natives Rust (automatisch)'],
+  '原生 Rust（多线程）': ['Native Rust (multithreaded)', 'Natives Rust (mehrere Threads)'],
+  // Formula panel (D70) and canvas linkage (D72)
+  '搜索': ['search', 'Suche'],
+  '类别': ['category', 'Kategorie'],
+  '只看收藏': ['favourites only', 'nur Favoriten'],
+  '画面中选中的对象': ['the object picked on the canvas', 'das in der Ansicht gewählte Objekt'],
+  '{0} 受到的 {1}': ['{1} on {0}', '{1} auf {0}'],
+  '公式筛选': ['Formula filters', 'Formelfilter'],
+  '搜索公式、符号或情形（/）': ['Search formulas, symbols or situations (/)', 'Formeln, Symbole oder Situationen suchen (/)'],
+  '搜索公式': ['Search formulas', 'Formeln suchen'],
+  '密度': ['Density', 'Dichte'],
+  '每条公式一行：判定、公式、理论值与仿真值、误差': ['One line per formula: verdict, formula, theory and simulation, error', 'Eine Zeile je Formel: Urteil, Formel, Theorie und Simulation, Abweichung'],
+  '紧凑': ['Compact', 'Kompakt'],
+  '完整卡片：代入过程、条件与原因': ['Full cards: substitution, conditions and reasons', 'Vollständige Karten: Einsetzen, Bedingungen und Gründe'],
+  '详细': ['Detailed', 'Ausführlich'],
+  '按物体筛选': ['Filter by body', 'Nach Körper filtern'],
+  '全部物体': ['All bodies', 'Alle Körper'],
+  '按类别筛选': ['Filter by category', 'Nach Kategorie filtern'],
+  '全部类别': ['All categories', 'Alle Kategorien'],
+  '按判定筛选': ['Filter by verdict', 'Nach Urteil filtern'],
+  '全部判定': ['All verdicts', 'Alle Urteile'],
+  '偏差': ['Deviating', 'Abweichend'],
+  '只显示收藏的公式': ['Show only favourite formulas', 'Nur Lieblingsformeln zeigen'],
+  '收藏': ['Favourites', 'Favoriten'],
+  '分组方式': ['Grouping', 'Gruppierung'],
+  '按情形': ['By situation', 'Nach Situation'],
+  '按物体': ['By body', 'Nach Körper'],
+  '画面筛选：': ['Picked on the canvas: ', 'In der Ansicht gewählt: '],
+  '取消画面筛选': ['Clear the canvas pick', 'Auswahl in der Ansicht aufheben'],
+  '清除筛选': ['Clear filters', 'Filter zurücksetzen'],
+  '键盘：/ 搜索，↑↓ 移动，Enter 详情，空格展开，F 收藏。悬停公式或已知量会在画面中标出相关物体与力；在画面中点击物体或力可按它筛选公式。': [
+    'Keyboard: / search, ↑↓ move, Enter details, Space expand, F favourite. Hovering a formula or a known value marks the bodies and forces it refers to on the canvas; clicking a body or a force on the canvas filters the formulas by it.',
+    'Tastatur: / Suche, ↑↓ bewegen, Enter Details, Leertaste aufklappen, F Favorit. Beim Überfahren einer Formel oder eines bekannten Werts werden die zugehörigen Körper und Kräfte in der Ansicht markiert; ein Klick auf einen Körper oder eine Kraft in der Ansicht filtert die Formeln danach.'
+  ],
+  '没有符合筛选的公式：被“{0}”排除。': ['No formula matches the filters: excluded by "{0}".', 'Keine Formel passt zu den Filtern: ausgeschlossen durch „{0}“.'],
+  '涉及：{0}': ['Involves: {0}', 'Betrifft: {0}'],
+  '取消收藏（F）': ['Remove from favourites (F)', 'Aus den Favoriten entfernen (F)'],
+  '收藏（F）': ['Add to favourites (F)', 'Zu den Favoriten (F)'],
+  '收起为一行': ['Collapse to one line', 'Auf eine Zeile einklappen'],
+  // Formula timeline (D71)
+  '全部一致': ['all agree', 'alle stimmen überein'],
+  '有偏差': ['some deviate', 'einige weichen ab'],
+  '有近似': ['some approximate', 'einige sind Näherungen'],
+  '无可比较的公式': ['nothing to compare', 'nichts zu vergleichen'],
+  '{0}（{1}）{2}：{3} 条公式，{4}{5}。点击跳转，双击放大': ['{0} ({1}) {2}: {3} formulas, {4}{5}. Click to jump there, double-click to zoom', '{0} ({1}) {2}: {3} Formeln, {4}{5}. Klicken zum Springen, Doppelklick zum Vergrößern'],
+  '，{0} 条收藏': [', {0} favourites', ', {0} Favoriten'],
+  '在时间轴下方显示公式时间轴：各情形的时间段与公式判定': ['Show the formula timeline under the timeline: the time spans of the situations and the verdicts of their formulas', 'Die Formel-Zeitleiste unter der Zeitleiste zeigen: die Zeitspannen der Situationen und die Urteile ihrer Formeln'],
+  '时间轴恢复显示全程': ['Show the whole run on the timeline again', 'Wieder den ganzen Lauf auf der Zeitleiste zeigen'],
+  '显示全程': ['Whole run', 'Ganzer Lauf'],
+  '公式时间轴': ['Formula timeline', 'Formel-Zeitleiste'],
+  // Formula categories (D70)
+  '运动学': ['Kinematics', 'Kinematik'],
+  '动力学': ['Dynamics', 'Dynamik'],
+  '转动': ['Rotation', 'Rotation'],
+  '场与振动': ['Fields and oscillations', 'Felder und Schwingungen'],
+  // Force names (canvas filter)
+  '重力': ['weight', 'Gewichtskraft'],
+  '限位力': ['end-stop force', 'Anschlagkraft'],
+  '铰链力': ['pin force', 'Gelenkkraft'],
+  '弹力': ['spring force', 'Federkraft'],
+  '阻尼力': ['damping force', 'Dämpfungskraft'],
+  '引力': ['gravitation', 'Gravitationskraft'],
+  '其他力': ['other force', 'sonstige Kraft']
+}

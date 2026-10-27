@@ -8,10 +8,10 @@
  */
 import { tl, paren } from '../../i18n'
 import { msgText } from '../../i18n/locale'
-import { computed, provide, ref } from 'vue'
+import { computed, provide, ref, watchEffect } from 'vue'
 import { state, edit, problemLocked } from '../store'
-import { canonicalQuantityId, evaluateQuantity, listQuantities, makeContext } from '../../core/observe/quantities'
-import type { QuantityDef } from '../../core/observe/quantities'
+import { canonicalQuantityId, listQuantities, valuesAtFrame } from '../../engine/observe'
+import type { QuantityDef } from '../../engine/observe'
 import { cardsAt } from '../../formula/match'
 import { withinLevel } from '../../formula/levels'
 import type { Verdict } from '../../formula/match'
@@ -35,10 +35,13 @@ const COLORS = ['#2f7cf6', '#e5484d', '#16a34a', '#d97706', '#8b5cf6', '#0891b2'
 const live = () => props.active
 // While a problem is answered the monitor shows nothing (26.52)
 const rec = useGated(live, () => (state.stale || problemLocked() ? null : state.recording))
+// A hidden page keeps the run it showed; once that run is replaced its session is released, so the page shows
+// nothing until it is shown again (26.53: a new template's watch list used to be read from the released run)
+watchEffect(() => { const now = state.recording; if (!props.active && rec.value && rec.value.session !== now?.session) rec.value = null })
 const runId = useGated(live, () => state.runId)
 const frame = useGated(live, () => state.panelFrame)
 
-const quantities = computed<Map<string, QuantityDef>>(() => new Map((rec.value ? listQuantities(rec.value.system) : []).map(q => [q.id, q])))
+const quantities = computed<Map<string, QuantityDef>>(() => new Map((rec.value ? listQuantities(rec.value) : []).map(q => [q.id, q])))
 /** Watched ids in their listed form (pair.b|a ≡ pair.a|b), known to this recording. */
 const watchIds = computed(() => [...new Set(state.scene.watch.map(canonicalQuantityId))].filter(id => quantities.value.has(id)))
 const k = computed(() => (rec.value ? Math.min(frame.value, rec.value.frameCount - 1) : 0))
@@ -48,8 +51,8 @@ const values = computed(() => {
   const r = rec.value
   const out = new Map<string, number>()
   if (!r) return out
-  const ctx = makeContext(r, k.value)
-  for (const id of watchIds.value) out.set(id, evaluateQuantity(ctx, id))
+  const v = watchIds.value.length ? valuesAtFrame(r, k.value, watchIds.value) : new Float64Array(0)
+  watchIds.value.forEach((id, i) => out.set(id, v[i]))
   return out
 })
 /** Current frame as a fraction of the sparkline's sample range. */
@@ -73,7 +76,7 @@ const cards = computed(() => {
   const r = rec.value
   if (!r || !state.situations.length) return []
   const cur = effectiveCurriculum(), level = settings.knowledge.level
-  return cardsAt(state.situations, tNow.value, { digits: state.digits }).filter(c => c.verdict !== 'not-applicable' && withinLevel(c.formula.id, cur, level))
+  return cardsAt(rec.value!, tNow.value, { digits: state.digits }, state.situations).filter(c => c.verdict !== 'not-applicable' && withinLevel(c.formula.id, cur, level))
 })
 const counts = computed(() => {
   const c = { match: 0, approx: 0, deviate: 0, none: 0 }

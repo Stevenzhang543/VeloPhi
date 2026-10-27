@@ -1,0 +1,2 @@
+calc parity: 480 runs (0 random scenes refused by the scene check, as in parity.mjs), 64504 requests compared (10620 situations, 9408 samples, 93256 formula cards); TS 151761 ms, Rust 17402 ms
+  0 mismatches: bit-identical

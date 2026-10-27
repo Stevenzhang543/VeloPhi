@@ -8,9 +8,9 @@ import { describe, expect, it } from 'vitest'
 import { FORMULAS } from '../src/formula/library'
 import { CN_ORD, IB_ORD, LEVELS, LEVEL_CHOICES, levelOf, levelOrdinal, nearestLevel, withinLevel } from '../src/formula/levels'
 import { TEMPLATES, buildTemplate } from '../src/templates'
-import { simulate } from '../src/core/solver/simulation'
-import { recognize } from '../src/formula/situations'
-import { cardsAt } from '../src/formula/match'
+import { simulate } from './reference/core/solver/simulation'
+import { recognize } from './reference/formula/situations'
+import { cardsAt } from './reference/formula/match'
 
 describe('level tags', () => {
   it('every formula has its own pair of tags and no tag is left over', () => {

@@ -5,9 +5,9 @@
  */
 import { describe, expect, it } from 'vitest'
 import { buildTemplate } from '../src/templates'
-import { simulate } from '../src/core/solver/simulation'
-import { customQuantities, customScope, evaluateQuantity, listQuantities, makeContext, quantitySeries } from '../src/core/observe/quantities'
-import { compileCustom, nextCustomId } from '../src/core/observe/custom'
+import { simulate } from './reference/core/solver/simulation'
+import { customQuantities, customScope, evaluateQuantity, listQuantities, makeContext, quantitySeries } from './reference/core/observe/quantities'
+import { compileCustom, nextCustomId } from './reference/core/observe/custom'
 import { parseScene, serializeScene } from '../src/core/scene/io'
 
 const scene = buildTemplate('collision-1d', {})

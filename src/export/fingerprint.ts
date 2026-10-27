@@ -4,7 +4,7 @@
  * the one of the last closed chunk.
  */
 import { tl } from '../i18n'
-import type { Recording } from '../core/solver/simulation'
+import type { Recording } from '../engine/recording'
 
 /** The fingerprint (hex) an export quotes, and the time it covers for an unbounded run (null: the whole run). */
 export function exportFingerprint(rec: Recording): { hash: string; upTo: number | null } {

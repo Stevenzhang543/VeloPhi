@@ -9,8 +9,8 @@ import { formatSig, latexNumber, numberStyle } from '../src/units/units'
 import { decimalFor, settings } from '../src/app/settings'
 import { exportLanguage, exportSituations, inExportLanguage } from '../src/app/exportLang'
 import { buildTemplate } from '../src/templates'
-import { simulate } from '../src/core/solver/simulation'
-import { recognize } from '../src/formula/situations'
+import { simulate } from '../src/engine/recording'
+import { recognize } from '../src/formula/recognize'
 import { keyMoments, relabelMoments } from '../src/export/moments'
 
 describe('export language', () => {

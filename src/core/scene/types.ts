@@ -10,8 +10,18 @@ export const SCENE_FORMAT = 'velophi-scene'
 export const LEGACY_SCENE_FORMATS: readonly string[] = ['verity-scene']
 /** Current scene file format version; older files are migrated on load (see io.ts). */
 export const SCENE_VERSION = 5
+/**
+ * Format version of scenes that use charges or electric / magnetic fields (26.54, D78). Other scenes are still
+ * written as format 5, so their files (and fingerprints) do not change; 26.53 warns when it opens a format-6 file.
+ */
+export const SCENE_VERSION_FIELDS = 6
+/**
+ * Format version of scenes with field regions, liquids or rail loops (26.55, D90–D92). 26.54 reads format 6 without a
+ * warning and would drop these settings silently; format 7 makes it warn that the file comes from a newer version.
+ */
+export const SCENE_VERSION_REGIONS = 7
 /** Engine version written into saved scenes. */
-export const ENGINE_VERSION = '26.52.0'
+export const ENGINE_VERSION = '26.55.0'
 
 /** Shape of a body, in body coordinates (m). */
 export type ShapeDef = PartShapeDef | CompoundShapeDef
@@ -89,6 +99,11 @@ export interface BodyDef {
   color: string
   /** Air drag (26.51); null or absent: none. */
   drag?: DragDef | null
+  /**
+   * Electric charge (C; 26.54, D78) at the centre of mass of a dynamic body, or at the centroid of a static one
+   * (a fixed point charge). Absent or 0: neutral.
+   */
+  charge?: number
 }
 
 /** Pulley wheel: fixed in the world or carried by a body (movable pulley). */
@@ -281,6 +296,57 @@ export interface SceneSettings {
   startTime?: number
   /** Energy ledger at the start (a branch continues its parent's); absent: all zero. */
   startLedger?: StartLedgerDef | null
+  /** Uniform electric field E (V/m; 26.54, D78) acting on charged bodies; null or absent: none. */
+  electric?: { E: Vec2 } | null
+  /** Uniform magnetic field B (T) perpendicular to the plane, positive out of the page (⊙); null or absent: none. */
+  magnetic?: { B: number } | null
+  /** Coulomb force between charged bodies, F = k·q₁q₂/r² (k in N·m²/C²); null or absent: off. */
+  coulomb?: { k: number } | null
+  /** Bounded field regions and liquids (26.55, D90, D92); absent: none. */
+  regions?: RegionDef[]
+  /** Rail loops (26.55, D91); absent: none. */
+  railLoops?: RailLoopDef[]
+}
+
+/**
+ * A region of the scene (26.55): a rectangle (centre x, y, size w × h) or a circle (radius r). A field region acts
+ * on charged bodies whose centre is inside with E (V/m; alternating as E·cos(ωt + φ) when omega ≠ 0) and B (T, out of
+ * the page positive); entering and leaving are events (D90). A liquid (rectangles only) has its surface at the top:
+ * density (kg/m³), the bodies' thickness perpendicular to the page `depth` (m) and a drag scaled by the submerged
+ * fraction (D92).
+ */
+export interface RegionDef {
+  id: string
+  name: string
+  kind: 'field' | 'liquid'
+  shape: 'rect' | 'circle'
+  x: number; y: number; w?: number; h?: number; r?: number
+  E?: Vec2; B?: number; omega?: number; phase?: number
+  density?: number; depth?: number; dragLinear?: number; dragQuadratic?: number
+  color?: string
+}
+
+/** A rail loop (26.55, D91): `body` slides along rails at `angle` (rad), L apart, closed by R, in a field B (T). */
+export interface RailLoopDef { id: string; name: string; body: string; angle: number; L: number; R: number; B: number }
+
+/** Coulomb constant k = 1/(4πε₀) (N·m²/C²). */
+export const COULOMB_K = 8.9875517923e9
+
+/** The scene (or one of its branches) uses charges or fields (26.54), regions or rail loops (26.55): it is written as format 6 or 7 (`sceneVersionOf`) and computed by the Rust core only (D77). */
+export function usesFields(scene: Scene): boolean {
+  const s = scene.settings
+  return !!(s.electric || s.magnetic || s.coulomb || s.regions?.length || s.railLoops?.length || scene.bodies.some(b => !!b.charge) || scene.branches?.some(b => usesFields(b.scene)))
+}
+
+/** The scene (or one of its branches) has field regions, liquids or rail loops (26.55). */
+export function usesRegions(scene: Scene): boolean {
+  const s = scene.settings
+  return !!(s.regions?.length || s.railLoops?.length || scene.branches?.some(b => usesRegions(b.scene)))
+}
+
+/** File format version a scene is written as: 7 with regions or rail loops, 6 with charges or fields, otherwise 5. */
+export function sceneVersionOf(scene: Scene): number {
+  return usesRegions(scene) ? SCENE_VERSION_REGIONS : usesFields(scene) ? SCENE_VERSION_FIELDS : SCENE_VERSION
 }
 
 /** Initial values of the energy ledger (26.51, D52). */
@@ -290,6 +356,8 @@ export interface StartLedgerDef {
   damping: number
   beltWork: number
   impactLoss: number
+  /** 26.55 (D90–D92): work of the field regions and of buoyancy, Joule heat of the rail loops, heat of the liquid drag. */
+  fieldWork?: number; buoyancyWork?: number; jouleHeat?: number; liquidHeat?: number
   /** Sliding distance and friction heat of each contact pair, by pair key (`a|b`, sorted). */
   pairs?: Record<string, [number, number]>
 }

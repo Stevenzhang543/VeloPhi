@@ -1,19 +1,25 @@
 /**
- * Formula matching: for a moment t, take the situations active at t, evaluate every formula of each
- * situation with the situation's variables, compare with the simulated measurement and grade the result.
+ * Formula cards (26.53): for a moment t, the situations active at t, every formula of each evaluated with the
+ * situation's variables and compared with the simulated measurement — computed in the Rust core
+ * (formula/cards.rs), graded there:
  *   exact formulas    relative error ≤ 1e-6 (energy ledger 1e-8), or absolute ≤ 1e-9 × max(1, |theory|)
  *                     → 'match', otherwise 'deviate'
  *   approximations    graded by their approximation condition: 'approx-ok' / 'approx' / 'approx-invalid'
- *   conditions fail   → 'not-applicable' (the card is listed separately with the reason)
- *   no measurement    → 'no-measure'
+ *   conditions fail   → 'not-applicable';  no measurement → 'no-measure'
+ * This module renders the texts and the LaTeX of a card (the symbolic form and the substitution).
  */
-import { tl, paren, semiSep, colonSep } from '../i18n'
+import { activeLang, msgText } from '../i18n/locale'
+import type { Message } from '../i18n/message'
+import { calc, core } from '../engine/core'
+import type { Recording } from '../engine/recording'
 import type { FormulaDef } from './library'
 import { FORMULAS } from './library'
 import type { Node } from './expr'
-import { dimension, evaluate, parse, toLatex } from './expr'
-import { dimEqual, unitDim } from './units'
-import type { Condition, Sample, Situation } from './situations'
+import { parse, toLatex } from './expr'
+import type { Condition, RawCondition, RawSample, RawSituation, Sample, Situation } from './recognize'
+import { activeSituations, conditionOf, recognize, sampleOf } from './recognize'
+
+export { activeSituations } from './recognize'
 
 /** Limits of 'match': relative, absolute (relative to max(1, |theory|)), and relative for the energy ledger. */
 export const THRESHOLDS = { exactRel: 1e-6, exactAbs: 1e-9, energyRel: 1e-8 }
@@ -43,13 +49,11 @@ export interface FormulaCard {
   reason: string
   measureLabel: string
   measureNote?: string
-}
-
-const parsed = new Map<string, Node>()
-function ast(f: FormulaDef): Node {
-  let a = parsed.get(f.id)
-  if (!a) { a = parse(f.expr); parsed.set(f.id, a) }
-  return a
+  /** The sample the card was evaluated with, and the time of the sample. */
+  sample: Sample
+  time: number
+  /** Value of every node of the formula's expression in pre-order (step-by-step solution); absent when not asked. */
+  trace?: number[]
 }
 
 /** Number formatting of the cards. */
@@ -91,96 +95,145 @@ function unitLatex(u: string): string {
   return `\\,\\mathrm{${u.replace(/·/g, '\\cdot ').replace(/²/g, '^2').replace(/\//g, '/')}}`
 }
 
-/** Evaluate one formula for a situation sample and grade it. */
-export function evaluateCard(f: FormulaDef, sit: Situation, sample: Sample, opts: FormatOptions): FormulaCard {
-  const node = ast(f)
-  const conds = sample.conditions
-  const required = (f.requires ?? []).map(id => conds.find(c => c.id === id) ?? { id, label: id, status: 'fail' as const, detail: tl('情形未提供该条件') })
-  const approx = f.approxOf ? conds.find(c => c.id === f.approxOf) ?? null : null
-  const vars: Record<string, number> = {}
-  for (const [k, v] of Object.entries(sample.vars)) vars[k] = v.value
-  const measure = sample.measures[f.measure]
-  const symbolic = f.latex
-  let theory: number | null = null
-  let substituted = ''
-  let reason = ''
+const parsed = new Map<string, Node>()
+/** Parsed expression of a library formula (for its LaTeX; cached). */
+export function formulaAst(f: FormulaDef): Node {
+  let a = parsed.get(f.id)
+  if (!a) { a = parse(f.expr); parsed.set(f.id, a) }
+  return a
+}
+
+// ---- The library in the core ----
+
+const installed = new WeakSet<object>()
+/** Hand the calculation fields of the formula library to the core (once per loaded core). */
+export function ensureLibrary() {
+  const b = core()
+  if (installed.has(b)) return
+  calc({ op: 'setLibrary', formulas: libraryJson() })
+  installed.add(b)
+}
+
+/** The calculation fields of the formula library. */
+export function libraryJson() {
+  return FORMULAS.map(f => {
+    const o: Record<string, unknown> = { id: f.id, situation: f.situation, expr: f.expr, unit: f.unit, measure: f.measure, kind: f.kind }
+    if (f.requires) o.requires = [...f.requires]
+    if (f.approxOf) o.approxOf = f.approxOf
+    if (f.causes) o.causes = [...f.causes]
+    return o
+  })
+}
+
+// ---- Cards ----
+
+type Text = string | Message
+const text = (v: Text | null | undefined): string => (v === null || v === undefined ? '' : typeof v === 'string' ? v : msgText(v))
+
+/** Raw card of the core. */
+interface RawCard {
+  key: string; formula: string; situation: string; verdict: Verdict; conditions: RawCondition[]
+  theory: number | null; sim: number | null; absError: number | null; relError: number | null
+  reason: Text; measureLabel: Text; measureNote?: Text; trace?: number[]
+}
+
+/** LaTeX of the substitution "lhs = expression with values = result unit". */
+export function substitutedLatex(f: FormulaDef, sample: Sample, theory: number | null, digits: number): string {
+  if (theory === null) return ''
+  const show = (name: string) => {
+    const v = sample.vars[name]
+    if (!v) return null
+    // Angles are shown in degrees; the evaluation itself stays in radians
+    if (v.unit === 'rad') return `${formatNumber(v.value * 180 / Math.PI, digits)}^\\circ`
+    return formatNumber(v.value, digits)
+  }
   try {
-    theory = evaluate(node, vars)
-    const show = (name: string) => {
-      const v = sample.vars[name]
-      if (!v) return null
-      // Angles are shown in degrees; the evaluation itself stays in radians
-      if (v.unit === 'rad') return `${formatNumber(v.value * 180 / Math.PI, opts.digits)}^\\circ`
-      return formatNumber(v.value, opts.digits)
+    return `${f.lhs} = ${toLatex(formulaAst(f), { value: show })} = ${formatNumber(theory, digits)}${unitLatex(f.unit)}`
+  } catch {
+    return ''
+  }
+}
+
+function cardOf(raw: RawCard, f: FormulaDef, sit: Situation, sample: Sample, time: number, opts: FormatOptions): FormulaCard {
+  const c: FormulaCard = {
+    key: raw.key, formula: f, situation: sit, verdict: raw.verdict, conditions: raw.conditions.map(conditionOf),
+    theory: raw.theory, sim: raw.sim, absError: raw.absError, relError: raw.relError,
+    symbolic: f.latex, substituted: substitutedLatex(f, sample, raw.theory, opts.digits), reason: text(raw.reason),
+    measureLabel: text(raw.measureLabel), sample, time
+  }
+  if (raw.measureNote !== undefined && raw.measureNote !== null) c.measureNote = text(raw.measureNote)
+  if (raw.trace) c.trace = raw.trace
+  return c
+}
+
+const byId = new Map(FORMULAS.map(f => [f.id, f]))
+
+const cardCache = new WeakMap<object, Map<string, FormulaCard[]>>()
+
+/**
+ * Formula cards of all situations of a recording active at t, in situation order (cached per recording prefix,
+ * time, digits and language).
+ */
+export function cardsAt(rec: Recording, t: number, opts: FormatOptions & { moment?: boolean; trace?: boolean } = { digits: 6 }, sits: Situation[] = recognize(rec)): FormulaCard[] {
+  ensureLibrary()
+  const session = rec.session
+  const memo = `${rec.frameCount}|${rec.events.length}|${t}|${opts.digits}|${activeLang()}|${opts.moment ? 1 : 0}|${opts.trace ? 1 : 0}`
+  let m = cardCache.get(session)
+  if (!m) { m = new Map(); cardCache.set(session, m) }
+  const hit = m.get(memo)
+  if (hit) return hit
+  const r = session.call<{ groups: Array<{ situation: RawSituation; sample: RawSample; cards: RawCard[]; t: number }> }>({ op: 'cards', t, moment: !!opts.moment, trace: !!opts.trace })
+  const out: FormulaCard[] = []
+  for (const g of r.groups) {
+    const sit = sits.find(s => s.key === g.situation.key)
+    if (!sit) continue
+    const sample = sampleOf(g.sample)
+    const ts = g.t
+    for (const c of g.cards) {
+      const f = byId.get(c.formula)
+      if (f) out.push(cardOf(c, f, sit, sample, ts, opts))
     }
-    substituted = `${f.lhs} = ${toLatex(node, { value: show })} = ${formatNumber(theory, opts.digits)}${unitLatex(f.unit)}`
-  } catch (e) {
-    reason = (e as Error).message
   }
-  const sim = measure && measure.value !== null && Number.isFinite(measure.value) ? measure.value : null
-  let absError: number | null = null, relError: number | null = null
-  if (theory !== null && sim !== null) {
-    absError = sim - theory
-    const scale = Math.max(Math.abs(theory), Math.abs(sim))
-    relError = scale > 0 ? Math.abs(absError) / scale : 0
-  }
-  let verdict: Verdict
-  const failed = required.filter(c => c.status === 'fail')
-  if (failed.length) {
-    verdict = 'not-applicable'
-    reason = tl('条件不满足：{0}', [failed.map(c => c.label + (c.detail ? paren(c.detail) : '')).join(semiSep())])
-  } else if (theory === null) {
-    verdict = 'not-applicable'
-  } else if (!Number.isFinite(theory)) {
-    // 0/0 at the start of a phase (v = s/t at t = 0) and similar: no value to compare
-    verdict = 'not-applicable'
-    reason = tl('此刻理论值无定义（如除以零），请在其他时刻查看')
-  } else if (sim === null) {
-    verdict = 'no-measure'
-    reason = measure?.note ?? tl('仿真中没有可比较的测量值')
-  } else if (f.kind === 'approx') {
-    const st = approx?.status ?? 'ok'
-    verdict = st === 'ok' ? 'approx-ok' : st === 'approx' ? 'approx' : 'approx-invalid'
-    reason = approx ? `${approx.label}${colonSep()}${approx.detail}` : ''
-  } else {
-    const rel = f.situation === 'energy' ? THRESHOLDS.energyRel : THRESHOLDS.exactRel
-    const ok = (relError ?? 1) <= rel || Math.abs(absError ?? 1) <= THRESHOLDS.exactAbs * Math.max(1, Math.abs(theory))
-    verdict = ok ? 'match' : 'deviate'
-    if (!ok) reason = tl('偏差超过阈值（相对 {0}）。可能原因：{1}', [rel, (f.causes ?? [tl('数值积分误差'), tl('模型假设与场景不符（请检查条件）')]).join(semiSep())])
-  }
-  const approxNote = required.some(c => c.status === 'approx') && verdict === 'match' ? tl('（条件近似成立）') : ''
-  return {
-    key: `${sit.key}/${f.id}`, formula: f, situation: sit, verdict, conditions: approx ? [approx, ...required] : required,
-    theory, sim, absError, relError, symbolic, substituted, reason: reason + approxNote,
-    measureLabel: measure?.label ?? f.measure, measureNote: measure?.note
-  }
+  if (m.size > 200) m.clear()
+  m.set(memo, out)
+  return out
 }
 
-/** Situations active at t: from their event time (if any, else t0) to t1. */
-export function activeSituations(sits: Situation[], t: number): Situation[] {
-  return sits.filter(s => (s.tEvent !== undefined ? t >= s.tEvent - 1e-12 && t <= s.t1 + 1e-12 : t >= s.t0 - 1e-12 && t <= s.t1 + 1e-12))
+/** One formula of one situation at time t (clamped to the situation), with the values of its expression's nodes. */
+export function evaluateCard(rec: Recording, sit: Situation, formulaId: string, t: number, opts: FormatOptions = { digits: 6 }): FormulaCard | null {
+  ensureLibrary()
+  const f = byId.get(formulaId)
+  if (!f) return null
+  const r = rec.session.call<{ card: RawCard | null; sample: RawSample; t: number }>({ op: 'card', situation: sit.key, formula: formulaId, t })
+  if (!r.card) return null
+  return cardOf(r.card, f, sit, sampleOf(r.sample), r.t, opts)
 }
 
-/** Formula cards of all situations active at t. */
-export function cardsAt(sits: Situation[], t: number, opts: FormatOptions = { digits: 6 }): FormulaCard[] {
-  const cards: FormulaCard[] = []
-  for (const s of activeSituations(sits, t)) {
-    const sample = s.sample(Math.min(Math.max(t, s.t0), s.t1))
-    for (const f of FORMULAS) if (f.situation === s.type) cards.push(evaluateCard(f, s, sample, opts))
+/** Situations with the verdicts of their formulas at a representative time (formula timeline, D71). */
+export interface TimelineEntry { situation: Situation; t: number; cards: Array<{ formula: FormulaDef; verdict: Verdict }> }
+
+type RawTimeline = Array<{ situation: RawSituation; t: number; cards: Array<{ formula: string; verdict: Verdict }> }>
+const timelineCache = new WeakMap<object, { memo: string; raw: RawTimeline; sits: Situation[]; list: TimelineEntry[] }>()
+/** The formula timeline of a recording (cached per recording prefix and language). */
+export function formulaTimeline(rec: Recording, sits: Situation[] = recognize(rec)): TimelineEntry[] {
+  ensureLibrary()
+  const memo = `${rec.frameCount}|${rec.events.length}|${activeLang()}`
+  const hit = timelineCache.get(rec.session)
+  if (hit && hit.memo === memo && hit.sits === sits) return hit.list
+  // The core's answer depends on the recording only; the situations it is matched with may be newer (26.53: a list
+  // recognised later on the same frames used to get the entries of the older one)
+  const raw = hit && hit.memo === memo ? hit.raw : rec.session.call<{ timeline: RawTimeline }>({ op: 'timeline' }).timeline
+  const list: TimelineEntry[] = []
+  for (const e of raw) {
+    const sit = sits.find(s => s.key === e.situation.key)
+    if (!sit) continue
+    list.push({ situation: sit, t: e.t, cards: e.cards.flatMap(c => { const f = byId.get(c.formula); return f ? [{ formula: f, verdict: c.verdict }] : [] }) })
   }
-  return cards
+  timelineCache.set(rec.session, { memo, raw, sits, list })
+  return list
 }
 
-/** Dimension check of one formula against its declared unit with the given variable units. */
-export function checkDimensions(f: FormulaDef, varUnits: Record<string, string>): string | null {
-  if (f.expr.trim() === '0') return null // Zero carries any dimension
-  try {
-    const dims: Record<string, readonly [number, number, number]> = {}
-    for (const [k, u] of Object.entries(varUnits)) dims[k] = unitDim(u)
-    const d = dimension(ast(f), dims)
-    if (!dimEqual(d, unitDim(f.unit))) return tl('{0}: 结果量纲与单位 {1} 不符', [f.id, f.unit])
-    return null
-  } catch (e) {
-    return `${f.id}: ${(e as Error).message}`
-  }
+/** Formula cards of the situations active at t (shorthand of cardsAt for a list already recognised). */
+export function cardsFor(rec: Recording, sits: Situation[], t: number, opts: FormatOptions = { digits: 6 }): FormulaCard[] {
+  return activeSituations(sits, t).length ? cardsAt(rec, t, opts, sits) : []
 }

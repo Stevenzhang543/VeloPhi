@@ -7,16 +7,12 @@
  * Pure (no DOM).
  */
 import { tl, semiSep } from '../i18n'
-import type { ChangeDetail, Recording } from '../core/solver/simulation'
-import { evaluateQuantity, listQuantities } from '../core/observe/quantities'
-import type { Sample, Situation } from '../formula/situations'
-import { observeAt } from '../formula/situations'
+import type { ChangeDetail, Recording } from '../engine/recording'
+import { listQuantities, valuesAt } from '../engine/observe'
+import type { Sample, Situation } from '../formula/recognize'
 import type { FormulaCard } from '../formula/match'
-import { activeSituations, evaluateCard } from '../formula/match'
-import { FORMULAS } from '../formula/library'
-import type { FormulaDef } from '../formula/library'
-import { parse, toLatex } from '../formula/expr'
-import type { Node } from '../formula/expr'
+import { cardsAt, formulaAst } from '../formula/match'
+import { toLatex } from '../formula/expr'
 import { eventLabel } from '../render/renderer'
 import type { UnitChoice } from '../units/units'
 import { formatQuantity, latexQuantity } from '../units/units'
@@ -139,13 +135,13 @@ export interface Readout { id: string; label: string; value: string }
  * just after it), formatted in the display units of `units`.
  */
 export function readoutsAt(rec: Recording, t: number, ids: string[], units: UnitChoice, digits: number): Readout[] {
-  const defs = new Map(listQuantities(rec.system).map(q => [q.id, q]))
+  const defs = new Map(listQuantities(rec).map(q => [q.id, q]))
   const known = ids.filter(id => defs.has(id))
   if (!known.length) return []
-  const ctx = observeAt(rec, t)
-  return known.map(id => {
+  const values = valuesAt(rec, t, known)
+  return known.map((id, i) => {
     const q = defs.get(id)!
-    return { id, label: `${q.owner} ${q.label}`, value: formatQuantity(evaluateQuantity(ctx, id), q.unit, units, digits) }
+    return { id, label: `${q.owner} ${q.label}`, value: formatQuantity(values[i], q.unit, units, digits) }
   })
 }
 
@@ -173,27 +169,10 @@ export function momentFileStem(index: number, m: KeyMoment, digits = 5): string 
  * before its end (at an event the state after it already belongs to the next stage), so the card of the
  * ending stage compares its own end values, e.g. the time to reach the common velocity.
  */
-export function cardsForMoment(sits: Situation[], t: number, digits: number, units?: UnitChoice | null): FormulaCard[] {
-  const out: FormulaCard[] = []
-  for (const s of activeSituations(sits, t)) {
-    let ts = Math.min(Math.max(t, s.t0), s.t1)
-    if (s.tEvent === undefined && s.t1 > s.t0 && ts >= s.t1 - 1e-12) ts = s.t1 - Math.min((s.t1 - s.t0) / 2, 1e-7)
-    const sample = s.sample(ts)
-    for (const f of FORMULAS) {
-      if (f.situation !== s.type) continue
-      const card = evaluateCard(f, s, sample, { digits })
-      if (units && card.theory !== null) card.substituted = substitutedDisplay(card, sample, units, digits)
-      out.push(card)
-    }
-  }
-  return out
-}
-
-const asts = new Map<string, Node>()
-function ast(f: FormulaDef): Node {
-  let a = asts.get(f.id)
-  if (!a) { a = parse(f.expr); asts.set(f.id, a) }
-  return a
+export function cardsForMoment(rec: Recording, sits: Situation[], t: number, digits: number, units?: UnitChoice | null): FormulaCard[] {
+  const out = cardsAt(rec, t, { digits, moment: true }, sits)
+  if (!units) return out
+  return out.map(card => (card.theory !== null ? { ...card, substituted: substitutedDisplay(card, card.sample, units, digits) } : card))
 }
 
 /**
@@ -207,7 +186,7 @@ export function substitutedDisplay(card: FormulaCard, sample: Sample, units: Uni
       const v = sample.vars[name]
       return v ? latexQuantity(v.value, v.unit, units, digits) : null
     }
-    return `${card.formula.lhs} = ${toLatex(ast(card.formula), { value: show })} = ${latexQuantity(card.theory, card.formula.unit, units, digits)}`
+    return `${card.formula.lhs} = ${toLatex(formulaAst(card.formula), { value: show })} = ${latexQuantity(card.theory, card.formula.unit, units, digits)}`
   } catch {
     return card.substituted
   }

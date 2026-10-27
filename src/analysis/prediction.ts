@@ -11,14 +11,12 @@
  */
 import { tl, trDeep, paren, colonSep } from '../i18n'
 import type { Scene } from '../core/scene/types'
-import type { ChangeType, Recording, SimEvent } from '../core/solver/simulation'
-import type { QuantityDef } from '../core/observe/quantities'
-import { evaluateQuantity, listQuantities } from '../core/observe/quantities'
-import type { Situation } from '../formula/situations'
-import { observeAt } from '../formula/situations'
+import type { ChangeType, Recording, SimEvent } from '../engine/recording'
+import type { QuantityDef } from '../engine/observe'
+import { listQuantities, valueAt } from '../engine/observe'
+import type { Situation } from '../formula/recognize'
 import { FORMULAS } from '../formula/library'
-import { evaluateCard } from '../formula/match'
-import { cardsForMoment } from '../export/moments'
+import { cardsAt, evaluateCard } from '../formula/match'
 
 /** Event kinds a prediction (or a sweep) can target, in teaching order. */
 export const EVENT_TYPES: Array<{ type: ChangeType; label: string }> = trDeep([
@@ -168,7 +166,7 @@ export function evaluateTarget(rec: Recording, sits: Situation[], target: Predic
     if (!e) return { sim: null, formula: null, unit: 's', simNote: rec.completed ? tl('本次仿真中没有发生该事件') : tl('仿真未算完，记录内没有该事件') }
     let formula: number | null = null
     let formulaNote: string | undefined = tl('没有识别到可计算该时刻的公式')
-    for (const c of cardsForMoment(sits, e.t, 8)) {
+    for (const c of cardsAt(rec, e.t, { digits: 8 }, sits)) {
       if ((c.formula.measure !== 'tEnd' && c.formula.measure !== 'T') || c.theory === null || c.sim === null) continue
       if (c.verdict === 'not-applicable') continue
       if (Math.abs(c.situation.t0 + c.sim - e.t) > 1e-6 * Math.max(1, e.t)) continue
@@ -179,11 +177,11 @@ export function evaluateTarget(rec: Recording, sits: Situation[], target: Predic
     return { sim: e.t, formula, unit: 's', formulaNote }
   }
   if (target.kind === 'quantity') {
-    const defs = new Map(listQuantities(rec.system).map(q => [q.id, q]))
+    const defs = new Map(listQuantities(rec).map(q => [q.id, q]))
     const q = defs.get(target.id)
     if (!q) return { sim: null, formula: null, unit: '', simNote: tl('场景中没有这个量（物体或连接件可能已删除）') }
     if (target.t < 0 || target.t > tMax + 1e-12) return { sim: null, formula: null, unit: q.unit, simNote: tl('该时刻超出了仿真时长') }
-    const v = evaluateQuantity(observeAt(rec, target.t), target.id)
+    const v = valueAt(rec, target.t, target.id)
     return { sim: Number.isFinite(v) ? v : null, formula: null, unit: q.unit, formulaNote: tl('此类预测只与仿真比较') }
   }
   const f = FORMULAS.find(x => x.id === target.formula)
@@ -192,7 +190,8 @@ export function evaluateTarget(rec: Recording, sits: Situation[], target: Predic
   const s = list[target.occurrence ?? 0]
   if (!s) return { sim: null, formula: null, unit: f.unit, simNote: tl('本次仿真中没有识别到该情形') }
   const t = target.t ?? s.tEvent ?? (s.t0 + s.t1) / 2
-  const card = evaluateCard(f, s, s.sample(Math.min(Math.max(t, s.t0), s.t1)), { digits: 8 })
+  const card = evaluateCard(rec, s, f.id, t, { digits: 8 })
+  if (!card) return { sim: null, formula: null, unit: f.unit, simNote: tl('仿真中没有可比较的测量值') }
   return {
     sim: card.sim, formula: card.theory, unit: f.unit,
     simNote: card.sim === null ? (card.reason || tl('仿真中没有可比较的测量值')) : undefined,

@@ -232,7 +232,6 @@ export const TEXTS_FORMULA: Record<string, readonly [string, string]> = {
   '数值积分误差': ['numerical integration error', 'numerischer Integrationsfehler'],
   '模型假设与场景不符（请检查条件）': ['model assumptions do not match the scene (check the conditions)', 'Modellannahmen passen nicht zur Szene (Bedingungen prüfen)'],
   '（条件近似成立）': ['(conditions hold approximately)', '(Bedingungen näherungsweise erfüllt)'],
-  '{0}: 结果量纲与单位 {1} 不符': ['{0}: the dimension of the result does not match the unit {1}', '{0}: Die Dimension des Ergebnisses passt nicht zur Einheit {1}'],
   '应为 “{0}”（位置 {1}）：{2}': ['Expected “{0}” (position {1}): {2}', '„{0}“ erwartet (Position {1}): {2}'],
   '数字格式错误（位置 {0}）：{1}': ['Malformed number (position {0}): {1}', 'Fehlerhafte Zahl (Position {0}): {1}'],
   '未知函数 {0}': ['Unknown function {0}', 'Unbekannte Funktion {0}'],

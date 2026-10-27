@@ -1,12 +1,15 @@
 /** Formula library: syntax, dimensions, and situations where formulas must NOT be offered. */
 import { describe, expect, it } from 'vitest'
 import { FORMULAS } from '../src/formula/library'
-import { checkDimensions, evaluateCard, formatNumber } from '../src/formula/match'
-import { parse, evaluate, toLatex } from '../src/formula/expr'
-import { ellipticK } from '../src/formula/elliptic'
+import { checkDimensions, evaluateCard, formatNumber } from './reference/formula/match'
+import { parse, evaluate, toLatex } from './reference/formula/expr'
+import { ellipticK } from './reference/formula/elliptic'
 import { TEMPLATES, buildTemplate } from '../src/templates'
-import { simulate } from '../src/core/solver/simulation'
-import { recognize } from '../src/formula/situations'
+import { simulate } from './reference/core/solver/simulation'
+import { recognize } from './reference/formula/situations'
+import { usesFields } from '../src/core/scene/types'
+import { simulate as rustSimulate } from '../src/engine/recording'
+import { recognize as rustRecognize } from '../src/formula/recognize'
 
 describe('expression language', () => {
   it('parses and evaluates with precedence', () => {
@@ -37,10 +40,12 @@ describe('library', () => {
   })
   it('every formula is dimensionally consistent with the variable units of its situation', () => {
     const units = new Map<string, Record<string, string>>()
-    const variants: Array<[string, Record<string, number>]> = [...TEMPLATES.map(t => [t.id, {}] as [string, Record<string, number>]), ['rolling', { mu: 0.1 }], ['board-block', { mu1: 0.3, mu2: 0.2 }]]
+    const variants: Array<[string, Record<string, number>]> = [...TEMPLATES.map(t => [t.id, {}] as [string, Record<string, number>]), ['rolling', { mu: 0.1 }], ['board-block', { mu1: 0.3, mu2: 0.2 }], ['velocity-selector', { v0: 3 }]]
     for (const [id, ov] of variants) {
-      const rec = simulate(buildTemplate(id, ov))
-      for (const s of recognize(rec)) {
+      const scene = buildTemplate(id, ov)
+      // 26.54 (D77): charges and fields are recognised by the Rust core only
+      const sits = usesFields(scene) ? rustRecognize(rustSimulate(scene)) : recognize(simulate(scene))
+      for (const s of sits) {
         const sample = s.sample(s.tEvent ?? s.t0)
         const u = units.get(s.type) ?? {}
         for (const [k, v] of Object.entries(sample.vars)) u[k] = v.unit

@@ -955,11 +955,11 @@ pub fn rope_path(model: &Model, poses: &[Pose], rope: &RopeModel) -> RopePath {
 }
 
 /// Accumulates the terms of a row over any number of bodies (each body once, in order of appearance).
-struct RowBuilder {
-    terms: Vec<RowTerm>,
+struct RowBuilder<'a> {
+    terms: &'a mut Vec<RowTerm>,
 }
 
-impl RowBuilder {
+impl RowBuilder<'_> {
     fn add(&mut self, i: i32, gx: f64, gy: f64, p: &PointState) {
         if i < 0 {
             return;
@@ -976,7 +976,7 @@ impl RowBuilder {
         self.terms.push(RowTerm { i, x: gx, y: gy, w });
     }
 
-    fn row(self) -> RowJ {
+    fn row(&self) -> RowJ {
         let mut r = empty_row();
         let t = &self.terms;
         if !t.is_empty() {
@@ -998,6 +998,19 @@ impl RowBuilder {
     }
 }
 
+/// Reused buffers of `rope_kin` for ropes over movable pulleys (26.55, D97: no allocations per evaluation; the
+/// arithmetic and its order are unchanged).
+#[derive(Default)]
+struct RopeScratch {
+    segs: Vec<(Vec2, f64)>,
+    ends: Vec<(i32, PointState)>,
+    terms: Vec<RowTerm>,
+}
+
+thread_local! {
+    static ROPE_SCRATCH: std::cell::RefCell<RopeScratch> = std::cell::RefCell::new(RopeScratch::default());
+}
+
 /// Dynamic index of an optional body (−1 for the world or a static body).
 #[inline]
 fn dyn_index(model: &Model, body: Option<usize>) -> i32 {
@@ -1010,34 +1023,38 @@ fn dyn_index(model: &Model, body: Option<usize>) -> i32 {
 /// Rope as a unilateral constraint g = L − ℓ ≥ 0, with its path.
 pub fn rope_kin(model: &Model, poses: &[Pose], rope: &RopeModel) -> (ConstraintKin, RopePath) {
     if rope.movable {
-        let mut segs = Vec::with_capacity(rope.pulleys.len() + 1);
-        let path = rope_path_into(model, poses, rope, Some(&mut segs));
-        let mut ends: Vec<(i32, PointState)> = Vec::with_capacity(rope.pulleys.len() + 2);
-        ends.push((dyn_index(model, rope.a.body), anchor_state(poses, &rope.a)));
-        for &(pi, _) in &rope.pulleys {
-            let p = &model.pulleys[pi];
-            ends.push((dyn_index(model, p.body), pulley_state(poses, p)));
-        }
-        ends.push((dyn_index(model, rope.b.body), anchor_state(poses, &rope.b)));
-        let mut rb = RowBuilder { terms: Vec::new() };
-        let mut len_rate = 0.0;
-        let mut c = 0.0;
-        for (k, &(u, s)) in segs.iter().enumerate() {
-            let (i0, e0) = ends[k];
-            let (i1, e1) = ends[k + 1];
-            let ux = u.x;
-            let uy = u.y;
-            rb.add(i0, ux, uy, &e0);
-            rb.add(i1, -ux, -uy, &e1);
-            let dvx = e1.vx - e0.vx;
-            let dvy = e1.vy - e0.vy;
-            let along = ux * dvx + uy * dvy;
-            len_rate += along;
-            let perp_sq = dvx * dvx + dvy * dvy - along * along;
-            c += ux * (e1.qx - e0.qx) + uy * (e1.qy - e0.qy) + if s > 0.0 { perp_sq / s } else { 0.0 };
-        }
-        let value = rope.length - path.length;
-        return (ConstraintKin { value, vel: -len_rate, j: rb.row(), c: -c }, path);
+        return ROPE_SCRATCH.with(|cell| {
+            let mut scratch = cell.borrow_mut();
+            let RopeScratch { segs, ends, terms } = &mut *scratch;
+            let path = rope_path_into(model, poses, rope, Some(segs));
+            ends.clear();
+            ends.push((dyn_index(model, rope.a.body), anchor_state(poses, &rope.a)));
+            for &(pi, _) in &rope.pulleys {
+                let p = &model.pulleys[pi];
+                ends.push((dyn_index(model, p.body), pulley_state(poses, p)));
+            }
+            ends.push((dyn_index(model, rope.b.body), anchor_state(poses, &rope.b)));
+            terms.clear();
+            let mut rb = RowBuilder { terms };
+            let mut len_rate = 0.0;
+            let mut c = 0.0;
+            for (k, &(u, s)) in segs.iter().enumerate() {
+                let (i0, e0) = ends[k];
+                let (i1, e1) = ends[k + 1];
+                let ux = u.x;
+                let uy = u.y;
+                rb.add(i0, ux, uy, &e0);
+                rb.add(i1, -ux, -uy, &e1);
+                let dvx = e1.vx - e0.vx;
+                let dvy = e1.vy - e0.vy;
+                let along = ux * dvx + uy * dvy;
+                len_rate += along;
+                let perp_sq = dvx * dvx + dvy * dvy - along * along;
+                c += ux * (e1.qx - e0.qx) + uy * (e1.qy - e0.qy) + if s > 0.0 { perp_sq / s } else { 0.0 };
+            }
+            let value = rope.length - path.length;
+            (ConstraintKin { value, vel: -len_rate, j: rb.row(), c: -c }, path)
+        });
     }
     if rope.pulleys.is_empty() {
         let (k, _, _) = distance_kin(model, poses, &rope.a, &rope.b);

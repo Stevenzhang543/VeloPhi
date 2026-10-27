@@ -1,0 +1,28 @@
+/* Shared layout of the lab experiments (26.54, D76): stage (toolbar + canvas) on the left, readouts on the right. */
+.lab-shell { display: grid; grid-template-columns: minmax(0, 1fr) calc(300px * var(--zoom)); gap: 8px; min-height: 0; height: 100%; }
+.lab-stage { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--pane); border-radius: var(--radius-pane, 12px); overflow: hidden; }
+.lab-bar { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-bottom: 1px solid var(--separator); flex-wrap: wrap; min-height: 40px; }
+.lab-bar .grow { flex: 1; }
+.lab-bar label.ctl { display: inline-flex; align-items: center; gap: 6px; font-size: var(--type-small); color: var(--text-2); }
+.lab-bar input[type='range'] { width: 120px; }
+.lab-canvas { flex: 1; min-height: 0; position: relative; }
+.lab-canvas canvas { position: absolute; inset: 0; touch-action: none; }
+.lab-canvas .hint { position: absolute; left: 10px; bottom: 6px; pointer-events: none; }
+.lab-under { padding: 4px 10px 8px; border-top: 1px solid var(--separator); }
+.lab-side { min-height: 0; overflow: auto; background: var(--pane); border-radius: var(--radius-pane, 12px); padding: 8px 12px; }
+.lab-block { margin-bottom: 12px; }
+.lab-btitle { font-weight: 600; font-size: var(--type-small); margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
+.lab-kv { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; margin: 4px 0 8px; font-size: var(--type-small); }
+.lab-kv b { text-align: right; font-weight: 600; font-family: var(--mono, monospace); }
+.lab-kv .big { font-size: 1.15em; color: var(--accent); }
+.lab-fields { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 8px; align-items: center; margin-bottom: 6px; }
+.lab-fields > label { font-size: var(--type-small); color: var(--text-2); }
+.lab-fields input[type='range'] { width: 100%; }
+.lab-seg { display: inline-flex; background: var(--fill); border-radius: 8px; padding: 2px; flex-wrap: wrap; }
+.lab-seg button { border: 0; background: none; padding: 3px 10px; border-radius: 6px; font-size: var(--type-small); color: var(--text-2); cursor: pointer; }
+.lab-seg button.on { background: var(--pane); color: var(--text); box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.15)); }
+.lab-note { line-height: 1.5; }
+.lab-details summary { cursor: pointer; font-size: var(--type-small); }
+@media (max-width: 1100px) { .lab-shell { grid-template-columns: minmax(0, 1fr) calc(260px * var(--zoom)); } }
+/* 26.55 (D96): phones and split screens stack the stage over the side panel */
+@media (max-width: 760px) { .lab-shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(320px, 1fr) auto; overflow: auto; } .lab-side { max-height: none; } }

@@ -56,7 +56,14 @@ export const SHORTCUTS: ShortcutGroup[] = trDeep([
   ] },
   { title: '页面', items: [
     { keys: [['Alt', '1']], text: '工作台' },
-    { keys: [['Alt', '2']], text: '渲染与监视' },
-    { keys: [['Alt', '3'], [MOD, ',']], text: '设置' }
+    { keys: [['Alt', '2']], text: '实验室' },
+    { keys: [['Alt', '3']], text: '渲染与监视' },
+    { keys: [['Alt', '4'], [MOD, ',']], text: '设置' },
+    { keys: [[MOD, 'K']], text: '全局搜索：工具、模板、实验、公式、手册、题目' }
+  ] },
+  { title: '触屏', items: [
+    { keys: [['双指捏合']], text: '缩放视图' },
+    { keys: [['双指拖动']], text: '平移视图' },
+    { keys: [['长按']], text: '对象的快捷菜单' }
   ] }
 ])

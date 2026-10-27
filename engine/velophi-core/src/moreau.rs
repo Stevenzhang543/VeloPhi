@@ -233,6 +233,12 @@ pub fn moreau_step(sys: &System, x: &[f64], h: f64) -> SimResult<MoreauStepResul
     if let Some(ts) = sys.time_slot {
         y[ts] = x[ts] + h;
     }
+    // 26.55: ledger extras of field regions, liquids and rail loops
+    if let Some(e) = sys.extra_slot {
+        for k in 0..crate::regions::EXTRA_LEN {
+            y[e + k] = x[e + k] + h * rates.extra[k];
+        }
+    }
     let z = project_positions(sys, y);
     let poses1 = compute_poses(model, &z);
     let e1 = energy(sys, &z, &poses1).total;

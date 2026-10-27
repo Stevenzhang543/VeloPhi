@@ -177,6 +177,60 @@ export const TOPICS: Topic[] = [
     ],
     laws: ['f = bv + cv^2', 'v_t = \\dfrac{mg}{b}', 'v_t = \\sqrt{\\dfrac{mg}{c}}'],
     situations: ['drag']
+  },
+  {
+    // 26.54 (D78)
+    id: 'electric', icon: 'charge',
+    title: tri('电场与磁场中的带电体', 'Charges in electric and magnetic fields', 'Ladungen in elektrischen und magnetischen Feldern'),
+    principle: [
+      tri('电荷之间的作用力遵循库仑定律 F = kq₁q₂/r²：同种电荷相斥，异种电荷相吸，k ≈ 8.99×10⁹ N·m²/C²。电场强度 E 是放在该处的电荷所受的力与电荷量之比，电荷在电场中受力 F = qE，正电荷沿电场方向受力。',
+        "The force between charges follows Coulomb's law F = kq₁q₂/r²: like charges repel, unlike charges attract, k ≈ 8.99×10⁹ N·m²/C². The electric field E is the force on a charge placed there divided by its charge; a charge in a field feels F = qE, a positive one along the field.",
+        'Die Kraft zwischen Ladungen folgt dem Coulombschen Gesetz F = k·q₁q₂/r²: Gleichnamige Ladungen stoßen sich ab, ungleichnamige ziehen sich an, k ≈ 8,99·10⁹ N·m²/C². Die elektrische Feldstärke E ist die Kraft auf eine dort gebrachte Ladung geteilt durch die Ladung; im Feld wirkt F = q·E, auf eine positive Ladung in Feldrichtung.'),
+      tri('带电粒子垂直于匀强电场射入时做类平抛运动：沿初速度方向匀速，沿电场方向匀加速，a = qE/m。电场力做功只与始末位置有关，W = qEd = qU，动能的增加等于电场力做的功。',
+        'A charged particle entering a uniform field at right angles moves like a projectile: uniformly along its initial velocity and with constant acceleration a = qE/m along the field. The work of the field depends only on the start and end points, W = qEd = qU, and equals the gain in kinetic energy.',
+        'Ein senkrecht in ein homogenes Feld eintretendes geladenes Teilchen bewegt sich wie beim waagerechten Wurf: gleichförmig in Richtung der Anfangsgeschwindigkeit, gleichmäßig beschleunigt mit a = q·E/m längs des Feldes. Die Arbeit des Feldes hängt nur von Anfangs- und Endpunkt ab, W = q·E·d = q·U, und ist gleich dem Zuwachs an kinetischer Energie.'),
+      tri('运动电荷在磁场中受洛伦兹力 F = qvB，方向垂直于速度和磁场（左手定则），所以洛伦兹力不做功，只改变速度方向。垂直射入匀强磁场的粒子做匀速圆周运动，r = mv/(qB)，T = 2πm/(qB)。电场和磁场同时存在且 qE = qvB 时，粒子匀速直线通过（速度选择器）。',
+        'A moving charge in a magnetic field feels the Lorentz force F = qvB, perpendicular to both velocity and field, so it does no work and only turns the velocity. A particle entering a uniform field at right angles moves on a circle, r = mv/(qB), T = 2πm/(qB). With both fields and qE = qvB the particle goes straight through (velocity selector).',
+        'Eine bewegte Ladung im Magnetfeld erfährt die Lorentzkraft F = q·v·B senkrecht zu Geschwindigkeit und Feld; sie verrichtet keine Arbeit und ändert nur die Richtung. Ein senkrecht eintretendes Teilchen läuft auf einem Kreis, r = m·v/(q·B), T = 2πm/(q·B). Mit beiden Feldern und q·E = q·v·B läuft es geradlinig hindurch (Geschwindigkeitsfilter).')
+    ],
+    laws: ['F = k\\dfrac{q_1q_2}{r^2}', 'F = qE', 'F = qvB', 'r = \\dfrac{mv}{qB}', 'v = \\dfrac{E}{B}'],
+    situations: ['charge-e', 'charge-b', 'selector', 'charge-eb', 'coulomb', 'zone-b', 'zone-e']
+  },
+  {
+    // 26.55 (D91)
+    id: 'induction', icon: 'compass',
+    title: tri('电磁感应', 'Electromagnetic induction', 'Elektromagnetische Induktion'),
+    principle: [
+      tri('穿过闭合回路的磁通量 Φ = BS 发生变化时，回路中产生感应电动势，大小等于磁通量的变化率 ε = ΔΦ/Δt（法拉第电磁感应定律）。导体棒以速度 v 垂直切割磁感线时，ε = BLv。',
+        "When the magnetic flux Φ = BS through a closed circuit changes, an emf is induced equal to the rate of change of the flux, ε = ΔΦ/Δt (Faraday's law). A rod of length L cutting the field lines at right angles with speed v gives ε = BLv.",
+        'Ändert sich der magnetische Fluss Φ = B·A durch einen geschlossenen Kreis, wird eine Spannung induziert, gleich der Änderungsrate des Flusses, ε = ΔΦ/Δt (Induktionsgesetz). Ein Stab der Länge L, der die Feldlinien senkrecht mit der Geschwindigkeit v schneidet, liefert ε = B·L·v.'),
+      tri('感应电流的方向总是阻碍引起它的磁通量变化（楞次定律）。导体棒中的感应电流 I = BLv/R 在磁场中受安培力 F = BIL = B²L²v/R，方向与运动方向相反，像一个与速度成正比的阻力：在恒力作用下导体棒最终匀速运动，收尾速度 v = FR/(B²L²)。',
+        "The induced current always opposes the change of flux that causes it (Lenz's law). The current I = BLv/R in the rod feels the force F = BIL = B²L²v/R against the motion, like a drag proportional to the speed: under a constant force the rod ends up moving uniformly at the terminal velocity v = FR/(B²L²).",
+        'Der Induktionsstrom ist stets so gerichtet, dass er der Flussänderung entgegenwirkt (Lenzsche Regel). Der Strom I = B·L·v/R im Stab erfährt die Kraft F = B·I·L = B²L²v/R entgegen der Bewegung, wie eine zur Geschwindigkeit proportionale Reibung: Unter konstanter Kraft bewegt sich der Stab schließlich gleichförmig mit v = F·R/(B²L²).'),
+      tri('能量转化：外力克服安培力做的功先变成电能，再在电阻中变成焦耳热。外力做的功 = 导体棒动能的增加 + 焦耳热；匀速时外力的功率全部变成电功率 P = εI = I²R。',
+        'Energy: the work done against the Ampère force first becomes electrical energy and then Joule heat in the resistor. The work of the applied force equals the gain in kinetic energy plus the Joule heat; in uniform motion all the applied power becomes electrical power P = εI = I²R.',
+        'Energie: Die gegen die Kraft auf den Stab verrichtete Arbeit wird zuerst zu elektrischer Energie und dann zu Joulescher Wärme im Widerstand. Die Arbeit der äußeren Kraft ist gleich dem Zuwachs an kinetischer Energie plus der Jouleschen Wärme; bei gleichförmiger Bewegung wird die gesamte Leistung zur elektrischen Leistung P = ε·I = I²·R.')
+    ],
+    laws: ['\\varepsilon = \\dfrac{\\Delta\\Phi}{\\Delta t}', '\\varepsilon = BLv', 'F = BIL = \\dfrac{B^2L^2v}{R}', 'v_T = \\dfrac{FR}{B^2L^2}'],
+    situations: ['rail']
+  },
+  {
+    // 26.55 (D92)
+    id: 'fluids', icon: 'wave',
+    title: tri('压强与浮力', 'Pressure and buoyancy', 'Druck und Auftrieb'),
+    principle: [
+      tri('液体内部的压强随深度增加：p = p₀ + ρgh，同一深度向各个方向的压强相等。浸在液体中的物体，下表面受到的压力大于上表面，压力的合力竖直向上，就是浮力。',
+        'The pressure in a liquid grows with depth, p = p₀ + ρgh, and at one depth it is the same in every direction. On a body in a liquid the push on the lower face is larger than on the upper one; the resulting upward force is the buoyant force.',
+        'Der Druck in einer Flüssigkeit wächst mit der Tiefe, p = p₀ + ρ·g·h, und ist in einer Tiefe in alle Richtungen gleich. Auf einen eingetauchten Körper drückt die Flüssigkeit unten stärker als oben; die resultierende Kraft nach oben ist der Auftrieb.'),
+      tri('阿基米德原理：浮力等于物体排开的液体所受的重力，F浮 = ρ液gV排。物体的平均密度小于液体时上浮，最后漂浮，F浮 = G，浸入的体积占 ρ物/ρ液；大于液体时下沉。浸没后排开的体积不变，浮力也不变。',
+        "Archimedes' principle: the buoyant force equals the weight of the displaced liquid, F_b = ρ_f gV_sub. A body less dense than the liquid rises and floats with F_b = G, with the fraction ρ_b/ρ_f submerged; a denser one sinks. Once fully submerged the displaced volume, and so the buoyant force, no longer changes.",
+        'Archimedisches Prinzip: Der Auftrieb ist gleich der Gewichtskraft der verdrängten Flüssigkeit, F_A = ρ_Fl·g·V_verdr. Ein Körper mit kleinerer mittlerer Dichte als die Flüssigkeit steigt und schwimmt mit F_A = G, eingetaucht zum Anteil ρ_K/ρ_Fl; ein dichterer sinkt. Ganz eingetaucht ändern sich das verdrängte Volumen und damit der Auftrieb nicht mehr.'),
+      tri('浮力作用在浸入部分的形心（浮心），重力作用在重心：两者不在同一竖直线上时形成力偶，使漂浮的物体摆正或翻倒。称重法：F浮 = G − F示。二维模拟中体积按物体垂直纸面的厚度计算。',
+        'The buoyant force acts at the centroid of the submerged part (centre of buoyancy), the weight at the centre of mass; when they are not on one vertical line they form a couple that rights or capsizes a floating body. Weighing in water: F_b = G − F_reading. In the 2D simulation volumes use the thickness of the body perpendicular to the page.',
+        'Der Auftrieb greift im Schwerpunkt des eingetauchten Teils an (Verdrängungsschwerpunkt), die Gewichtskraft im Massenmittelpunkt; liegen sie nicht senkrecht übereinander, entsteht ein Kräftepaar, das einen schwimmenden Körper aufrichtet oder kentern lässt. Wägung im Wasser: F_A = G − F_Anzeige. In der 2D-Simulation werden Volumen mit der Dicke des Körpers senkrecht zur Zeichenebene berechnet.')
+    ],
+    laws: ['p = p_0 + \\rho gh', 'F_b = \\rho_f gV_{sub}', 'F_b = G', '\\dfrac{V_{sub}}{V} = \\dfrac{\\rho_b}{\\rho_f}'],
+    situations: ['float']
   }
 ]
 

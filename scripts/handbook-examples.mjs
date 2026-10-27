@@ -2,7 +2,8 @@
  * Examples of the learning handbook (manual 26.51, D46): for every library formula, a template (with parameter
  * overrides when the defaults do not show it) and a time at which the formula's card applies and agrees with the
  * simulation. Written to src/handbook/examples.json, which the handbook page reads; tests/handbook.test.ts checks
- * that every formula has an example and that each example still shows its formula.
+ * that every formula has an example and that each example still shows its formula. Templates with electric or
+ * magnetic fields (26.54) run in the Rust core (the frozen TypeScript reference has no field forces, D77).
  *
  *   node scripts/handbook-examples.mjs           rebuild src/handbook/examples.json
  *   node scripts/handbook-examples.mjs --check   exit 1 if the file is out of date
@@ -21,28 +22,45 @@ await build({
   stdin: {
     contents: [
       "export { TEMPLATES, buildTemplate } from './src/templates/index.ts'",
-      "export { simulate } from './src/core/solver/simulation.ts'",
-      "export { recognize } from './src/formula/situations.ts'",
-      "export { cardsAt } from './src/formula/match.ts'",
+      "export { simulate } from './tests/reference/core/solver/simulation.ts'",
+      "export { recognize } from './tests/reference/formula/situations.ts'",
+      "export { cardsAt } from './tests/reference/formula/match.ts'",
       "export { FORMULAS } from './src/formula/library.ts'",
-      "export { HANDBOOK_VARIANTS, PREFERRED_TEMPLATE } from './src/handbook/variants.ts'"
+      "export { HANDBOOK_VARIANTS, PREFERRED_TEMPLATE } from './src/handbook/variants.ts'",
+      "export { usesFields } from './src/core/scene/types.ts'",
+      "export { simulate as simulateCore } from './src/engine/recording.ts'",
+      "export { recognize as recognizeCore } from './src/formula/recognize.ts'",
+      "export { cardsAt as cardsAtCore } from './src/formula/match.ts'",
+      "export { loadTestCore } from './tests/setup/core.ts'"
     ].join('\n'),
     resolveDir: repo, loader: 'ts'
   },
   bundle: true, format: 'esm', platform: 'node', target: 'node20', outfile: bundle, logLevel: 'error'
 })
 const V = await import(pathToFileURL(bundle).href + `?t=${Date.now()}`)
+await V.loadTestCore(repo)
+
+/** Situations of a template and the cards of one situation at time t: the reference, or the Rust core for field scenes. */
+function runOf(scene) {
+  if (!V.usesFields(scene)) {
+    const rec = V.simulate(scene)
+    return { sits: V.recognize(rec), cards: (s, t) => V.cardsAt([s], t) }
+  }
+  const rec = V.simulateCore(scene)
+  const sits = V.recognizeCore(rec)
+  return { sits, cards: (s, t) => V.cardsAtCore(rec, t, { digits: 6 }, sits).filter(c => c.situation.key === s.key) }
+}
 
 const RANK = { match: 0, 'approx-ok': 1, approx: 2, 'no-measure': 3 }
 /** Best example per formula: the preferred template first, then default parameters, the better verdict, the earlier time. */
 const best = new Map()
 for (const [id, params] of [...V.TEMPLATES.map(t => [t.id, {}]), ...V.HANDBOOK_VARIANTS]) {
   const variant = Object.keys(params).length > 0 ? 1 : 0
-  const rec = V.simulate(V.buildTemplate(id, params))
-  for (const s of V.recognize(rec)) {
+  const run = runOf(V.buildTemplate(id, params))
+  for (const s of run.sits) {
     const times = s.tEvent !== undefined ? [s.tEvent] : [s.t0 + 0.5 * (s.t1 - s.t0), s.t0 + 0.25 * (s.t1 - s.t0), s.t0 + 0.75 * (s.t1 - s.t0)]
     for (const t of times) {
-      for (const c of V.cardsAt([s], t)) {
+      for (const c of run.cards(s, t)) {
         const r = RANK[c.verdict]
         if (r === undefined) continue
         const pref = V.PREFERRED_TEMPLATE[c.formula.id] ?? V.PREFERRED_TEMPLATE[c.formula.situation]

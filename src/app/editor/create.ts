@@ -15,15 +15,15 @@ import type { Scene } from '../../core/scene/types'
 import { addBody, addGround, addPulley } from '../../core/scene/build'
 import type { Tool } from '../store'
 import { fmtQ } from '../settings'
-import { DYN_MATERIAL, STATIC_MATERIAL, nextName } from '../editing'
+import { DYN_MATERIAL, STATIC_MATERIAL, addCharge, nextName } from '../editing'
 import type { OverlayLabel, OverlayShape } from '../../render/overlay'
 import type { Pt } from './geometry'
 import { MIN_SIZE, centroid, clean, convexHull, isValidConvex, isValidSimple, signedArea } from './geometry'
 
 /** Tools that create an object by press-drag. */
-export type DragTool = 'add-ball' | 'add-block' | 'add-disc' | 'add-wedge' | 'add-ground' | 'add-incline' | 'add-wall' | 'add-conveyor' | 'add-pulley'
+export type DragTool = 'add-ball' | 'add-block' | 'add-disc' | 'add-wedge' | 'add-ground' | 'add-incline' | 'add-wall' | 'add-conveyor' | 'add-pulley' | 'add-charge' | 'add-fixed-charge'
 
-const DRAG_TOOLS = new Set<Tool>(['add-ball', 'add-block', 'add-disc', 'add-wedge', 'add-ground', 'add-incline', 'add-wall', 'add-conveyor', 'add-pulley'])
+const DRAG_TOOLS = new Set<Tool>(['add-ball', 'add-block', 'add-disc', 'add-wedge', 'add-ground', 'add-incline', 'add-wall', 'add-conveyor', 'add-pulley', 'add-charge', 'add-fixed-charge'])
 /** Whether a tool creates by press-drag. */
 export function isDragTool(t: Tool): t is DragTool { return DRAG_TOOLS.has(t) }
 
@@ -65,7 +65,7 @@ export function dragPreview(tool: DragTool, a: Pt, b: Pt, step = 0): { shapes: O
       labels.push({ at: { x: r.cx + r.w / 2, y: r.cy }, text: tl('高 {0}', [L(r.h)]), dx: 8 })
       return { shapes, labels, ok }
     }
-    case 'add-ball': case 'add-disc': case 'add-pulley': {
+    case 'add-ball': case 'add-disc': case 'add-pulley': case 'add-charge': case 'add-fixed-charge': {
       const r = radiusOf(a, b, step)
       const ok = r >= MIN_SIZE
       const d = Math.hypot(b.x - a.x, b.y - a.y) || 1
@@ -110,9 +110,10 @@ export function createFromDrag(scene: Scene, tool: DragTool, a: Pt, b: Pt, step 
       if (tool === 'add-block') return { kind: 'body', id: addBody(scene, { name: nextName(scene, tl('物块')), role: 'block', shape: { type: 'box', width: r.w, height: r.h }, position: { x: r.cx, y: r.cy }, mass: 1, material: DYN_MATERIAL }).id }
       return { kind: 'body', id: addBody(scene, { name: nextName(scene, tl('墙')), kind: 'static', role: 'wall', shape: { type: 'box', width: r.w, height: r.h }, position: { x: r.cx, y: r.cy }, material: STATIC_MATERIAL }).id }
     }
-    case 'add-ball': case 'add-disc': case 'add-pulley': {
+    case 'add-ball': case 'add-disc': case 'add-pulley': case 'add-charge': case 'add-fixed-charge': {
       const r = radiusOf(a, b, step)
       if (r < MIN_SIZE) return null
+      if (tool === 'add-charge' || tool === 'add-fixed-charge') return { kind: 'body', id: addCharge(scene, tool === 'add-fixed-charge', a, r) }
       if (tool === 'add-pulley') return { kind: 'pulley', id: addPulley(scene, { name: nextName(scene, tl('滑轮')), position: { x: a.x, y: a.y }, radius: r }).id }
       if (tool === 'add-ball') return { kind: 'body', id: addBody(scene, { name: nextName(scene, tl('小球')), kind: 'particle', role: 'ball', shape: { type: 'circle', radius: r }, position: { x: a.x, y: a.y }, mass: 0.5, material: { ...DYN_MATERIAL, restitution: 0.6 } }).id }
       return { kind: 'body', id: addBody(scene, { name: nextName(scene, tl('圆柱')), role: 'wheel', shape: { type: 'circle', radius: r }, position: { x: a.x, y: a.y }, mass: 1, material: DYN_MATERIAL }).id }
@@ -179,3 +180,4 @@ export function polygonPreview(pts: Pt[], cursor: Pt | null, closeHot: boolean):
   }
   return { shapes, labels }
 }
+

@@ -5,13 +5,27 @@
  */
 import { describe, expect, it } from 'vitest'
 import { buildTemplate } from '../src/templates'
-import { simulate, frameState, frameLedger } from '../src/core/solver/simulation'
+import { simulate, frameState, frameLedger } from '../src/engine/recording'
 import { branchPath, branchScene, nextBranchId, startTimeOf, withoutBranch } from '../src/core/scene/branch'
 import { parseScene, serializeScene } from '../src/core/scene/io'
 import { addBody, addConnector, addGround, emptyScene, anchor } from '../src/core/scene/build'
 import type { ForceDef } from '../src/core/scene/types'
+import { referenceTemplates } from '../src/templates'
+import { simulate as refSimulate } from './reference/core/solver/simulation'
+import { refBranchScene } from './reference/core/scene/branch'
 
 const close = (a: number, b: number, tol: number) => Math.abs(a - b) <= tol * Math.max(1, Math.abs(a), Math.abs(b))
+
+describe('branch scene from the core', () => {
+  it('equals the branch scene of the TypeScript reference (26.52) for every template', () => {
+    const text = (x: unknown) => JSON.stringify(x, (_k, v) => (Object.is(v, -0) ? '-0' : v))
+    for (const t of referenceTemplates()) {
+      const scene = buildTemplate(t.id, {})
+      const rec = simulate(scene), ref = refSimulate(buildTemplate(t.id, {}))
+      for (const k of [1, Math.floor(rec.frameCount / 3), rec.frameCount - 2]) expect(text(branchScene(rec, k)), `${t.id} frame ${k}`).toBe(text(refBranchScene(ref, k)))
+    }
+  })
+})
 
 describe('branch from a frame', () => {
   it('without changes follows the parent (motion and energy ledger)', () => {

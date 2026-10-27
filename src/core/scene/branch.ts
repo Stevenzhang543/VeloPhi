@@ -6,9 +6,7 @@
  * computed on its own from that moment, so it reruns from the file with the same fingerprint; the parent's
  * recording is kept as it was. Branches are listed on the main scene (`scene.branches`), parents first.
  */
-import type { Recording } from '../solver/simulation'
-import { frameImpactLoss, frameState, ledgerAt } from '../solver/simulation'
-import { AUX_FIXED } from '../solver/dynamics'
+import type { Recording } from '../../engine/recording'
 import type { BranchDef, Scene } from './types'
 import { cloneScene } from './io'
 
@@ -30,31 +28,35 @@ export function branchScene(rec: Recording, k: number): Scene | null {
   if (st.duration !== null && tLocal >= st.duration - 0.5 * rec.dt) return null
   const scene = cloneScene(parent)
   delete scene.branches
-  const sys = rec.system, model = sys.model, n = sys.n
-  const X = frameState(rec, k)
-  for (const b of model.dynamic) {
+  // The state, resolved lengths and ledger at frame k, read in the core
+  const st0 = rec.session.call<{
+    bodies: Array<{ id: string; x: number; y: number; angle: number; vx: number; vy: number; omega: number | null }>
+    ropes: Array<[string, number]>; rods: Array<[string, number]>; springs: Array<[string, number]>
+    ledger: { frictionHeat: number; appliedWork: number; damping: number; beltWork: number; impactLoss: number; fieldWork?: number; buoyancyWork?: number; jouleHeat?: number; liquidHeat?: number }
+    /** Per contact pair with sliding: [key, distance, heat], in the order of the system's pairs. */
+    pairs: Array<[string, number, number]>
+  }>({ op: 'branchState', frame: k })
+  for (const b of st0.bodies) {
     const def = scene.bodies.find(d => d.id === b.id)
     if (!def) continue
-    const i = b.index
-    def.position = { x: X[3 * i], y: X[3 * i + 1] }
-    def.angle = X[3 * i + 2]
-    def.velocity = { x: X[3 * n + 3 * i], y: X[3 * n + 3 * i + 1] }
-    def.angularVelocity = b.invInertia > 0 ? X[3 * n + 3 * i + 2] : def.angularVelocity
+    def.position = { x: b.x, y: b.y }
+    def.angle = b.angle
+    def.velocity = { x: b.vx, y: b.vy }
+    def.angularVelocity = b.omega ?? def.angularVelocity
   }
   // Lengths given as "initial" are the parent's, not the distances at the branch point
+  const len = (list: Array<[string, number]>, id: string) => list.find(x => x[0] === id)?.[1] ?? null
   for (const c of scene.connectors) {
-    if (c.type === 'rope' && c.length === null) c.length = model.ropes.find(r => r.id === c.id)?.length ?? null
-    if (c.type === 'rod' && c.length === null) c.length = model.rods.find(r => r.id === c.id)?.length ?? null
-    if (c.type === 'spring' && c.restLength === null) c.restLength = model.springs.find(s => s.id === c.id)?.restLength ?? null
+    if (c.type === 'rope' && c.length === null) c.length = len(st0.ropes, c.id)
+    if (c.type === 'rod' && c.length === null) c.length = len(st0.rods, c.id)
+    if (c.type === 'spring' && c.restLength === null) c.restLength = len(st0.springs, c.id)
   }
-  const l = ledgerAt(rec, X, frameImpactLoss(rec, k))
+  const l = st0.ledger
   const pairs: Record<string, [number, number]> = {}
-  for (const p of sys.pairs) {
-    const base = sys.auxBase + AUX_FIXED + 2 * p.index
-    if (X[base] !== 0 || X[base + 1] !== 0) pairs[p.key] = [X[base], X[base + 1]]
-  }
+  for (const [key, d, q] of st0.pairs) pairs[key] = [d, q]
   scene.settings.startTime = startTimeOf(parent) + tLocal
-  scene.settings.startLedger = { frictionHeat: l.frictionHeat, appliedWork: l.appliedWork, damping: l.damping, beltWork: l.beltWork, impactLoss: l.impactLoss, ...(Object.keys(pairs).length ? { pairs } : {}) }
+  const extra = l.fieldWork !== undefined ? { fieldWork: l.fieldWork, buoyancyWork: l.buoyancyWork ?? 0, jouleHeat: l.jouleHeat ?? 0, liquidHeat: l.liquidHeat ?? 0 } : {}
+  scene.settings.startLedger = { frictionHeat: l.frictionHeat, appliedWork: l.appliedWork, damping: l.damping, beltWork: l.beltWork, impactLoss: l.impactLoss, ...extra, ...(Object.keys(pairs).length ? { pairs } : {}) }
   if (st.duration !== null) scene.settings.duration = st.duration - tLocal
   scene.settings.legacyDuration = Math.max(st.legacyDuration - tLocal, rec.dt)
   return scene

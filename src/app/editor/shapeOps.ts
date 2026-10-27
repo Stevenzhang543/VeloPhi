@@ -8,9 +8,9 @@ import { tl } from '../../i18n'
 import type { Anchor, BodyDef, PartShapeDef, Scene, ShapePart } from '../../core/scene/types'
 import { connectorAnchors } from '../../core/scene/types'
 import { nextId } from '../../core/scene/build'
-import { compoundMass, polygonCentroid, shapeOutline } from '../../core/solver/model'
+import { compoundMass, polygonCentroid, shapeOutline } from '../../engine/calc'
 import type { Pt } from './geometry'
-import { centroid, clean, localVerts, rotate, signedArea, toLocalPt, toWorldPt } from './geometry'
+import { centroid, clean, localVerts, q9, rotate, signedArea, toLocalPt, toWorldPt } from './geometry'
 
 /** A unique name `${base}${k}` not used by any body. */
 function freshName(scene: Scene, base: string): string {
@@ -49,7 +49,7 @@ function derived(scene: Scene, orig: BodyDef, name: string, shape: BodyDef['shap
   const v = velocityAt(orig, at)
   const b: BodyDef = {
     id: nextId(scene, orig.kind === 'static' ? 's' : 'b'), name, kind: orig.kind, role: orig.role === 'block' || orig.role === 'ground' || orig.role === 'wall' || orig.role === 'incline' ? orig.role : 'generic',
-    shape, position: { x: clean(position.x), y: clean(position.y) }, angle: clean(angle),
+    shape, position: { x: q9(position.x), y: q9(position.y) }, angle: q9(angle),
     velocity: { x: clean(v.x), y: clean(v.y) }, angularVelocity: orig.kind === 'rigid' ? orig.angularVelocity : 0,
     mass: orig.kind === 'static' ? orig.mass : mass, inertia: null, fixedRotation: orig.fixedRotation,
     material: { ...orig.material }, beltSpeed: orig.beltSpeed, color: orig.color
@@ -70,7 +70,7 @@ function reassign(scene: Scene, old: BodyDef, made: BodyDef[], owner: (w: Pt) =>
     const b = owner(w)
     a.body = b.id
     const l = toLocalPt(b, w)
-    a.local = { x: clean(l.x), y: clean(l.y) }
+    a.local = { x: q9(l.x), y: q9(l.y) }
   }
   for (const c of scene.connectors) {
     for (const a of connectorAnchors(c)) move(a)
@@ -82,12 +82,14 @@ function reassign(scene: Scene, old: BodyDef, made: BodyDef[], owner: (w: Pt) =>
     const b = owner(w)
     const l = toLocalPt(b, w)
     p.body = b.id
-    p.position = { x: clean(l.x), y: clean(l.y) }
+    p.position = { x: q9(l.x), y: q9(l.y) }
   }
   const pairs = scene.contactPairs.filter(p => p.a === old.id || p.b === old.id)
   scene.contactPairs = scene.contactPairs.filter(p => p.a !== old.id && p.b !== old.id)
   for (const p of pairs) for (const b of made) scene.contactPairs.push({ ...p, a: p.a === old.id ? b.id : p.a, b: p.b === old.id ? b.id : p.b })
   scene.watch = scene.watch.filter(w => !w.split(/[.|]/).includes(old.id))
+  // 26.55: a rail loop follows the piece that contains the rod's centre
+  for (const l of scene.settings.railLoops ?? []) if (l.body === old.id) l.body = owner(old.position).id
 }
 
 // ---- Explode ----
@@ -111,7 +113,7 @@ export function explodeCompound(scene: Scene, id: string): string | null {
       // A polygon part about its own centroid
       const ccw = signedArea(part.shape.points) < 0 ? part.shape.points.slice().reverse() : part.shape.points
       const c = polygonCentroid(ccw)
-      shape = { type: 'polygon', points: ccw.map(p => ({ x: clean(p.x - c.x), y: clean(p.y - c.y) })) }
+      shape = { type: 'polygon', points: ccw.map(p => ({ x: q9(p.x - c.x), y: q9(p.y - c.y) })) }
       const rc = rotate(c, part.angle)
       origin = { x: local.x + rc.x, y: local.y + rc.y }
     }
@@ -138,6 +140,11 @@ export function explodeCompound(scene: Scene, id: string): string | null {
 
 // ---- Combine ----
 
+/** A part shape with its polygon vertices on the 10⁻⁹ m grid (D74). */
+function quantized(s: PartShapeDef): PartShapeDef {
+  return s.type === 'polygon' ? { type: 'polygon', points: s.points.map(p => ({ x: q9(p.x), y: q9(p.y) })) } : s
+}
+
 /** Parts of a body in world coordinates (a compound body contributes each of its parts). */
 function worldParts(def: BodyDef): ShapePart[] {
   const dynamic = def.kind !== 'static'
@@ -162,7 +169,7 @@ export function combineBodies(scene: Scene, ids: string[]): { id: string } | { e
   const isStatic = statics === list.length
   const parts: ShapePart[] = list.flatMap(worldParts)
   const { centroid: c } = compoundMass({ type: 'compound', parts }, 1)
-  const local = parts.map(p => ({ shape: p.shape, position: { x: clean(p.position.x - c.x), y: clean(p.position.y - c.y) }, angle: clean(p.angle) }))
+  const local = parts.map(p => ({ shape: quantized(p.shape), position: { x: q9(p.position.x - c.x), y: q9(p.position.y - c.y) }, angle: q9(p.angle) }))
   const mass = isStatic ? 0 : list.reduce((s, b) => s + b.mass, 0)
   const vx = isStatic ? 0 : list.reduce((s, b) => s + b.mass * b.velocity.x, 0) / mass
   const vy = isStatic ? 0 : list.reduce((s, b) => s + b.mass * b.velocity.y, 0) / mass
@@ -170,7 +177,7 @@ export function combineBodies(scene: Scene, ids: string[]): { id: string } | { e
   const first = list[0]
   const body: BodyDef = {
     id: nextId(scene, isStatic ? 's' : 'b'), name: freshName(scene, tl('复合体')), kind: isStatic ? 'static' : 'rigid', role: 'generic',
-    shape: { type: 'compound', parts: local }, position: { x: clean(c.x), y: clean(c.y) }, angle: 0,
+    shape: { type: 'compound', parts: local }, position: { x: q9(c.x), y: q9(c.y) }, angle: 0,
     velocity: { x: clean(vx), y: clean(vy) }, angularVelocity: clean(w), mass, inertia: null, fixedRotation: false,
     material: { ...first.material }, beltSpeed: 0, color: first.color
   }
@@ -271,7 +278,7 @@ export function cutBodies(scene: Scene, a: Pt, b: Pt): string[] {
     for (const piece of pieces) {
       const c = centroid(piece)
       const area = Math.abs(signedArea(piece))
-      const shape: BodyDef['shape'] = { type: 'polygon', points: piece.map(p => ({ x: clean(p.x - c.x), y: clean(p.y - c.y) })) }
+      const shape: BodyDef['shape'] = { type: 'polygon', points: piece.map(p => ({ x: q9(p.x - c.x), y: q9(p.y - c.y) })) }
       const nb = derived(scene, old, freshName(scene, base || tl('碎块')), shape, c, 0, old.mass * area / total, c)
       scene.bodies.push(nb)
       bodies.push(nb)

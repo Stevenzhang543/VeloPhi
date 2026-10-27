@@ -4,6 +4,7 @@
  * render in all three languages.
  */
 import { describe, expect, it } from 'vitest'
+import { readFileSync } from 'node:fs'
 // @ts-expect-error — plain ES module of the build scripts
 import { extractKeys } from '../scripts/i18n-keys.mjs'
 import { TEXT_PARTS, buildTables } from '../src/i18n/tables'
@@ -82,6 +83,21 @@ describe('core messages', () => {
       for (const s of texts) expect(s.length, key).toBeGreaterThan(1)
       expect(CJK.test(texts[1]) || CJK.test(texts[2]), key).toBe(false)
     }
+  })
+
+  it('render every key of engine/MESSAGES.md (scene errors included) without falling back to the key', () => {
+    const doc = readFileSync('engine/MESSAGES.md', 'utf8')
+    const all = [...doc.matchAll(/^\| `([a-zA-Z]+\.[a-zA-Z]+)` \|/gm)].map(m => m[1])
+    expect(all.length).toBeGreaterThan(70)
+    const params = { connector: 'F', component: 'x', body: 'b', pulley: 'p', id: 'b1', path: 'bodies', version: 9, max: 1e5, detail: 'y', option: 'o', reason: msg('expr.argumentNotDimensionless', { function: 'sin', dim: 's' }), t: 1, count: 2, window: 0.05, mm: 1, pairs: ['a|b'], violation: 1e-9, force: 'F', fx: 1, fy: 2, limit: 1, seconds: 1, message: 'x', name: 'n', pos: 1, src: 's', ch: 'c', arity: 1, dim: 'm', a: 'm', b: 's', what: '+' }
+    const bad: string[] = []
+    for (const key of all) {
+      for (const lang of ['zh', 'en', 'de'] as const) {
+        const s = renderMessage(msg(key, params), lang)
+        if (s.startsWith(key) || (lang !== 'zh' && CJK.test(s))) bad.push(`${lang} ${key}: ${s}`)
+      }
+    }
+    expect(bad).toEqual([])
   })
 
   it('cover every run message key of the engines', () => {

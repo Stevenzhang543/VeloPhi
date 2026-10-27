@@ -7,9 +7,9 @@ import type { Lang } from '../i18n'
 import { exportOverride, locale } from '../i18n'
 import { numberStyle } from '../units/units'
 import { decimalFor, settings } from './settings'
-import type { Recording } from '../core/solver/simulation'
-import type { Situation } from '../formula/situations'
-import { recognize } from '../formula/situations'
+import type { Recording } from '../engine/recording'
+import type { Situation } from '../formula/recognize'
+import { recognize } from '../formula/recognize'
 
 /** The language of exports now (the interface language for 'ui'). */
 export function exportLanguage(): Lang {

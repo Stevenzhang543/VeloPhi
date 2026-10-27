@@ -1,31 +1,110 @@
 /**
- * Event detail view (manual 26.50, D28): for one recorded event, the event function g(t) that triggered it and what
- * it means, how the solver located the event and how accurately, what changed and by which physical law, the state
- * of the bodies involved before and after, and for impacts the restitution law and the impulse with the recorded
- * numbers substituted (with friction: the phases of Stronge's impulse path).
+ * Event detail view (manual 26.50, D28; 26.53: the numbers come from the Rust session, D65): for one recorded event,
+ * the event function g(t) that triggered it and what it means, how the solver located the event and how accurately,
+ * what changed and by which physical law, the state of the bodies involved before and after, and for impacts the
+ * restitution law and the impulse with the recorded numbers substituted (with friction: the phases of Stronge's
+ * impulse path).
  *
- * Everything shown is read from the recording (events, segments, impact results) or recomputed from it with the
- * solver's own functions (event functions of the mode, mode solutions, effective inverse masses); nothing changes
- * the recording. The texts are trilingual templates (`TRIGGER_TEXT`, `CHANGE_TEXT`) written inline, as the
- * derivations are.
+ * The numbers — the event functions at the event, the effective inverse mass matrix, Stronge's phases, the velocity
+ * changes, momenta, states, accelerations and energies — are computed by the Rust session (`eventData`,
+ * engine/velophi-core/src/formula/event_detail.rs) from the recording and the solver's own functions; this module
+ * writes the texts (trilingual templates `TRIGGER_TEXT`, `CHANGE_TEXT`, written inline as the derivations are) and the
+ * equations.
  */
 import { renderMessage } from '../i18n/coreText'
-import type { ChangeDetail, ChangeType, Recording, Segment, SimEvent } from '../core/solver/simulation'
-import type { EventType } from '../core/solver/events'
-import { buildEventFns } from '../core/solver/events'
-import type { Pose, RowJ } from '../core/solver/kinematics'
-import { computePoses, contactKin, distanceKin, hingeKin, ropeKin } from '../core/solver/kinematics'
-import type { System } from '../core/solver/dynamics'
-import type { BodyModel } from '../core/solver/model'
-import { TOL, addRow, energy, rowDot, rowMinvRow, solveMode } from '../core/solver/dynamics'
-import type { ImpactPoint } from '../core/solver/impact'
-import { solveDense } from '../core/math/linalg'
+import type { Message } from '../i18n/message'
 import type { Lang, Tri } from '../i18n/tri'
 import { fillParams, triText } from '../i18n/tri'
 import type { UnitChoice } from '../units/units'
 import { defaultChoice, displayLabel, formatQuantity, formatSig, latexNumber, latexQuantity, toDisplay } from '../units/units'
 import type { DetailOptions } from './detail'
+import type { Recording } from '../engine/recording'
 import type { DetailBlock, DetailCell, DetailSection, DetailView, Tone } from './detailTypes'
+
+/** Kind of event function (engine EventType). */
+export type EventType = 'contact' | 'liftoff' | 'leave' | 'slip' | 'stop' | 'slack' | 'taut' | 'switch' | 'pulley' | 'limit' | 'unlimit' | 'mslip' | 'mlock' | 'rollStart' | 'rollStop' | 'zone'
+
+/** Kind of a state change reported at an event (engine ChangeType). */
+export type ChangeType =
+  | 'impact' | 'touch' | 'separate' | 'stick' | 'slip' | 'reverse' | 'leave' | 'slack' | 'taut' | 'switch' | 'timestep' | 'pulley'
+  | 'limit' | 'unlimit' | 'motorSlip' | 'motorLock' | 'rollStop' | 'rollStart' | 'zoneEnter' | 'zoneLeave'
+
+/** One change at an event (engine ChangeDetail). */
+export interface ChangeDetail {
+  type: ChangeType
+  subject: string
+  bodies: string[]
+  impulse?: number
+  vnBefore?: number
+  vnAfter?: number
+  restitution?: number
+  point?: { x: number; y: number }
+  normal?: { x: number; y: number }
+  tangentImpulse?: number
+  vtBefore?: number
+  vtAfter?: number
+  switchIndex?: number
+  branch?: number
+  kink?: boolean
+}
+
+/** A term of W_nn: a free body (1/m and (r × n)²/I) or a body on one fixed hinge ((r_O × n)²/I_O). */
+export type WTerm = { label: 'A' | 'B'; kind: 'free'; mass: number; inertia: number; w: number; rotates: boolean } | { label: 'A' | 'B'; kind: 'hinge'; arm: number; IO: number }
+
+/** Numbers of one impact point. */
+export interface EventImpactPoint {
+  /** Index of the change of the point in `changes` (−1: none; the point is not shown). */
+  change: number
+  kind: 'contact' | 'rope' | 'limit'
+  vnBefore: number
+  vnAfter: number
+  impulse: number
+  restitution: number
+  nx: number
+  ny: number
+  cx: number
+  cy: number
+  tangentImpulse?: number
+  vtBefore?: number
+  vtAfter?: number
+  friction?: 'slip' | 'stick' | 'reverse'
+  ropeName?: string
+  nameA?: string
+  nameB?: string
+  muK?: number
+  muS?: number
+  /** Single point: effective inverse mass (rope: a number; contact: the matrix of the normal and tangent rows). */
+  W?: number | number[][]
+  constrained?: boolean
+  hinged?: { terms: WTerm[]; value: number } | null
+  wTerms?: Array<{ label: 'A' | 'B'; mass: number; inertia: number; w: number; rotates: boolean }>
+  stronge?: { phases: Array<{ compression: boolean; s: number; dPn: number; Pn: number; Pt: number; vn: number; vt: number }>; Pn: number; Pt: number; workC: number; end: 'slip' | 'stick' | 'reverse' } | null
+  dv?: Array<{ label: 'A' | 'B'; sign: number; mass: number; vx: number; vy: number; dw: number | null }>
+  momentum?: { p0: [number, number]; p1: [number, number] }
+}
+
+/** The numbers of the detail view of one event (the Rust session's `eventData`). */
+export interface EventData {
+  index: number
+  t: number
+  triggers: EventType[]
+  changes: ChangeDetail[]
+  segment: number
+  hasPrev: boolean
+  prevReduced: boolean
+  reduced: boolean
+  dt: number
+  /** Display names of the ids the changes refer to. */
+  names: Record<string, string>
+  switches: Array<{ change: number; force: string; kind: string; expr: string }>
+  fired: Array<{ type: EventType; who: string; value: number; threshold: number; leaveNotPf: boolean }> | null
+  impact: { single: boolean; points: EventImpactPoint[]; warning: Message | null; energyBefore: number; energyAfter: number; loss: number } | null
+  state: {
+    bodies: Array<{ index: number; name: string; rotates: boolean; before: number[]; after: number[]; speedBefore: number; speedAfter: number; accBefore: number[] | null; accAfter: number[] | null; ekBefore: number; ekAfter: number }>
+    before: { kinetic: number; gravity: number; spring: number; total: number }
+    after: { kinetic: number; gravity: number; spring: number; total: number }
+  }
+}
 
 const T = (zh: string, en: string, de: string): Tri => ({ zh, en, de })
 
@@ -183,6 +262,17 @@ export const TRIGGER_TEXT: Record<EventType, TriggerTemplate> = {
       'g ist die Winkelgeschwindigkeit des runden Körpers relativ zur Unterlage (r ist die Rollrichtung, sodass g > 0 beim Rollen). Fällt g auf 0, endet das Rollen.'
     ),
     unit: 'rad/s'
+  },
+  // 26.55 (D90)
+  zone: {
+    name: T('进出场区检测', 'Entering or leaving a field region', 'Eintritt in ein / Austritt aus einem Feldgebiet'),
+    g: 'g(t) = b\\,d(\\vec r)',
+    meaning: T(
+      'd 为带电体中心到场区边界的有符号距离（在场区内为正），b = +1 表示此前在区内、−1 表示在区外，使 g 在事件前为正。g 减小到 0，带电体穿过场区边界，所受的电场力和洛伦兹力从此开始或停止。',
+      'd is the signed distance from the charged body\'s centre to the boundary of the region (positive inside); b = +1 when it was inside, −1 when outside, so that g > 0 before the event. When g falls to 0 the body crosses the boundary and the region\'s electric and Lorentz forces start or stop acting.',
+      'd ist der vorzeichenbehaftete Abstand des Ladungsmittelpunkts vom Rand des Gebiets (innen positiv); b = +1, wenn er innen war, −1 außen, sodass g > 0 vor dem Ereignis. Fällt g auf 0, überquert der Körper den Rand, und die elektrische Kraft und die Lorentzkraft des Gebiets setzen ein oder hören auf.'
+    ),
+    unit: 'm'
   }
 }
 
@@ -352,6 +442,25 @@ export const CHANGE_TEXT: Record<ChangeType, ChangeTemplate> = {
       'Das zum Verhindern des Rollens nötige Moment erreicht das größte Rollwiderstandsmoment C_rr·N·R, und der Körper beginnt zu rollen; ab jetzt wirkt C_rr·N·R entgegen der Rollbewegung.'
     ),
     law: T('滚动阻力偶：M = C_rr·N·R，与相对滚动方向相反', 'Rolling resistance: M = C_rr·N·R against the relative rolling', 'Rollwiderstand: M = C_rr·N·R entgegen der Rollbewegung')
+  },
+  // 26.55 (D90)
+  zoneEnter: {
+    name: T('进入场区', 'Enters a field region', 'Tritt in ein Feldgebiet ein'),
+    text: T(
+      '带电体的中心进入场区，从这一刻起受到场区的电场力 qE 和洛伦兹力 qv × B。',
+      'The centre of the charged body enters the region: from now on the region\'s electric force qE and Lorentz force qv × B act on it.',
+      'Der Mittelpunkt des geladenen Körpers tritt in das Gebiet ein: Ab jetzt wirken die elektrische Kraft qE und die Lorentzkraft qv × B des Gebiets.'
+    ),
+    law: T('F = q(E + v × B)（在场区内）', 'F = q(E + v × B) inside the region', 'F = q(E + v × B) im Gebiet')
+  },
+  zoneLeave: {
+    name: T('离开场区', 'Leaves a field region', 'Verlässt ein Feldgebiet'),
+    text: T(
+      '带电体的中心离开场区，场区的电场力和洛伦兹力消失；此后在区外做的运动只受其他力。',
+      'The centre of the charged body leaves the region: the region\'s electric and Lorentz forces vanish, and it moves on under the other forces only.',
+      'Der Mittelpunkt des geladenen Körpers verlässt das Gebiet: Die elektrische Kraft und die Lorentzkraft des Gebiets entfallen, er bewegt sich nur unter den übrigen Kräften weiter.'
+    ),
+    law: T('区外：F = 0（场区的力）', 'Outside: no force of the region', 'Außerhalb: keine Kraft des Gebiets')
   }
 }
 
@@ -461,8 +570,7 @@ export const EVENT_TEXT = {
 // ---- Helpers ----
 
 interface Ctx {
-  rec: Recording
-  sys: System
+  data: EventData
   lang: Lang
   digits: number
   units: UnitChoice
@@ -470,158 +578,15 @@ interface Ctx {
   q: (v: number | null, unit: string, digits?: number) => string
 }
 
-function nameOf(sys: System, id: string): string {
-  const m = sys.model
-  return m.byId.get(id)?.name ?? m.ropes.find(r => r.id === id)?.name ?? m.forces.find(f => f.id === id)?.name ?? id
+const nameOf = (c: Ctx, id: string): string => c.data.names[id] ?? id
+
+/** Rows of the event functions at the event (unit by type; a leave function of a point inside a vertex cone has none). */
+function firedUnit(f: NonNullable<EventData['fired']>[number]): string {
+  return f.type === 'leave' && f.leaveNotPf ? '' : TRIGGER_TEXT[f.type].unit
 }
 
-/** Segment by its index (the recording may start at a later segment after a rebuild). */
-function segmentByIndex(rec: Recording, index: number): Segment | null {
-  return rec.segments.find(s => s.index === index) ?? null
-}
-
-/** Value of an event function of `type` at the event, with its object and threshold. */
-interface FiredValue { type: EventType; who: string; value: number; threshold: number; unit: string }
-
-/**
- * The event functions of the mode that ended at the event, evaluated at the located state: the ones of the
- * trigger types that are past their threshold (or, if rearming moved a threshold, the closest of each type).
- */
-function firedValues(c: Ctx, ev: SimEvent, prev: Segment): FiredValue[] {
-  const sys = c.sys, model = sys.model
-  const fns = buildEventFns(sys, prev.mode, computePoses(model, prev.X0), solveMode(sys, prev.X0, prev.mode), prev.X0)
-  const poses = computePoses(model, ev.before)
-  const sol = solveMode(sys, ev.before, prev.mode, poses)
-  const values = fns.map(f => f.value(poses, sol, ev.before))
-  const who = (k: number): string => {
-    const f = fns[k]
-    if (f.unit >= 0) { const p = prev.mode.units[f.unit].pair; return `${p.X.name}–${p.Y.name}` }
-    if (f.probe) return `${f.probe.A.name} → ${f.probe.B.name}`
-    if (f.rope >= 0) return model.ropes[f.rope].name
-    if (f.sw >= 0) return model.forces[model.switchForce[f.sw]].name
-    return ''
-  }
-  const unitOf = (k: number): string => {
-    const f = fns[k]
-    if (f.type === 'leave' && f.unit >= 0 && prev.mode.units[f.unit].points[f.point]?.kind !== 'pf') return ''
-    return TRIGGER_TEXT[f.type].unit
-  }
-  const out: FiredValue[] = []
-  for (const type of ev.triggers) {
-    const idx = fns.map((_, k) => k).filter(k => fns[k].type === type)
-    let hit = idx.filter(k => values[k] < fns[k].threshold)
-    if (!hit.length && idx.length) hit = [idx.reduce((a, b) => (values[b] - fns[b].threshold < values[a] - fns[a].threshold ? b : a))]
-    for (const k of hit) out.push({ type, who: who(k), value: values[k], threshold: fns[k].threshold, unit: unitOf(k) })
-  }
-  return out
-}
-
-/** Bilateral rows (hinges, rods) at the given poses, in the order of resolveImpact. */
-function bilateralRows(sys: System, poses: Pose[]): RowJ[] {
-  const model = sys.model
-  const rows: RowJ[] = []
-  for (const h of model.hinges) for (const k of hingeKin(poses, h.a, h.b)) rows.push(k.j)
-  for (const r of model.rods) rows.push(distanceKin(poses, r.a, r.b).j)
-  return rows
-}
-
-/**
- * Effective inverse mass matrix W_ij = d_i·M⁻¹(d_j + Bᵀλ_j) of the rows `d` with the bilateral rows B kept
- * satisfied (their impulses eliminated, as in the frictional impact of core/solver/impact.ts).
- */
-function effectiveW(sys: System, poses: Pose[], d: RowJ[]): { W: number[][]; constrained: boolean } {
-  const model = sys.model, n = sys.n
-  const bil = bilateralRows(sys, poses)
-  const nb = bil.length
-  const Wbb = new Float64Array(nb * nb)
-  for (let x = 0; x < nb; x++) for (let y = 0; y < nb; y++) Wbb[x * nb + y] = rowMinvRow(model, bil[x], bil[y])
-  const response = (row: RowJ): Float64Array => {
-    const G = new Float64Array(3 * n)
-    addRow(G, row, 1)
-    if (nb > 0) {
-      const rhs = new Float64Array(nb)
-      for (let x = 0; x < nb; x++) rhs[x] = -rowMinvRow(model, bil[x], row)
-      const lam = solveDense(nb, Wbb, rhs).x
-      for (let x = 0; x < nb; x++) addRow(G, bil[x], lam[x])
-    }
-    for (const b of model.dynamic) {
-      const i = b.index
-      G[3 * i] *= b.invMass; G[3 * i + 1] *= b.invMass; G[3 * i + 2] *= b.invInertia
-    }
-    return G
-  }
-  const R = d.map(response)
-  const W = d.map(di => R.map(rj => rowDot(di, rj)))
-  // Constrained: some bilateral row couples to the given rows
-  const constrained = bil.some(b => d.some(di => Math.abs(rowMinvRow(model, b, di)) > 0))
-  return { W, constrained }
-}
-
-/** One phase of Stronge's impulse path. */
-interface StrongePhase { compression: boolean; s: number; dPn: number; Pn: number; Pt: number; vn: number; vt: number }
-
-/**
- * Stronge's frictional impact (core/solver/impact.ts strongeImpact) step by step: the same phase logic and
- * arithmetic, recording every phase. Returns null where strongeImpact would.
- */
-function strongeTrace(vn0: number, vt0: number, Wnn: number, Wnt: number, Wtt: number, e: number, muK: number, muS: number): { phases: StrongePhase[]; Pn: number; Pt: number; workC: number; end: 'slip' | 'stick' | 'reverse' } | null {
-  if (![vn0, vt0, Wnn, Wnt, Wtt, e, muK, muS].every(Number.isFinite) || !(Wnn > 0) || !(Wtt > 0)) return null
-  const stickable = Math.abs(Wnt) <= muS * Wtt
-  const afterZero = (): number => (stickable ? 0 : Wnt > 0 ? 1 : -1)
-  let s = Math.abs(vt0) > TOL.vel ? (vt0 > 0 ? 1 : -1) : afterZero()
-  const s0 = s
-  let Pn = 0, Pt = 0, vn = vn0, vt = vt0, work = 0, workC = 0
-  let compressing = vn < 0
-  let need = 0
-  const phases: StrongePhase[] = []
-  if (!compressing) return { phases, Pn: 0, Pt: 0, workC: 0, end: s === 0 ? 'stick' : 'slip' }
-  for (let phase = 0; phase < 8; phase++) {
-    const slope = s === 0 ? -Wnt / Wtt : -muK * s
-    const kap = Wnn + Wnt * slope
-    const rho = s === 0 ? 0 : Wnt + Wtt * slope
-    const go = (d: number) => {
-      work += vn * d + 0.5 * kap * d * d
-      Pn += d; Pt += slope * d; vn += kap * d; vt += rho * d
-      phases.push({ compression: compressing, s, dPn: d, Pn, Pt, vn, vt })
-    }
-    const fix = () => { const p = phases[phases.length - 1]; p.vn = vn; p.vt = vt }
-    let dTrans = s !== 0 && s * rho < 0 ? -vt / rho : Infinity
-    if (s === 0 && !(kap > 1e-9 * Wnn)) {
-      if (compressing && vn < -1e-9 * (Math.abs(vn0) + Math.abs(vt0))) return null
-      compressing = false
-      need = 0
-      vn = Math.max(vn, 0)
-      break
-    }
-    if (compressing) {
-      const dC = kap > 0 ? -vn / kap : Infinity
-      if (!(dC <= dTrans)) {
-        if (!Number.isFinite(dTrans)) return null
-        go(dTrans); vt = 0; fix(); s = afterZero()
-        continue
-      }
-      go(dC); vn = 0; fix()
-      compressing = false
-      workC = work
-      need = -e * e * work
-      dTrans -= dC
-      if (!(need > 0)) break
-    }
-    const disc = vn * vn + 2 * kap * need
-    const dR = disc >= 0 ? 2 * need / (vn + Math.sqrt(disc)) : Infinity
-    if (dR <= dTrans) { go(dR); need = 0; break }
-    if (!Number.isFinite(dTrans)) return null
-    const before = work
-    go(dTrans); vt = 0; fix()
-    need -= work - before
-    s = afterZero()
-  }
-  if (compressing || need > 1e-12 * Math.abs(work)) return null
-  const end = s === 0 ? 'stick' : s === s0 ? 'slip' : 'reverse'
-  return { phases, Pn, Pt, workC, end }
-}
-
-const close = (a: number, b: number) => Math.abs(a - b) <= 1e-6 * Math.max(Math.abs(a), Math.abs(b), 1e-12)
+/** Zeno threshold of impacts (core TOL.zeno). */
+const ZENO = 1e-5
 
 /**
  * Unit choice for a value: impulses (N·s) are shown in N·s where the choice shows momenta in kg·m/s (the same unit,
@@ -643,7 +608,8 @@ function texNum(v: number, digits: number): string {
 
 // ---- Sections ----
 
-function triggerSection(c: Ctx, ev: SimEvent, prev: Segment | null): DetailSection {
+function triggerSection(c: Ctx): DetailSection {
+  const ev = c.data
   const blocks: DetailBlock[] = []
   for (const type of ev.triggers) {
     const t = TRIGGER_TEXT[type]
@@ -651,33 +617,30 @@ function triggerSection(c: Ctx, ev: SimEvent, prev: Segment | null): DetailSecti
     blocks.push({ kind: 'equation', tex: t.g, text: c.tr(t.meaning) })
   }
   if (!ev.triggers.length) blocks.push({ kind: 'text', text: c.tr(EVENT_TEXT.noTrigger) })
-  if (prev && !prev.reduced && ev.triggers.length) {
-    try {
-      const fired = firedValues(c, ev, prev)
-      if (fired.length) {
-        blocks.push({ kind: 'text', text: c.tr(EVENT_TEXT.fired) })
-        blocks.push({
-          kind: 'table', head: ['', c.tr(EVENT_TEXT.object), c.tr(EVENT_TEXT.gValue), c.tr(EVENT_TEXT.threshold)], align: ['left', 'left', 'right', 'right'],
-          rows: fired.map(f => [{ text: c.tr(TRIGGER_TEXT[f.type].name) }, { text: f.who }, { text: c.q(f.value, f.unit, 3), mono: true }, { text: c.q(f.threshold, f.unit, 3), mono: true }])
-        })
-      }
-    } catch { /* The event functions are an illustration; a failure leaves them out */ }
+  const fired = ev.fired
+  if (fired && fired.length) {
+    blocks.push({ kind: 'text', text: c.tr(EVENT_TEXT.fired) })
+    blocks.push({
+      kind: 'table', head: ['', c.tr(EVENT_TEXT.object), c.tr(EVENT_TEXT.gValue), c.tr(EVENT_TEXT.threshold)], align: ['left', 'left', 'right', 'right'],
+      rows: fired.map(f => [{ text: c.tr(TRIGGER_TEXT[f.type].name) }, { text: f.who }, { text: c.q(f.value, firedUnit(f), 3), mono: true }, { text: c.q(f.threshold, firedUnit(f), 3), mono: true }])
+    })
   }
   return { id: 'trigger', title: c.tr(EVENT_TEXT.trigger), blocks }
 }
 
-function locateSection(c: Ctx, ev: SimEvent, reduced: boolean): DetailSection {
+function locateSection(c: Ctx): DetailSection {
+  const ev = c.data
   const blocks: DetailBlock[] = []
   const tol = '10^{-12}\\,\\mathrm{s}'
   blocks.push({ kind: 'table', rows: [[{ text: c.tr(EVENT_TEXT.eventTime) }, { tex: `t_E = ${latexQuantity(ev.t, 's', c.units, 13)}` }]], align: ['left', 'right'] })
   const timestep = ev.changes.some(ch => ch.type === 'timestep')
   if (timestep) blocks.push({ kind: 'text', text: c.tr(EVENT_TEXT.fallback) })
-  else if (reduced) blocks.push({ kind: 'text', text: c.tr(EVENT_TEXT.reduced), tone: 'warn' })
+  else if (ev.reduced) blocks.push({ kind: 'text', text: c.tr(EVENT_TEXT.reduced), tone: 'warn' })
   else if (ev.t === 0 && ev.index === 0) blocks.push({ kind: 'text', text: c.tr(EVENT_TEXT.initial) })
   else {
     blocks.push({ kind: 'text', text: c.tr(EVENT_TEXT.method, { tol }) })
     blocks.push({ kind: 'text', text: c.tr(EVENT_TEXT.precision, { tol }) })
-    const k = ev.t / c.rec.dt
+    const k = ev.t / ev.dt
     if (Math.abs(k - Math.round(k)) < 1e-9) blocks.push({ kind: 'text', text: c.tr(EVENT_TEXT.grid), small: true })
     blocks.push({ kind: 'text', text: c.tr(EVENT_TEXT.hysteresis), small: true })
   }
@@ -686,55 +649,55 @@ function locateSection(c: Ctx, ev: SimEvent, reduced: boolean): DetailSection {
 }
 
 function changeWho(c: Ctx, ch: ChangeDetail): string {
-  if (ch.bodies.length) return ch.bodies.map(id => nameOf(c.sys, id)).join(' – ')
-  return ch.subject && ch.subject !== 'solver' ? nameOf(c.sys, ch.subject) : ''
+  if (ch.bodies.length) return ch.bodies.map(id => nameOf(c, id)).join(' – ')
+  return ch.subject && ch.subject !== 'solver' ? nameOf(c, ch.subject) : ''
 }
 
-function changesSection(c: Ctx, ev: SimEvent): DetailSection {
+function changesSection(c: Ctx): DetailSection {
+  const ev = c.data
   const blocks: DetailBlock[] = []
-  for (const ch of ev.changes) {
+  ev.changes.forEach((ch, ci) => {
     const t = CHANGE_TEXT[ch.type]
     const who = changeWho(c, ch)
     blocks.push({ kind: 'subhead', text: `${c.tr(t.name)}${who ? ` · ${who}` : ''}` })
     blocks.push({ kind: 'text', text: c.tr(t.text) })
     if (ch.type === 'switch' && ch.switchIndex !== undefined) {
-      const model = c.sys.model
-      const f = model.forces.find(x => x.id === ch.subject)
-      const def = model.switches[ch.switchIndex]
-      const expr = f?.expr ? `Fx = ${f.expr.x.src}, Fy = ${f.expr.y.src}` : ''
-      blocks.push({ kind: 'text', text: c.tr(EVENT_TEXT.switchInfo, { f: f?.name ?? ch.subject, k: `${def?.kind ?? ''} · ${c.tr(ch.kink ? EVENT_TEXT.switchKink : EVENT_TEXT.switchJump)}`, b: ch.branch ?? 0, e: expr }), small: true })
+      const sw = ev.switches.find(x => x.change === ci)
+      blocks.push({ kind: 'text', text: c.tr(EVENT_TEXT.switchInfo, { f: sw?.force ?? ch.subject, k: `${sw?.kind ?? ''} · ${c.tr(ch.kink ? EVENT_TEXT.switchKink : EVENT_TEXT.switchJump)}`, b: ch.branch ?? 0, e: sw?.expr ?? '' }), small: true })
     }
     blocks.push({ kind: 'text', text: c.tr(EVENT_TEXT.lawLabel, { l: c.tr(t.law) }), small: true, tone: 'info' })
-  }
+  })
   if (!ev.changes.length) blocks.push({ kind: 'text', text: c.tr(EVENT_TEXT.noTrigger) })
   return { id: 'changes', title: c.tr(EVENT_TEXT.changes), blocks }
 }
 
+const freeTerm = (c: Ctx, t: { label: string; mass: number; inertia: number; w: number; rotates: boolean }, sym: string[], num: string[]) => {
+  sym.push(`\\dfrac{1}{m_${t.label}}`); num.push(`\\dfrac{1}{${siTex(c, t.mass, 'kg')}}`)
+  if (t.rotates) {
+    sym.push(`\\dfrac{\\left(\\vec r_${t.label}\\times\\vec n\\right)^2}{I_${t.label}}`)
+    num.push(`\\dfrac{${texNum(t.w, c.digits)}^2\\,\\mathrm{m^2}}{${siTex(c, t.inertia, 'kg·m²')}}`)
+  }
+}
+
 /** Blocks of one impact point (contact or rope). */
-function impactBlocks(c: Ctx, ev: SimEvent, ch: ChangeDetail, p: ImpactPoint, single: boolean): DetailBlock[] {
-  const sys = c.sys, model = sys.model, n = sys.n
+function impactBlocks(c: Ctx, ch: ChangeDetail, p: EventImpactPoint, single: boolean): DetailBlock[] {
   const blocks: DetailBlock[] = []
   const d = c.digits
   const u = p.vnBefore
   const e = p.restitution
-  const poses = computePoses(model, ev.before)
   if (p.kind === 'rope') {
-    const rope = model.ropes[p.rope]
-    blocks.push({ kind: 'subhead', text: `${c.tr(CHANGE_TEXT.taut.name)} · ${rope?.name ?? ''}` })
+    blocks.push({ kind: 'subhead', text: `${c.tr(CHANGE_TEXT.taut.name)} · ${p.ropeName ?? ''}` })
     blocks.push({ kind: 'text', text: c.tr(EVENT_TEXT.rope) })
     blocks.push({ kind: 'equation', tex: `v_{\\parallel}^{-} = ${siTex(c, u, 'm/s')} \\;\\rightarrow\\; v_{\\parallel}^{+} = 0` })
     blocks.push({ kind: 'text', text: `${c.tr(EVENT_TEXT.recordedRope)} ${c.q(p.vnAfter, 'm/s')}`, small: true })
-    if (single && rope) {
-      const { W } = effectiveW(sys, poses, [ropeKin(poses, rope).j])
-      const Wv = W[0][0]
+    if (single && typeof p.W === 'number') {
+      const Wv = p.W
       blocks.push({ kind: 'chain', lhs: 'J', rhs: ['\\dfrac{-v_{\\parallel}^{-}}{W}', `\\dfrac{-${texNum(u, d)}\\,\\mathrm{m/s}}{${latexNumber(Wv, d)}\\,\\mathrm{kg^{-1}}}`, siTex(c, -u / Wv, 'N·s')] })
     }
     blocks.push({ kind: 'text', text: c.tr(EVENT_TEXT.recordedImpulse, { j: c.q(p.impulse, 'N·s') }), small: true })
     return blocks
   }
-  const feature = p.feature
-  const A = feature?.A.body, B = feature?.B.body
-  const nameA = A?.name ?? '', nameB = B?.name ?? ''
+  const nameA = p.nameA ?? '', nameB = p.nameB ?? ''
   blocks.push({ kind: 'subhead', text: `${c.tr(CHANGE_TEXT.impact.name)} · ${nameA} – ${nameB}` })
   blocks.push({ kind: 'text', text: c.tr(EVENT_TEXT.bodiesAB, { a: nameA, b: nameB }), small: true })
   blocks.push({ kind: 'equation', tex: `\\vec n = \\left(${latexNumber(p.nx, d)},\\ ${latexNumber(p.ny, d)}\\right),\\quad v_n^{-} = ${siTex(c, u, 'm/s')}` })
@@ -742,34 +705,29 @@ function impactBlocks(c: Ctx, ev: SimEvent, ch: ChangeDetail, p: ImpactPoint, si
   blocks.push({ kind: 'text', text: c.tr(EVENT_TEXT.restitution) })
   const target = -e * u
   blocks.push({ kind: 'chain', lhs: 'v_n^{+}', rhs: ['-e\\,v_n^{-}', `-${latexNumber(e, d)} \\times ${texNum(u, d)}\\,\\mathrm{m/s}`, siTex(c, target, 'm/s')] })
-  if (-u < TOL.zeno && ch.restitution === 0) blocks.push({ kind: 'text', text: c.tr(EVENT_TEXT.zeno), small: true })
+  if (-u < ZENO && ch.restitution === 0) blocks.push({ kind: 'text', text: c.tr(EVENT_TEXT.zeno), small: true })
   blocks.push({ kind: 'text', text: `${c.tr(EVENT_TEXT.recordedAfter)} $v_n^+$ = ${c.q(p.vnAfter, 'm/s')}`, small: true })
   const frictional = p.tangentImpulse !== undefined
   // Impulse (single contact): J = −(1 + e) v_n⁻ / W_nn
-  if (single && feature) {
-    const kin = contactKin(feature, poses)
-    const rows = frictional ? [kin.jn, kin.jt] : [kin.jn]
-    const { W, constrained } = effectiveW(sys, poses, rows)
+  if (single && Array.isArray(p.W)) {
+    const W = p.W
     const Wnn = W[0][0]
     blocks.push({ kind: 'text', text: c.tr(EVENT_TEXT.impulseText) })
-    if (constrained) {
+    if (p.constrained) {
       blocks.push({ kind: 'text', text: c.tr(EVENT_TEXT.constrained), small: true })
-      const hinged = hingedTerms(c, poses, A, B, kin.jn.aw, -kin.jn.bw, p.cx, p.cy, p.nx, p.ny)
-      if (hinged && close(hinged.value, Wnn)) blocks.push({ kind: 'chain', lhs: 'W_{nn}', rhs: [hinged.sym, hinged.num, `${latexNumber(Wnn, d)}\\,\\mathrm{kg^{-1}}`] })
-      else blocks.push({ kind: 'equation', tex: `W_{nn} = ${latexNumber(Wnn, d)}\\,\\mathrm{kg^{-1}}` })
+      if (p.hinged) {
+        const sym: string[] = [], num: string[] = []
+        for (const t of p.hinged.terms) {
+          if (t.kind === 'free') { freeTerm(c, t, sym, num); continue }
+          sym.push(`\\dfrac{\\left(\\vec r_{O${t.label}}\\times\\vec n\\right)^2}{I_{O${t.label}}}`)
+          num.push(`\\dfrac{${texNum(t.arm, d)}^2\\,\\mathrm{m^2}}{${siTex(c, t.IO, 'kg·m²')}}`)
+        }
+        blocks.push({ kind: 'chain', lhs: 'W_{nn}', rhs: [sym.join(' + '), num.join(' + '), `${latexNumber(Wnn, d)}\\,\\mathrm{kg^{-1}}`] })
+      } else blocks.push({ kind: 'equation', tex: `W_{nn} = ${latexNumber(Wnn, d)}\\,\\mathrm{kg^{-1}}` })
     } else {
       // W_nn = 1/m_A + (r_A×n)²/I_A + 1/m_B + (r_B×n)²/I_B for the dynamic bodies
       const sym: string[] = [], num: string[] = []
-      const term = (b: typeof A, w: number, label: string) => {
-        if (!b || !b.dynamic) return
-        sym.push(`\\dfrac{1}{m_${label}}`); num.push(`\\dfrac{1}{${siTex(c, b.mass, 'kg')}}`)
-        if (b.invInertia > 0 && Math.abs(w) > 1e-12) {
-          sym.push(`\\dfrac{\\left(\\vec r_${label}\\times\\vec n\\right)^2}{I_${label}}`)
-          num.push(`\\dfrac{${texNum(w, d)}^2\\,\\mathrm{m^2}}{${siTex(c, b.inertia, 'kg·m²')}}`)
-        }
-      }
-      term(A, kin.jn.aw, 'A')
-      term(B, -kin.jn.bw, 'B')
+      for (const t of p.wTerms ?? []) freeTerm(c, t, sym, num)
       blocks.push({ kind: 'chain', lhs: 'W_{nn}', rhs: [sym.join(' + '), num.join(' + '), `${latexNumber(Wnn, d)}\\,\\mathrm{kg^{-1}}`] })
     }
     const Jn = frictional ? p.impulse : -(1 + e) * u / Wnn
@@ -779,28 +737,25 @@ function impactBlocks(c: Ctx, ev: SimEvent, ch: ChangeDetail, p: ImpactPoint, si
     blocks.push({ kind: 'text', text: c.tr(EVENT_TEXT.recordedImpulse, { j: c.q(p.impulse, 'N·s') }), small: true })
     if (frictional) blocks.push(...frictionBlocks(c, p, W, u))
     // Velocity changes of the free bodies (no constraint impulses)
-    if (!constrained) {
+    if (!p.constrained) {
       blocks.push({ kind: 'text', text: c.tr(EVENT_TEXT.dv) })
       const Jt = p.tangentImpulse ?? 0
       const tx = -p.ny, ty = p.nx
-      for (const [b, sign, label] of [[A, 1, 'A'], [B, -1, 'B']] as const) {
-        if (!b || !b.dynamic) continue
-        const i = b.index
+      for (const v of p.dv ?? []) {
+        const sign = v.sign, label = v.label
         const lawSym = frictional ? `${sign > 0 ? '' : '-'}\\dfrac{J_n\\vec n + J_t\\vec t}{m_${label}}` : `${sign > 0 ? '' : '-'}\\dfrac{J}{m_${label}}\\vec n`
-        const vx = sign * (p.impulse * p.nx + Jt * tx) / b.mass, vy = sign * (p.impulse * p.ny + Jt * ty) / b.mass
         const vec = (x: number, y: number) => `\\left(${latexNumber(x, d)},\\ ${latexNumber(y, d)}\\right)`
         const numeric = frictional
-          ? `${sign > 0 ? '' : '-'}\\dfrac{${latexNumber(p.impulse, d)} \\times ${vec(p.nx, p.ny)} + ${texNum(Jt, d)} \\times ${vec(tx, ty)}}{${latexNumber(b.mass, d)}}`
-          : `${sign > 0 ? '' : '-'}\\dfrac{${latexNumber(p.impulse, d)}\\,\\mathrm{N\\cdot s}}{${siTex(c, b.mass, 'kg')}} \\times ${vec(p.nx, p.ny)}`
-        blocks.push({ kind: 'chain', lhs: `\\Delta\\vec v_${label}`, rhs: [lawSym, numeric, `${vec(vx, vy)}\\,\\mathrm{m/s}`] })
-        if (b.invInertia > 0) {
-          const w = ev.after[3 * n + 3 * i + 2] - ev.before[3 * n + 3 * i + 2]
-          blocks.push({ kind: 'chain', lhs: `\\Delta\\omega_${label}`, rhs: [frictional ? `${sign > 0 ? '' : '-'}\\dfrac{\\vec r_${label}\\times(J_n\\vec n + J_t\\vec t)}{I_${label}}` : `${sign > 0 ? '' : '-'}\\dfrac{(\\vec r_${label}\\times\\vec n)\\,J}{I_${label}}`, siTex(c, w, 'rad/s')] })
+          ? `${sign > 0 ? '' : '-'}\\dfrac{${latexNumber(p.impulse, d)} \\times ${vec(p.nx, p.ny)} + ${texNum(Jt, d)} \\times ${vec(tx, ty)}}{${latexNumber(v.mass, d)}}`
+          : `${sign > 0 ? '' : '-'}\\dfrac{${latexNumber(p.impulse, d)}\\,\\mathrm{N\\cdot s}}{${siTex(c, v.mass, 'kg')}} \\times ${vec(p.nx, p.ny)}`
+        blocks.push({ kind: 'chain', lhs: `\\Delta\\vec v_${label}`, rhs: [lawSym, numeric, `${vec(v.vx, v.vy)}\\,\\mathrm{m/s}`] })
+        if (v.dw !== null) {
+          blocks.push({ kind: 'chain', lhs: `\\Delta\\omega_${label}`, rhs: [frictional ? `${sign > 0 ? '' : '-'}\\dfrac{\\vec r_${label}\\times(J_n\\vec n + J_t\\vec t)}{I_${label}}` : `${sign > 0 ? '' : '-'}\\dfrac{(\\vec r_${label}\\times\\vec n)\\,J}{I_${label}}`, siTex(c, v.dw, 'rad/s')] })
         }
       }
       // Momentum of two free bodies
-      if (A?.dynamic && B?.dynamic && !attachedImpulsive(sys, A.id) && !attachedImpulsive(sys, B.id)) {
-        const p0 = momentum(sys, ev.before, [A.index, B.index]), p1 = momentum(sys, ev.after, [A.index, B.index])
+      if (p.momentum) {
+        const p0 = p.momentum.p0, p1 = p.momentum.p1
         blocks.push({ kind: 'text', text: c.tr(EVENT_TEXT.momentum) })
         blocks.push({ kind: 'chain', lhs: '\\vec p^{-}', rhs: ['m_A\\vec v_A^{-} + m_B\\vec v_B^{-}', `\\left(${latexNumber(p0[0], d)},\\ ${latexNumber(p0[1], d)}\\right)\\,\\mathrm{kg\\cdot m/s}`] })
         blocks.push({ kind: 'chain', lhs: '\\vec p^{+}', rhs: ['m_A\\vec v_A^{+} + m_B\\vec v_B^{+}', `\\left(${latexNumber(p1[0], d)},\\ ${latexNumber(p1[1], d)}\\right)\\,\\mathrm{kg\\cdot m/s}`] })
@@ -810,62 +765,20 @@ function impactBlocks(c: Ctx, ev: SimEvent, ch: ChangeDetail, p: ImpactPoint, si
   return blocks
 }
 
-/**
- * W_nn written with the textbook terms when each body is free or turns about one fixed hinge: a free body adds
- * 1/m + (r × n)²/I (I about its centre of mass), a hinged one (r_O × n)²/I_O with I_O = I + m·|OC|² (parallel-axis
- * theorem) and r_O from the pivot O to the contact point. Null when a body is constrained otherwise.
- */
-function hingedTerms(c: Ctx, poses: Pose[], A: BodyModel | undefined, B: BodyModel | undefined, wA: number, wB: number, cx: number, cy: number, nx: number, ny: number): { sym: string; num: string; value: number } | null {
-  const model = c.sys.model, d = c.digits
-  const sym: string[] = [], num: string[] = []
-  let value = 0
-  for (const [b, w, label] of [[A, wA, 'A'], [B, wB, 'B']] as const) {
-    if (!b || !b.dynamic) continue
-    const on = (a: { body: BodyModel | null }) => a.body?.id === b.id
-    const hinges = model.hinges.filter(h => on(h.a) || on(h.b))
-    if (model.rods.some(r => on(r.a) || on(r.b)) || model.ropes.some(r => on(r.a) || on(r.b))) return null
-    if (hinges.length === 0) {
-      sym.push(`\\dfrac{1}{m_${label}}`); num.push(`\\dfrac{1}{${siTex(c, b.mass, 'kg')}}`)
-      value += b.invMass
-      if (b.invInertia > 0 && Math.abs(w) > 1e-12) {
-        sym.push(`\\dfrac{\\left(\\vec r_${label}\\times\\vec n\\right)^2}{I_${label}}`)
-        num.push(`\\dfrac{${texNum(w, d)}^2\\,\\mathrm{m^2}}{${siTex(c, b.inertia, 'kg·m²')}}`)
-        value += w * w * b.invInertia
-      }
-      continue
-    }
-    if (hinges.length !== 1) return null
-    const h = hinges[0]
-    const other = on(h.a) ? h.b : h.a
-    if (other.body && other.body.dynamic) return null
-    const mine = on(h.a) ? h.a : h.b
-    const pose = poses[b.global]
-    const ox = pose.x + pose.c * mine.local.x - pose.s * mine.local.y, oy = pose.y + pose.s * mine.local.x + pose.c * mine.local.y
-    const rx = cx - ox, ry = cy - oy
-    const arm = rx * ny - ry * nx
-    const IO = b.inertia + b.mass * ((pose.x - ox) ** 2 + (pose.y - oy) ** 2)
-    sym.push(`\\dfrac{\\left(\\vec r_{O${label}}\\times\\vec n\\right)^2}{I_{O${label}}}`)
-    num.push(`\\dfrac{${texNum(arm, d)}^2\\,\\mathrm{m^2}}{${siTex(c, IO, 'kg·m²')}}`)
-    value += arm * arm / IO
-  }
-  return sym.length ? { sym: sym.join(' + '), num: num.join(' + '), value } : null
-}
-
 /** Friction impulse and Stronge phases of a single frictional contact. */
-function frictionBlocks(c: Ctx, p: ImpactPoint, W: number[][], u: number): DetailBlock[] {
+function frictionBlocks(c: Ctx, p: EventImpactPoint, W: number[][], _u: number): DetailBlock[] {
   const blocks: DetailBlock[] = []
   const d = c.digits
   const end = p.friction ?? 'slip'
   const endText = c.tr(end === 'stick' ? EVENT_TEXT.endStick : end === 'reverse' ? EVENT_TEXT.endReverse : EVENT_TEXT.endSlip)
   blocks.push({ kind: 'text', text: c.tr(EVENT_TEXT.friction) })
-  const mat = p.pair?.material
-  const muK = mat?.muK ?? 0, muS = Math.max(mat?.muS ?? 0, muK)
+  const muK = p.muK ?? 0, muS = p.muS ?? 0
   const Wnn = W[0][0], Wnt = 0.5 * (W[0][1] + W[1][0]), Wtt = W[1][1]
   blocks.push({ kind: 'equation', tex: `W = \\begin{pmatrix} W_{nn} & W_{nt} \\\\ W_{nt} & W_{tt} \\end{pmatrix} = \\begin{pmatrix} ${latexNumber(Wnn, d)} & ${latexNumber(Wnt, d)} \\\\ ${latexNumber(Wnt, d)} & ${latexNumber(Wtt, d)} \\end{pmatrix}\\,\\mathrm{kg^{-1}},\\quad \\mu_k = ${latexNumber(muK, d)},\\ \\mu_s = ${latexNumber(muS, d)}` })
   const vt0 = p.vtBefore ?? 0
-  const tr = strongeTrace(u, vt0, Wnn, Wnt, Wtt, p.restitution, muK, muS)
   const Jt = p.tangentImpulse ?? 0
-  if (tr && close(tr.Pn, p.impulse) && close(tr.Pt, Jt) && tr.phases.length) {
+  const tr = p.stronge
+  if (tr) {
     blocks.push({ kind: 'text', text: c.tr(EVENT_TEXT.phases) })
     // Units in the header, numbers in the cells (display units)
     const uJ = displayLabel('N·s', choiceFor(c.units, 'N·s')), uV = displayLabel('m/s', c.units)
@@ -885,41 +798,27 @@ function frictionBlocks(c: Ctx, p: ImpactPoint, W: number[][], u: number): Detai
   return blocks
 }
 
-/** Whether a body is attached to a hinge, rod or rope (connectors that act with impulses). */
-function attachedImpulsive(sys: System, id: string): boolean {
-  const m = sys.model
-  const on = (a: { body: { id: string } | null }) => a.body?.id === id
-  return m.hinges.some(h => on(h.a) || on(h.b)) || m.rods.some(r => on(r.a) || on(r.b)) || m.ropes.some(r => on(r.a) || on(r.b) || r.pulleys.some(pp => pp.pulley.body?.id === id))
-}
-
-function momentum(sys: System, X: Float64Array, idx: number[]): [number, number] {
-  const n = sys.n
-  let px = 0, py = 0
-  for (const i of idx) { const b = sys.model.dynamic[i]; px += b.mass * X[3 * n + 3 * i]; py += b.mass * X[3 * n + 3 * i + 1] }
-  return [px, py]
-}
-
-function impactSection(c: Ctx, ev: SimEvent): DetailSection | null {
-  const imp = ev.impact
+function impactSection(c: Ctx): DetailSection | null {
+  const imp = c.data.impact
   if (!imp) return null
   const blocks: DetailBlock[] = []
   const points = imp.points
-  const single = points.length === 1
+  const single = imp.single
   if (!single) {
     blocks.push({ kind: 'text', text: c.tr(EVENT_TEXT.multi) })
     blocks.push({
       kind: 'table', head: [c.tr(EVENT_TEXT.point), 'e', 'vₙ⁻', 'vₙ⁺', 'J'], align: ['left', 'right', 'right', 'right', 'right'],
       rows: points.map(p => [
-        { text: p.kind === 'rope' ? c.sys.model.ropes[p.rope]?.name ?? '' : `${p.feature?.A.body.name ?? ''} – ${p.feature?.B.body.name ?? ''}` },
+        { text: p.kind === 'rope' ? p.ropeName ?? '' : `${p.nameA ?? ''} – ${p.nameB ?? ''}` },
         { text: String(Number(p.restitution.toPrecision(c.digits))), mono: true },
         { text: c.q(p.vnBefore, 'm/s'), mono: true }, { text: c.q(p.vnAfter, 'm/s'), mono: true }, { text: c.q(p.impulse, 'N·s'), mono: true }
       ])
     })
   }
   for (const p of points) {
-    const ch = ev.changes.find(x => (p.kind === 'contact' ? x.type === 'impact' && x.subject === p.pair?.key : x.type === 'taut' && x.subject === c.sys.model.ropes[p.rope]?.id)) ?? null
+    const ch = p.change >= 0 ? c.data.changes[p.change] : null
     if (!ch) continue
-    blocks.push(...impactBlocks(c, ev, ch, p, single))
+    blocks.push(...impactBlocks(c, ch, p, single))
   }
   if (imp.warning) blocks.push({ kind: 'text', text: renderMessage(imp.warning, c.lang), tone: 'warn', small: true })
   blocks.push({ kind: 'text', text: c.tr(EVENT_TEXT.energyLoss) })
@@ -927,63 +826,42 @@ function impactSection(c: Ctx, ev: SimEvent): DetailSection | null {
   return { id: 'impact', title: c.tr(EVENT_TEXT.impact), blocks }
 }
 
-/** Bodies an event concerns (dynamic ones; all dynamic bodies for a solver switch), at most four. */
-function involvedBodies(c: Ctx, ev: SimEvent): number[] {
-  const model = c.sys.model
-  const ids = new Set<string>()
-  for (const ch of ev.changes) {
-    for (const id of ch.bodies) ids.add(id)
-    if (ch.type === 'switch') { const f = model.forces.find(x => x.id === ch.subject); if (f?.a.body) ids.add(f.a.body.id) }
-    if (ch.type === 'slack' || ch.type === 'taut') { const r = model.ropes.find(x => x.id === ch.subject); if (r) for (const a of [r.a, r.b]) if (a.body) ids.add(a.body.id) }
-  }
-  let list = [...ids].map(id => model.byId.get(id)).filter(b => b && b.dynamic).map(b => b!.index)
-  if (!list.length) list = model.dynamic.map(b => b.index)
-  return list.slice(0, 4)
-}
-
 /** Relative size below which a before/after difference is shown as "no change" (rounding, projection). */
 const CHANGED = 1e-9
 /** Rounding noise (|v| < 10⁻¹² in SI) is shown as 0 in the before/after tables. */
 const snap = (v: number | null) => (v !== null && Math.abs(v) < 1e-12 ? 0 : v)
 
-function stateSection(c: Ctx, ev: SimEvent, prev: Segment | null, next: Segment | null): DetailSection {
-  const sys = c.sys, model = sys.model, n = sys.n
+function stateSection(c: Ctx): DetailSection {
+  const ev = c.data
   const blocks: DetailBlock[] = []
   const jumped = !!ev.impact
   blocks.push({ kind: 'text', text: c.tr(jumped ? EVENT_TEXT.jump : EVENT_TEXT.continuous), small: true })
-  const acc = (seg: Segment | null, X: Float64Array): Float64Array | null => {
-    if (!seg) return null
-    try { return solveMode(sys, X, seg.mode).acc } catch { return null }
-  }
-  const a0 = acc(prev, ev.before), a1 = acc(next, ev.after)
   const head = [c.tr(EVENT_TEXT.quantity), c.tr(EVENT_TEXT.before), c.tr(EVENT_TEXT.after2), c.tr(EVENT_TEXT.change)]
   const align: Array<'left' | 'right'> = ['left', 'right', 'right', 'right']
-  for (const i of involvedBodies(c, ev)) {
-    const b = model.dynamic[i]
+  for (const b of ev.state.bodies) {
     const rows: DetailCell[][] = []
     const row = (label: string, sym: string, v0: number | null, v1: number | null, unit: string) => {
       const diff = v0 !== null && v1 !== null ? v1 - v0 : null
       const changed = diff !== null && Math.abs(diff) > CHANGED * Math.max(1, Math.abs(v0!), Math.abs(v1!))
       rows.push([{ text: label, tex: sym }, { text: c.q(snap(v0), unit), mono: true }, { text: c.q(snap(v1), unit), mono: true }, { text: changed ? c.q(diff, unit, 3) : '—', mono: true, tone: changed ? 'info' : undefined }])
     }
-    const B = ev.before, A = ev.after
-    row(`${c.tr(EVENT_TEXT.position)} `, 'x', B[3 * i], A[3 * i], 'm')
-    row(`${c.tr(EVENT_TEXT.position)} `, 'y', B[3 * i + 1], A[3 * i + 1], 'm')
-    if (b.invInertia > 0) row(`${c.tr(EVENT_TEXT.angle)} `, '\\theta', B[3 * i + 2], A[3 * i + 2], 'rad')
-    row(`${c.tr(EVENT_TEXT.velocity)} `, 'v_x', B[3 * n + 3 * i], A[3 * n + 3 * i], 'm/s')
-    row(`${c.tr(EVENT_TEXT.velocity)} `, 'v_y', B[3 * n + 3 * i + 1], A[3 * n + 3 * i + 1], 'm/s')
-    row(`${c.tr(EVENT_TEXT.speed)} `, '|\\vec v|', Math.hypot(B[3 * n + 3 * i], B[3 * n + 3 * i + 1]), Math.hypot(A[3 * n + 3 * i], A[3 * n + 3 * i + 1]), 'm/s')
-    if (b.invInertia > 0) row(`${c.tr(EVENT_TEXT.omega)} `, '\\omega', B[3 * n + 3 * i + 2], A[3 * n + 3 * i + 2], 'rad/s')
-    row(`${c.tr(EVENT_TEXT.accel)} `, 'a_x', a0 ? a0[3 * i] : null, a1 ? a1[3 * i] : null, 'm/s²')
-    row(`${c.tr(EVENT_TEXT.accel)} `, 'a_y', a0 ? a0[3 * i + 1] : null, a1 ? a1[3 * i + 1] : null, 'm/s²')
-    if (b.invInertia > 0) row(`${c.tr(EVENT_TEXT.beta)} `, '\\beta', a0 ? a0[3 * i + 2] : null, a1 ? a1[3 * i + 2] : null, 'rad/s²')
-    const ek = (X: Float64Array) => 0.5 * b.mass * (X[3 * n + 3 * i] ** 2 + X[3 * n + 3 * i + 1] ** 2) + 0.5 * b.inertia * (b.invInertia > 0 ? X[3 * n + 3 * i + 2] ** 2 : 0)
-    row(`${c.tr(EVENT_TEXT.ek)} `, 'E_k', ek(B), ek(A), 'J')
+    const B = b.before, A = b.after, a0 = b.accBefore, a1 = b.accAfter
+    row(`${c.tr(EVENT_TEXT.position)} `, 'x', B[0], A[0], 'm')
+    row(`${c.tr(EVENT_TEXT.position)} `, 'y', B[1], A[1], 'm')
+    if (b.rotates) row(`${c.tr(EVENT_TEXT.angle)} `, '\\theta', B[2], A[2], 'rad')
+    row(`${c.tr(EVENT_TEXT.velocity)} `, 'v_x', B[3], A[3], 'm/s')
+    row(`${c.tr(EVENT_TEXT.velocity)} `, 'v_y', B[4], A[4], 'm/s')
+    row(`${c.tr(EVENT_TEXT.speed)} `, '|\\vec v|', b.speedBefore, b.speedAfter, 'm/s')
+    if (b.rotates) row(`${c.tr(EVENT_TEXT.omega)} `, '\\omega', B[5], A[5], 'rad/s')
+    row(`${c.tr(EVENT_TEXT.accel)} `, 'a_x', a0 ? a0[0] : null, a1 ? a1[0] : null, 'm/s²')
+    row(`${c.tr(EVENT_TEXT.accel)} `, 'a_y', a0 ? a0[1] : null, a1 ? a1[1] : null, 'm/s²')
+    if (b.rotates) row(`${c.tr(EVENT_TEXT.beta)} `, '\\beta', a0 ? a0[2] : null, a1 ? a1[2] : null, 'rad/s²')
+    row(`${c.tr(EVENT_TEXT.ek)} `, 'E_k', b.ekBefore, b.ekAfter, 'J')
     blocks.push({ kind: 'subhead', text: b.name })
     blocks.push({ kind: 'table', head, rows, align })
   }
   // System energies
-  const e0 = energy(sys, ev.before), e1 = energy(sys, ev.after)
+  const e0 = ev.state.before, e1 = ev.state.after
   const rows: DetailCell[][] = []
   const row = (label: string, v0: number, v1: number) => {
     const diff = v1 - v0
@@ -1007,33 +885,41 @@ function changeName(c: Ctx, ch: ChangeDetail): string {
   return c.lang === 'zh' ? `${name}（${kink}）` : `${name} (${kink})`
 }
 
+/** The view shown when the event does not exist (the recording changed). */
+export function missingEventDetail(eventIndex: number, lang: Lang): DetailView {
+  const tr = (t: Tri, params?: Record<string, string | number>) => fillParams(triText(t, lang), params)
+  return { kind: 'event', title: tr(EVENT_TEXT.event), subtitle: '', headline: null, badges: [], sections: [{ id: 'missing', title: tr(EVENT_TEXT.event), blocks: [{ kind: 'text', text: tr(EVENT_TEXT.missing, { i: eventIndex }), tone: 'warn' }] }] }
+}
+
+/** The numbers of the detail view of event `index` of a recording, computed in the core (event_detail.rs). */
+export function eventDataOf(rec: Recording, index: number): EventData | null {
+  return rec.session.call<{ event: EventData | null }>({ op: 'eventData', index }).event
+}
+
 /**
- * Build the detail view of event `eventIndex` (index into `rec.events`) in language `lang`. Values are shown in the
- * display units of `opts.units`; impact equations are written in SI, like the substitutions of the formulas.
+ * Build the detail view of an event from its numbers (`eventData` of the session) in language `lang`. Values are shown
+ * in the display units of `opts.units`; impact equations are written in SI, like the substitutions of the formulas.
  */
-export function buildEventDetail(rec: Recording, eventIndex: number, lang: Lang, opts: DetailOptions = {}): DetailView {
+export function buildEventDetail(data: EventData | null, eventIndex: number, lang: Lang, opts: DetailOptions = {}): DetailView {
+  if (!data) return missingEventDetail(eventIndex, lang)
   const units = opts.units ?? defaultChoice()
   const digits = opts.digits ?? 4
   const tr = (t: Tri, params?: Record<string, string | number>) => fillParams(triText(t, lang), params)
   const c: Ctx = {
-    rec, sys: rec.system, lang, digits, units, tr,
+    data, lang, digits, units, tr,
     q: (v, unit, nd = digits) => formatQuantity(v, unit, choiceFor(units, unit), nd)
   }
-  const ev = rec.events[eventIndex]
-  if (!ev) return { kind: 'event', title: tr(EVENT_TEXT.event), subtitle: '', headline: null, badges: [], sections: [{ id: 'missing', title: tr(EVENT_TEXT.event), blocks: [{ kind: 'text', text: tr(EVENT_TEXT.missing, { i: eventIndex }), tone: 'warn' }] }] }
-  const prev = ev.index === 0 && ev.t === 0 && ev.segment === 0 ? null : segmentByIndex(rec, ev.segment - 1)
-  const next = segmentByIndex(rec, ev.segment)
-  const reduced = rec.reducedFrom != null && ev.t > rec.reducedFrom + 1e-12
+  const ev = data
   const names = [...new Set(ev.changes.map(ch => changeName(c, ch)))]
   if (!names.length) names.push(...new Set(ev.triggers.map(t => tr(TRIGGER_TEXT[t].name))))
   const who = [...new Set(ev.changes.map(ch => changeWho(c, ch)).filter(Boolean))].join(lang === 'zh' ? '；' : '; ')
-  const sections: DetailSection[] = [triggerSection(c, ev, prev), locateSection(c, ev, reduced), changesSection(c, ev)]
-  const impact = impactSection(c, ev)
+  const sections: DetailSection[] = [triggerSection(c), locateSection(c), changesSection(c)]
+  const impact = impactSection(c)
   if (impact) sections.push(impact)
-  sections.push(stateSection(c, ev, prev, next))
+  sections.push(stateSection(c))
   const headline = ev.impact && ev.changes.some(ch => ch.type === 'impact') ? 'v_n^{+} = -e\\,v_n^{-}' : ev.triggers.length ? TRIGGER_TEXT[ev.triggers[0]].g : null
   const badges: Array<{ text: string; tone: Tone }> = ev.triggers.map(t => ({ text: tr(TRIGGER_TEXT[t].name), tone: 'info' as Tone }))
-  if (reduced || ev.changes.some(ch => ch.type === 'timestep')) badges.push({ text: tr(CHANGE_TEXT.timestep.name), tone: 'warn' })
+  if (ev.reduced || ev.changes.some(ch => ch.type === 'timestep')) badges.push({ text: tr(CHANGE_TEXT.timestep.name), tone: 'warn' })
   return {
     kind: 'event',
     title: names.join(lang === 'zh' ? '、' : ', ') || tr(EVENT_TEXT.event),

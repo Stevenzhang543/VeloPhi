@@ -14,9 +14,9 @@ import { state } from '../store'
 import { fmtQ, toDisp, unitLabel } from '../settings'
 import type { ChoiceQuestion, NumericQuestion, ProblemQuestion, ProblemTarget, QuestionKey } from '../../teaching/problems'
 import { CHAPTERS, isCorrect, answerError, problemParams, ptext, questionKey } from '../../teaching/problems'
-import { listQuantities } from '../../core/observe/quantities'
-import type { QuantityDef } from '../../core/observe/quantities'
-import { recognize } from '../../formula/situations'
+import { listQuantities } from '../../engine/observe'
+import type { QuantityDef } from '../../engine/observe'
+import { recognize } from '../../formula/recognize'
 import { FORMULAS } from '../../formula/library'
 import { EVENT_TYPES, SITUATION_NAMES } from '../../analysis/prediction'
 import { relErrorText } from '../../export/formulaImage'
@@ -70,7 +70,7 @@ function errOf(q: NumericQuestion): string {
 }
 
 // ---- Teacher: editing ----
-const quantities = computed<QuantityDef[]>(() => (state.recording ? listQuantities(state.recording.system) : []))
+const quantities = computed<QuantityDef[]>(() => (state.recording ? listQuantities(state.recording) : []))
 const dynamicBodies = computed(() => state.scene.bodies.filter(b => b.kind !== 'static'))
 const situationTypes = computed(() => {
   const seen = [...new Set(state.situations.map(x => x.type))]

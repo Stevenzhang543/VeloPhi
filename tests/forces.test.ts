@@ -5,8 +5,8 @@
 import { describe, expect, it } from 'vitest'
 import { addBody, addConnector, addGround, anchor, emptyScene } from '../src/core/scene/build'
 import type { ForceDef, Scene } from '../src/core/scene/types'
-import { exactStateAt, frameLedger, frameState, simulate } from '../src/core/solver/simulation'
-import { FORCE_EXPR_HELP, checkForceExpr, compileForceExpr } from '../src/core/solver/forceExpr'
+import { exactStateAt, frameLedger, frameState, simulate } from './reference/core/solver/simulation'
+import { FORCE_EXPR_HELP, checkForceExpr, compileForceExpr } from './reference/core/solver/forceExpr'
 import { parseScene, serializeScene, validateScene } from '../src/core/scene/io'
 
 /** Block of mass m on a smooth floor with a force (fx, fy) at its centre. */
@@ -168,7 +168,7 @@ describe('variable forces in the solver', () => {
 
 describe('force readouts', () => {
   it('<force>.Fx/.Fy/.F/.P read the applied variable force exactly', async () => {
-    const { listQuantities, makeContext, evaluateQuantity } = await import('../src/core/observe/quantities')
+    const { listQuantities, makeContext, evaluateQuantity } = await import('./reference/core/observe/quantities')
     const rec = simulate(floorScene(2, '5*sin(3*t)', '-1', 2))
     const ids = listQuantities(rec.system).map(q => q.id)
     expect(ids).toEqual(expect.arrayContaining(['F.Fx', 'F.Fy', 'F.F', 'F.P']))

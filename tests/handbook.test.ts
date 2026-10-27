@@ -1,7 +1,7 @@
 /**
  * Learning handbook (manual 26.51, D46): every formula has an entry (a topic) and an example, every topic has its
  * principle in three languages and key relations that render, and every example still shows its formula at the
- * stored time (template with the stored parameters).
+ * stored time (template with the stored parameters). Field templates (26.54) run in the Rust core.
  */
 import { describe, expect, it } from 'vitest'
 import katex from 'katex'
@@ -11,10 +11,14 @@ import EXAMPLES from '../src/handbook/examples.json'
 import { HANDBOOK_VARIANTS } from '../src/handbook/variants'
 import { LANGS } from '../src/i18n/tri'
 import { TEMPLATES, buildTemplate } from '../src/templates'
-import { simulate } from '../src/core/solver/simulation'
-import type { Recording } from '../src/core/solver/simulation'
-import { recognize } from '../src/formula/situations'
-import { cardsAt } from '../src/formula/match'
+import { simulate } from './reference/core/solver/simulation'
+import type { Recording } from './reference/core/solver/simulation'
+import { recognize } from './reference/formula/situations'
+import { cardsAt } from './reference/formula/match'
+import { usesFields } from '../src/core/scene/types'
+import { simulate as simulateCore } from '../src/engine/recording'
+import { recognize as recognizeCore } from '../src/formula/recognize'
+import { cardsAt as cardsAtCore } from '../src/formula/match'
 import { getDerivation } from '../src/formula/derivations'
 
 const examples = EXAMPLES as Record<string, { template: string; params?: Record<string, number>; t: number }>
@@ -24,7 +28,7 @@ describe('handbook content', () => {
     const ids = new Set(TOPICS.map(t => t.id))
     for (const f of FORMULAS) expect(ids.has(topicOf(f.id)), f.id).toBe(true)
     for (const t of TOPICS) expect(formulasOf(t.id).length, t.id).toBeGreaterThan(0)
-    expect(TOPICS.map(t => t.id)).toEqual(['motion', 'friction', 'energy', 'momentum', 'circular', 'oscillation', 'rotation', 'gravitation', 'drag'])
+    expect(TOPICS.map(t => t.id)).toEqual(['motion', 'friction', 'energy', 'momentum', 'circular', 'oscillation', 'rotation', 'gravitation', 'drag', 'electric', 'induction', 'fluids'])
   })
 
   it('every topic has its principle in three languages and key relations that render', () => {
@@ -50,14 +54,21 @@ describe('handbook content', () => {
 
 describe('handbook examples', () => {
   it('each example shows its formula at the stored time', () => {
-    const recs = new Map<string, Recording>()
+    type Cards = (t: number) => Array<{ formula: { id: string }; verdict: string }>
+    const runs = new Map<string, Cards>()
+    const runOf = (scene: ReturnType<typeof buildTemplate>): Cards => {
+      if (!usesFields(scene)) { const rec: Recording = simulate(scene); return t => cardsAt(recognize(rec), t) }
+      const rec = simulateCore(scene)
+      const sits = recognizeCore(rec)
+      return t => cardsAtCore(rec, t, { digits: 6 }, sits)
+    }
     let checked = 0
     for (const f of FORMULAS) {
       const ex = examples[f.id]
       const key = `${ex.template}:${JSON.stringify(ex.params ?? {})}`
-      let rec = recs.get(key)
-      if (!rec) { rec = simulate(buildTemplate(ex.template, ex.params ?? {})); recs.set(key, rec) }
-      const cards = cardsAt(recognize(rec), ex.t).filter(c => c.formula.id === f.id)
+      let run = runs.get(key)
+      if (!run) { run = runOf(buildTemplate(ex.template, ex.params ?? {})); runs.set(key, run) }
+      const cards = run(ex.t).filter(c => c.formula.id === f.id)
       expect(cards.some(c => ['match', 'approx-ok', 'approx', 'no-measure'].includes(c.verdict)), `${f.id} in ${key} at ${ex.t}: ${cards.map(c => c.verdict).join(',')}`).toBe(true)
       checked++
     }

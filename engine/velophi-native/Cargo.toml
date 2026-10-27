@@ -1,0 +1,10 @@
+[package]
+name = "velophi-native"
+description = "Native VeloPhi engine for the desktop application (26.53, D68): runs in Rust threads streaming delta containers, chunk rebuilds"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+velophi-core = { path = "../velophi-core" }
+serde_json = { version = "1", features = ["float_roundtrip"] }

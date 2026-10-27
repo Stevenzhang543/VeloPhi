@@ -19,8 +19,9 @@ import { vSlideIndicator } from '../slideIndicator'
 
 const PAGES: Array<{ id: Page; label: string; icon: string; key: string }> = [
   { id: 'studio', label: tl('工作台'), icon: 'studio', key: 'Alt+1' },
-  { id: 'monitor', label: tl('渲染与监视'), icon: 'monitor', key: 'Alt+2' },
-  { id: 'settings', label: tl('设置'), icon: 'settings', key: 'Alt+3' }
+  { id: 'lab', label: tl('实验室'), icon: 'flask', key: 'Alt+2' },
+  { id: 'monitor', label: tl('渲染与监视'), icon: 'monitor', key: 'Alt+3' },
+  { id: 'settings', label: tl('设置'), icon: 'settings', key: 'Alt+4' }
 ]
 
 /**
@@ -39,20 +40,55 @@ async function fit() {
   }
 }
 
-const toggles: Array<{ key: DisplayToggle; label: string; tip: string }> = [
-  { key: 'velocity', label: tl('速度'), tip: tl('显示速度矢量') },
-  { key: 'acceleration', label: tl('加速度'), tip: tl('显示加速度矢量') },
-  { key: 'forces', label: tl('受力'), tip: tl('显示所选物体受力（运行后）') },
-  { key: 'trajectory', label: tl('轨迹'), tip: tl('显示质心轨迹') },
-  { key: 'labels', label: tl('关键时刻'), tip: tl('在画面上标注碰撞、共速等时刻') },
-  { key: 'strobe', label: tl('频闪'), tip: tl('频闪照片：按固定时间间隔叠加物体此前的位置（间隔与张数在设置页“显示”中调整；导出图片与视频时一并绘出）') },
-  { key: 'grid', label: tl('网格'), tip: tl('显示网格与比例尺') }
+/**
+ * Display menu (26.54, D86): every overlay switch lives here, grouped, with four presets on top; nothing sits in
+ * the bar itself any more.
+ */
+interface ToggleDef { key: DisplayToggle; label: string; tip?: string }
+const TOGGLE_GROUPS: Array<{ title: string; items: ToggleDef[] }> = [
+  { title: tl('矢量'), items: [
+    { key: 'velocity', label: tl('速度'), tip: tl('显示速度矢量') },
+    { key: 'acceleration', label: tl('加速度'), tip: tl('显示加速度矢量') },
+    { key: 'forces', label: tl('受力'), tip: tl('显示所选物体受力（运行后）') },
+    { key: 'forcesAll', label: tl('同时显示所有物体的受力') }
+  ] },
+  { title: tl('轨迹与标注'), items: [
+    { key: 'trajectory', label: tl('轨迹'), tip: tl('显示质心轨迹') },
+    { key: 'strobe', label: tl('频闪'), tip: tl('频闪照片：按固定时间间隔叠加物体此前的位置（间隔与张数在设置页“显示”中调整；导出图片与视频时一并绘出）') },
+    { key: 'labels', label: tl('关键时刻'), tip: tl('在画面上标注碰撞、共速等时刻') },
+    { key: 'names', label: tl('物体名称') }
+  ] },
+  { title: tl('电场与磁场'), items: [
+    { key: 'fields', label: tl('匀强电场与磁场') },
+    { key: 'fieldLines', label: tl('电场线') },
+    { key: 'equipotentials', label: tl('等势线') }
+  ] },
+  { title: tl('背景'), items: [
+    { key: 'grid', label: tl('网格'), tip: tl('显示网格与比例尺') },
+    { key: 'axes', label: tl('坐标轴') }
+  ] }
 ]
-const moreToggles: Array<{ key: DisplayToggle; label: string }> = [
-  { key: 'forcesAll', label: tl('同时显示所有物体的受力') },
-  { key: 'axes', label: tl('坐标轴') },
-  { key: 'names', label: tl('物体名称') }
+type PresetId = 'motion' | 'forces' | 'energy' | 'clean'
+const PRESETS: Array<{ id: PresetId; label: string; tip: string; icon: string }> = [
+  { id: 'motion', label: tl('运动'), tip: tl('速度、加速度与轨迹'), icon: 'run' },
+  { id: 'forces', label: tl('受力'), tip: tl('所选物体的受力与数值'), icon: 'force' },
+  { id: 'energy', label: tl('能量'), tip: tl('速度与轨迹，右侧打开监视（能量柱）'), icon: 'area' },
+  { id: 'clean', label: tl('简洁'), tip: tl('只留物体、名称与网格'), icon: 'eye' }
 ]
+const PRESET_VALUES: Record<PresetId, Partial<Record<DisplayToggle, boolean>>> = {
+  motion: { velocity: true, acceleration: true, forces: false, forcesAll: false, trajectory: true, labels: true, strobe: false },
+  forces: { velocity: false, acceleration: false, forces: true, trajectory: false, labels: true, strobe: false },
+  energy: { velocity: true, acceleration: false, forces: false, forcesAll: false, trajectory: true, labels: true, strobe: false },
+  clean: { velocity: false, acceleration: false, forces: false, forcesAll: false, trajectory: false, labels: false, strobe: false, names: true, grid: true, axes: false, fieldLines: false, equipotentials: false }
+}
+function applyPreset(id: PresetId) {
+  Object.assign(state.display, PRESET_VALUES[id])
+  if (id === 'energy') state.rightTab = 'watch'
+}
+/** The preset the overlays currently match, if any. */
+function presetOn(id: PresetId): boolean {
+  return Object.entries(PRESET_VALUES[id]).every(([k, v]) => state.display[k as DisplayToggle] === v)
+}
 
 type MenuId = 'file' | 'display' | 'output' | 'teach' | null
 const open = ref<MenuId>(null)
@@ -130,8 +166,10 @@ function toggleTheme() {
       <button class="btn ghost" :title="tl('经典模型模板')" @click="state.showTemplates = true"><Icon name="template" /><span class="lbl">{{ tl('模板') }}</span></button>
       <button class="btn ghost" :class="{ active: !!state.problem }" :title="tl('按教材章节的内置题目、导入题目包、用当前场景出题')" @click="state.showProblems = true"><Icon name="problem" /><span class="lbl">{{ tl('题目') }}</span></button>
       <div class="menu-anchor">
-        <button class="btn ghost" :class="{ active: open === 'teach' }" :title="tl('受力分析图、打点计时器纸带、v–t 图面积')" @click="toggleMenu('teach')"><Icon name="graduation" /><span class="lbl">{{ tl('教学') }}</span><Icon name="chevron" :size="12" /></button>
+        <button class="btn ghost" :class="{ active: open === 'teach' }" :title="tl('学习路径、受力分析图、打点计时器纸带、v–t 图面积')" @click="toggleMenu('teach')"><Icon name="graduation" /><span class="lbl">{{ tl('教学') }}</span><Icon name="chevron" :size="12" /></button>
         <div v-if="open === 'teach'" class="menu" role="menu">
+          <button role="menuitem" @click="act(() => { state.showLearning = true })"><Icon name="graduation" />{{ tl('学习路径…') }}<span class="spacer" /><span class="tiny muted">{{ tl('初中 → 大学') }}</span></button>
+          <div class="sep" />
           <button role="menuitem" :disabled="!teachReady()" @click="act(() => { state.showFbd = true })"><Icon name="fbd" />{{ tl('受力分析图…') }}<span class="spacer" /><span class="tiny muted">SVG · PNG</span></button>
           <button role="menuitem" :disabled="!teachReady()" @click="act(() => { state.showTape = true })"><Icon name="tape" />{{ tl('打点计时器纸带…') }}<span class="spacer" /><span class="tiny muted">PNG · CSV</span></button>
           <button role="menuitem" :disabled="!teachReady()" @click="act(vtArea)"><Icon name="area" />{{ tl('v–t 图面积') }}<span class="spacer" /><span class="tiny muted">Shift+{{ tl('拖动') }}</span></button>
@@ -140,6 +178,7 @@ function toggleTheme() {
       </div>
     </div>
     <div class="group-btns">
+      <button class="btn icon ghost" :title="tl('全局搜索（{0}+K）', [MOD])" :aria-label="tl('全局搜索')" @click="state.showPalette = true"><Icon name="search" /></button>
       <button class="btn icon ghost" :title="tl('撤销（{0}+Z）', [MOD])" :disabled="!state.past.length" @click="undo"><Icon name="undo" /></button>
       <button class="btn icon ghost" :title="tl('重做（{0}+Y）', [MOD])" :disabled="!state.future.length" @click="redo"><Icon name="redo" /></button>
     </div>
@@ -151,20 +190,21 @@ function toggleTheme() {
       </button>
     </div>
 
-    <div v-show="state.page !== 'settings'" class="toggles inline-toggles">
-      <button v-for="t in toggles" :key="t.key" class="btn small" :class="{ active: state.display[t.key] }" :title="t.tip" :aria-pressed="state.display[t.key]" @click="state.display[t.key] = !state.display[t.key]">{{ t.label }}</button>
-      <label class="check tiny" :title="tl('同时显示所有物体的受力')"><input v-model="state.display.forcesAll" type="checkbox" :disabled="!state.display.forces" />{{ tl('全部受力') }}</label>
-    </div>
-
     <span class="spacer" />
 
-    <div v-show="state.page !== 'settings'" class="menu-anchor display-menu">
+    <div v-show="state.page === 'studio' || state.page === 'monitor'" class="menu-anchor display-menu">
       <button class="btn ghost" :class="{ active: open === 'display' }" :title="tl('画面上显示的内容')" @click="toggleMenu('display')"><Icon name="eye" /><span class="lbl">{{ tl('显示') }}</span><Icon name="chevron" :size="12" /></button>
-      <div v-if="open === 'display'" class="menu" role="menu">
-        <div class="menu-title">{{ tl('叠加显示') }}</div>
-        <label v-for="t in [...toggles, ...moreToggles]" :key="t.key" class="menu-check" role="menuitemcheckbox" :aria-checked="state.display[t.key]">
-          <input v-model="state.display[t.key]" type="checkbox" class="switch" :disabled="t.key === 'forcesAll' && !state.display.forces" /><span>{{ t.label }}</span>
-        </label>
+      <div v-if="open === 'display'" class="menu right display-panel" role="menu">
+        <div class="menu-title">{{ tl('预设') }}</div>
+        <div class="presets">
+          <button v-for="p in PRESETS" :key="p.id" class="preset" :class="{ on: presetOn(p.id) }" :title="p.tip" @click="applyPreset(p.id)"><Icon :name="p.icon" :size="16" /><span>{{ p.label }}</span></button>
+        </div>
+        <template v-for="g in TOGGLE_GROUPS" :key="g.title">
+          <div class="menu-title">{{ g.title }}</div>
+          <label v-for="t in g.items" :key="t.key" class="menu-check" role="menuitemcheckbox" :aria-checked="state.display[t.key]" :title="t.tip">
+            <input v-model="state.display[t.key]" type="checkbox" class="switch" :disabled="t.key === 'forcesAll' && !state.display.forces" /><span>{{ t.label }}</span>
+          </label>
+        </template>
         <div class="sep" />
         <button @click="act(() => { state.page = 'settings' })"><Icon name="sliders" />{{ tl('更多显示与视觉效果设置…') }}</button>
       </div>
@@ -202,21 +242,25 @@ function toggleTheme() {
 .run .btn { width: 100%; justify-content: center; position: relative; overflow: hidden; white-space: nowrap; }
 .run .computing { background: color-mix(in srgb, var(--accent) 82%, #000); }
 .run-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgba(255, 255, 255, 0.85); transform-origin: left; transition: transform 200ms linear; }
-.toggles { display: flex; gap: 3px; align-items: center; flex: 0 0 auto; }
-.toggles .btn { height: 26px; padding: 0 9px; }
 .menu-anchor { position: relative; flex: 0 0 auto; }
 .menu { top: calc(100% + 6px); left: 0; }
 .menu.right { left: auto; right: 0; }
 .menu-check { justify-content: flex-start; }
 .menu-note { padding: 4px 10px 6px; max-width: 240px; line-height: 1.4; }
 .menu-check:hover { background: var(--hover) !important; color: inherit !important; }
-.display-menu { display: none; }
-/* Narrow windows: the overlay toggles live in the "显示" menu */
-@media (max-width: 1620px) {
-  .inline-toggles { display: none !important; }
-  .display-menu { display: block; }
-}
+/* 26.54 (D86): the display menu holds every overlay switch, with presets on top */
+.display-panel { min-width: 248px; max-height: min(78vh, 640px); overflow: auto; }
+.presets { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 2px 8px 6px; }
+.preset { display: flex; flex-direction: column; align-items: center; gap: 2px; border: 0; background: var(--fill); border-radius: 9px; padding: 6px 2px 5px; cursor: pointer; font-size: 11.5px; color: var(--text-2); justify-content: center; }
+.preset:hover { background: var(--fill-strong); }
+.preset.on { background: var(--accent-soft); color: var(--accent); }
 .fit-1 .lbl:not(.page-lbl), .fit-2 .lbl { display: none; }
 .fit-1 .doc, .fit-2 .doc { width: 120px; }
 .fit-2 .page-switch button { padding: 0 9px; }
+/* 26.55 (D96): on a phone the bar wraps onto two rows instead of hiding buttons off the edge */
+@media (max-width: 760px) {
+  .topbar { flex-wrap: wrap; row-gap: 4px; overflow: visible; }
+  .doc { display: none; }
+  .run { min-width: 0; }
+}
 </style>

@@ -17,6 +17,8 @@ export type UnitKind =
   | 'stiffness' | 'damping' | 'inertia' | 'torque' | 'frequency'
   // 26.51: drag, nonlinear springs, gravitation, Kepler's second law
   | 'quadDrag' | 'cubicStiffness' | 'gravConst' | 'area' | 'arealVelocity'
+  // 26.54: charges, fields and circuits
+  | 'charge' | 'electricField' | 'magneticField' | 'coulombConst' | 'voltage' | 'current' | 'resistance' | 'capacitance'
 
 /** A display unit of a kind. */
 export interface UnitOption {
@@ -64,7 +66,15 @@ export const KINDS: KindInfo[] = trDeep([
   { kind: 'cubicStiffness', label: '非线性劲度系数', si: 'N/m³', options: [u('N/m³', 1)] },
   { kind: 'gravConst', label: '引力常量', si: 'N·m²/kg²', options: [u('N·m²/kg²', 1)] },
   { kind: 'area', label: '面积', si: 'm²', options: [u('m²', 1), per('cm²', 1e4)] },
-  { kind: 'arealVelocity', label: '掠面速度', si: 'm²/s', options: [u('m²/s', 1)] }
+  { kind: 'arealVelocity', label: '掠面速度', si: 'm²/s', options: [u('m²/s', 1)] },
+  { kind: 'charge', label: '电荷量', si: 'C', options: [u('C', 1), per('mC', 1e3), per('μC', 1e6), per('nC', 1e9)] },
+  { kind: 'electricField', label: '电场强度', si: 'V/m', options: [u('V/m', 1), u('N/C', 1), u('kV/m', 1e3)] },
+  { kind: 'magneticField', label: '磁感应强度', si: 'T', options: [u('T', 1), per('mT', 1e3)] },
+  { kind: 'coulombConst', label: '静电力常量', si: 'N·m²/C²', options: [u('N·m²/C²', 1)] },
+  { kind: 'voltage', label: '电压 / 电势', si: 'V', options: [u('V', 1), per('mV', 1e3), u('kV', 1e3)] },
+  { kind: 'current', label: '电流', si: 'A', options: [u('A', 1), per('mA', 1e3), per('μA', 1e6)] },
+  { kind: 'resistance', label: '电阻', si: 'Ω', options: [u('Ω', 1), u('kΩ', 1e3), u('MΩ', 1e6)] },
+  { kind: 'capacitance', label: '电容', si: 'F', options: [u('F', 1), per('μF', 1e6), per('pF', 1e12)] }
 ])
 
 const BY_KIND = new Map(KINDS.map(k => [k.kind, k]))
@@ -75,7 +85,8 @@ const SI_TO_KIND: Record<string, UnitKind> = {
   'kg·m/s': 'momentum', 'N·s': 'momentum', 'kg·m²/s': 'angularMomentum', rad: 'angle', 'rad/s': 'angularVelocity',
   'rad/s²': 'angularAcceleration', 'N/m': 'stiffness', 'N·s/m': 'damping', 'kg·m²': 'inertia', 'N·m': 'torque',
   Hz: 'frequency', '1/s': 'frequency',
-  'N·s²/m²': 'quadDrag', 'N/m³': 'cubicStiffness', 'N·m²/kg²': 'gravConst', 'm²': 'area', 'm²/s': 'arealVelocity'
+  'N·s²/m²': 'quadDrag', 'N/m³': 'cubicStiffness', 'N·m²/kg²': 'gravConst', 'm²': 'area', 'm²/s': 'arealVelocity',
+  C: 'charge', 'V/m': 'electricField', 'N/C': 'electricField', T: 'magneticField', 'N·m²/C²': 'coulombConst', V: 'voltage', A: 'current', 'Ω': 'resistance', F: 'capacitance'
 }
 
 /** Chosen display unit id per kind. */

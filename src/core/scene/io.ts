@@ -4,18 +4,19 @@
  * versions are migrated step by step; unknown fields of newer files are kept in `extra`.
  */
 import { tl } from '../../i18n'
-import type { AnnotationDef, BodyDef, BranchDef, ConnectorDef, PartShapeDef, Scene, StartLedgerDef, StopAtDef, StopKind } from './types'
-import { ENGINE_VERSION, LEGACY_SCENE_FORMATS, MAX_DURATION, SCENE_FORMAT, SCENE_VERSION, STOP_KINDS } from './types'
+import type { AnnotationDef, BodyDef, BranchDef, ConnectorDef, PartShapeDef, RailLoopDef, RegionDef, Scene, StartLedgerDef, StopAtDef, StopKind } from './types'
+import { ENGINE_VERSION, LEGACY_SCENE_FORMATS, MAX_DURATION, SCENE_FORMAT, SCENE_VERSION, SCENE_VERSION_REGIONS, STOP_KINDS, sceneVersionOf } from './types'
 import { emptyScene } from './build'
-import { checkForceExpr } from '../solver/forceExpr'
-import { polygonIsSimple } from '../solver/model'
+import { checkForceExpr, polygonIsSimple } from '../../engine/calc'
 
 /** Invalid scene file; the message is user-facing. */
 export class SceneFileError extends Error {}
 
 type Json = null | boolean | number | string | Json[] | { [k: string]: Json }
 
-const BODY_KEYS = ['id', 'name', 'kind', 'role', 'shape', 'position', 'angle', 'velocity', 'angularVelocity', 'mass', 'inertia', 'fixedRotation', 'material', 'beltSpeed', 'color'] as const
+const BODY_KEYS = ['id', 'name', 'kind', 'role', 'shape', 'position', 'angle', 'velocity', 'angularVelocity', 'mass', 'inertia', 'fixedRotation', 'material', 'beltSpeed', 'color', 'drag', 'charge'] as const
+const REGION_KEYS = ['id', 'name', 'kind', 'shape', 'x', 'y', 'w', 'h', 'r', 'E', 'B', 'omega', 'phase', 'density', 'depth', 'dragLinear', 'dragQuadratic', 'color'] as const
+const RAIL_KEYS = ['id', 'name', 'body', 'angle', 'L', 'R', 'B'] as const
 const SCENE_KEYS = ['format', 'version', 'dimension', 'engine', 'name', 'description', 'settings', 'bodies', 'pulleys', 'connectors', 'contactPairs', 'view', 'watch', 'annotations', 'customQuantities', 'branches', 'extra'] as const
 
 function ordered(value: unknown, order?: readonly string[]): Json {
@@ -41,7 +42,10 @@ export function serializeScene(scene: Scene): string {
 function sceneDoc(scene: Scene): Json {
   const doc = {
     ...scene,
-    format: SCENE_FORMAT, version: SCENE_VERSION, engine: ENGINE_VERSION,
+    // 26.54 (D78): format 6 only for scenes with charges or fields; 26.55: format 7 for regions, liquids and rail loops
+    format: SCENE_FORMAT, version: sceneVersionOf(scene), engine: ENGINE_VERSION,
+    // 26.55: regions and rail loops in a fixed key order (a reloaded scene writes the same text)
+    settings: { ...scene.settings, ...(scene.settings.regions ? { regions: scene.settings.regions.map(r => ordered(r, REGION_KEYS)) } : {}), ...(scene.settings.railLoops ? { railLoops: scene.settings.railLoops.map(r => ordered(r, RAIL_KEYS)) } : {}) },
     bodies: scene.bodies.map(b => ordered(b, BODY_KEYS)),
     connectors: scene.connectors.map(c => ordered(c, ['id', 'name', 'type'])),
     ...(scene.branches ? { branches: scene.branches.map(b => ({ id: b.id, name: b.name, parent: b.parent, t: b.t, scene: sceneDoc(b.scene) })) } : {})
@@ -93,6 +97,26 @@ function parseStopAt(v: unknown): StopAtDef | null {
   return { on: o.on as StopKind, after: num(o.after, 'settings.stopAt.after') }
 }
 
+/**
+ * A field region or liquid of `settings.regions` (26.55, D90, D92). Only the fields present are kept (the core
+ * supplies the defaults), so a scene reloads to the same text.
+ */
+function parseRegion(o: Record<string, unknown>, path: string): RegionDef {
+  if (!o || typeof o !== 'object') throw new SceneFileError(tl('{0} 应为对象', [path]))
+  const r: RegionDef = { id: str(o.id, `${path}.id`), name: str(o.name, `${path}.name`, tl('区域')), kind: o.kind === 'liquid' ? 'liquid' : 'field', shape: o.shape === 'circle' ? 'circle' : 'rect', x: num(o.x, `${path}.x`, 0), y: num(o.y, `${path}.y`, 0) }
+  const opt = (k: 'w' | 'h' | 'r' | 'B' | 'omega' | 'phase' | 'density' | 'depth' | 'dragLinear' | 'dragQuadratic') => { if (o[k] !== undefined && o[k] !== null) r[k] = num(o[k], `${path}.${k}`) }
+  for (const k of ['w', 'h', 'r', 'B', 'omega', 'phase', 'density', 'depth', 'dragLinear', 'dragQuadratic'] as const) opt(k)
+  if (o.E !== undefined && o.E !== null) r.E = vec(o.E, `${path}.E`)
+  if (typeof o.color === 'string') r.color = o.color
+  return r
+}
+
+/** A rail loop of `settings.railLoops` (26.55, D91). */
+function parseRailLoop(o: Record<string, unknown>, path: string): RailLoopDef {
+  if (!o || typeof o !== 'object') throw new SceneFileError(tl('{0} 应为对象', [path]))
+  return { id: str(o.id, `${path}.id`), name: str(o.name, `${path}.name`, tl('导轨回路')), body: str(o.body, `${path}.body`), angle: num(o.angle, `${path}.angle`, 0), L: Math.abs(num(o.L, `${path}.L`, 0.5)), R: Math.abs(num(o.R, `${path}.R`, 1)), B: num(o.B, `${path}.B`, 1) }
+}
+
 /** Parse, migrate and validate scene file text; `warnings` are user-facing messages. */
 export function parseScene(text: string): { scene: Scene; warnings: string[] } {
   let raw: unknown
@@ -102,7 +126,8 @@ export function parseScene(text: string): { scene: Scene; warnings: string[] } {
   if (doc.format !== SCENE_FORMAT && !LEGACY_SCENE_FORMATS.includes(String(doc.format))) throw new SceneFileError(tl('不是 VeloPhi 场景文件（format 字段不符）'))
   const warnings: string[] = []
   let version = num(doc.version, 'version')
-  if (version > SCENE_VERSION) warnings.push(tl('文件来自更新的版本（格式 {0}），未知字段已保留但可能不生效', [version]))
+  if (version > SCENE_VERSION_REGIONS) warnings.push(tl('文件来自更新的版本（格式 {0}），未知字段已保留但可能不生效', [version]))
+  // Formats 6 (26.54) and 7 (26.55) only add optional fields to format 5
   while (version < SCENE_VERSION) {
     const m = MIGRATIONS[version]
     if (!m) throw new SceneFileError(tl('无法从格式 {0} 升级', [version]))
@@ -125,7 +150,14 @@ export function parseScene(text: string): { scene: Scene; warnings: string[] } {
       energyZeroY: num(st.energyZeroY, 'settings.energyZeroY', 0),
       ...(st.gravitation && typeof st.gravitation === 'object' ? { gravitation: { G: num((st.gravitation as Record<string, unknown>).G, 'settings.gravitation.G') } } : {}),
       ...(st.startTime !== undefined && st.startTime !== null ? { startTime: num(st.startTime, 'settings.startTime') } : {}),
-      ...(st.startLedger && typeof st.startLedger === 'object' ? { startLedger: parseStartLedger(st.startLedger as Record<string, unknown>) } : {})
+      ...(st.startLedger && typeof st.startLedger === 'object' ? { startLedger: parseStartLedger(st.startLedger as Record<string, unknown>) } : {}),
+      // 26.54 (D78): uniform fields and the Coulomb interaction
+      ...(st.electric && typeof st.electric === 'object' ? { electric: { E: vec((st.electric as Record<string, unknown>).E, 'settings.electric.E') } } : {}),
+      ...(st.magnetic && typeof st.magnetic === 'object' ? { magnetic: { B: num((st.magnetic as Record<string, unknown>).B, 'settings.magnetic.B') } } : {}),
+      ...(st.coulomb && typeof st.coulomb === 'object' ? { coulomb: { k: num((st.coulomb as Record<string, unknown>).k, 'settings.coulomb.k') } } : {}),
+      // 26.55 (D90–D92): bounded field regions, liquids and rail loops
+      ...(Array.isArray(st.regions) && st.regions.length ? { regions: (st.regions as Array<Record<string, unknown>>).map((r, i) => parseRegion(r, `settings.regions[${i}]`)) } : {}),
+      ...(Array.isArray(st.railLoops) && st.railLoops.length ? { railLoops: (st.railLoops as Array<Record<string, unknown>>).map((r, i) => parseRailLoop(r, `settings.railLoops[${i}]`)) } : {})
     },
     bodies: ((doc.bodies ?? []) as unknown[]).map((b, i) => parseBody(b as Record<string, unknown>, `bodies[${i}]`)),
     pulleys: ((doc.pulleys ?? []) as Array<Record<string, unknown>>).map((p, i) => ({ id: str(p.id, `pulleys[${i}].id`), name: str(p.name, `pulleys[${i}].name`, tl('滑轮')), position: vec(p.position, `pulleys[${i}].position`), radius: num(p.radius, `pulleys[${i}].radius`, 0), ...(typeof p.body === 'string' ? { body: p.body } : {}) })),
@@ -141,6 +173,7 @@ export function parseScene(text: string): { scene: Scene; warnings: string[] } {
   const extra: Record<string, unknown> = { ...((doc.extra as Record<string, unknown>) ?? {}) }
   for (const [k, v] of Object.entries(doc)) if (!known.has(k)) extra[k] = v
   if (Object.keys(extra).length) scene.extra = extra
+  scene.version = sceneVersionOf(scene)
   validateScene(scene)
   return { scene, warnings }
 }
@@ -158,6 +191,8 @@ function parseStartLedger(o: Record<string, unknown>): StartLedgerDef {
     damping: num(o.damping, 'settings.startLedger.damping', 0), beltWork: num(o.beltWork, 'settings.startLedger.beltWork', 0),
     impactLoss: num(o.impactLoss, 'settings.startLedger.impactLoss', 0)
   }
+  // 26.55: the counters of regions, liquids and rail loops
+  for (const k of ['fieldWork', 'buoyancyWork', 'jouleHeat', 'liquidHeat'] as const) if (o[k] !== undefined && o[k] !== null) out[k] = num(o[k], `settings.startLedger.${k}`)
   if (o.pairs && typeof o.pairs === 'object') {
     const pairs: Record<string, [number, number]> = {}
     for (const [k, v] of Object.entries(o.pairs as Record<string, unknown>)) {
@@ -219,7 +254,9 @@ function parseBody(b: Record<string, unknown>, path: string): BodyDef {
     fixedRotation: !!b.fixedRotation,
     material: { muS: num(mat.muS, `${path}.material.muS`, 0), muK: num(mat.muK, `${path}.material.muK`, 0), restitution: num(mat.restitution, `${path}.material.restitution`, 0), ...(mat.rolling !== undefined && mat.rolling !== null ? { rolling: num(mat.rolling, `${path}.material.rolling`) } : {}) },
     beltSpeed: num(b.beltSpeed, `${path}.beltSpeed`, 0), color: str(b.color, `${path}.color`, '#2563eb'),
-    ...(b.drag && typeof b.drag === 'object' ? { drag: { linear: num((b.drag as Record<string, unknown>).linear, `${path}.drag.linear`, 0), quadratic: num((b.drag as Record<string, unknown>).quadratic, `${path}.drag.quadratic`, 0) } } : {})
+    ...(b.drag && typeof b.drag === 'object' ? { drag: { linear: num((b.drag as Record<string, unknown>).linear, `${path}.drag.linear`, 0), quadratic: num((b.drag as Record<string, unknown>).quadratic, `${path}.drag.quadratic`, 0) } } : {}),
+    // 26.54 (D78): neutral bodies keep no key
+    ...(b.charge !== undefined && b.charge !== null && b.charge !== 0 ? { charge: num(b.charge, `${path}.charge`) } : {})
   }
 }
 
@@ -302,6 +339,27 @@ export function validateScene(scene: Scene) {
   if (s.gravitation && !(s.gravitation.G > 0)) throw new SceneFileError(tl('引力常量 G 必须大于 0'))
   if (s.startTime !== undefined && !(s.startTime >= 0 && s.startTime <= MAX_DURATION)) throw new SceneFileError(tl('分支起始时刻应在 [0, {0}] s', [MAX_DURATION]))
   for (const b of scene.bodies) if (b.drag && !(b.drag.linear >= 0 && b.drag.quadratic >= 0)) throw new SceneFileError(tl('{0}：阻力系数应 ≥ 0', [b.name]))
+  // 26.54 (D78): charges and fields
+  for (const b of scene.bodies) if (b.charge !== undefined && !Number.isFinite(b.charge)) throw new SceneFileError(tl('{0}：电荷量应为有限数', [b.name]))
+  if (s.electric && !(Number.isFinite(s.electric.E.x) && Number.isFinite(s.electric.E.y))) throw new SceneFileError(tl('电场强度应为有限数'))
+  if (s.magnetic && !Number.isFinite(s.magnetic.B)) throw new SceneFileError(tl('磁感应强度应为有限数'))
+  if (s.coulomb && !(s.coulomb.k > 0 && Number.isFinite(s.coulomb.k))) throw new SceneFileError(tl('静电力常量 k 必须大于 0'))
+  // 26.55 (D90–D92): regions and rail loops
+  const regionIds = new Set<string>()
+  for (const r of s.regions ?? []) {
+    if (!r.id || regionIds.has(r.id)) throw new SceneFileError(tl('区域 id 无效或重复：{0}', [r.id]))
+    regionIds.add(r.id)
+    if (r.shape === 'circle' ? !((r.r ?? 1) > 0) : !((r.w ?? 1) > 0 && (r.h ?? 1) > 0)) throw new SceneFileError(tl('{0}：区域的尺寸必须大于 0', [r.name]))
+    if (r.kind === 'liquid' && r.shape !== 'rect') throw new SceneFileError(tl('{0}：液体区域只能是矩形', [r.name]))
+    if (r.kind === 'liquid' && !((r.depth ?? 0.1) > 0)) throw new SceneFileError(tl('{0}：物体的厚度必须大于 0', [r.name]))
+    if (r.kind === 'liquid' && !((r.density ?? 1000) >= 0 && (r.dragLinear ?? 0) >= 0 && (r.dragQuadratic ?? 0) >= 0)) throw new SceneFileError(tl('{0}：密度和阻力系数不能为负', [r.name]))
+  }
+  for (const l of s.railLoops ?? []) {
+    if (!l.id || regionIds.has(l.id)) throw new SceneFileError(tl('区域 id 无效或重复：{0}', [l.id]))
+    regionIds.add(l.id)
+    if (!ids.has(l.body)) throw new SceneFileError(tl('{0}：导体棒 {1} 不存在', [l.name, l.body]))
+    if (!(l.R > 0)) throw new SceneFileError(tl('{0}：回路电阻必须大于 0', [l.name]))
+  }
   const branchIds = new Set<string>()
   for (const b of scene.branches ?? []) {
     if (!b.id || branchIds.has(b.id)) throw new SceneFileError(tl('分支 id 无效或重复：{0}', [b.id]))

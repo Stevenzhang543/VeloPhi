@@ -16,6 +16,8 @@ export type MenuTarget =
 export interface EditorUiState {
   /** Selected annotation (bodies, connectors and pulleys use `state.selection`; the two are exclusive). */
   annotationId: string | null
+  /** Selected field region or liquid (26.55; edited in the scene tab; exclusive with the other selections). */
+  regionId: string | null
   /** Vertices placed so far with the polygon tool (world, m). */
   polyDraft: Pt[]
   /** Points placed so far with the protractor: vertex, then the first arm. */
@@ -35,6 +37,7 @@ export interface EditorUiState {
 /** The shared editor UI state. */
 export const editor = reactive<EditorUiState>({
   annotationId: null,
+  regionId: null,
   polyDraft: [],
   angleDraft: [],
   combineDraft: [],

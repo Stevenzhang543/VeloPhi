@@ -36,6 +36,10 @@ export interface DisplayOptions {
   strobeCount: number
   strobeOpacity: number
   strobeLabels: boolean
+  /** 26.54 (D78–D79): symbols of the uniform E and B fields, field lines and equipotentials of the charges. */
+  fields: boolean
+  fieldLines: boolean
+  equipotentials: boolean
 }
 
 /** The on/off overlays of DisplayOptions (the numeric fields are their parameters). */
@@ -87,8 +91,11 @@ export interface SimSettings {
   lookAheadSeconds: number
   /** Memory for the frames of a recording (MiB); older chunks beyond it are recomputed when needed. */
   memoryMB: number
-  /** Solver engine: Rust/WASM when it loads (auto), or the TypeScript engine (identical results, slower). */
-  engine: 'auto' | 'ts'
+  /**
+   * Where runs are computed (26.53, D68): the native engine of the desktop application when it is available (auto),
+   * or the WebAssembly core in a background thread (identical results; the web version always uses it).
+   */
+  engine: 'auto' | 'wasm'
 }
 
 /** Export defaults. */
@@ -123,6 +130,34 @@ export interface UiSettings {
   toolRail: boolean
   /** Interface animations (26.52, D57); off behaves like the system's reduce-motion setting. */
   motion: boolean
+  /** Formula panel (26.53, D70): density, grouping, favourites, filters, and the formula timeline (D71). */
+  formula: FormulaUi
+  /** 26.54 (D86): category page of the tool palette, right panel tab and analysis sub-tab, last display preset. */
+  toolTab: string
+  rightTab: 'inspect' | 'formula' | 'watch' | 'predict' | 'settings'
+  analysisTab: 'formula' | 'watch' | 'predict'
+  /** Lab page (D76): open experiment and the folded state of its catalogue. */
+  lab: string
+  /** Lab catalogue grouped by topic or by school level (26.55, D96). */
+  labView: 'topic' | 'level'
+  /** Learning path (26.55, D96): steps done (PathStep keys) and the stage shown. */
+  learnDone: string[]
+  learnStage: string
+}
+
+/** View of the formula panel (D70–D71). */
+export interface FormulaUi {
+  density: 'compact' | 'detailed'
+  group: 'situation' | 'body'
+  /** Favourite formulas (ids), shown first and starred on the formula timeline. */
+  pinned: string[]
+  /** Filters: body id, category, verdict ('' / 'all': everything), favourites only. */
+  body: string
+  category: string
+  verdict: 'all' | 'match' | 'deviate' | 'approx'
+  pinnedOnly: boolean
+  /** The formula timeline under the main timeline is open. */
+  timeline: boolean
 }
 
 /** Teaching tools (26.52, D62–D63): the last options used. */
@@ -182,7 +217,7 @@ function defaults(): AppSettings {
     units: defaultChoice(),
     digits: 4,
     decimalSeparator: 'point',
-    display: { velocity: true, acceleration: false, forces: true, forcesAll: false, trajectory: true, labels: true, grid: true, axes: true, names: true, strobe: false, strobeInterval: 0.1, strobeCount: 10, strobeOpacity: 0.55, strobeLabels: false },
+    display: { velocity: true, acceleration: false, forces: true, forcesAll: false, trajectory: true, labels: true, grid: true, axes: true, names: true, strobe: false, strobeInterval: 0.1, strobeCount: 10, strobeOpacity: 0.55, strobeLabels: false, fields: true, fieldLines: false, equipotentials: false },
     defaultGravity: 9.8,
     effects: { quality: 'standard', glass: true, ambient: true, motionBlur: true, shutter: 0.5, particles: true, trails: false, trailSeconds: 0.6, respectReducedMotion: true },
     editor: { snap: false, objectSnap: true, snapStep: 0, angleSnap: 0 },
@@ -190,7 +225,7 @@ function defaults(): AppSettings {
     sim: { worker: true, progressive: true, budgetSeconds: 60, lookAheadSeconds: 20, memoryMB: 512, engine: 'auto' },
     export: { fps: 60, scale: 1, bitrate: 0, csvSeparator: ',', csvDecimal: '.', imageBackground: 'theme', language: 'ui' },
     trialLog: false,
-    ui: { sections: {}, toolRail: false, motion: true },
+    ui: { sections: {}, toolRail: false, motion: true, formula: { density: 'compact', group: 'situation', pinned: [], body: '', category: '', verdict: 'all', pinnedOnly: false, timeline: true }, toolTab: 'body', rightTab: 'formula', analysisTab: 'formula', lab: 'circuit', labView: 'topic', learnDone: [], learnStage: 'j' },
     teaching: { fbd: { layout: 'actual', body: 'shape', magnitudes: true, decompose: 'none', resultant: false }, tape: { period: 0.02, every: 5 } },
     rev: SETTINGS_REV
   }
@@ -346,6 +381,8 @@ function sanitize() {
   settings.sim.budgetSeconds = clamp(settings.sim.budgetSeconds, 1, 600, d.sim.budgetSeconds)
   settings.sim.lookAheadSeconds = clamp(settings.sim.lookAheadSeconds, 2, 600, d.sim.lookAheadSeconds)
   settings.sim.memoryMB = clamp(settings.sim.memoryMB, 16, 8192, d.sim.memoryMB)
+  // 26.53: the TypeScript engine is gone (a test reference only); its setting means the WebAssembly core
+  if (!['auto', 'wasm'].includes(settings.sim.engine)) settings.sim.engine = (settings.sim.engine as string) === 'ts' ? 'wasm' : 'auto'
   settings.export.fps = clamp(settings.export.fps, 1, 240, d.export.fps)
   settings.export.scale = clamp(settings.export.scale, 0.5, 4, d.export.scale)
   settings.export.bitrate = clamp(settings.export.bitrate, 0, 2e8, 0)
@@ -355,6 +392,12 @@ function sanitize() {
   if (!['actual', 'concurrent'].includes(fb.layout)) fb.layout = d.teaching.fbd.layout
   if (!['shape', 'particle'].includes(fb.body)) fb.body = d.teaching.fbd.body
   if (!['none', 'axes', 'incline'].includes(fb.decompose)) fb.decompose = d.teaching.fbd.decompose
+  const fu = settings.ui.formula
+  if (!['compact', 'detailed'].includes(fu.density)) fu.density = d.ui.formula.density
+  if (!['situation', 'body'].includes(fu.group)) fu.group = d.ui.formula.group
+  if (!['all', 'match', 'deviate', 'approx'].includes(fu.verdict)) fu.verdict = 'all'
+  if (!['', 'kinematics', 'dynamics', 'energy', 'momentum', 'rotation', 'collision', 'fields'].includes(fu.category)) fu.category = ''
+  fu.pinned = Array.isArray(fu.pinned) ? [...new Set(fu.pinned.filter(x => typeof x === 'string'))].slice(0, 500) : []
   settings.teaching.tape.period = clamp(settings.teaching.tape.period, 0.001, 1, d.teaching.tape.period)
   settings.teaching.tape.every = Math.round(clamp(settings.teaching.tape.every, 1, 50, d.teaching.tape.every))
 }

@@ -13,7 +13,7 @@ import { shownTime } from '../../units/clock'
 import { eventLabel } from '../../render/renderer'
 import { useGated } from '../live'
 import { fmtNum, fmtQ, unitLabel } from '../settings'
-import type { ChangeDetail, SimEvent } from '../../core/solver/simulation'
+import type { ChangeDetail, SimEvent } from '../../engine/recording'
 import { openEventDetail } from '../details'
 
 const props = withDefaults(defineProps<{ active?: boolean; compact?: boolean }>(), { active: true, compact: false })
@@ -32,7 +32,7 @@ function detail(e: SimEvent, c: ChangeDetail): string {
     const parts = [tl('法向速度 {0} → {1}', [fmtQ(c.vnBefore ?? null, 'm/s', 4), fmtQ(c.vnAfter ?? null, 'm/s', 4)]), tl('冲量 {0}', [fmtQ(c.impulse ?? null, 'N·s', 4)]), `e = ${c.restitution}`]
     if (c.tangentImpulse !== undefined && Math.abs(c.tangentImpulse) > 1e-12) parts.push(tl('摩擦冲量 {0}', [fmtQ(Math.abs(c.tangentImpulse), 'N·s', 4)]))
     if (c.vtBefore !== undefined && c.vtAfter !== undefined) parts.push(tl('切向相对速度 碰前 {0} → 碰后 {1}', [fmtQ(c.vtBefore, 'm/s', 4), fmtQ(c.vtAfter, 'm/s', 4)]))
-    const p = e.impact?.points.find(pt => pt.pair?.key === c.subject && pt.friction)
+    const p = e.impact?.points.find(pt => pt.pair === c.subject && pt.friction)
     if (p?.friction) parts.push(FRICTION[p.friction] ?? p.friction)
     return parts.join(commaSep())
   }
@@ -45,8 +45,17 @@ function detail(e: SimEvent, c: ChangeDetail): string {
   return ''
 }
 
+/**
+ * 26.55 (D97): rows are built only while the list is shown (a hidden list kept rebuilding while a long run streamed
+ * its events), and at most MAX_ROWS of them are rendered around the current event.
+ */
+let lastRows: ReturnType<typeof buildRows> = []
 const rows = computed(() => {
   const r = rec.value
+  if (!props.active) return lastRows.length && r ? lastRows : (lastRows = buildRows(r))
+  return (lastRows = buildRows(r))
+})
+function buildRows(r: typeof rec.value) {
   if (!r) return []
   return r.events.map((e, index) => ({ e, index })).filter(({ e }) => e.changes.length > 0).map(({ e, index }) => ({
     e,
@@ -59,7 +68,7 @@ const rows = computed(() => {
     })),
     loss: e.impact?.loss ?? 0
   }))
-})
+}
 const now = useGated(() => props.active, () => (rec.value ? state.panelFrame * rec.value.dt : 0))
 /** Index of the latest event at or before the current time. */
 const currentIndex = computed(() => {
@@ -67,6 +76,10 @@ const currentIndex = computed(() => {
   rows.value.forEach((row, i) => { if (row.e.t <= now.value + 1e-9) idx = i })
   return idx
 })
+const MAX_ROWS = 300
+/** The rendered window: up to 200 events before the current one and 100 after. */
+const windowStart = computed(() => (rows.value.length <= MAX_ROWS ? 0 : Math.max(0, Math.min(rows.value.length - MAX_ROWS, currentIndex.value - 200))))
+const shownRows = computed(() => rows.value.slice(windowStart.value, windowStart.value + MAX_ROWS))
 </script>
 
 <template>
@@ -77,14 +90,16 @@ const currentIndex = computed(() => {
     <table v-else>
       <thead><tr><th>{{ tl('时刻 / {0}', [unitLabel('s')]) }}</th><th>{{ tl('事件') }}</th><th>{{ tl('对象') }}</th><th v-if="!compact">{{ tl('说明') }}</th></tr></thead>
       <tbody>
-        <template v-for="(row, ri) in rows" :key="row.e.index">
-          <tr v-for="(it, i) in row.items" :key="i" :class="{ current: ri === currentIndex, future: ri > currentIndex, warn: it.warn }" :title="tl('跳到事件后的第一帧并查看详情')" @click="seekAfter(row.e.t); openEventDetail(row.index)">
+        <tr v-if="windowStart > 0" class="more"><td :colspan="compact ? 3 : 4" class="tiny muted">{{ tl('前面还有 {0} 个事件（播放或跳转到那里时显示）', [windowStart]) }}</td></tr>
+        <template v-for="(row, wi) in shownRows" :key="row.e.index">
+          <tr v-for="(it, i) in row.items" :key="i" :class="{ current: wi + windowStart === currentIndex, future: wi + windowStart > currentIndex, warn: it.warn }" :title="tl('跳到事件后的第一帧并查看详情')" @click="seekAfter(row.e.t); openEventDetail(row.index)">
             <td v-if="i === 0" :rowspan="row.items.length" class="mono">{{ fmtNum(shownTime(row.e.t), 's', compact ? Math.max(state.digits, 6) : Math.max(state.digits, 9)) }}</td>
             <td>{{ it.text }}<div v-if="compact && it.detail" class="tiny muted sub">{{ it.detail }}<template v-if="i === 0 && row.loss > 1e-12">{{ tl('；损失动能 {0}', [fmtQ(row.loss, 'J', 4)]) }}</template></div></td>
             <td>{{ it.who }}</td>
             <td v-if="!compact" class="small muted">{{ it.detail }}<template v-if="i === 0 && row.loss > 1e-12">{{ tl('；损失动能 {0}', [fmtQ(row.loss, 'J', 5)]) }}</template></td>
           </tr>
         </template>
+        <tr v-if="windowStart + shownRows.length < rows.length" class="more"><td :colspan="compact ? 3 : 4" class="tiny muted">{{ tl('后面还有 {0} 个事件', [rows.length - windowStart - shownRows.length]) }}</td></tr>
       </tbody>
     </table>
     <div v-if="!compact" class="tiny muted foot">{{ tl('事件时刻由求解器在两次积分步之间精确定位（误差约 10⁻¹² s）；点击一行跳到事件后的第一帧并打开事件详情。') }}</div>
@@ -104,4 +119,6 @@ tr.future td { color: var(--text-3); }
 tr.warn td:nth-child(2) { color: var(--warning); font-weight: 600; }
 .sub { font-weight: 400; margin-top: 1px; line-height: 1.4; }
 .foot { margin-top: 6px; }
+tr.more td { cursor: default; text-align: center; }
+tr.more:hover td { background: none; }
 </style>

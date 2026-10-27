@@ -1,89 +1,42 @@
 /**
  * Scene editing operations used by the viewport and the panels: hit testing, placing objects (snapped
- * onto the surface under the cursor), creating connectors, deleting and duplicating. Drag-to-create, handles,
+ * onto the surface under the cursor), creating connectors, deleting and duplicating. Hit tests and the surface
+ * under the cursor are answered by the core (views.rs) for the shown state. Drag-to-create, handles,
  * annotations and the context-menu commands build on these in `./editor/`.
  */
 import { tl } from '../i18n'
 import type { BodyDef, ConnectorDef, Scene } from '../core/scene/types'
-import { connectorAnchors } from '../core/scene/types'
+import { COULOMB_K, connectorAnchors } from '../core/scene/types'
 import { addBody, addGround, addIncline, addPulley, nextId } from '../core/scene/build'
-import type { System } from '../core/solver/dynamics'
-import type { Pose } from '../core/solver/kinematics'
-import { anchorState, pulleyCenter, ropeKin } from '../core/solver/kinematics'
-import type { BodyModel } from '../core/solver/model'
-import { signedDistance } from '../core/solver/kinematics'
+import type { BodyModel, System } from '../engine/model'
+import type { Pose } from '../engine/views'
+import { bodiesAtPoint, bodyAtPoint, pickAt, surfaceBelowPoint } from '../engine/views'
+import type { EngineSession } from '../engine/session'
 import type { Selection, Tool } from './store'
 
 /** A world point (m). */
 export interface Pt { x: number; y: number }
 
-function distToSegment(p: Pt, a: Pt, b: Pt): number {
-  const ex = b.x - a.x, ey = b.y - a.y, ee = ex * ex + ey * ey
-  let u = ee > 0 ? ((p.x - a.x) * ex + (p.y - a.y) * ey) / ee : 0
-  u = Math.max(0, Math.min(1, u))
-  return Math.hypot(p.x - a.x - u * ex, p.y - a.y - u * ey)
-}
+/**
+ * The shown state as the core sees it: a session (the scene being edited, or a recording), the compiled model, the
+ * drawn poses and the time shown (0 for a scene).
+ */
+export interface EditView { session: EngineSession; sys: System; poses: Pose[]; t: number }
 
-/** Topmost object under a world point (tolerance in metres). */
-export function hitTest(sys: System, poses: Pose[], p: Pt, tol: number): Selection {
-  const model = sys.model
-  for (const pl of model.pulleys) { const c = pulleyCenter(poses, pl); if (Math.hypot(p.x - c.x, p.y - c.y) <= pl.radius + tol) return { kind: 'pulley', id: pl.id } }
-  for (const c of [...model.hinges, ...model.welds, ...model.motors]) { const a = anchorState(poses, c.a); if (Math.hypot(p.x - a.px, p.y - a.py) <= tol * 1.2) return { kind: 'connector', id: c.id } }
-  for (const c of model.sliders) { const b = anchorState(poses, c.b); if (Math.hypot(p.x - b.px, p.y - b.py) <= tol * 1.2) return { kind: 'connector', id: c.id } }
-  for (const f of model.forces) { const a = anchorState(poses, f.a); if (Math.hypot(p.x - a.px, p.y - a.py) <= tol * 1.2) return { kind: 'connector', id: f.id } }
-  const dyn = [...model.dynamic].reverse()
-  for (const b of dyn) if (signedDistance(b, poses[b.global], p.x, p.y) <= tol * 0.5) return { kind: 'body', id: b.id }
-  for (const r of model.ropes) {
-    const pts = ropeKin(poses, r).path.points
-    for (let i = 0; i + 1 < pts.length; i += 2) if (distToSegment(p, pts[i], pts[i + 1]) <= tol) return { kind: 'connector', id: r.id }
-  }
-  for (const c of [...model.rods, ...model.springs]) {
-    const a = anchorState(poses, c.a), b = anchorState(poses, c.b)
-    if (distToSegment(p, { x: a.px, y: a.py }, { x: b.px, y: b.py }) <= tol) return { kind: 'connector', id: c.id }
-  }
-  for (const g of model.gears) {
-    // A gear is drawn between the centres of its two bodies (or at body A for a brake)
-    const a = g.a ? poses[g.a.global] : null, b = g.b ? poses[g.b.global] : null
-    if (a && b && distToSegment(p, a, b) <= tol) return { kind: 'connector', id: g.id }
-    if (a && !b && Math.hypot(p.x - a.x, p.y - a.y) <= tol * 1.5) return { kind: 'connector', id: g.id }
-  }
-  for (const b of [...model.bodies].reverse()) if (!b.dynamic && signedDistance(b, poses[b.global], p.x, p.y) <= 0) return { kind: 'body', id: b.id }
-  return null
+/** Topmost object under a world point (tolerance in metres; computed in the core). */
+export function hitTest(cp: EditView, p: Pt, tol: number): Selection {
+  return pickAt(cp.session, p.x, p.y, tol, cp.t)
 }
 
 /** Topmost body containing the point within `tol` (m); dynamic bodies first. */
-export function bodyAt(sys: System, poses: Pose[], p: Pt, tol: number, dynamicOnly = false): BodyModel | null {
-  const list = [...sys.model.dynamic].reverse()
-  if (!dynamicOnly) list.push(...[...sys.model.bodies].filter(b => !b.dynamic).reverse())
-  for (const b of list) if (signedDistance(b, poses[b.global], p.x, p.y) <= tol) return b
-  return null
+export function bodyAt(cp: EditView, p: Pt, tol: number, dynamicOnly = false): BodyModel | null {
+  const id = bodyAtPoint(cp.session, p.x, p.y, tol, dynamicOnly, cp.t)
+  return id === null ? null : cp.sys.model.byId.get(id) ?? null
 }
 
 /** Surface under the point: an upward-facing face within reach, as foot point, outward normal and angle. */
-export function surfaceBelow(sys: System, poses: Pose[], p: Pt, reach = 0.6): { foot: Pt; n: Pt; angle: number } | null {
-  let best: { foot: Pt; n: Pt; d: number } | null = null
-  for (const b of sys.model.bodies) {
-    if (b.shape.kind === 'circle') continue
-    const pose = poses[b.global]
-    // Faces of a convex polygon, or of every part of a concave or compound body (26.52)
-    const faces = b.shape.kind === 'polygon'
-      ? b.shape.verts.map((v, f) => ({ v, nl: (b.shape as { normals: Pt[] }).normals[f], len: (b.shape as { lengths: number[] }).lengths[f] }))
-      : b.shape.faces.map(fc => ({ v: fc.e0, nl: fc.normal, len: fc.len }))
-    for (const { v, nl, len } of faces) {
-      const n = { x: pose.c * nl.x - pose.s * nl.y, y: pose.s * nl.x + pose.c * nl.y }
-      if (n.y < 0.25) continue
-      const e0 = { x: pose.x + pose.c * v.x - pose.s * v.y, y: pose.y + pose.s * v.x + pose.c * v.y }
-      const t = { x: -n.y, y: n.x }
-      const along = (p.x - e0.x) * t.x + (p.y - e0.y) * t.y
-      const d = (p.x - e0.x) * n.x + (p.y - e0.y) * n.y
-      if (along < 0 || along > len || d < -0.15 || d > reach) continue
-      if (!best || Math.abs(d) < Math.abs(best.d)) best = { foot: { x: e0.x + t.x * along, y: e0.y + t.y * along }, n, d }
-    }
-  }
-  if (!best) return null
-  // A box lying on the face is turned so its up direction is the face normal
-  const ang = Math.atan2(-best.n.x, best.n.y)
-  return { foot: best.foot, n: best.n, angle: ang }
+export function surfaceBelow(cp: EditView, p: Pt, reach = 0.6): { foot: Pt; n: Pt; angle: number } | null {
+  return surfaceBelowPoint(cp.session, p.x, p.y, reach, cp.t)
 }
 
 /** Default material of new moving bodies. */
@@ -104,8 +57,8 @@ export function nextName(scene: Scene, base: string): string {
 export function resetNameCounters() { nameCounters = {} }
 
 /** Place a new object for an `add-*` tool. Returns the new id. */
-export function placeObject(scene: Scene, sys: System, poses: Pose[], tool: Tool, p: Pt): string | null {
-  const snap = surfaceBelow(sys, poses, p)
+export function placeObject(scene: Scene, cp: EditView, tool: Tool, p: Pt): string | null {
+  const snap = surfaceBelow(cp, p)
   const onSurface = (halfH: number) => (snap ? { x: snap.foot.x + snap.n.x * halfH, y: snap.foot.y + snap.n.y * halfH, angle: snap.angle } : { x: p.x, y: p.y, angle: 0 })
   switch (tool) {
     case 'add-ball': {
@@ -137,6 +90,9 @@ export function placeObject(scene: Scene, sys: System, poses: Pose[], tool: Tool
       return addGround(scene, { name: nextName(scene, tl('传送带')), role: 'conveyor', top: p.y, left: p.x - 2, right: p.x + 2, thickness: 0.3, beltSpeed: 2, material: STATIC_MATERIAL }).id
     case 'add-pulley':
       return addPulley(scene, { name: nextName(scene, tl('滑轮')), position: { x: p.x, y: p.y }, radius: 0.05 }).id
+    // 26.54 (D78)
+    case 'add-charge': case 'add-fixed-charge':
+      return addCharge(scene, tool === 'add-fixed-charge', p, 0.05)
     case 'add-polygon': {
       // Regular pentagon, a dynamic polygon about its centre of mass
       const r = 0.15, at = onSurface(r * Math.cos(Math.PI / 5))
@@ -148,10 +104,10 @@ export function placeObject(scene: Scene, sys: System, poses: Pose[], tool: Tool
 }
 
 /** World point → anchor on a body (local coordinates about its centre) or a world anchor. */
-export function anchorFor(sys: System, poses: Pose[], p: Pt, tolCenter: number): { body: string | null; local: Pt; world: Pt } {
-  const b = bodyAt(sys, poses, p, 0, false)
+export function anchorFor(cp: EditView, p: Pt, tolCenter: number): { body: string | null; local: Pt; world: Pt } {
+  const b = bodyAt(cp, p, 0, false)
   if (!b || !b.dynamic) return { body: null, local: { x: p.x, y: p.y }, world: { x: p.x, y: p.y } }
-  const pose = poses[b.global]
+  const pose = cp.poses[b.global]
   if (Math.hypot(p.x - pose.x, p.y - pose.y) <= tolCenter) return { body: b.id, local: { x: 0, y: 0 }, world: { x: pose.x, y: pose.y } }
   const dx = p.x - pose.x, dy = p.y - pose.y
   return { body: b.id, local: { x: pose.c * dx + pose.s * dy, y: -pose.s * dx + pose.c * dy }, world: { x: p.x, y: p.y } }
@@ -186,8 +142,8 @@ export function createConnector(scene: Scene, tool: Tool, a: { body: string | nu
 }
 
 /** Hinge at a point: the body under the point joined to a second body there, or to the world. */
-export function createHinge(scene: Scene, sys: System, poses: Pose[], p: Pt): string | null {
-  return createPin(scene, sys, poses, p, 'hinge')
+export function createHinge(scene: Scene, cp: EditView, p: Pt): string | null {
+  return createPin(scene, cp, p, 'hinge')
 }
 
 /** Kind of a connector placed at one point (D51). */
@@ -198,8 +154,9 @@ export type PinKind = 'hinge' | 'weld' | 'motor' | 'slider'
  * Hinge and weld: A is the top body. Motor: the top body is driven (B) relative to the body below or the world (A).
  * Slider: the top body (B) slides relative to the body below or the world (A) along its own x axis.
  */
-export function createPin(scene: Scene, sys: System, poses: Pose[], p: Pt, kind: PinKind): string | null {
-  const dyn = [...sys.model.dynamic].reverse().filter(b => signedDistance(b, poses[b.global], p.x, p.y) <= 0)
+export function createPin(scene: Scene, cp: EditView, p: Pt, kind: PinKind): string | null {
+  const poses = cp.poses
+  const dyn = bodiesAtPoint(cp.session, p.x, p.y, cp.t).map(id => cp.sys.model.byId.get(id)!).filter(Boolean)
   if (dyn.length === 0) return null
   const first = dyn[0]
   const local = (b: BodyModel) => { const ps = poses[b.global]; const dx = p.x - ps.x, dy = p.y - ps.y; return { x: ps.c * dx + ps.s * dy, y: -ps.s * dx + ps.c * dy } }
@@ -227,10 +184,10 @@ export function createPin(scene: Scene, sys: System, poses: Pose[], p: Pt, kind:
 }
 
 /** Create a constant force (5 N to the right) on the dynamic body under the point; returns its id. */
-export function createForce(scene: Scene, sys: System, poses: Pose[], p: Pt): string | null {
-  const b = bodyAt(sys, poses, p, 0, true)
+export function createForce(scene: Scene, cp: EditView, p: Pt): string | null {
+  const b = bodyAt(cp, p, 0, true)
   if (!b) return null
-  const ps = poses[b.global]
+  const ps = cp.poses[b.global]
   const dx = p.x - ps.x, dy = p.y - ps.y
   const near = Math.hypot(dx, dy) < 0.05
   const used = new Set(scene.connectors.map(c => c.name)); let k = 1; while (used.has(tl('拉力{0}', [k]))) k++
@@ -243,11 +200,11 @@ export function createForce(scene: Scene, sys: System, poses: Pose[], p: Pt): st
  * Create a central field (26.52, D60) at a point: on the body under it (at its centre of mass for a moving body), or
  * fixed in space. Inverse-square attraction of all moving bodies by default; returns its id.
  */
-export function createCentral(scene: Scene, sys: System, poses: Pose[], p: Pt): string {
-  const b = bodyAt(sys, poses, p, 0, false)
+export function createCentral(scene: Scene, cp: EditView, p: Pt): string {
+  const b = bodyAt(cp, p, 0, false)
   let a: ConnectorDef['a']
   if (b && b.dynamic) a = { body: b.id, local: { x: 0, y: 0 } }
-  else if (b) { const ps = poses[b.global], dx = p.x - ps.x, dy = p.y - ps.y; a = { body: b.id, local: { x: ps.c * dx + ps.s * dy, y: -ps.s * dx + ps.c * dy } } }
+  else if (b) { const ps = cp.poses[b.global], dx = p.x - ps.x, dy = p.y - ps.y; a = { body: b.id, local: { x: ps.c * dx + ps.s * dy, y: -ps.s * dx + ps.c * dy } } }
   else a = { body: null, local: { x: p.x, y: p.y } }
   const used = new Set(scene.connectors.map(c => c.name)); let k = 1; while (used.has(tl('力心{0}', [k]))) k++
   const c: ConnectorDef = { id: nextId(scene, 'z'), name: tl('力心{0}', [k]), type: 'central', a, k: 20, n: -2, targets: null }
@@ -270,6 +227,11 @@ export function deleteObject(scene: Scene, sel: Selection) {
     }
     scene.contactPairs = scene.contactPairs.filter(p => p.a !== sel.id && p.b !== sel.id)
     scene.watch = scene.watch.filter(w => !w.split(/[.|]/).includes(sel.id))
+    // 26.55: a rail loop goes with its rod
+    if (scene.settings.railLoops) {
+      scene.settings.railLoops = scene.settings.railLoops.filter(l => l.body !== sel.id)
+      if (!scene.settings.railLoops.length) delete scene.settings.railLoops
+    }
   } else if (sel.kind === 'pulley') {
     scene.pulleys = scene.pulleys.filter(p => p.id !== sel.id)
     for (const c of scene.connectors) if (c.type === 'rope') c.pulleys = c.pulleys.filter(p => p.pulley !== sel.id)
@@ -316,4 +278,20 @@ export function moveObject(scene: Scene, sel: Selection, dx: number, dy: number)
       p.position.y = add(p.position.y, -s * dx + c * dy)
     } else { p.position.x = add(p.position.x, dx); p.position.y = add(p.position.y, dy) }
   }
+}
+
+/** Default charge of a new charged body (C). */
+export const DEFAULT_CHARGE = 1e-6
+
+/**
+ * Add a charged ball (26.54, D78): a particle, or a fixed point charge. When the scene has no field and no Coulomb
+ * force yet, the Coulomb force is switched on so the charges act on each other.
+ */
+export function addCharge(scene: Scene, fixed: boolean, at: { x: number; y: number }, r: number): string {
+  const st = scene.settings
+  if (!st.electric && !st.magnetic && !st.coulomb) st.coulomb = { k: COULOMB_K }
+  const body = fixed
+    ? addBody(scene, { name: nextName(scene, tl('固定电荷')), kind: 'static', role: 'generic', shape: { type: 'circle', radius: r }, position: { x: at.x, y: at.y }, material: STATIC_MATERIAL, color: '#dc2626', charge: DEFAULT_CHARGE })
+    : addBody(scene, { name: nextName(scene, tl('带电小球')), kind: 'particle', role: 'ball', shape: { type: 'circle', radius: r }, position: { x: at.x, y: at.y }, mass: 0.01, material: { ...DYN_MATERIAL, restitution: 1 }, color: '#ef4444', charge: DEFAULT_CHARGE })
+  return body.id
 }

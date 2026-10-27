@@ -2,9 +2,9 @@
 import { describe, expect, it } from 'vitest'
 import { createHash } from 'node:crypto'
 import { TEMPLATES, buildTemplate } from '../src/templates'
-import { exactStateAt, frameState, recordingStates, simulate } from '../src/core/solver/simulation'
+import { exactStateAt, frameState, recordingStates, simulate } from './reference/core/solver/simulation'
 import { parseScene, serializeScene } from '../src/core/scene/io'
-import { Sha256 } from '../src/core/record/sha256'
+import { Sha256 } from './reference/core/record/sha256'
 
 describe('determinism', () => {
   it('SHA-256 implementation matches node:crypto', () => {

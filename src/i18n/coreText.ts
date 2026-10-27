@@ -135,11 +135,154 @@ function sub(v: MsgParam | undefined, lang: Lang): string {
   return isMessage(v) ? renderMessage(v, lang) : str(v)
 }
 
-/** Text of a core message in `lang`; unknown keys show the key and parameters. */
+/**
+ * Translator of the interface tables (set by i18n/index.ts, which imports this module through locale.ts): the texts
+ * of the expression messages and of the 26.53 calculation messages are interface texts (`tl` keys).
+ */
+type Translate = (lang: Lang, zh: string, params?: ReadonlyArray<unknown> | Record<string, unknown>) => string
+let translate: Translate = (_l, zh, params) => zh.replace(/\{(\w+)\}/g, (m, k: string) => { const v = Array.isArray(params) ? params[Number(k)] : (params as Record<string, unknown> | undefined)?.[k]; return v === undefined ? m : String(v) })
+
+/** Install the interface translator (i18n/index.ts). */
+export function setTranslator(t: Translate) { translate = t }
+
+const FORCE_VARIABLE_LIST = 't, x, y, vx, vy, v, theta, omega, m, g'
+
+/**
+ * Expression messages of the Rust parser and checks (engine/MESSAGES.md) as the texts of the 26.52 TypeScript parser
+ * (formula/expr.ts, solver/forceExpr.ts), which are interface texts.
+ */
+function exprText(m: Message, lang: Lang): string | null {
+  const p = m.params as Record<string, MsgParam>
+  const t = (zh: string, params?: unknown[]) => translate(lang, zh, params)
+  const dimName = (d: MsgParam | undefined) => (d === '' || d === undefined ? t('无量纲') : String(d))
+  switch (m.key) {
+    case 'expr.empty': return t('表达式为空')
+    case 'expr.emptyComponent': return t('表达式为空')
+    case 'expr.expected': return t('应为 “{0}”（位置 {1}）：{2}', [p.ch, p.pos, p.src])
+    case 'expr.badNumber': return t('数字格式错误（位置 {0}）：{1}', [p.pos, p.src])
+    case 'expr.unknownFunction': return t('未知函数 {0}', [p.name])
+    case 'expr.arity': return t('{0} 需要 {1} 个参数，实为 {2} 个', [p.name, p.arity, p.count])
+    case 'expr.functionNeedsParens': return t('函数 {0} 后面应有括号，如 {1}(t)', [p.name, p.name])
+    case 'expr.comparisonOnlyInIf': return t('比较运算只能用作 if(条件, 值1, 值2) 的条件（位置 {0}）', [p.pos])
+    case 'expr.incomplete': return t('表达式不完整：{0}', [p.src])
+    case 'expr.badChar': return t('无法识别的字符 “{0}”（位置 {1}）：{2}', [p.ch, p.pos, p.src])
+    case 'expr.unbalanced': return t('括号不匹配（位置 {0}）：{1}', [p.pos, p.src])
+    case 'expr.trailing': return t('多余字符 “{0}”（位置 {1}）：{2}', [p.ch, p.pos, p.src])
+    case 'expr.ifNeedsComparison': return t('if 的第一个参数应为比较式，例如 if(t < 1, 10, 0)')
+    case 'expr.unsetVariable': return t('变量 {0} 没有取值', [p.name])
+    case 'expr.unknownVariable': return t('未知变量 {0}。可用变量：{1}；常数 pi、e', [p.name, FORCE_VARIABLE_LIST])
+    case 'expr.functionNotAllowed': return t('变力表达式中不能使用函数 {0}', [p.name])
+    case 'expr.notForce': return t('表达式的量纲是 {0}，应为力（N）。数字可作为带单位的系数，例如 2*vx 表示 (2 N·s/m)·vx', [dimName(p.dim)])
+    case 'expr.dimensionedPower': return t('有量纲的量（{0}）只能取数字次幂', [dimName(p.dim)])
+    case 'expr.argumentNotDimensionless': {
+      const fn = p.function === '^' ? t('指数') : String(p.function)
+      return t('{0}( ) 的参数必须无量纲，实为 {1}（可写成系数乘变量，如 {2}(2*t)）', [fn, dimName(p.dim), fn])
+    }
+    case 'expr.dimMismatch': {
+      const w = String(p.what)
+      const what = w === '+' ? t('加法') : w === '-' ? t('减法') : w === 'if' ? t('if 的两个取值') : w === 'atan2' ? t('atan2 的参数')
+        : w === 'min' || w === 'max' || w === 'clamp' ? t('{0} 的参数', [w]) : t('比较 {0} ', [w])
+      return t('{0}两边量纲不同：{1} 与 {2}', [what, dimName(p.a), dimName(p.b)])
+    }
+  }
+  return null
+}
+
+/**
+ * Scene errors of the core (engine/MESSAGES.md `scene.*`, `abi.*`) as the texts of the scene check in
+ * core/scene/io.ts, which are interface texts (26.53: the core reports them when the run starts).
+ */
+function sceneText(m: Message, lang: Lang): string | null {
+  const p = m.params as Record<string, MsgParam>
+  const t = (zh: string, params?: unknown[]) => translate(lang, zh, params)
+  const c = str(p.connector), b = str(p.body)
+  switch (m.key) {
+    case 'scene.invalidJson': return t('不是有效的 JSON：{0}', [str(p.detail)])
+    case 'scene.notScene': return t('文件内容不是场景')
+    case 'scene.wrongFormat': return t('不是 VeloPhi 场景文件（format 字段不符）')
+    case 'scene.newerVersion': return t('场景文件版本 {0} 比本程序新，请升级 VeloPhi', [num(p.version)])
+    case 'scene.cannotMigrate': return t('无法从格式 {0} 升级', [num(p.version)])
+    case 'scene.notList': return t('{0} 应为列表', [str(p.path)])
+    case 'scene.duplicateBodyId': return t('物体 id 重复：{0}', [str(p.id)])
+    case 'scene.massNotPositive': return t('{0}：质量必须大于 0', [b])
+    case 'scene.sizeNotPositive': return t('{0}：宽高必须大于 0', [b])
+    case 'scene.radiusNotPositive': return t('{0}：半径必须大于 0', [b])
+    case 'scene.polygonTooFew': return t('{0}：多边形至少需要 3 个顶点', [b])
+    case 'scene.polygonNotSimple': return t('{0}：多边形的边不能相交，面积不能为零', [b])
+    case 'scene.compoundEmpty': return t('{0}：复合体至少需要一个部分', [b])
+    case 'scene.compoundPartInvalid': return t('{0}：复合体的部分无效（半径、宽高须大于 0，多边形须为简单多边形）', [b])
+    case 'scene.materialRange': return t('{0}：摩擦因数应 ≥ 0，恢复系数应在 0…1', [b])
+    case 'scene.dragNegative': return t('{0}：阻力系数应 ≥ 0', [b])
+    case 'scene.rollingRange': return t('{0}：滚动阻力系数应在 0…1', [b])
+    case 'scene.stiffnessNotPositive': return t('{0}：劲度系数必须大于 0', [c])
+    case 'scene.cubicNotFinite': return t('{0}：三次项系数应为有限数', [c])
+    case 'scene.damperNegative': return t('{0}：阻尼系数应 ≥ 0', [c])
+    case 'scene.sliderAxisZero': return t('{0}：滑轨方向不能为零向量', [c])
+    case 'scene.sliderLimits': return t('{0}：滑轨限位应满足 下限 < 上限', [c])
+    case 'scene.sliderLimitRestitution': return t('{0}：限位的恢复系数应在 0…1', [c])
+    case 'scene.gearInvalid': return t('{0}：齿轮需要连接物体，传动比不能为 0', [c])
+    case 'scene.motorMaxTorque': return t('{0}：马达的力矩上限应大于 0', [c])
+    case 'scene.centralInvalid': return t('{0}：有心力的强度应为有限数，指数应在 −4…4', [c])
+    case 'scene.centralTargetMissing': return t('{0}：作用对象 {1} 不存在', [c, b])
+    case 'scene.connectorBodyMissing': return t('{0}：连接的物体 {1} 不存在', [c, b])
+    case 'scene.pulleyBodyMissing': return t('{0}：所在的物体 {1} 不存在', [str(p.pulley), b])
+    case 'scene.ropePulleyMissing': return t('{0}：滑轮 {1} 不存在', [c, str(p.pulley)])
+    case 'scene.ropeSamePulleyTwice': return t('{0}：连续两次绕过同一个滑轮', [c])
+    case 'scene.ropeEndOnPulleyBody': return t('{0}：绳端固定在{1}上，不能直接绕过同一物体上的{2}（请把绳端系在别处，或去掉该滑轮）', [c, b, str(p.pulley)])
+    case 'scene.variableForceNeedsBody': return t('{0}：变力必须作用在物体上', [c])
+    case 'scene.forceExprInvalid': {
+      const reason = isMessage(p.reason) ? renderMessage(p.reason, lang) : str(p.reason)
+      return t('{0}：F{1} 表达式有误：{2}', [c, str(p.component), reason])
+    }
+    case 'scene.durationRange': return t('仿真时长应在 (0, {0}] s，或不限时长', [num(p.max)])
+    case 'scene.legacyDurationRange': return t('有限计算时长应在 (0, {0}] s', [num(p.max)])
+    case 'scene.stopAtUnknown': return t('停止条件的事件类型未知')
+    case 'scene.stopAtDelayRange': return t('停止条件的延时应在 [0, {0}] s', [num(p.max)])
+    case 'scene.outputStepRange': return t('时间步长应在 (0, 0.1] s')
+    case 'scene.tolerancesNotPositive': return t('容差必须大于 0')
+    case 'scene.gravitationNotPositive': return t('引力常量 G 必须大于 0')
+    case 'abi.noScene': return t('计算请求中没有场景')
+    case 'abi.badOption': return t('计算请求的选项 {0} 无效', [str(p.option)])
+  }
+  return null
+}
+
+/** Text combinators of the Rust calculation layer: `$join` (positional items, `sep`) and `$paren`. */
+function combined(m: Message, lang: Lang): string {
+  const items: string[] = []
+  for (let i = 0; ; i++) {
+    const v = (m.params as Record<string, MsgParam>)[String(i)]
+    if (v === undefined) break
+    items.push(isMessage(v) ? renderMessage(v, lang) : Array.isArray(v) ? v.join(lang === 'zh' ? '、' : ', ') : String(v))
+  }
+  if (m.key === '$paren') return lang === 'zh' ? `（${items[0] ?? ''}）` : ` (${items[0] ?? ''})`
+  const zh = lang === 'zh'
+  const sep = ({ semi: zh ? '；' : '; ', list: zh ? '、' : ', ', comma: zh ? '，' : ', ', colon: zh ? '：' : ': ', none: '' } as Record<string, string>)[String((m.params as Record<string, MsgParam>).sep)] ?? ''
+  return items.join(sep)
+}
+
+/** A key that is the Chinese source text itself (26.53 calculation messages, `tx` in Rust). */
+const SOURCE_KEY = /[^\x00-\x7f]/
+
+/**
+ * Text of a core message in `lang`: the warnings and errors of the engines, the expression messages and the texts of
+ * the Rust calculation layer (keys that are Chinese source texts, positional parameters "0", "1", …; nested messages
+ * are rendered too). Unknown keys show the key and parameters.
+ */
 export function renderMessage(m: Message, lang: Lang): string {
+  if (m.key === '$join' || m.key === '$paren') return combined(m, lang)
   const r = TEXT[m.key]
-  if (!r) return `${m.key} ${JSON.stringify(m.params)}`
-  return r[IDX[lang]](m.params, lang)
+  if (r) return r[IDX[lang]](m.params, lang)
+  const e = exprText(m, lang) ?? sceneText(m, lang)
+  if (e !== null) return e
+  if (SOURCE_KEY.test(m.key) || m.key.includes('{')) {
+    const params: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(m.params ?? {})) params[k] = isMessage(v) ? renderMessage(v, lang) : Array.isArray(v) ? v.join(lang === 'zh' ? '、' : ', ') : v
+    return translate(lang, m.key, params)
+  }
+  // A text handed over as is (e.g. the causes of the formula library, already in the interface language)
+  if (!m.params || Object.keys(m.params).length === 0) return translate(lang, m.key, {})
+  return `${m.key} ${JSON.stringify(m.params)}`
 }
 
 /** Every core key (tests). */

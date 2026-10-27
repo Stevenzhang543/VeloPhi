@@ -24,7 +24,10 @@ const opt = (name, def) => { const i = args.indexOf(name); return i >= 0 ? args[
 if (args[0] === '--child') {
   // Child process: time one bundle
   const [, bundle, runsText] = args
-  const { TEMPLATES, buildTemplate, simulate } = await import(pathToFileURL(bundle).href)
+  const { T, simulate } = await import(pathToFileURL(bundle).href)
+  const { buildTemplate } = T
+  // 26.54 (D77): only templates the TS reference can run (older checkouts have no referenceTemplates)
+  const TEMPLATES = T.referenceTemplates ? T.referenceTemplates() : T.TEMPLATES
   const runs = Number(runsText)
   const out = {}
   for (const t of TEMPLATES) {
@@ -50,7 +53,7 @@ async function bundle(root, name) {
   mkdirSync(dir, { recursive: true })
   const outfile = join(dir, `${name}.mjs`)
   await build({
-    stdin: { contents: "export { TEMPLATES, buildTemplate } from './src/templates/index.ts'\nexport { simulate } from './src/core/solver/simulation.ts'\n", resolveDir: root, loader: 'ts' },
+    stdin: { contents: "export * as T from './src/templates/index.ts'\nexport { simulate } from './tests/reference/core/solver/simulation.ts'\n", resolveDir: root, loader: 'ts' },
     bundle: true, format: 'esm', platform: 'node', target: 'node20', outfile, logLevel: 'error'
   })
   return outfile

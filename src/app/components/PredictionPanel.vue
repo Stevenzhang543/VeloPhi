@@ -14,16 +14,14 @@ import { computed, reactive, ref, watch } from 'vue'
 import { state, edit } from '../store'
 import { fmtQ, settings, toDisp, unitLabel } from '../settings'
 import { cloneScene } from '../../core/scene/io'
-import { compileModel } from '../../core/solver/model'
-import { buildSystem } from '../../core/solver/dynamics'
-import type { ChangeType } from '../../core/solver/simulation'
-import type { QuantityDef } from '../../core/observe/quantities'
-import { listQuantities } from '../../core/observe/quantities'
+import type { ChangeType } from '../../engine/recording'
+import type { QuantityDef } from '../../engine/observe'
+import { listQuantities, sceneQuantities } from '../../engine/observe'
 import { FORMULAS } from '../../formula/library'
 import type { Comparison, Prediction, PredictionTarget } from '../../analysis/prediction'
 import { EVENT_TYPES, GRADE_TEXT, PREDICTION_TOLERANCE, SITUATION_NAMES, comparePrediction, newPredictionId, readPredictions, situationsOfType, targetLabel, targetUnit, writePredictions } from '../../analysis/prediction'
 import { relErrorText } from '../../export/formulaImage'
-import { timeLabel } from '../../export/video'
+import { timeLabel } from '../../export/timeLabel'
 import { logEvent } from '../trialLog'
 import NumField from './NumField.vue'
 import Icon from './Icon.vue'
@@ -35,11 +33,10 @@ const predictions = computed<Prediction[]>(() => readPredictions(state.scene))
 const fresh = computed(() => (!state.stale && !state.computing && state.recording ? state.recording : null))
 
 // Quantities of the current scene (from the last recording, or compiled from the scene before any run)
-const system = computed(() => {
-  if (state.recording) return state.recording.system
-  try { return buildSystem(compileModel(cloneScene(state.scene))) } catch { return null }
+const quantities = computed<QuantityDef[]>(() => {
+  if (state.recording && !state.stale) return listQuantities(state.recording)
+  try { return sceneQuantities(cloneScene(state.scene)) } catch { return [] }
 })
-const quantities = computed<QuantityDef[]>(() => (system.value ? listQuantities(system.value) : []))
 const qById = computed(() => new Map(quantities.value.map(q => [q.id, q])))
 const bodyName = (id: string) => state.scene.bodies.find(b => b.id === id)?.name ?? id
 const ctx = computed(() => ({ quantities: qById.value, bodyName, time: (t: number) => timeLabel(t, settings.units) }))

@@ -16,7 +16,8 @@ use serde_json::{json, Value};
 use velophi_core::dmath;
 use velophi_core::expr::{check_force_expr, ExprArena, SwitchKind, ENV_SIZE};
 use velophi_core::message::Message;
-use velophi_core::scene::parse_scene;
+use velophi_core::scene::{parse_scene, parse_scene_value};
+use velophi_core::session::{RunEnd, Session, SessionInit, DEFAULT_MEMORY_BUDGET};
 use velophi_core::simulation::{rebuild_chunk, Advance, SimOptions, SimulationRun};
 use velophi_core::transport::{chunk_info_json, end_json, event_json, jnum, segment_json, stats_json, Blob, DeltaWriter};
 
@@ -29,10 +30,12 @@ struct Args {
     bench: usize,
     verify_rebuild: bool,
     deltas: Option<String>,
+    ops: Option<String>,
+    budget: Option<f64>,
 }
 
 fn parse_args(list: &[String]) -> Result<Args, String> {
-    let mut a = Args { scene: String::new(), out: None, duration: None, until: None, chunk: 1.0, bench: 0, verify_rebuild: false, deltas: None };
+    let mut a = Args { scene: String::new(), out: None, duration: None, until: None, chunk: 1.0, bench: 0, verify_rebuild: false, deltas: None, ops: None, budget: None };
     let mut i = 0;
     while i < list.len() {
         let v = |i: usize| list.get(i + 1).cloned().ok_or_else(|| format!("missing value for {}", list[i]));
@@ -68,6 +71,15 @@ fn parse_args(list: &[String]) -> Result<Args, String> {
             "--verify-rebuild" => a.verify_rebuild = true,
             "--deltas" => {
                 a.deltas = Some(v(i)?);
+                i += 1;
+            }
+            "--ops" => {
+                a.ops = Some(v(i)?);
+                i += 1;
+            }
+            "--budget" => {
+                let s = v(i)?;
+                a.budget = Some(s.parse().map_err(|_| format!("bad budget {s}"))?);
                 i += 1;
             }
             s if s.starts_with("--") => return Err(format!("unknown option {s}")),
@@ -264,6 +276,100 @@ fn command_run(a: &Args) -> Result<(), String> {
     Ok(())
 }
 
+/// `calc <scene.json> --ops ops.json --out res.bin`: run the scene, stream its deltas into a session (as the interface
+/// does; `--budget` bytes forces evictions and rebuilds) and answer the calculation requests of `ops.json` (an array)
+/// with the session's dispatcher. The output holds one u32 LE length + result container per request (an error is a
+/// container `{ "error": message }`).
+fn command_calc(a: &Args) -> Result<(), String> {
+    let text = std::fs::read_to_string(&a.scene).map_err(|e| format!("{}: {e}", a.scene))?;
+    let ops_file = a.ops.as_ref().ok_or("missing --ops")?;
+    let ops: Value = serde_json::from_str(&std::fs::read_to_string(ops_file).map_err(|e| format!("{ops_file}: {e}"))?).map_err(|e| format!("{ops_file}: {e}"))?;
+    let ops: Vec<Value> = ops.as_array().cloned().unwrap_or_default();
+    let out_file = a.out.as_ref().ok_or("missing --out")?;
+    let doc: Value = serde_json::from_str(&text).map_err(|e| format!("{}: {e}", a.scene))?;
+    let t0 = Instant::now();
+    let mut results: Vec<Option<Vec<u8>>> = vec![None; ops.len()];
+    let call = |session: &mut Session, op: &Value| -> Vec<u8> {
+        match velophi_core::api::call_bytes(session, op) {
+            Ok(c) => c,
+            Err(m) => Blob::default().finish(&json!({ "$error": m.to_json() })),
+        }
+    };
+    // The formula library is global (the interface installs it once): before the run
+    for (i, op) in ops.iter().enumerate() {
+        if op.get("op").and_then(|v| v.as_str()) == Some("setLibrary") {
+            let n = velophi_core::formula::cards::set_library(&op["formulas"]);
+            results[i] = Some(Blob::default().finish(&json!({ "formulas": n })));
+        }
+    }
+    let result = (|| -> Result<Session, Message> {
+        let (scene, _) = parse_scene_value(&doc)?;
+        let opts = SimOptions { duration: a.duration, chunk_seconds: a.chunk, ..SimOptions::default() };
+        let mut run = SimulationRun::new(&scene, opts)?;
+        let init = SessionInit {
+            chunk_frames: Some(run.chunk_frames),
+            duration: if run.bounded { Some(run.t_end) } else { None },
+            budget_bytes: a.budget.unwrap_or(DEFAULT_MEMORY_BUDGET),
+            ..SessionInit::default()
+        };
+        let mut session = Session::new(&doc, init)?;
+        // Run to the end (or the chunk boundary at --until), then hand the deltas over one by one, as the worker's
+        // final message does; requests with "afterDelta": k run once delta k has been applied
+        match a.until {
+            Some(t) if !run.bounded => {
+                let f = run.chunk_frames as f64;
+                let frame = ((t / run.dt - 1e-9).ceil() / f).ceil() * f;
+                if run.advance(u64::MAX, frame) != Advance::Finished {
+                    run.stop();
+                }
+            }
+            _ => {
+                run.advance(u64::MAX, f64::INFINITY);
+            }
+        }
+        let mut writer = DeltaWriter::new(true);
+        for (k, d) in writer.next(&mut run, true).into_iter().enumerate() {
+            session.apply(&d)?;
+            for (i, op) in ops.iter().enumerate() {
+                if op.get("afterDelta").and_then(|v| v.as_u64()) == Some(k as u64) {
+                    results[i] = Some(call(&mut session, op));
+                }
+            }
+        }
+        let end = end_json(&run);
+        session.finish(RunEnd {
+            completed: end["completed"].as_bool().unwrap_or(false),
+            error: end["error"].clone(),
+            hash: end["hash"].as_str().unwrap_or("").to_string(),
+            stop_reason: end["stopReason"].as_str().map(String::from),
+        })?;
+        Ok(session)
+    })();
+    let mut bytes = Vec::new();
+    let mut push = |c: &[u8]| {
+        bytes.extend_from_slice(&(c.len() as u32).to_le_bytes());
+        bytes.extend_from_slice(c);
+    };
+    match result {
+        Err(m) => push(&Blob::default().finish(&json!({ "createError": m.to_json() }))),
+        Ok(mut session) => {
+            let run_ms = t0.elapsed().as_secs_f64() * 1000.0;
+            let t1 = Instant::now();
+            for (i, op) in ops.iter().enumerate() {
+                if results[i].is_none() {
+                    results[i] = Some(call(&mut session, op));
+                }
+            }
+            for r in &results {
+                push(r.as_deref().unwrap_or(&[]));
+            }
+            println!("{}", json!({ "runMs": run_ms, "calcMs": t1.elapsed().as_secs_f64() * 1000.0, "ops": ops.len(), "rebuilds": session.rebuilds, "evictions": session.evictions }));
+        }
+    }
+    std::fs::write(out_file, bytes).map_err(|e| format!("{out_file}: {e}"))?;
+    Ok(())
+}
+
 /// `math <fn> <in> <out>`: evaluate a dmath function on little-endian doubles (pairs for two arguments).
 fn command_math(name: &str, input: &str, output: &str) -> Result<(), String> {
     let bytes = std::fs::read(input).map_err(|e| format!("{input}: {e}"))?;
@@ -367,6 +473,20 @@ fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let result = match args.first().map(|s| s.as_str()) {
         Some("run") => parse_args(&args[1..]).and_then(|a| command_run(&a)),
+        Some("calc") => parse_args(&args[1..]).and_then(|a| command_calc(&a)),
+        Some("calcbatch") => match args.get(1) {
+            // One "<scene.json> <ops.json> <out.bin> [flags…]" per line
+            Some(list) => std::fs::read_to_string(list).map_err(|e| format!("{list}: {e}")).and_then(|text| {
+                for line in text.lines().filter(|l| !l.trim().is_empty()) {
+                    let parts: Vec<String> = line.split_whitespace().map(|s| s.to_string()).collect();
+                    let mut v = vec![parts[0].clone(), "--ops".into(), parts[1].clone(), "--out".into(), parts[2].clone()];
+                    v.extend_from_slice(&parts[3..]);
+                    command_calc(&parse_args(&v)?)?;
+                }
+                Ok(())
+            }),
+            None => Err("missing list file".into()),
+        },
         Some("math") if args.len() == 4 => command_math(&args[1], &args[2], &args[3]),
         Some("sha-bench") => {
             // Throughput of the fingerprint hash (4.3 MB of doubles, in 600×1-frame pieces like the run)
