@@ -166,9 +166,10 @@ function toggleTheme() {
       <button class="btn ghost" :title="tl('经典模型模板')" @click="state.showTemplates = true"><Icon name="template" /><span class="lbl">{{ tl('模板') }}</span></button>
       <button class="btn ghost" :class="{ active: !!state.problem }" :title="tl('按教材章节的内置题目、导入题目包、用当前场景出题')" @click="state.showProblems = true"><Icon name="problem" /><span class="lbl">{{ tl('题目') }}</span></button>
       <div class="menu-anchor">
-        <button class="btn ghost" :class="{ active: open === 'teach' }" :title="tl('学习路径、受力分析图、打点计时器纸带、v–t 图面积')" @click="toggleMenu('teach')"><Icon name="graduation" /><span class="lbl">{{ tl('教学') }}</span><Icon name="chevron" :size="12" /></button>
+        <button class="btn ghost" :class="{ active: open === 'teach' }" :title="tl('学习路径、模型目录、受力分析图、打点计时器纸带、v–t 图面积')" @click="toggleMenu('teach')"><Icon name="graduation" /><span class="lbl">{{ tl('教学') }}</span><Icon name="chevron" :size="12" /></button>
         <div v-if="open === 'teach'" class="menu" role="menu">
           <button role="menuitem" @click="act(() => { state.showLearning = true })"><Icon name="graduation" />{{ tl('学习路径…') }}<span class="spacer" /><span class="tiny muted">{{ tl('初中 → 大学') }}</span></button>
+          <button role="menuitem" @click="act(() => { state.showModels = true })"><Icon name="layers" />{{ tl('模型目录…') }}<span class="spacer" /><span class="tiny muted">{{ tl('180 个模型族') }}</span></button>
           <div class="sep" />
           <button role="menuitem" :disabled="!teachReady()" @click="act(() => { state.showFbd = true })"><Icon name="fbd" />{{ tl('受力分析图…') }}<span class="spacer" /><span class="tiny muted">SVG · PNG</span></button>
           <button role="menuitem" :disabled="!teachReady()" @click="act(() => { state.showTape = true })"><Icon name="tape" />{{ tl('打点计时器纸带…') }}<span class="spacer" /><span class="tiny muted">PNG · CSV</span></button>

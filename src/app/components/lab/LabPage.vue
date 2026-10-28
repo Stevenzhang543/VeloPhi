@@ -3,13 +3,17 @@
  * The lab page (26.54, D76): a catalogue of experiments by domain on the left (folding groups, school level of each
  * experiment, the experiments planned for 26.55 greyed out), the open experiment on the right. Every experiment
  * computes in the Rust core (engine/labs.ts) and keeps its set-up in the browser (lab/state.ts); it can be exported
- * as a `velophi-lab` file and imported again.
+ * as a `velophi-lab` file and imported again. 26.56 (D105): the header names the model families the experiment
+ * exercises with their maturity and geometry; a click opens the model in the catalogue.
  */
 import { computed, ref } from 'vue'
 import type { Component } from 'vue'
 import { tl } from '../../../i18n'
 import { settings } from '../../settings'
-import { showToast } from '../../store'
+import { showToast, state } from '../../store'
+import { LAB_MODELS } from '../../../content/models/links'
+import { modelById } from '../../../content/models'
+import { GEOMETRY_TEXT, T3 } from '../../models/labels'
 import { LABS, LAB_DOMAINS, LEVELS, LEVEL_TEXT, labInfo } from '../../lab/catalog'
 import { exportLab, importLab, resetLab } from '../../lab/state'
 import { openTextFile, saveFile } from '../../../platform/files'
@@ -46,6 +50,8 @@ const current = computed(() => {
   const info = labInfo(settings.ui.lab)
   return info && !info.planned && VIEWS[info.id] ? info : labInfo('circuit')!
 })
+const labModels = computed(() => (LAB_MODELS.find(([id]) => id === current.value.id)?.[1] ?? []).map(modelById).filter((m): m is NonNullable<typeof m> => !!m))
+function showModel(id: string) { state.modelId = id; state.showModels = true }
 const query = ref('')
 /** 26.55 (D96): the catalogue by topic or by school level. */
 const byLevel = computed({ get: () => settings.ui.labView === 'level', set: v => { settings.ui.labView = v ? 'level' : 'topic' } })
@@ -116,6 +122,10 @@ function doReset() { resetLab(current.value.id) }
         <span v-for="lv in current.levels" :key="lv" class="lvl" :class="lv">{{ LEVEL_TEXT[lv] }}</span>
         <span class="summary small muted">{{ current.summary }}</span>
       </header>
+      <div v-if="labModels.length" class="lab-models tiny" :aria-label="tl('本实验涉及的模型族')">
+        <span class="muted">{{ tl('模型：') }}</span>
+        <button v-for="m in labModels" :key="m.id" class="mchip" :title="`${T3(m.title)} · ${GEOMETRY_TEXT[m.geometry]}`" @click="showModel(m.id)">{{ m.id }} · L{{ m.level }}</button>
+      </div>
       <component :is="VIEWS[current.id]" :key="current.id" :active="props.active" class="lab-view" />
     </main>
   </div>
@@ -144,6 +154,9 @@ function doReset() { resetLab(current.value.id) }
 .cat-foot .btn { gap: 4px; flex: 1; justify-content: center; }
 .lab-main { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 .lab-head { display: flex; align-items: center; gap: 8px; padding: 6px 4px 8px; min-width: 0; }
+.lab-models { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; padding: 0 4px 6px; }
+.mchip { border: 1px solid var(--separator); border-radius: 6px; background: transparent; color: var(--text-2); padding: 0 6px; cursor: pointer; font: inherit; }
+.mchip:hover { color: var(--accent); border-color: var(--accent); }
 .lab-head h2 { margin: 0; font-size: var(--type-title, 16px); font-weight: 650; white-space: nowrap; }
 .summary { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lab-view { flex: 1; min-height: 0; }

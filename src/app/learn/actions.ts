@@ -1,7 +1,8 @@
 /**
  * Opening what the learning path and the global search point at (26.55, D96): a template (built with its defaults
  * and run), an experiment of the lab (optionally a circuit preset), a built-in problem, a handbook topic, formula or
- * concept page, a tool of the studio. Steps of the learning path are marked done in the local settings when opened.
+ * concept page, a tool of the studio, a teaching activity (26.56). Opening a step records a visit (learn/records.ts):
+ * a visit is not practice and not mastery (D103).
  */
 import { tl, trDeep, activeLang } from '../../i18n'
 import { state, loadScene } from '../store'
@@ -20,6 +21,8 @@ import { conceptById } from '../../handbook/concepts'
 import { openHandbook } from '../handbook'
 import type { PathStep } from './paths'
 import { stepKey } from './paths'
+import { activityById, activitiesOfTarget, ACTIVITIES } from '../../teaching/activities'
+import { visit, progressOfStep } from './records'
 
 const T = <X extends { zh: string; en: string; de: string }>(t: X) => t[activeLang()] ?? t.zh
 
@@ -35,6 +38,7 @@ export function stepTitle(s: PathStep): string {
     case 'problem': { const p = BUILTIN_PROBLEMS.find(x => x.id === s.id); return p ? ptext(p.title, activeLang()) : s.id }
     case 'topic': { const t = TOPICS.find(x => x.id === s.id); return t ? T(t.title) : s.id }
     case 'concept': { const c = conceptById(s.id); return c ? T(c.title) : s.id }
+    case 'activity': { const a = activityById(s.id); return a ? T(a.title) : s.id }
   }
 }
 
@@ -44,19 +48,29 @@ export const KIND_META: Record<PathStep['kind'], { label: string; icon: string }
   lab: { label: '实验', icon: 'flask' },
   problem: { label: '题目', icon: 'problem' },
   topic: { label: '手册', icon: 'book' },
-  concept: { label: '概念页', icon: 'book' }
+  concept: { label: '概念页', icon: 'book' },
+  activity: { label: '活动', icon: 'graduation' }
 })
 
-/** The step was opened before (from the learning path). */
-export const isDone = (s: PathStep) => settings.ui.learnDone.includes(stepKey(s))
-
-/** Mark a step done or not. */
-export function setDone(s: PathStep, on: boolean) {
-  const k = stepKey(s)
-  const list = settings.ui.learnDone.filter(x => x !== k)
-  if (on) list.push(k)
-  settings.ui.learnDone = list
+/** Activities whose progress counts for a step: the activity itself, or those a template or lab opens. */
+export function activitiesOfStep(s: PathStep): string[] {
+  if (s.kind === 'activity') return [s.id]
+  if (s.kind === 'template' || s.kind === 'lab') return activitiesOfTarget(s.kind, s.id, s.preset).map(a => a.id)
+  return []
 }
+
+/** Visited, practised and mastery evidence of a step (D103). */
+export const stepState = (s: PathStep) => progressOfStep(stepKey(s), activitiesOfStep(s))
+
+/** Open a teaching activity. */
+export function openActivity(id: string): boolean {
+  if (!activityById(id)) return false
+  state.activity = id
+  logEvent('activity.open', { activity: id })
+  return true
+}
+
+export { ACTIVITIES }
 
 /** Load a template (with its defaults) into the studio and run it. */
 export async function openTemplate(id: string): Promise<boolean> {
@@ -86,7 +100,7 @@ export function openTopic(id: string) {
   state.handbookTopic = id
 }
 
-/** Open a step of the learning path and mark it done. */
+/** Open a step of the learning path and record the visit. */
 export async function openStep(s: PathStep): Promise<boolean> {
   let ok = false
   switch (s.kind) {
@@ -95,7 +109,8 @@ export async function openStep(s: PathStep): Promise<boolean> {
     case 'problem': { const p = BUILTIN_PROBLEMS.find(x => x.id === s.id); ok = p ? await openBuiltin(p) : false; break }
     case 'topic': openTopic(s.id); ok = true; break
     case 'concept': openTopic(`concept:${s.id}`); ok = true; break
+    case 'activity': ok = openActivity(s.id); break
   }
-  if (ok) { setDone(s, true); state.showLearning = false; logEvent('learn.open', { step: stepKey(s) }) }
+  if (ok) { visit(stepKey(s)); state.showLearning = false; logEvent('learn.open', { step: stepKey(s) }) }
   return ok
 }

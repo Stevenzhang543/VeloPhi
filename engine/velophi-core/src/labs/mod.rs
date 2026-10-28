@@ -228,7 +228,13 @@ fn magnet_sources(req: &Value) -> magnet::Sources {
     let b = req.get("B").cloned().unwrap_or(Value::Null);
     s.bx = num(&b, "x", 0.0);
     s.by = num(&b, "y", 0.0);
+    s.mu0 = constants_set(req).map(|set| crate::constants::value(set, "mu0"));
     s
+}
+
+/// The constant set named by a request (26.56, D100); None for requests of files before 26.56 (legacy values).
+fn constants_set(req: &Value) -> Option<&'static str> {
+    req.get("constantsSet").and_then(|v| v.as_str()).map(|s| crate::constants::normalize(Some(s), crate::constants::LEGACY))
 }
 
 fn gas_kind(v: &str) -> gas::Kind {
@@ -822,7 +828,7 @@ pub fn call(op: &str, req: &Value, blob: &mut Blob) -> Option<Value> {
                 let (z, a) = (z as u32, a as u32);
                 let (b, m) = nuclear::binding(z, a);
                 let (d, _) = nuclear::mass_excess(z, a);
-                Some(json!({ "Z": z, "A": a, "symbol": nuclear::SYMBOLS[z as usize], "B": jnum(b), "BA": jnum(if a > 0 { b / a as f64 } else { 0.0 }), "measured": m, "massExcess": jnum(d), "mass": jnum(a as f64 + d / nuclear::U_MEV) }))
+                Some(json!({ "Z": z, "A": a, "symbol": nuclear::SYMBOLS[z as usize], "B": jnum(b), "BA": jnum(if a > 0 { b / a as f64 } else { 0.0 }), "measured": m, "massExcess": jnum(d), "mass": jnum(a as f64 + d / constants_set(req).map(|s| crate::constants::nuclear(s).u).unwrap_or(nuclear::U_MEV)) }))
             }).collect::<Vec<_>>();
             json!({ "measured": measured, "semf": curve, "nuclides": picked })
         }
@@ -830,23 +836,52 @@ pub fn call(op: &str, req: &Value, blob: &mut Blob) -> Option<Value> {
             let side = |k: &str| -> Option<Vec<nuclear::Particle>> { req[k].as_array().map(|a| a.iter().map(particle_of).collect::<Option<Vec<_>>>()).unwrap_or(Some(Vec::new())) };
             match (side("before"), side("after")) {
                 (Some(b), Some(a)) => {
-                    let r = nuclear::reaction(&b, &a);
-                    json!({ "valid": true, "A": [r.nucleons.0, r.nucleons.1], "Z": [r.charge.0, r.charge.1], "balanced": r.balanced, "Q": opt_json(r.q), "estimated": r.estimated })
+                    let r = match constants_set(req) {
+                        Some(set) => nuclear::reaction_with(&b, &a, crate::constants::nuclear(set).me),
+                        None => nuclear::reaction(&b, &a),
+                    };
+                    // 26.56: the mass defect in u by the u c² of the request's set (the interface computes nothing)
+                    let u = constants_set(req).map(|s| crate::constants::nuclear(s).u).unwrap_or(nuclear::U_MEV);
+                    json!({ "valid": true, "A": [r.nucleons.0, r.nucleons.1], "Z": [r.charge.0, r.charge.1], "balanced": r.balanced, "Q": opt_json(r.q), "dm": opt_json(r.q.map(|q| q / u)), "uMeV": jnum(u), "estimated": r.estimated })
                 }
                 _ => json!({ "valid": false }),
             }
         }
+        // 26.56 (D100): a general particle process against charge, baryon and lepton-family numbers and energy
+        "particleProcess" => {
+            let set = crate::constants::normalize(req.get("constantsSet").and_then(|v| v.as_str()), crate::constants::DEFAULT);
+            let items = |k: &str| -> Vec<crate::particles::Item> {
+                req[k].as_array().cloned().unwrap_or_default().iter().map(|v| match v.as_str() {
+                    Some(id) => crate::particles::Item::Particle(id.to_string()),
+                    None => crate::particles::Item::Nuclide { z: num(v, "Z", 0.0).max(0.0) as u32, a: num(v, "A", 0.0).max(0.0) as u32 },
+                }).collect()
+            };
+            let c = crate::particles::check(&items("before"), &items("after"), set);
+            json!({
+                "known": c.known, "allowed": c.allowed, "violations": c.violations,
+                "charge": [c.charge.0, c.charge.1], "baryon": [c.baryon.0, c.baryon.1], "lepton": [c.lepton.0, c.lepton.1],
+                "strangeness": [c.strangeness.0, c.strangeness.1], "strangenessChanges": c.strangeness_changes,
+                "mass": [jnum(c.mass.0), jnum(c.mass.1)], "Q": c.q.map(jnum), "threshold": c.threshold.map(jnum),
+                "estimated": c.estimated, "constantsSet": set, "catalogue": crate::particles::catalogue(),
+            })
+        }
         "compton" => {
             let lam = num(req, "lambda", 71.0) * 1e-12;
-            let (l2, e2, ek, phi) = nuclear::compton(lam, num(req, "theta", std::f64::consts::FRAC_PI_2));
+            // 26.56 (D100): with a constant set, λ_C, hc and mₑc² of that set; without, the values of the old files
+            let (lc, hc, me) = match constants_set(req) {
+                Some(set) => (crate::constants::value(set, "lambda_C"), crate::constants::value(set, "h_planck") * crate::constants::value(set, "c_light") / crate::constants::value(set, "e_charge") * 1e-6, crate::constants::nuclear(set).me),
+                None => (nuclear::COMPTON, 1.23984198e-12, nuclear::ME_MEV),
+            };
+            let cp = |l: f64, th: f64| nuclear::compton_with(l, th, lc, hc, me);
+            let (l2, e2, ek, phi) = cp(lam, num(req, "theta", std::f64::consts::FRAC_PI_2));
             let n = 181;
             let mut curve = Vec::with_capacity(2 * n);
             for k in 0..n {
                 let th = std::f64::consts::PI * k as f64 / (n - 1) as f64;
                 curve.push(th);
-                curve.push((nuclear::compton(lam, th).0 - lam) * 1e12);
+                curve.push((cp(lam, th).0 - lam) * 1e12);
             }
-            json!({ "lambda2": jnum(l2 * 1e12), "shift": jnum((l2 - lam) * 1e12), "E1": jnum(1.23984198e-12 / lam), "E2": jnum(e2), "Ek": jnum(ek), "phi": jnum(phi), "compton": jnum(nuclear::COMPTON * 1e12), "curve": blob.f64s(&curve) })
+            json!({ "lambda2": jnum(l2 * 1e12), "shift": jnum((l2 - lam) * 1e12), "E1": jnum(hc / lam), "E2": jnum(e2), "Ek": jnum(ek), "phi": jnum(phi), "compton": jnum(lc * 1e12), "constantsSet": constants_set(req).unwrap_or("CODATA2018-rounded"), "curve": blob.f64s(&curve) })
         }
         "magnetMap" => {
             let s = magnet_sources(req);
@@ -882,8 +917,9 @@ pub fn call(op: &str, req: &Value, blob: &mut Blob) -> Option<Value> {
             })
         }
         "plateCapacitor" => {
-            // C = ε_r ε₀ S / d; connected to a battery U is fixed, isolated Q is fixed
-            let eps0 = 8.8541878128e-12;
+            // C = ε_r ε₀ S / d; connected to a battery U is fixed, isolated Q is fixed (26.56: ε₀ of the request's set;
+            // absent: the CODATA 2018 value of old files)
+            let eps0 = constants_set(req).map(|set| crate::constants::value(set, "eps0")).unwrap_or(8.8541878128e-12);
             let cap = |s: f64, d: f64, er: f64| er * eps0 * s / d;
             let (s, d, er) = (num(req, "S", 0.01).max(1e-12), num(req, "d", 1e-3).max(1e-12), num(req, "er", 1.0).max(1.0));
             let (s0, d0, er0) = (num(req, "S0", s).max(1e-12), num(req, "d0", d).max(1e-12), num(req, "er0", er).max(1.0));

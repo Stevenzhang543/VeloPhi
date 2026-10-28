@@ -12,6 +12,7 @@ import { fmtQ } from '../../settings'
 import type { MagnetMap } from '../../../engine/labs'
 import { magnetMap } from '../../../engine/labs'
 import { labState } from '../../lab/state'
+import { constantSet } from '../../../engine/models'
 import { useLabCanvas } from '../../lab/canvas'
 import { FONT, MONO } from '../../../render/style'
 import NumField from '../NumField.vue'
@@ -23,7 +24,8 @@ interface Wire { kind: 'wire'; x: number; y: number; I: number }
 interface Magnet { kind: 'magnet'; x: number; y: number; angle: number; length: number; thickness: number; M: number }
 interface Coil { kind: 'solenoid'; x: number; y: number; angle: number; length: number; thickness: number; turns: number; I: number }
 type Item = Wire | Magnet | Coil
-const MU0 = 1.25663706212e-6
+/** μ₀ of the experiment's constant set, from the core (26.56, D100). */
+const MU0 = computed(() => constantSet(S.constantsSet).constants.find(k => k.id === 'mu0')?.value ?? NaN)
 
 const PRESETS: Record<string, { label: string; items: Item[]; B?: number }> = {
   wire: { label: tl('通电直导线'), items: [{ kind: 'wire', x: 0, y: 0, I: 10 }] },
@@ -37,7 +39,7 @@ const PRESETS: Record<string, { label: string; items: Item[]; B?: number }> = {
   horseshoe: { label: tl('蹄形磁铁'), items: [{ kind: 'magnet', x: -0.05, y: 0, angle: Math.PI / 2, length: 0.12, thickness: 0.03, M: 8e5 }, { kind: 'magnet', x: 0.05, y: 0, angle: -Math.PI / 2, length: 0.12, thickness: 0.03, M: 8e5 }] },
   inField: { label: tl('匀强磁场中的通电导线'), items: [{ kind: 'wire', x: 0, y: 0, I: 20 }], B: 2e-4 }
 }
-const S = labState('magnet', () => ({ items: PRESETS.bar.items.map(i => ({ ...i })) as Item[], B: 0, Bdir: 0, preset: 'bar', lines: 26, compass: true, scale: 1600, loop: null as null | { x1: number; y1: number; x2: number; y2: number } }))
+const S = labState('magnet', () => ({ items: PRESETS.bar.items.map(i => ({ ...i })) as Item[], B: 0, Bdir: 0, preset: 'bar', lines: 26, compass: true, scale: 1600, loop: null as null | { x1: number; y1: number; x2: number; y2: number }, constantsSet: 'CODATA2022' }))
 function loadPreset(id: string) {
   const p = PRESETS[id]
   S.preset = id
@@ -75,7 +77,7 @@ const { canvas, wrap, redraw, at } = useLabCanvas(() => props.active, (ctx, w, h
   const k = JSON.stringify([sources.value, region, S.lines, S.compass, probe.value, S.loop])
   if (k !== mapKey) {
     try {
-      map = magnetMap(sources.value, { region, grid: 170, lines: S.lines, arrows: S.compass ? 18 : 0, probes: probe.value ? [probe.value] : [], loop: S.loop })
+      map = magnetMap(sources.value, { region, grid: 170, lines: S.lines, arrows: S.compass ? 18 : 0, probes: probe.value ? [probe.value] : [], loop: S.loop, constantsSet: S.constantsSet })
       probeInfo.value = map.probes[0] ?? null
       forces.value = map.forces
       flux.value = map.flux
@@ -255,7 +257,7 @@ const solenoidFormula = computed(() => {
   const c = cs[0]
   // field at the centre from the core
   try {
-    const m = magnetMap(sources.value, { region: { x0: -1e-3, y0: -1e-3, x1: 1e-3, y1: 1e-3 }, grid: 8, lines: 0, arrows: 0, probes: [{ x: c.x, y: c.y }] })
+    const m = magnetMap(sources.value, { region: { x0: -1e-3, y0: -1e-3, x1: 1e-3, y1: 1e-3 }, grid: 8, lines: 0, arrows: 0, probes: [{ x: c.x, y: c.y }], constantsSet: S.constantsSet })
     const b = m.probes[0]
     return { n: (c.turns - 1) / c.length, I: c.I, B: Math.hypot(b.Bx, b.By), ratio: c.length / c.thickness }
   } catch { return null }
@@ -280,6 +282,7 @@ const solenoidFormula = computed(() => {
         <span class="grow" />
         <label class="ctl"><input v-model="S.compass" type="checkbox" />{{ tl('小磁针') }}</label>
         <label class="ctl">{{ tl('磁感线') }}<input v-model.number="S.lines" type="range" min="0" max="60" step="2" :aria-label="tl('磁感线条数')" /></label>
+        <label class="ctl tiny">{{ tl('常数集') }}<select v-model="S.constantsSet" class="field small" :aria-label="tl('常数集')"><option value="CODATA2022">CODATA 2022</option><option value="CODATA2018">CODATA 2018</option></select></label>
       </div>
       <div ref="wrap" class="lab-canvas">
         <canvas ref="canvas" @pointerdown="onDown" @pointermove="onMove" @pointerup="onUp" @pointerleave="onUp" @wheel="onWheel" />

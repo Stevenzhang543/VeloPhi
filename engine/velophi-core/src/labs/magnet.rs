@@ -42,6 +42,8 @@ pub struct Sources {
     pub sheets: Vec<Sheet>,
     pub bx: f64,
     pub by: f64,
+    /// μ₀ of the request's constant set (26.56, D100); None keeps the CODATA 2018 value of files before 26.56.
+    pub mu0: Option<f64>,
 }
 
 impl Sources {
@@ -87,7 +89,7 @@ fn ln_integral(len: f64, u: f64, v: f64) -> f64 {
 
 /// Vector potential A_z (T·m) at (x, y).
 pub fn potential(s: &Sources, x: f64, y: f64) -> f64 {
-    let c = MU0 / TWO_PI;
+    let c = s.mu0.unwrap_or(MU0) / TWO_PI;
     let mut a = s.bx * y - s.by * x;
     for w in &s.wires {
         let r2 = (x - w.x) * (x - w.x) + (y - w.y) * (y - w.y);
@@ -116,7 +118,7 @@ pub fn potential(s: &Sources, x: f64, y: f64) -> f64 {
 
 /// Field B (T) at (x, y), from the analytic gradient of A.
 pub fn field(s: &Sources, x: f64, y: f64) -> (f64, f64) {
-    let c = MU0 / TWO_PI;
+    let c = s.mu0.unwrap_or(MU0) / TWO_PI;
     let (mut bx, mut by) = (s.bx, s.by);
     for w in &s.wires {
         let (dx, dy) = (x - w.x, y - w.y);

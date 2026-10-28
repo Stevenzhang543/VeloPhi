@@ -8,6 +8,7 @@
 pub mod api;
 pub mod calc;
 pub mod checkpoint;
+pub mod constants;
 pub mod dmath;
 pub mod driver;
 pub mod dynamics;
@@ -23,6 +24,8 @@ pub mod linalg;
 pub mod lod;
 pub mod message;
 pub mod model;
+pub mod modelcalc;
+pub mod particles;
 pub mod modes;
 pub mod moreau;
 pub mod numeric;

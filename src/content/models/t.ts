@@ -1,0 +1,250 @@
+/**
+ * T01–T16: heat, thermodynamics and statistical physics (blueprint §5.5; doc 02 §5). Temperatures are stored in K;
+ * inputs of kind 'temperature' may be entered in °C (affine), differences scale only (D99).
+ */
+import type { ModelSpec } from './types'
+import { A, L, T, cond, inp, let_, nonneg, out, pos } from './dsl'
+
+const R2 = { physics: '2026-10-28', language: '2026-10-28' }
+const temp = (id: string, symbol: string, label: ReturnType<typeof T>, value: number) => inp(id, symbol, label, 'K', 'temperature', value, { kind: 'temperature', min: 0 })
+
+export const MODELS_T: ModelSpec[] = [
+  {
+    id: 'T01', title: T('比热与升温', 'Specific heat and warming', 'Spezifische Wärme und Erwärmung'),
+    stages: ['j'], priority: 'P1', geometry: 'abstract',
+    assumptions: [T('比热容在温度范围内近似恒定；不跨相变', 'Specific heat roughly constant over the range; no phase change', 'Spezifische Wärme im Bereich etwa konstant; kein Phasenübergang')],
+    validity: T('起止温度在同一相内', 'Start and end temperature in the same phase', 'Anfangs- und Endtemperatur in derselben Phase'),
+    sources: ['S20'],
+    inputs: [pos('m', 'm', L.m, 'kg', 'mass', 0.5), pos('c', 'c', T('比热容', 'Specific heat capacity', 'Spezifische Wärmekapazität'), 'J/(kg·K)', 'specificHeat', 4200), temp('T1', 'T_1', T('初温', 'Initial temperature', 'Anfangstemperatur'), 293.15), temp('T2', 'T_2', T('末温', 'Final temperature', 'Endtemperatur'), 313.15), temp('Tm', 'T_m', T('熔点', 'Melting point', 'Schmelzpunkt'), 273.15), temp('Tb', 'T_b', T('沸点', 'Boiling point', 'Siedepunkt'), 373.15)],
+    conditions: [cond('onePhase', T('起止温度都在熔点与沸点之间', 'Both temperatures between melting and boiling point', 'Beide Temperaturen zwischen Schmelz- und Siedepunkt'), 'T1 >= Tm && T1 <= Tb && T2 >= Tm && T2 <= Tb')],
+    outputs: [out('dT', '\\Delta T', L.dT, 'K', 'T2 - T1', { kind: 'temperatureDifference' }), out('Q', 'Q', T('吸收的热量', 'Heat absorbed', 'Aufgenommene Wärme'), 'J', 'm*c*(T2 - T1)', { requires: ['onePhase'] })],
+    example: { text: T('0.5 kg 水，比热取 4200 J/(kg·K)，从 20 °C 升到 40 °C。', '0.5 kg of water, c = 4200 J/(kg·K), from 20 °C to 40 °C.', '0,5 kg Wasser, c = 4200 J/(kg·K), von 20 °C auf 40 °C.'), answer: T('温差 20 K；需热量 42000 J。', 'Difference 20 K; heat needed 42000 J.', 'Differenz 20 K; nötige Wärme 42000 J.') },
+    point: T('热量是传递过程量，温度不是热量。', 'Heat is energy in transfer; temperature is not heat.', 'Wärme ist übertragene Energie; Temperatur ist keine Wärme.'),
+    status: 'verified', level: 2, teaching: 1, references: ['analytic', 'otherMethod'], benchmarks: ['oracle:T01', 'rust:src/labs/heat.rs ice_to_steam'],
+    links: {}, review: R2
+  },
+  {
+    id: 'T02', title: T('潜热与加热曲线', 'Latent heat and the heating curve', 'Latente Wärme und Erwärmungskurve'),
+    stages: ['j'], priority: 'P1', geometry: 'abstract',
+    assumptions: [T('物质已在熔点；恒定加热功率无散失', 'The substance is at its melting point; constant heating power without loss', 'Der Stoff ist am Schmelzpunkt; konstante Heizleistung ohne Verlust')],
+    validity: T('相变期间温度不变（给定压强）', 'The temperature stays constant during the change (given pressure)', 'Die Temperatur bleibt während der Umwandlung konstant (gegebener Druck)'),
+    sources: ['S20'],
+    inputs: [pos('m', 'm', L.m, 'kg', 'mass', 0.1), pos('Lf', 'L', T('熔化热', 'Latent heat of fusion', 'Schmelzwärme'), 'J/kg', 'specificEnergy', 3.34e5), pos('P', 'P', T('加热功率', 'Heating power', 'Heizleistung'), 'W', 'power', 100)],
+    outputs: [out('Q', 'Q', T('熔化所需热量', 'Heat to melt', 'Schmelzwärme gesamt'), 'J', 'm*Lf'), out('t', 't', T('熔化时间', 'Time to melt', 'Schmelzdauer'), 's', 'm*Lf/P')],
+    example: { text: T('0.1 kg 冰已在熔点，L = 3.34×10⁵ J/kg，理想恒功率 100 W。', '0.1 kg of ice at its melting point, L = 3.34×10⁵ J/kg, steady 100 W.', '0,1 kg Eis am Schmelzpunkt, L = 3,34×10⁵ J/kg, konstant 100 W.'), answer: T('完全熔化需 33400 J；时间 334 s，熔化阶段温度保持不变。', '33400 J to melt it all; 334 s, at constant temperature.', '33400 J zum vollständigen Schmelzen; 334 s bei konstanter Temperatur.') },
+    point: T('相变能量不能用 mcΔT 代替。', 'Latent heat cannot be computed with mcΔT.', 'Latente Wärme lässt sich nicht mit mcΔT berechnen.'),
+    status: 'verified', level: 2, teaching: 1, references: ['analytic', 'otherMethod'], benchmarks: ['oracle:T02', 'rust:src/labs/heat.rs ice_to_steam'],
+    links: {}, review: R2
+  },
+  {
+    id: 'T03', title: T('热平衡与量热', 'Thermal equilibrium and calorimetry', 'Wärmegleichgewicht und Kalorimetrie'),
+    stages: ['j'], priority: 'P1', geometry: 'abstract',
+    assumptions: [T('绝热容器，容器热容可设为 0；无相变', 'Insulated vessel, its heat capacity may be 0; no phase change', 'Isoliertes Gefäß, Wärmekapazität darf 0 sein; kein Phasenübergang')],
+    validity: T('终温在两初温之间', 'The final temperature lies between the initial ones', 'Die Endtemperatur liegt zwischen den Anfangstemperaturen'),
+    sources: ['S20'],
+    inputs: [pos('m1', 'm_1', T('物体 1 的质量', 'Mass of body 1', 'Masse von Körper 1'), 'kg', 'mass', 0.2), pos('c1', 'c_1', T('物体 1 的比热容', 'Specific heat of body 1', 'Spezifische Wärme von Körper 1'), 'J/(kg·K)', 'specificHeat', 4200), temp('T1', 'T_1', T('物体 1 的温度', 'Temperature of body 1', 'Temperatur von Körper 1'), 353.15), pos('m2', 'm_2', T('物体 2 的质量', 'Mass of body 2', 'Masse von Körper 2'), 'kg', 'mass', 0.3), pos('c2', 'c_2', T('物体 2 的比热容', 'Specific heat of body 2', 'Spezifische Wärme von Körper 2'), 'J/(kg·K)', 'specificHeat', 4200), temp('T2', 'T_2', T('物体 2 的温度', 'Temperature of body 2', 'Temperatur von Körper 2'), 293.15), nonneg('Cc', 'C_c', T('容器热容（与物体 2 同温）', 'Heat capacity of the vessel (at T2)', 'Wärmekapazität des Gefäßes (bei T2)'), 'J/K', 'heatCapacity', 0)],
+    outputs: [out('Tf', 'T_f', T('平衡温度', 'Equilibrium temperature', 'Gleichgewichtstemperatur'), 'K', '(m1*c1*T1 + (m2*c2 + Cc)*T2)/(m1*c1 + m2*c2 + Cc)', { kind: 'temperature' }), out('Q', 'Q', T('物体 1 放出的热量', 'Heat given off by body 1', 'Von Körper 1 abgegebene Wärme'), 'J', 'm1*c1*(T1 - (m1*c1*T1 + (m2*c2 + Cc)*T2)/(m1*c1 + m2*c2 + Cc))')],
+    example: { text: T('0.2 kg 的 80 °C 水与 0.3 kg 的 20 °C 水混合，绝热且比热相同。', '0.2 kg of water at 80 °C mixed with 0.3 kg at 20 °C, insulated, equal specific heats.', '0,2 kg Wasser von 80 °C mit 0,3 kg von 20 °C gemischt, isoliert, gleiche spezifische Wärme.'), answer: T('Tf = (0.2×80 + 0.3×20)/0.5 = 44 °C。', 'Tf = (0.2×80 + 0.3×20)/0.5 = 44 °C.', 'Tf = (0,2×80 + 0,3×20)/0,5 = 44 °C.') },
+    point: T('容器热容与散热是可逐步加入的修正。', 'Vessel heat capacity and losses are corrections added step by step.', 'Wärmekapazität des Gefäßes und Verluste sind schrittweise Korrekturen.'),
+    status: 'verified', level: 2, teaching: 1, references: ['analytic', 'otherMethod'], benchmarks: ['oracle:T03', 'rust:src/labs/heat.rs mixing_reaches_the_weighted_mean'],
+    links: {}, review: R2
+  },
+  {
+    id: 'T04', title: T('热膨胀', 'Thermal expansion', 'Wärmeausdehnung'),
+    stages: ['s'], priority: 'P1', geometry: 'line1d',
+    assumptions: [T('线膨胀系数近似恒定，两端自由', 'Roughly constant coefficient, both ends free', 'Etwa konstanter Koeffizient, beide Enden frei')],
+    validity: T('αΔT ≪ 1；两端固定时需热应力模型（X04）', 'αΔT ≪ 1; with fixed ends the thermal-stress model is needed (X04)', 'αΔT ≪ 1; bei festen Enden braucht man das Wärmespannungsmodell (X04)'),
+    sources: ['S20'],
+    inputs: [pos('L0', 'L_0', T('原长', 'Initial length', 'Anfangslänge'), 'm', 'length', 2), inp('alpha', '\\alpha', T('线膨胀系数', 'Coefficient of linear expansion', 'Längenausdehnungskoeffizient'), '1/K', 'expansion', 1.2e-5), inp('dT', '\\Delta T', L.dT, 'K', 'temperatureDifference', 50, { kind: 'temperatureDifference' })],
+    conditions: [cond('small', T('αΔT 很小（≤ 10⁻²）', 'αΔT small (≤ 10⁻²)', 'αΔT klein (≤ 10⁻²)'), 'abs(alpha*dT) <= 1e-2')],
+    outputs: [out('dL', '\\Delta L', T('伸长量', 'Elongation', 'Verlängerung'), 'm', 'alpha*L0*dT', { requires: ['small'] }), out('L', 'L', T('末长', 'Final length', 'Endlänge'), 'm', 'L0*(1 + alpha*dT)', { requires: ['small'] })],
+    example: { text: T('杆长 2 m，α = 1.2×10⁻⁵ K⁻¹，升温 50 K。', 'A rod of 2 m, α = 1.2×10⁻⁵ K⁻¹, warmed by 50 K.', 'Ein Stab von 2 m, α = 1,2×10⁻⁵ K⁻¹, um 50 K erwärmt.'), answer: T('伸长 0.0012 m，即 1.2 mm。', 'It lengthens by 0.0012 m, that is 1.2 mm.', 'Er verlängert sich um 0,0012 m, also 1,2 mm.') },
+    point: T('温差可用 K 或 °C；线性式假设 α 近似恒定。', 'Differences can be in K or °C; the linear formula assumes a constant α.', 'Differenzen in K oder °C; die lineare Formel setzt konstantes α voraus.'),
+    status: 'verified', level: 1, teaching: 1, references: ['analytic', 'otherMethod'], benchmarks: ['oracle:T04'],
+    links: {}, review: R2
+  },
+  {
+    id: 'T05', title: T('热传导', 'Heat conduction', 'Wärmeleitung'),
+    stages: ['s', 'u'], priority: 'P2', geometry: 'line1d',
+    assumptions: [A.steady, T('一维平板，热导率恒定', 'One-dimensional slab, constant conductivity', 'Eindimensionale Platte, konstante Wärmeleitfähigkeit')],
+    validity: T('稳态；非稳态需热方程', 'Steady state; transients need the heat equation', 'Stationär; zeitabhängige Vorgänge brauchen die Wärmeleitungsgleichung'),
+    sources: ['S20', 'S54'],
+    inputs: [pos('kap', '\\kappa', T('热导率', 'Thermal conductivity', 'Wärmeleitfähigkeit'), 'W/(m·K)', 'thermalConductivity', 200), pos('A', 'A', T('截面积', 'Cross-section', 'Querschnitt'), 'm²', 'area', 0.01), pos('Lw', 'L', T('厚度', 'Thickness', 'Dicke'), 'm', 'length', 0.1), inp('dT', '\\Delta T', L.dT, 'K', 'temperatureDifference', 50, { kind: 'temperatureDifference' }), nonneg('t', 't', L.t, 's', 'time', 1)],
+    outputs: [out('Pq', '\\dot Q', T('热流率', 'Heat flow rate', 'Wärmestrom'), 'W', 'kap*A*dT/Lw'), out('Q', 'Q', T('传递的热量', 'Heat transferred', 'Übertragene Wärme'), 'J', 'kap*A*dT/Lw*t'), out('Rth', 'R_{th}', T('热阻', 'Thermal resistance', 'Wärmewiderstand'), 'K/W', 'Lw/(kap*A)')],
+    example: { text: T('平板 κ = 200 W/(m·K)，A = 0.01 m²，L = 0.1 m，温差 50 K。', 'A slab, κ = 200 W/(m·K), A = 0.01 m², L = 0.1 m, difference 50 K.', 'Eine Platte, κ = 200 W/(m·K), A = 0,01 m², L = 0,1 m, Differenz 50 K.'), answer: T('稳态热流率 1000 W；1 s 传递 1000 J。', 'Steady heat flow 1000 W; 1000 J per second.', 'Stationärer Wärmestrom 1000 W; 1000 J pro Sekunde.') },
+    point: T('稳态热流与温度随时间演化不同。', 'Steady flow differs from the temperature changing in time.', 'Stationärer Strom ist etwas anderes als die zeitliche Temperaturänderung.'),
+    status: 'verified', level: 1, teaching: 1, references: ['analytic', 'otherMethod'], benchmarks: ['oracle:T05'],
+    links: {}, review: R2
+  },
+  {
+    id: 'T06', title: T('牛顿冷却', 'Newton’s law of cooling', 'Newtonsches Abkühlungsgesetz'),
+    stages: ['s', 'u'], priority: 'P2', geometry: 'abstract',
+    assumptions: [T('集中参数：物体内部近似等温；k 为经验参数', 'Lumped body at nearly uniform temperature; k is empirical', 'Konzentrierter Körper mit fast gleichmäßiger Temperatur; k ist empirisch')],
+    validity: T('Biot 数小；环境温度不变', 'Small Biot number; constant surroundings', 'Kleine Biot-Zahl; konstante Umgebung'),
+    sources: ['S20', 'S55'],
+    inputs: [temp('T0', 'T_0', T('初温', 'Initial temperature', 'Anfangstemperatur'), 353.15), temp('Ta', 'T_a', T('环境温度', 'Ambient temperature', 'Umgebungstemperatur'), 293.15), pos('k', 'k', T('冷却常数', 'Cooling constant', 'Abkühlkonstante'), '1/s', 'rate', 0.1), nonneg('t', 't', L.t, 's', 'time', 10)],
+    outputs: [out('Tt', 'T(t)', L.temp, 'K', 'Ta + (T0 - Ta)*exp(-k*t)', { kind: 'temperature' }), out('th', 't_{1/2}', T('温差减半时间', 'Time to halve the difference', 'Zeit bis zur Halbierung der Differenz'), 's', 'ln(2)/k')],
+    example: { text: T('物体初温 80 °C，环境 20 °C，k = 0.1 s⁻¹，求 10 s 温度。', 'A body at 80 °C in surroundings at 20 °C, k = 0.1 s⁻¹: the temperature after 10 s.', 'Ein Körper von 80 °C in 20 °C Umgebung, k = 0,1 s⁻¹: Temperatur nach 10 s.'), answer: T('T(10) = 20 + 60/e = 42.0728 °C。', 'T(10) = 20 + 60/e = 42.0728 °C.', 'T(10) = 20 + 60/e = 42,0728 °C.') },
+    point: T('集中参数要求内部近似等温；k 是经验参数。', 'The lumped model needs a nearly uniform body; k is empirical.', 'Das konzentrierte Modell braucht einen fast gleichmäßig warmen Körper; k ist empirisch.'),
+    status: 'verified', level: 1, teaching: 1, references: ['analytic', 'otherMethod'], benchmarks: ['oracle:T06'],
+    links: {}, review: R2
+  },
+  {
+    id: 'T07', title: T('热辐射与黑体', 'Thermal radiation and the black body', 'Wärmestrahlung und schwarzer Körper'),
+    stages: ['s', 'u'], priority: 'P2', geometry: 'abstract',
+    assumptions: [T('灰体发射率 ε（黑体 ε = 1），与大环境交换', 'Grey body of emissivity ε (black body ε = 1) exchanging with large surroundings', 'Grauer Körper mit Emissionsgrad ε (schwarz: ε = 1), Austausch mit großer Umgebung')],
+    validity: T('绝对温度参与四次方', 'Absolute temperatures in the fourth power', 'Absolute Temperaturen in der vierten Potenz'),
+    sources: ['S20', 'S38', 'S03'],
+    inputs: [inp('eps', '\\varepsilon', T('发射率', 'Emissivity', 'Emissionsgrad'), '', 'ratio', 1, { min: 0, max: 1 }), pos('A', 'A', T('表面积', 'Surface area', 'Oberfläche'), 'm²', 'area', 1), temp('Tb', 'T', T('物体温度', 'Temperature of the body', 'Temperatur des Körpers'), 400), temp('Ta', 'T_a', T('环境温度', 'Ambient temperature', 'Umgebungstemperatur'), 300)],
+    outputs: [out('P', 'P', T('净辐射功率', 'Net radiated power', 'Netto-Strahlungsleistung'), 'W', 'eps*sigma_SB*A*(Tb^4 - Ta^4)'), out('lmax', '\\lambda_{\\max}', T('峰值波长', 'Peak wavelength', 'Wellenlänge des Maximums'), 'm', 'b_Wien/Tb')],
+    example: { text: T('黑体面积 1 m²，T = 400 K，环境 300 K，采用 CODATA 常数。', 'A black body of 1 m² at 400 K, surroundings 300 K, CODATA constants.', 'Ein schwarzer Körper von 1 m² bei 400 K, Umgebung 300 K, Konstanten nach CODATA.'), answer: T('净辐射功率约 992.316 W；峰值波长约 7.24443 μm。', 'Net power about 992.316 W; peak wavelength about 7.24443 μm.', 'Nettoleistung etwa 992,316 W; Maximum bei etwa 7,24443 μm.') },
+    point: T('四次方必须使用绝对温度；灰体与黑体分开。', 'The fourth power needs absolute temperatures; grey and black bodies differ.', 'Die vierte Potenz braucht absolute Temperaturen; graue und schwarze Körper unterscheiden sich.'),
+    status: 'verified', level: 1, teaching: 1, references: ['analytic', 'otherMethod'], benchmarks: ['oracle:T07'],
+    links: {}, review: R2
+  },
+  {
+    id: 'T08', title: T('理想气体状态方程', 'Ideal-gas equation of state', 'Zustandsgleichung des idealen Gases'),
+    stages: ['s'], priority: 'P1', geometry: 'abstract',
+    assumptions: [A.idealGas],
+    validity: T('稀薄气体：压强不高（≤ 10 atm 视为适用）', 'Dilute gas: moderate pressure (≤ 10 atm counts as applicable)', 'Verdünntes Gas: mäßiger Druck (≤ 10 atm gilt als zulässig)'),
+    sources: ['S21'],
+    inputs: [pos('n', 'n', L.n, 'mol', 'amount', 1), temp('Tg', 'T', L.temp, 300), pos('V', 'V', L.V, 'm³', 'volume', 0.024)],
+    conditions: [cond('dilute', T('稀薄（p ≤ 10 atm）', 'Dilute (p ≤ 10 atm)', 'Verdünnt (p ≤ 10 atm)'), 'n*R_gas*Tg/V <= 10*p_atm', 'n*R_gas*Tg/V <= 50*p_atm')],
+    outputs: [out('p', 'p', L.p, 'Pa', 'n*R_gas*Tg/V', { requires: ['dilute'] }), out('N', 'N', T('分子数', 'Number of molecules', 'Teilchenzahl'), '', 'n*N_A'), out('nd', 'n_V', T('数密度', 'Number density', 'Teilchendichte'), '1/m³', 'n*N_A/V')],
+    example: { text: T('n = 1 mol，T = 300 K，V = 0.024 m³，R = 8.314462618 J/(mol·K)。', 'n = 1 mol, T = 300 K, V = 0.024 m³, R = 8.314462618 J/(mol·K).', 'n = 1 mol, T = 300 K, V = 0,024 m³, R = 8,314462618 J/(mol·K).'), answer: T('p = 103930.783 Pa，约 103.931 kPa。', 'p = 103930.783 Pa, about 103.931 kPa.', 'p = 103930,783 Pa, etwa 103,931 kPa.') },
+    point: T('宏观状态方程不直接给出微观碰撞轨迹。', 'The equation of state says nothing about individual collisions.', 'Die Zustandsgleichung sagt nichts über einzelne Stöße.'),
+    status: 'verified', level: 2, teaching: 1, references: ['analytic', 'otherMethod'], benchmarks: ['oracle:T08', 'rust:src/labs/gas.rs processes_satisfy_the_first_law_and_the_integral'],
+    links: {}, review: R2
+  },
+  {
+    id: 'T09', title: T('热力学第一定律', 'First law of thermodynamics', 'Erster Hauptsatz der Thermodynamik'),
+    stages: ['s'], priority: 'P1', geometry: 'abstract',
+    assumptions: [T('符号约定：Q 为系统吸热，W 为系统对外做功', 'Sign convention: Q heat into the system, W work done by the system', 'Vorzeichen: Q zugeführte Wärme, W vom System verrichtete Arbeit')],
+    validity: T('封闭系统', 'Closed system', 'Geschlossenes System'),
+    sources: ['S22'],
+    inputs: [inp('Q', 'Q', T('吸收的热量', 'Heat absorbed', 'Aufgenommene Wärme'), 'J', 'energy', 500), inp('W', 'W', T('对外做的功', 'Work done by the gas', 'Vom Gas verrichtete Arbeit'), 'J', 'energy', 200)],
+    outputs: [out('dU', '\\Delta U', T('内能变化', 'Change of internal energy', 'Änderung der inneren Energie'), 'J', 'Q - W'), out('Won', 'W_{on}', T('外界对系统做的功（另一约定）', 'Work done on the system (other convention)', 'Am System verrichtete Arbeit (andere Konvention)'), 'J', '-W')],
+    example: { text: T('气体吸热 500 J，对外做功 200 J。', 'A gas absorbs 500 J and does 200 J of work.', 'Ein Gas nimmt 500 J auf und verrichtet 200 J Arbeit.'), answer: T('内能增加 300 J；改用外界对系统做功时须同步换符号。', 'Its internal energy rises by 300 J; with work done on the system the sign changes too.', 'Die innere Energie steigt um 300 J; bei am System verrichteter Arbeit wechselt auch das Vorzeichen.') },
+    point: T('热和功依路径，内能是状态量。', 'Heat and work depend on the path; internal energy is a state function.', 'Wärme und Arbeit hängen vom Weg ab; die innere Energie ist eine Zustandsgröße.'),
+    status: 'verified', level: 2, teaching: 1, references: ['analytic'], benchmarks: ['oracle:T09', 'rust:src/labs/gas.rs processes_satisfy_the_first_law_and_the_integral'],
+    links: {}, review: R2
+  },
+  {
+    id: 'T10', title: T('理想气体四类过程', 'The four processes of an ideal gas', 'Die vier Prozesse des idealen Gases'),
+    stages: ['s', 'u'], priority: 'P1', geometry: 'abstract',
+    assumptions: [A.idealGas, T('定容摩尔热容 Cv = R/(γ − 1)；过程代号 1 等温、2 等压、3 等容、4 绝热', 'Molar heat capacity Cv = R/(γ − 1); process code 1 isothermal, 2 isobaric, 3 isochoric, 4 adiabatic', 'Molare Wärmekapazität Cv = R/(γ − 1); Prozesskennung 1 isotherm, 2 isobar, 3 isochor, 4 adiabatisch')],
+    validity: T('可逆（准静态）；γ 与自由度一致', 'Reversible (quasi-static); γ consistent with the degrees of freedom', 'Reversibel (quasistatisch); γ passt zu den Freiheitsgraden'),
+    sources: ['S21', 'S22'],
+    inputs: [pos('n', 'n', L.n, 'mol', 'amount', 1), temp('T1', 'T_1', T('初温', 'Initial temperature', 'Anfangstemperatur'), 300), pos('V1', 'V_1', T('初体积', 'Initial volume', 'Anfangsvolumen'), 'm³', 'volume', 0.01), pos('V2', 'V_2', T('末体积', 'Final volume', 'Endvolumen'), 'm³', 'volume', 0.02), temp('T2', 'T_2', T('末温（等容过程用）', 'Final temperature (isochoric)', 'Endtemperatur (isochor)'), 400), pos('gamma', '\\gamma', L.gamma, '', 'ratio', 1.4, { min: 1, open: true }), inp('proc', 'k', T('过程代号（1–4）', 'Process code (1–4)', 'Prozesskennung (1–4)'), '', 'code', 1, { min: 1, max: 4 })],
+    lets: [let_('Cv', 'C_V', T('定容摩尔热容', 'Molar heat capacity at constant volume', 'Molare Wärmekapazität bei konstantem Volumen'), 'J/(mol·K)', 'R_gas/(gamma - 1)'), let_('p1', 'p_1', T('初压强', 'Initial pressure', 'Anfangsdruck'), 'Pa', 'n*R_gas*T1/V1')],
+    conditions: [
+      cond('iso', T('等温', 'Isothermal', 'Isotherm'), 'abs(proc - 1) < 0.5'), cond('bar', T('等压', 'Isobaric', 'Isobar'), 'abs(proc - 2) < 0.5'),
+      cond('cho', T('等容', 'Isochoric', 'Isochor'), 'abs(proc - 3) < 0.5'), cond('adi', T('绝热', 'Adiabatic', 'Adiabatisch'), 'abs(proc - 4) < 0.5')
+    ],
+    outputs: [
+      out('W', 'W', T('气体对外做功', 'Work done by the gas', 'Vom Gas verrichtete Arbeit'), 'J', 'n*R_gas*T1*ln(V2/V1)', { when: 'iso', branch: T('等温', 'Isothermal', 'Isotherm') }),
+      out('W', 'W', T('气体对外做功', 'Work done by the gas', 'Vom Gas verrichtete Arbeit'), 'J', 'p1*(V2 - V1)', { when: 'bar', branch: T('等压', 'Isobaric', 'Isobar') }),
+      out('W', 'W', T('气体对外做功', 'Work done by the gas', 'Vom Gas verrichtete Arbeit'), 'J', '0*p1*V1', { when: 'cho', branch: T('等容', 'Isochoric', 'Isochor') }),
+      out('W', 'W', T('气体对外做功', 'Work done by the gas', 'Vom Gas verrichtete Arbeit'), 'J', 'n*Cv*T1*(1 - (V1/V2)^(gamma - 1))', { when: 'adi', branch: T('绝热', 'Adiabatic', 'Adiabatisch') }),
+      out('dU', '\\Delta U', T('内能变化', 'Change of internal energy', 'Änderung der inneren Energie'), 'J', '0*p1*V1', { when: 'iso' }),
+      out('dU', '\\Delta U', T('内能变化', 'Change of internal energy', 'Änderung der inneren Energie'), 'J', 'n*Cv*T1*(V2/V1 - 1)', { when: 'bar' }),
+      out('dU', '\\Delta U', T('内能变化', 'Change of internal energy', 'Änderung der inneren Energie'), 'J', 'n*Cv*(T2 - T1)', { when: 'cho' }),
+      out('dU', '\\Delta U', T('内能变化', 'Change of internal energy', 'Änderung der inneren Energie'), 'J', '-n*Cv*T1*(1 - (V1/V2)^(gamma - 1))', { when: 'adi' }),
+      out('Q', 'Q', T('吸收的热量', 'Heat absorbed', 'Aufgenommene Wärme'), 'J', 'n*R_gas*T1*ln(V2/V1)', { when: 'iso' }),
+      out('Q', 'Q', T('吸收的热量', 'Heat absorbed', 'Aufgenommene Wärme'), 'J', 'n*(Cv + R_gas)*T1*(V2/V1 - 1)', { when: 'bar' }),
+      out('Q', 'Q', T('吸收的热量', 'Heat absorbed', 'Aufgenommene Wärme'), 'J', 'n*Cv*(T2 - T1)', { when: 'cho' }),
+      out('Q', 'Q', T('吸收的热量', 'Heat absorbed', 'Aufgenommene Wärme'), 'J', '0*p1*V1', { when: 'adi' }),
+      out('Tend', 'T_e', T('末温', 'Final temperature', 'Endtemperatur'), 'K', 'T1', { when: 'iso', kind: 'temperature' }),
+      out('Tend', 'T_e', T('末温', 'Final temperature', 'Endtemperatur'), 'K', 'T1*V2/V1', { when: 'bar', kind: 'temperature' }),
+      out('Tend', 'T_e', T('末温', 'Final temperature', 'Endtemperatur'), 'K', 'T2', { when: 'cho', kind: 'temperature' }),
+      out('Tend', 'T_e', T('末温', 'Final temperature', 'Endtemperatur'), 'K', 'T1*(V1/V2)^(gamma - 1)', { when: 'adi', kind: 'temperature' })
+    ],
+    example: { text: T('1 mol 理想气体在 300 K 可逆等温膨胀，V2 = 2V1。', '1 mol of ideal gas expands reversibly and isothermally at 300 K to V2 = 2V1.', '1 mol ideales Gas dehnt sich bei 300 K reversibel isotherm auf V2 = 2V1 aus.'), answer: T('Wby = 1728.944 J；ΔU = 0，Q 相同。', 'W_by = 1728.944 J; ΔU = 0 and Q is the same.', 'W = 1728,944 J; ΔU = 0, Q gleich.') },
+    point: T('过程约束决定路径；绝热不代表温度不变。', 'The constraint of the process fixes the path; adiabatic does not mean constant temperature.', 'Die Prozessbedingung legt den Weg fest; adiabatisch heißt nicht temperaturkonstant.'),
+    status: 'verified', level: 3, teaching: 2, references: ['analytic', 'otherMethod'],
+    benchmarks: ['oracle:T10', 'test:loop3 gasProcess vs T10 (four branches, quadrature of p dV)', 'test:loop3 cycle closes'],
+    links: { activities: ['act-gas'] }, review: R2
+  },
+  {
+    id: 'T11', title: T('卡诺热机与熵', 'Carnot engine and entropy', 'Carnot-Maschine und Entropie'),
+    stages: ['s', 'u'], priority: 'P1', geometry: 'abstract',
+    assumptions: [T('可逆循环，两个恒温热源', 'Reversible cycle between two reservoirs', 'Reversibler Kreisprozess zwischen zwei Wärmebehältern')],
+    validity: T('Th > Tc > 0（绝对温度）', 'Th > Tc > 0 (absolute temperatures)', 'Th > Tc > 0 (absolute Temperaturen)'),
+    sources: ['S23'],
+    inputs: [temp('Th', 'T_h', T('高温热源', 'Hot reservoir', 'Warmer Behälter'), 600), temp('Tc', 'T_c', T('低温热源', 'Cold reservoir', 'Kalter Behälter'), 300), pos('Qh', 'Q_h', T('每循环吸热', 'Heat taken in per cycle', 'Aufgenommene Wärme pro Zyklus'), 'J', 'energy', 1000)],
+    conditions: [cond('order', T('Th > Tc > 0', 'Th > Tc > 0', 'Th > Tc > 0'), 'Th > Tc && Tc > 0')],
+    outputs: [out('eta', '\\eta_C', T('卡诺效率', 'Carnot efficiency', 'Carnot-Wirkungsgrad'), '', '1 - Tc/Th', { requires: ['order'] }), out('W', 'W', T('输出功', 'Work output', 'Abgegebene Arbeit'), 'J', 'Qh*(1 - Tc/Th)', { requires: ['order'] }), out('Qc', 'Q_c', T('向冷源放热', 'Heat rejected', 'Abgegebene Wärme'), 'J', 'Qh*Tc/Th', { requires: ['order'] }), out('dS', '\\Delta S', T('两热源总熵变', 'Entropy change of both reservoirs', 'Entropieänderung beider Behälter'), 'J/K', '-Qh/Th + Qh*Tc/Th/Tc', { requires: ['order'] })],
+    example: { text: T('可逆热机 Th = 600 K、Tc = 300 K，每周期吸热 1000 J。', 'A reversible engine between 600 K and 300 K takes in 1000 J per cycle.', 'Eine reversible Maschine zwischen 600 K und 300 K nimmt 1000 J pro Zyklus auf.'), answer: T('效率 50%；输出功 500 J、向冷源放热 500 J；两热源总熵变为 0。', 'Efficiency 50 %; 500 J of work, 500 J rejected; the total entropy change is 0.', 'Wirkungsgrad 50 %; 500 J Arbeit, 500 J abgegeben; Gesamtentropieänderung 0.') },
+    point: T('相同热源间卡诺效率是上限；不可逆过程有非负总熵产生。', 'The Carnot efficiency is the upper limit between the same reservoirs; irreversible processes produce entropy.', 'Der Carnot-Wirkungsgrad ist die obere Grenze; irreversible Prozesse erzeugen Entropie.'),
+    status: 'verified', level: 2, teaching: 1, references: ['analytic', 'otherMethod'], benchmarks: ['oracle:T11', 'rust:src/labs/gas.rs cycle_efficiencies'],
+    links: {}, review: R2
+  },
+  {
+    id: 'T12', title: T('奥托循环', 'Otto cycle', 'Otto-Kreisprozess'),
+    stages: ['u'], priority: 'P2', geometry: 'abstract',
+    assumptions: [T('空气标准理想奥托循环：两绝热两等容', 'Air-standard ideal Otto cycle: two adiabats and two isochores', 'Idealer Otto-Kreisprozess (Luftstandard): zwei Adiabaten und zwei Isochoren')],
+    validity: T('理想循环效率不等于真实发动机效率', 'The ideal efficiency is not that of a real engine', 'Der ideale Wirkungsgrad ist nicht der eines realen Motors'),
+    sources: ['S22', 'S23'],
+    inputs: [pos('r', 'r', T('压缩比', 'Compression ratio', 'Verdichtungsverhältnis'), '', 'ratio', 8, { min: 1, open: true }), pos('gamma', '\\gamma', L.gamma, '', 'ratio', 1.4, { min: 1, open: true })],
+    outputs: [out('eta', '\\eta', T('效率', 'Efficiency', 'Wirkungsgrad'), '', '1 - r^(1 - gamma)')],
+    example: { text: T('空气标准理想奥托循环，压缩比 r = 8，γ = 1.4。', 'An air-standard ideal Otto cycle with r = 8 and γ = 1.4.', 'Ein idealer Otto-Kreisprozess mit r = 8 und γ = 1,4.'), answer: T('η = 0.564725，约 56.47%。', 'η = 0.564725, about 56.47 %.', 'η = 0,564725, etwa 56,47 %.') },
+    point: T('理想循环效率不等于真实发动机效率。', 'The ideal efficiency is not a real engine’s.', 'Der ideale Wirkungsgrad ist nicht der eines realen Motors.'),
+    status: 'verified', level: 2, teaching: 1, references: ['analytic', 'otherMethod'], benchmarks: ['oracle:T12', 'rust:src/labs/gas.rs cycle_efficiencies'],
+    links: {}, review: R2
+  },
+  {
+    id: 'T13', title: T('分子速率分布', 'Molecular speed distribution', 'Geschwindigkeitsverteilung der Moleküle'),
+    stages: ['u'], priority: 'P2', geometry: 'abstract',
+    assumptions: [T('理想气体的麦克斯韦分布', 'Maxwell distribution of an ideal gas', 'Maxwell-Verteilung eines idealen Gases')],
+    validity: T('经典统计（高温、低密度）', 'Classical statistics (high temperature, low density)', 'Klassische Statistik (hohe Temperatur, geringe Dichte)'),
+    sources: ['S21', 'S44'],
+    inputs: [temp('Tg', 'T', L.temp, 300), pos('M', 'M', T('摩尔质量', 'Molar mass', 'Molare Masse'), 'kg/mol', 'molarMass', 0.028)],
+    outputs: [out('vrms', 'v_{rms}', T('方均根速率', 'Root-mean-square speed', 'Quadratisch gemittelte Geschwindigkeit'), 'm/s', 'sqrt(3*R_gas*Tg/M)'), out('vmean', '\\bar v', T('平均速率', 'Mean speed', 'Mittlere Geschwindigkeit'), 'm/s', 'sqrt(8*R_gas*Tg/(pi*M))'), out('vp', 'v_p', T('最概然速率', 'Most probable speed', 'Wahrscheinlichste Geschwindigkeit'), 'm/s', 'sqrt(2*R_gas*Tg/M)')],
+    example: { text: T('理想氮气 T = 300 K，摩尔质量取 0.028 kg/mol。', 'Ideal nitrogen at 300 K, molar mass 0.028 kg/mol.', 'Idealer Stickstoff bei 300 K, molare Masse 0,028 kg/mol.'), answer: T('vrms ≈ 516.963 m/s，与平均速率及最概然速率不同。', 'v_rms ≈ 516.963 m/s, unlike the mean and the most probable speed.', 'v_rms ≈ 516,963 m/s, anders als mittlere und wahrscheinlichste Geschwindigkeit.') },
+    point: T('微观分布与宏观温度通过矩联系。', 'Moments link the microscopic distribution to the temperature.', 'Momente verbinden die mikroskopische Verteilung mit der Temperatur.'),
+    status: 'verified', level: 1, teaching: 1, references: ['otherMethod'], benchmarks: ['oracle:T13'],
+    links: {}, review: R2, gap: T('分子动力学采样与直方图的统计验证未做（GasLab 中的分子为示意）', 'Molecular sampling and histogram statistics are not done (the molecules in the gas lab are illustrations)', 'Molekulare Stichproben und Histogrammstatistik fehlen (die Moleküle im Gaslabor sind Illustration)')
+  },
+  {
+    id: 'T14', title: T('系综 配分函数与两能级', 'Ensembles, partition function and two levels', 'Gesamtheiten, Zustandssumme und zwei Niveaus'),
+    stages: ['u', 'g'], priority: 'P3', geometry: 'abstract',
+    assumptions: [T('正则系综，两个非简并能级 0 与 Δ', 'Canonical ensemble, two non-degenerate levels 0 and Δ', 'Kanonische Gesamtheit, zwei nicht entartete Niveaus 0 und Δ')],
+    validity: T('受限解析：两能级系统', 'Restricted analytic: a two-level system', 'Eingeschränkt analytisch: Zweiniveausystem'),
+    restricted: T('两能级配分函数；一般系综与相变暂缓', 'Two-level partition function; general ensembles and phase transitions deferred', 'Zustandssumme zweier Niveaus; allgemeine Gesamtheiten und Phasenübergänge zurückgestellt'),
+    sources: ['S44', 'S43'],
+    inputs: [pos('D', '\\Delta', T('能级差', 'Level spacing', 'Niveauabstand'), 'J', 'energy', 4.550393873212011e-21), temp('Tg', 'T', L.temp, 300)],
+    lets: [let_('x', '\\beta\\Delta', T('Δ/(kT)', 'Δ/(kT)', 'Δ/(kT)'), '', 'D/(k_B*Tg)')],
+    outputs: [out('Z', 'Z', T('配分函数', 'Partition function', 'Zustandssumme'), '', '1 + exp(-x)'), out('P1', 'P_1', T('激发态概率', 'Probability of the upper level', 'Wahrscheinlichkeit des oberen Niveaus'), '', 'exp(-x)/(1 + exp(-x))'), out('E', '\\langle E\\rangle', T('平均能量', 'Mean energy', 'Mittlere Energie'), 'J', 'D*exp(-x)/(1 + exp(-x))')],
+    example: { text: T('两非简并能级 0 与 Δ，设 Δ/(kBT) = ln3。', 'Two non-degenerate levels 0 and Δ with Δ/(kBT) = ln 3.', 'Zwei nicht entartete Niveaus 0 und Δ mit Δ/(kBT) = ln 3.'), answer: T('Z = 4/3，P1 = 1/4，平均能量 Δ/4。', 'Z = 4/3, P1 = 1/4, mean energy Δ/4.', 'Z = 4/3, P1 = 1/4, mittlere Energie Δ/4.') },
+    point: T('先定义系综；热混合与相干叠加不同。', 'Define the ensemble first; a thermal mixture is not a coherent superposition.', 'Erst die Gesamtheit festlegen; ein thermisches Gemisch ist keine kohärente Überlagerung.'),
+    status: 'verified', level: 1, teaching: 0, references: ['otherMethod'], benchmarks: ['oracle:T14'],
+    links: {}, review: R2
+  },
+  {
+    id: 'T15', title: T('随机游走与扩散', 'Random walk and diffusion', 'Zufallsbewegung und Diffusion'),
+    stages: ['u'], priority: 'P2', geometry: 'line1d',
+    assumptions: [T('一维扩散，起点确定', 'One-dimensional diffusion from a fixed start', 'Eindimensionale Diffusion von festem Start')],
+    validity: T('多次步进后（中心极限）', 'After many steps (central limit)', 'Nach vielen Schritten (zentraler Grenzwertsatz)'),
+    sources: ['S44', 'S60'],
+    inputs: [pos('D', 'D', T('扩散系数', 'Diffusion coefficient', 'Diffusionskoeffizient'), 'm²/s', 'diffusivity', 0.1), nonneg('t', 't', L.t, 's', 'time', 5)],
+    outputs: [out('msd', '\\langle x^2\\rangle', T('均方位移', 'Mean squared displacement', 'Mittleres Verschiebungsquadrat'), 'm²', '2*D*t'), out('sd', '\\sigma', T('标准差', 'Standard deviation', 'Standardabweichung'), 'm', 'sqrt(2*D*t)'), out('mean', '\\langle x\\rangle', T('平均位置', 'Mean position', 'Mittlere Position'), 'm', '0*sqrt(D*t)')],
+    example: { text: T('一维扩散 D = 0.1 m²/s，初位置确定，演化 5 s。', 'One-dimensional diffusion, D = 0.1 m²/s, from a fixed start, for 5 s.', 'Eindimensionale Diffusion, D = 0,1 m²/s, von festem Start, 5 s lang.'), answer: T('均方位移为 1 m²，标准差 1 m，平均位置仍为 0。', 'Mean squared displacement 1 m², standard deviation 1 m, mean position still 0.', 'Mittleres Verschiebungsquadrat 1 m², Standardabweichung 1 m, mittlere Position weiter 0.') },
+    point: T('单条轨迹不必遵循平均值。', 'A single path need not follow the mean.', 'Ein einzelner Weg muss nicht dem Mittelwert folgen.'),
+    status: 'verified', level: 1, teaching: 1, references: ['otherMethod'], benchmarks: ['oracle:T15'],
+    links: {}, review: R2
+  },
+  {
+    id: 'T16', title: T('伊辛模型与相变思想', 'Ising model and the idea of phase transitions', 'Ising-Modell und die Idee des Phasenübergangs'),
+    stages: ['u', 'g'], priority: 'P3', geometry: 'abstract',
+    assumptions: [T('两自旋一个键，s = ±1，外场 h', 'Two spins with one bond, s = ±1, field h', 'Zwei Spins mit einer Bindung, s = ±1, Feld h')],
+    validity: T('受限解析：两自旋精确枚举，没有热力学相变', 'Restricted analytic: exact enumeration of two spins; no thermodynamic phase transition', 'Eingeschränkt analytisch: exakte Aufzählung zweier Spins; kein thermodynamischer Phasenübergang'),
+    restricted: T('两自旋枚举与 Metropolis 接受概率；大格点蒙特卡罗暂缓', 'Two-spin enumeration and the Metropolis acceptance; lattice Monte Carlo deferred', 'Aufzählung zweier Spins und Metropolis-Akzeptanz; Gitter-Monte-Carlo zurückgestellt'),
+    sources: ['S44', 'S60'],
+    inputs: [inp('J', 'J', T('耦合能', 'Coupling energy', 'Kopplungsenergie'), 'J', 'energy', 1), inp('h', 'h', T('外场能', 'Field energy', 'Feldenergie'), 'J', 'energy', 0), pos('kT', 'k_BT', T('热能 kT', 'Thermal energy kT', 'Thermische Energie kT'), 'J', 'energy', 1)],
+    outputs: [out('Ealigned', 'E_{\\uparrow\\uparrow}', T('同向能量', 'Energy aligned', 'Energie parallel'), 'J', '-J - 2*h'), out('Eanti', 'E_{\\uparrow\\downarrow}', T('反向能量', 'Energy anti-aligned', 'Energie antiparallel'), 'J', 'J'), out('acc', 'p_{acc}', T('能量升高 2J 的 Metropolis 接受概率', 'Metropolis acceptance of an energy rise of 2J', 'Metropolis-Akzeptanz einer Energiezunahme um 2J'), '', 'min(1, exp(-2*J/kT))'), out('Z', 'Z', T('配分函数', 'Partition function', 'Zustandssumme'), '', 'exp((J + 2*h)/kT) + exp((J - 2*h)/kT) + 2*exp(-J/kT)'), out('E', '\\langle E\\rangle', T('平均能量', 'Mean energy', 'Mittlere Energie'), 'J', '((-J - 2*h)*exp((J + 2*h)/kT) + (-J + 2*h)*exp((J - 2*h)/kT) + 2*J*exp(-J/kT))/(exp((J + 2*h)/kT) + exp((J - 2*h)/kT) + 2*exp(-J/kT))')],
+    example: { text: T('两自旋仅一个相互作用键，s = ±1，J = 1、h = 0，取 kBT = 1。', 'Two spins with one bond, s = ±1, J = 1, h = 0, kBT = 1.', 'Zwei Spins mit einer Bindung, s = ±1, J = 1, h = 0, kBT = 1.'), answer: T('同向能量 −1、反向 +1；能量上升 2 的 Metropolis 接受概率为 0.135335。', 'Aligned −1, anti-aligned +1; the Metropolis acceptance of a rise by 2 is 0.135335.', 'Parallel −1, antiparallel +1; die Metropolis-Akzeptanz einer Zunahme um 2 ist 0,135335.') },
+    point: T('局部更新与有限尺寸效应；两自旋本身没有热力学相变。', 'Local updates and finite size; two spins have no phase transition.', 'Lokale Schritte und endliche Größe; zwei Spins haben keinen Phasenübergang.'),
+    status: 'verified', level: 1, teaching: 0, references: ['otherMethod'], benchmarks: ['oracle:T16'],
+    links: {}, review: R2
+  }
+]

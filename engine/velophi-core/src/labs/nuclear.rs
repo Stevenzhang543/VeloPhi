@@ -142,6 +142,11 @@ pub struct Reaction {
 }
 
 pub fn reaction(before: &[Particle], after: &[Particle]) -> Reaction {
+    reaction_with(before, after, ME_MEV)
+}
+
+/// The same with the electron rest energy of a constant set (26.56, D100).
+pub fn reaction_with(before: &[Particle], after: &[Particle], me_mev: f64) -> Reaction {
     let a0: u32 = before.iter().map(|p| p.nucleons()).sum();
     let a1: u32 = after.iter().map(|p| p.nucleons()).sum();
     let z0: i64 = before.iter().map(|p| p.charge()).sum();
@@ -160,7 +165,7 @@ pub fn reaction(before: &[Particle], after: &[Particle]) -> Reaction {
                 Particle::Neutron => DN,
                 // atomic masses: a β⁻ electron is the daughter atom's extra electron; a positron needs its own
                 // mass and leaves an extra atomic electron: 2mₑ
-                Particle::Positron => 2.0 * ME_MEV,
+                Particle::Positron => 2.0 * me_mev,
                 _ => 0.0,
             };
         }
@@ -268,13 +273,18 @@ pub const COMPTON: f64 = 2.42631023867e-12;
 /// Photon of wavelength λ (m) scattered by θ: (λ', photon energy after (MeV), electron kinetic energy (MeV),
 /// electron recoil angle φ (rad)).
 pub fn compton(lambda: f64, theta: f64) -> (f64, f64, f64, f64) {
-    let hc = 1.23984198e-12; // MeV·m
-    let l2 = lambda + COMPTON * (1.0 - cos(theta));
+    compton_with(lambda, theta, COMPTON, 1.23984198e-12, ME_MEV)
+}
+
+/// Compton scattering with the constants of a set (26.56, D100): Compton wavelength λ_C (m), hc (MeV·m) and mₑc²
+/// (MeV). `compton` keeps the rounded values of the files before 26.56.
+pub fn compton_with(lambda: f64, theta: f64, lambda_c: f64, hc: f64, me_mev: f64) -> (f64, f64, f64, f64) {
+    let l2 = lambda + lambda_c * (1.0 - cos(theta));
     let e1 = hc / lambda;
     let e2 = hc / l2;
     // cot φ = (1 + E/(mₑc²)) tan(θ/2)
     let half = 0.5 * theta;
-    let phi = if theta.abs() < 1e-15 { 0.5 * std::f64::consts::PI } else { atan(1.0 / ((1.0 + e1 / ME_MEV) * crate::dmath::tan(half))) };
+    let phi = if theta.abs() < 1e-15 { 0.5 * std::f64::consts::PI } else { atan(1.0 / ((1.0 + e1 / me_mev) * crate::dmath::tan(half))) };
     (l2, e2, e1 - e2, phi)
 }
 

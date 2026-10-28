@@ -51,6 +51,15 @@ pub enum Node {
     Cmp(CmpOp, Box<Node>, Box<Node>),
 }
 
+/// Functions added for the formula language of the model registry (26.56, D106); force expressions do not accept
+/// them (their compiled form has no switches or derivatives for these).
+fn formula_func_arity(name: &str) -> Option<usize> {
+    match name {
+        "sinh" | "cosh" | "asinh" | "acosh" | "atanh" | "sinc" | "cbrt" | "floor" => Some(1),
+        _ => func_arity(name),
+    }
+}
+
 /// Functions of the language with their arity (formula/expr.ts FUNCS).
 fn func_arity(name: &str) -> Option<usize> {
     Some(match name {
@@ -90,6 +99,8 @@ struct Parser<'a> {
     pos: usize,
     /// Named constants: pi and e for force expressions, only pi for the formula language.
     constant: fn(&str) -> Option<f64>,
+    /// The formula language (26.56: also sinh, cosh, asinh, acosh, atanh, sinc, cbrt, floor).
+    ext: bool,
 }
 
 const SP: u16 = b' ' as u16;
@@ -204,7 +215,7 @@ impl<'a> Parser<'a> {
                 let name = String::from_utf16_lossy(&self.src[start..self.pos]);
                 if self.peek() == Some(b'(' as u16) {
                     self.pos += 1;
-                    let arity = match func_arity(&name) {
+                    let arity = match if self.ext { formula_func_arity(&name) } else { func_arity(&name) } {
                         Some(a) => a,
                         None => return Err(Message::new("expr.unknownFunction").text("name", name)),
                     };
@@ -229,7 +240,7 @@ impl<'a> Parser<'a> {
                     return Ok(Node::Call(name, args));
                 }
                 let constant = (self.constant)(&name);
-                if func_arity(&name).is_some() && constant.is_none() {
+                if (if self.ext { formula_func_arity(&name) } else { func_arity(&name) }).is_some() && constant.is_none() {
                     return Err(Message::new("expr.functionNeedsParens").text("name", name));
                 }
                 if let Some(v) = constant {
@@ -308,7 +319,7 @@ pub fn parse(src: &str) -> EResult<Node> {
     if src.trim().is_empty() {
         return Err(Message::new("expr.empty"));
     }
-    parse_with(src, force_constant)
+    parse_with(src, force_constant, false)
 }
 
 /// Constants of the formula language (formula/expr.ts DEFAULT_CONSTANTS): only pi.
@@ -324,11 +335,11 @@ pub fn parse_formula(src: &str) -> EResult<Node> {
     if src.trim().is_empty() {
         return Err(Message::new("expr.empty"));
     }
-    parse_with(src, formula_constant)
+    parse_with(src, formula_constant, true)
 }
 
-fn parse_with(src: &str, constant: fn(&str) -> Option<f64>) -> EResult<Node> {
-    let mut p = Parser { src: src.encode_utf16().collect(), text: src, pos: 0, constant };
+fn parse_with(src: &str, constant: fn(&str) -> Option<f64>, ext: bool) -> EResult<Node> {
+    let mut p = Parser { src: src.encode_utf16().collect(), text: src, pos: 0, constant, ext };
     let node = p.sum()?;
     if let Some(ch) = p.peek() {
         if ch == b'<' as u16 || ch == b'>' as u16 {
@@ -343,53 +354,151 @@ fn parse_with(src: &str, constant: fn(&str) -> Option<f64>) -> EResult<Node> {
 }
 
 // ---- Dimensions ----
-/// Physical dimension as exponents of (length, mass, time).
-pub type Dim = [f64; 3];
-pub const DIMLESS: Dim = [0.0, 0.0, 0.0];
-const FORCE_DIM: Dim = [1.0, 1.0, -2.0];
+/// Physical dimension as exponents of the seven SI base quantities (26.56, D99): length L, mass M, time T, electric
+/// current I, thermodynamic temperature Θ, amount of substance N and luminous intensity J. Angles are dimensionless;
+/// whether a temperature is absolute or a difference is a semantic type of the quantity, not a dimension.
+pub type Dim = [f64; 7];
+pub const DIMLESS: Dim = [0.0; 7];
+const FORCE_DIM: Dim = d3(1.0, 1.0, -2.0);
+
+/// A mechanical dimension (L, M, T).
+pub const fn d3(l: f64, m: f64, t: f64) -> Dim {
+    [l, m, t, 0.0, 0.0, 0.0, 0.0]
+}
+/// A dimension with electric current (L, M, T, I).
+pub const fn d4(l: f64, m: f64, t: f64, i: f64) -> Dim {
+    [l, m, t, i, 0.0, 0.0, 0.0]
+}
+/// A full dimension (L, M, T, I, Θ, N, J).
+pub const fn d7(l: f64, m: f64, t: f64, i: f64, th: f64, n: f64, j: f64) -> Dim {
+    [l, m, t, i, th, n, j]
+}
 
 pub fn dim_equal(a: &Dim, b: &Dim) -> bool {
-    (a[0] - b[0]).abs() < 1e-12 && (a[1] - b[1]).abs() < 1e-12 && (a[2] - b[2]).abs() < 1e-12
+    a.iter().zip(b.iter()).all(|(x, y)| (x - y).abs() < 1e-12)
 }
 pub fn dim_mul(a: &Dim, b: &Dim) -> Dim {
-    [a[0] + b[0], a[1] + b[1], a[2] + b[2]]
+    let mut r = DIMLESS;
+    for k in 0..7 {
+        r[k] = a[k] + b[k];
+    }
+    r
 }
 pub fn dim_pow(a: &Dim, p: f64) -> Dim {
-    [a[0] * p, a[1] * p, a[2] * p]
+    let mut r = DIMLESS;
+    for k in 0..7 {
+        r[k] = a[k] * p;
+    }
+    r
 }
 
-pub const UNITS: [(&str, Dim); 26] = [
+/// Units of the formula language with their dimensions, in display preference order (the first unit of a
+/// dimension is its display unit). The same table as src/formula/units.ts (tests/units.test.ts compares them).
+pub const UNITS: &[(&str, Dim)] = &[
     ("", DIMLESS),
     ("rad", DIMLESS),
-    ("m", [1.0, 0.0, 0.0]),
-    ("kg", [0.0, 1.0, 0.0]),
-    ("s", [0.0, 0.0, 1.0]),
-    ("m/s", [1.0, 0.0, -1.0]),
-    ("m/s²", [1.0, 0.0, -2.0]),
-    ("rad/s", [0.0, 0.0, -1.0]),
-    ("rad/s²", [0.0, 0.0, -2.0]),
-    ("N", [1.0, 1.0, -2.0]),
-    ("N/m", [0.0, 1.0, -2.0]),
-    ("J", [2.0, 1.0, -2.0]),
-    ("kg·m/s", [1.0, 1.0, -1.0]),
-    ("kg·m²", [2.0, 1.0, 0.0]),
-    ("kg·m²/s", [2.0, 1.0, -1.0]),
-    ("N·s", [1.0, 1.0, -1.0]),
-    ("N·s/m", [0.0, 1.0, -1.0]),
-    ("W", [2.0, 1.0, -3.0]),
-    ("N·m", [2.0, 1.0, -2.0]),
-    ("Hz", [0.0, 0.0, -1.0]),
-    ("1/s", [0.0, 0.0, -1.0]),
+    ("m", d3(1.0, 0.0, 0.0)),
+    ("kg", d3(0.0, 1.0, 0.0)),
+    ("s", d3(0.0, 0.0, 1.0)),
+    ("m/s", d3(1.0, 0.0, -1.0)),
+    ("m/s²", d3(1.0, 0.0, -2.0)),
+    ("rad/s", d3(0.0, 0.0, -1.0)),
+    ("rad/s²", d3(0.0, 0.0, -2.0)),
+    ("N", d3(1.0, 1.0, -2.0)),
+    ("N/m", d3(0.0, 1.0, -2.0)),
+    ("J", d3(2.0, 1.0, -2.0)),
+    ("kg·m/s", d3(1.0, 1.0, -1.0)),
+    ("kg·m²", d3(2.0, 1.0, 0.0)),
+    ("kg·m²/s", d3(2.0, 1.0, -1.0)),
+    ("N·s", d3(1.0, 1.0, -1.0)),
+    ("N·s/m", d3(0.0, 1.0, -1.0)),
+    ("W", d3(2.0, 1.0, -3.0)),
+    ("N·m", d3(2.0, 1.0, -2.0)),
+    ("Hz", d3(0.0, 0.0, -1.0)),
+    ("1/s", d3(0.0, 0.0, -1.0)),
     // 26.51: drag, gravitation, areal velocity, nonlinear springs
-    ("N·s²/m²", [-1.0, 1.0, 0.0]),
-    ("N·m²/kg²", [3.0, -1.0, -2.0]),
-    ("m²/s", [2.0, 0.0, -1.0]),
-    ("m²", [2.0, 0.0, 0.0]),
-    ("N/m³", [-2.0, 1.0, -2.0]),
+    ("N·s²/m²", d3(-1.0, 1.0, 0.0)),
+    ("N·m²/kg²", d3(3.0, -1.0, -2.0)),
+    ("m²/s", d3(2.0, 0.0, -1.0)),
+    ("m²", d3(2.0, 0.0, 0.0)),
+    ("N/m³", d3(-2.0, 1.0, -2.0)),
+    // 26.54: electricity and magnetism (26.56: in SI base dimensions, C = A·s)
+    ("C", d4(0.0, 0.0, 1.0, 1.0)),
+    ("V/m", d4(1.0, 1.0, -3.0, -1.0)),
+    ("T", d4(0.0, 1.0, -2.0, -1.0)),
+    ("V", d4(2.0, 1.0, -3.0, -1.0)),
+    ("A", d4(0.0, 0.0, 0.0, 1.0)),
+    ("Ω", d4(2.0, 1.0, -3.0, -2.0)),
+    ("F", d4(-2.0, -1.0, 4.0, 2.0)),
+    ("N·m²/C²", d4(3.0, 1.0, -4.0, -2.0)),
+    ("C/kg", d4(0.0, -1.0, 1.0, 1.0)),
+    // 26.55: liquids and induction
+    ("kg/m³", d3(-3.0, 1.0, 0.0)),
+    ("m³", d3(3.0, 0.0, 0.0)),
+    ("Wb", d4(2.0, 1.0, -2.0, -1.0)),
+    // 26.56 (D99): temperature, amount of substance, luminous intensity and the units of the model registry
+    ("K", d7(0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0)),
+    ("mol", d7(0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0)),
+    ("cd", d7(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0)),
+    ("Pa", d3(-1.0, 1.0, -2.0)),
+    ("J/K", d7(2.0, 1.0, -2.0, 0.0, -1.0, 0.0, 0.0)),
+    ("J/(kg·K)", d7(2.0, 0.0, -2.0, 0.0, -1.0, 0.0, 0.0)),
+    ("J/(mol·K)", d7(2.0, 1.0, -2.0, 0.0, -1.0, -1.0, 0.0)),
+    ("J/kg", d3(2.0, 0.0, -2.0)),
+    ("J/mol", d7(2.0, 1.0, -2.0, 0.0, 0.0, -1.0, 0.0)),
+    ("W/(m·K)", d7(1.0, 1.0, -3.0, 0.0, -1.0, 0.0, 0.0)),
+    ("W/m²", d3(0.0, 1.0, -3.0)),
+    ("W/(m²·K⁴)", d7(0.0, 1.0, -3.0, 0.0, -4.0, 0.0, 0.0)),
+    ("m·K", d7(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0)),
+    ("1/K", d7(0.0, 0.0, 0.0, 0.0, -1.0, 0.0, 0.0)),
+    ("kg/mol", d7(0.0, 1.0, 0.0, 0.0, 0.0, -1.0, 0.0)),
+    ("1/mol", d7(0.0, 0.0, 0.0, 0.0, 0.0, -1.0, 0.0)),
+    ("Pa·s", d3(-1.0, 1.0, -1.0)),
+    ("m³/s", d3(3.0, 0.0, -1.0)),
+    ("kg/m", d3(-1.0, 1.0, 0.0)),
+    ("kg/s", d3(0.0, 1.0, -1.0)),
+    ("1/m", d3(-1.0, 0.0, 0.0)),
+    ("1/m³", d3(-3.0, 0.0, 0.0)),
+    ("J·s", d3(2.0, 1.0, -1.0)),
+    ("m³/(kg·s²)", d3(3.0, -1.0, -2.0)),
+    ("m³/s²", d3(3.0, 0.0, -2.0)),
+    ("H", d4(2.0, 1.0, -2.0, -2.0)),
+    ("H/m", d4(1.0, 1.0, -2.0, -2.0)),
+    ("F/m", d4(-3.0, -1.0, 4.0, 2.0)),
+    ("C/m²", d4(-2.0, 0.0, 1.0, 1.0)),
+    ("A/m", d4(-1.0, 0.0, 0.0, 1.0)),
+    ("A/s", d4(0.0, 0.0, -1.0, 1.0)),
+    ("V/s", d4(2.0, 1.0, -4.0, -1.0)),
+    ("T/s", d4(0.0, 1.0, -3.0, -1.0)),
+    ("Wb/s", d4(2.0, 1.0, -3.0, -1.0)),
+    ("V/(m·s)", d4(1.0, 1.0, -4.0, -1.0)),
+    ("Wb/m", d4(1.0, 1.0, -2.0, -1.0)),
+    ("N/A²", d4(1.0, 1.0, -2.0, -2.0)),
+    ("C·m", d4(1.0, 0.0, 1.0, 1.0)),
+    ("V·m", d4(3.0, 1.0, -3.0, -1.0)),
+    ("Ω·m", d4(3.0, 1.0, -3.0, -2.0)),
+    ("S", d4(-2.0, -1.0, 3.0, 2.0)),
+    ("Gy", d3(2.0, 0.0, -2.0)),
+    ("Bq", d3(0.0, 0.0, -1.0)),
+    ("N/m²", d3(-1.0, 1.0, -2.0)),
+    ("kg/(m·s)", d3(-1.0, 1.0, -1.0)),
+    ("s²", d7(0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0)),
+    ("m·s", d7(1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0)),
+    ("N/s", d7(1.0, 1.0, -3.0, 0.0, 0.0, 0.0, 0.0)),
+    ("m⁴", d7(4.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)),
+    ("1/s²", d7(0.0, 0.0, -2.0, 0.0, 0.0, 0.0, 0.0)),
+    ("kg/C", d7(0.0, 1.0, -1.0, -1.0, 0.0, 0.0, 0.0)),
+    ("m³/C", d7(3.0, 0.0, -1.0, -1.0, 0.0, 0.0, 0.0)),
+    ("V·s", d7(2.0, 1.0, -2.0, -1.0, 0.0, 0.0, 0.0)),
+    ("J/m³", d7(-1.0, 1.0, -2.0, 0.0, 0.0, 0.0, 0.0)),
+    ("W/m³", d7(-1.0, 1.0, -3.0, 0.0, 0.0, 0.0, 0.0)),
+    ("K/W", d7(-2.0, -1.0, 3.0, 0.0, 1.0, 0.0, 0.0)),
+    ("J·m", d7(3.0, 1.0, -2.0, 0.0, 0.0, 0.0, 0.0)),
+    ("C/m³", d7(-3.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0)),
 ];
 
 pub fn format_dim(d: &Dim) -> String {
-    let names = ["m", "kg", "s"];
+    let names = ["m", "kg", "s", "A", "K", "mol", "cd"];
     let mut parts = Vec::new();
     for (i, e) in d.iter().enumerate() {
         if e.abs() > 1e-12 {
@@ -418,13 +527,13 @@ fn dim_name(d: &Dim) -> String {
 
 fn var_dim(name: &str) -> Option<Dim> {
     Some(match name {
-        "t" => [0.0, 0.0, 1.0],
-        "x" | "y" => [1.0, 0.0, 0.0],
-        "vx" | "vy" | "v" => [1.0, 0.0, -1.0],
+        "t" => d3(0.0, 0.0, 1.0),
+        "x" | "y" => d3(1.0, 0.0, 0.0),
+        "vx" | "vy" | "v" => d3(1.0, 0.0, -1.0),
         "theta" => DIMLESS,
-        "omega" => [0.0, 0.0, -1.0],
-        "m" => [0.0, 1.0, 0.0],
-        "g" => [1.0, 0.0, -2.0],
+        "omega" => d3(0.0, 0.0, -1.0),
+        "m" => d3(0.0, 1.0, 0.0),
+        "g" => d3(1.0, 0.0, -2.0),
         _ => return None,
     })
 }
@@ -1013,6 +1122,43 @@ pub fn tanh_of(x: f64) -> f64 {
     (if x < 0.0 { -1.0 } else { 1.0 }) * (1.0 - e) / (1.0 + e)
 }
 
+/// sinh through the deterministic exp; the series near 0 avoids the cancellation of e^x − e^−x.
+fn sinh_of(x: f64) -> f64 {
+    if x.abs() < 0.1 {
+        let x2 = x * x;
+        return x * (1.0 + x2 / 6.0 * (1.0 + x2 / 20.0 * (1.0 + x2 / 42.0 * (1.0 + x2 / 72.0))));
+    }
+    0.5 * (dmath::exp(x) - dmath::exp(-x))
+}
+
+/// asinh with the series near 0.
+fn asinh_of(x: f64) -> f64 {
+    let a = x.abs();
+    let r = if a < 0.1 {
+        let a2 = a * a;
+        a * (1.0 - a2 / 6.0 + 3.0 * a2 * a2 / 40.0 - 15.0 * a2 * a2 * a2 / 336.0 + 105.0 * a2 * a2 * a2 * a2 / 3456.0)
+    } else {
+        dmath::log(a + (a * a + 1.0).sqrt())
+    };
+    if x < 0.0 {
+        -r
+    } else {
+        r
+    }
+}
+
+/// atanh with the series near 0 (NaN outside (−1, 1)).
+fn atanh_of(x: f64) -> f64 {
+    if !(x > -1.0 && x < 1.0) {
+        return f64::NAN;
+    }
+    if x.abs() < 0.1 {
+        let x2 = x * x;
+        return x * (1.0 + x2 / 3.0 + x2 * x2 / 5.0 + x2 * x2 * x2 / 7.0 + x2 * x2 * x2 * x2 / 9.0 + x2 * x2 * x2 * x2 * x2 / 11.0);
+    }
+    0.5 * dmath::log((1.0 + x) / (1.0 - x))
+}
+
 /// A function of the formula language applied to evaluated arguments (FUNCS[fn].fn).
 pub fn apply_function(name: &str, a: &[f64]) -> f64 {
     match name {
@@ -1033,6 +1179,14 @@ pub fn apply_function(name: &str, a: &[f64]) -> f64 {
         "step" => step_of(a[0]),
         "clamp" => js_min(js_max(a[0], a[1]), a[2]),
         "ellipK" => crate::numeric::elliptic_k(a[0]),
+        "sinh" => sinh_of(a[0]),
+        "cosh" => 0.5 * (dmath::exp(a[0]) + dmath::exp(-a[0])),
+        "asinh" => asinh_of(a[0]),
+        "acosh" => if a[0] >= 1.0 { dmath::log(a[0] + (a[0] * a[0] - 1.0).sqrt()) } else { f64::NAN },
+        "atanh" => atanh_of(a[0]),
+        "sinc" => if a[0].abs() < 1e-4 { 1.0 - a[0] * a[0] / 6.0 } else { dmath::sin(a[0]) / a[0] },
+        "cbrt" => if a[0] < 0.0 { -dmath::pow(-a[0], 1.0 / 3.0) } else { dmath::pow(a[0], 1.0 / 3.0) },
+        "floor" => a[0].floor(),
         "ellipF" => crate::numeric::elliptic_f(a[0], a[1]),
         "min" => js_min(a[0], a[1]),
         "max" => js_max(a[0], a[1]),
@@ -1247,6 +1401,7 @@ pub fn dimension(node: &Node, dims: &dyn Fn(&str) -> Option<Dim>) -> EResult<Dim
             }
             match f.as_str() {
                 "sqrt" => Ok(dim_pow(&d[0], 0.5)),
+                "cbrt" => Ok(dim_pow(&d[0], 1.0 / 3.0)),
                 "abs" => Ok(d[0]),
                 "sign" | "step" => Ok(DIMLESS),
                 "min" | "max" | "clamp" => same(&d, f.clone()),

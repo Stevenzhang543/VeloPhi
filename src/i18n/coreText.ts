@@ -178,6 +178,14 @@ function exprText(m: Message, lang: Lang): string | null {
       const fn = p.function === '^' ? t('指数') : String(p.function)
       return t('{0}( ) 的参数必须无量纲，实为 {1}（可写成系数乘变量，如 {2}(2*t)）', [fn, dimName(p.dim), fn])
     }
+    // 26.56 (D106): the model registry (setModels, modelEval, modelSolve)
+    case 'model.unknown': return t('未知的模型族 {0}', [p.model])
+    case 'model.unknownInput': return t('模型 {0} 没有输入 {1}', [p.model, p.input])
+    case 'model.unknownName': return t('模型表达式中的未知名称 {0}', [p.name])
+    case 'model.dimensionedExponent': return t('指数必须无量纲')
+    case 'model.dimensionedPower': return t('有量纲的量只能取数字次幂')
+    case 'model.argumentNotDimensionless': return t('{0}( ) 的参数必须无量纲，实为 {1}', [String(p.function), dimName(p.dim)])
+    case 'model.dimMismatch': return t('{0}两边量纲不同：{1} 与 {2}', [String(p.what), dimName(p.a), dimName(p.b)])
     case 'expr.dimMismatch': {
       const w = String(p.what)
       const what = w === '+' ? t('加法') : w === '-' ? t('减法') : w === 'if' ? t('if 的两个取值') : w === 'atan2' ? t('atan2 的参数')

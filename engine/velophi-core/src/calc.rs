@@ -86,6 +86,31 @@ pub fn call(req: &Value) -> SimResult<(Value, Blob)> {
         }
         "setLibrary" => json!({ "formulas": crate::formula::cards::set_library(&req["formulas"]) }),
         "version" => json!({ "core": env!("CARGO_PKG_VERSION"), "scene": crate::scene::SCENE_VERSION }),
+        // 26.56 (D99, D100, D104, D106): unit table, constant sets, run provenance, the model registry
+        "units" => json!({ "units": crate::expr::UNITS.iter().map(|(u, d)| json!({ "unit": u, "dim": d.to_vec() })).collect::<Vec<_>>() }),
+        "constants" => {
+            let set = crate::constants::normalize(req.get("set").and_then(|v| v.as_str()), crate::constants::DEFAULT);
+            json!({
+                "set": set,
+                "source": crate::constants::source(set),
+                "sets": crate::constants::SETS,
+                "constants": crate::constants::all(set).iter().map(|k| json!({ "id": k.id, "value": jnum(k.value), "unit": k.unit, "u": jnum(k.u), "exact": k.exact, "origin": k.origin })).collect::<Vec<_>>(),
+            })
+        }
+        "manifest" => crate::modelcalc::manifest(req),
+        "setModels" => crate::modelcalc::set_models(&req["models"]),
+        "modelList" => json!({ "models": crate::modelcalc::list_models() }),
+        "modelEval" => {
+            let set = crate::constants::normalize(req.get("constantsSet").and_then(|v| v.as_str()), crate::constants::DEFAULT);
+            let inputs = req.get("inputs").and_then(|v| v.as_object()).cloned().unwrap_or_default();
+            crate::modelcalc::evaluate_model(req.get("model").and_then(|v| v.as_str()).unwrap_or(""), &inputs, set, req.get("trace").and_then(|v| v.as_bool()).unwrap_or(false))?
+        }
+        "modelSolve" => {
+            let set = crate::constants::normalize(req.get("constantsSet").and_then(|v| v.as_str()), crate::constants::DEFAULT);
+            let inputs = req.get("inputs").and_then(|v| v.as_object()).cloned().unwrap_or_default();
+            let s = |k: &str| req.get(k).and_then(|v| v.as_str()).unwrap_or("");
+            crate::modelcalc::solve_model(s("model"), &inputs, set, s("unknown"), s("target"), dnum(&req["value"]), dnum(&req["lo"]), dnum(&req["hi"]), req.get("samples").and_then(|v| v.as_u64()).unwrap_or(400) as usize, req.get("scale").and_then(|v| v.as_str()) == Some("log"))?
+        }
         _ => return Err(bad(op, "unknown operation")),
     };
     Ok((out, blob))

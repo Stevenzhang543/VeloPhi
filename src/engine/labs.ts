@@ -203,7 +203,7 @@ export function circuitRun(elements: CircuitElement[], req: { t0: number; durati
 
 export interface PlateResult { C: number; Q: number; U: number; E: number; sigma: number; energy: number; density: number; C0: number; Q0: number; U0: number; E0: number; energy0: number; batteryWork: number; handWork: number }
 /** Parallel-plate capacitor (S m², d m, εr), connected to a battery (U fixed) or isolated (Q fixed); S0, d0, er0: before a change. */
-export function plateCapacitor(req: { S: number; d: number; er: number; mode: 'battery' | 'isolated'; U?: number; Q?: number; S0?: number; d0?: number; er0?: number }): PlateResult {
+export function plateCapacitor(req: { S: number; d: number; er: number; mode: 'battery' | 'isolated'; U?: number; Q?: number; S0?: number; d0?: number; er0?: number; constantsSet?: string }): PlateResult {
   return calc<PlateResult>({ op: 'plateCapacitor', ...req })
 }
 
@@ -223,7 +223,7 @@ export interface MagnetMap {
   flux: number | null
   wires: Array<[number, number, number]>
 }
-export function magnetMap(src: MagnetSources, req: { region: { x0: number; y0: number; x1: number; y1: number }; grid?: number; lines?: number; arrows?: number; probes?: Array<{ x: number; y: number }>; loop?: { x1: number; y1: number; x2: number; y2: number } | null }): MagnetMap {
+export function magnetMap(src: MagnetSources, req: { region: { x0: number; y0: number; x1: number; y1: number }; grid?: number; lines?: number; arrows?: number; probes?: Array<{ x: number; y: number }>; loop?: { x1: number; y1: number; x2: number; y2: number } | null; constantsSet?: string }): MagnetMap {
   return calc<MagnetMap>({ op: 'magnetMap', ...src, ...req })
 }
 
@@ -269,7 +269,7 @@ export interface QRun { prob: Float64Array; re: Float64Array; im: Float64Array; 
 export function quantumSetup(req: { potential: QPotential; x0?: number; x1?: number; n: number; states: number }): QSetup {
   return calc<QSetup>({ op: 'quantumSetup', ...req })
 }
-export function quantumRun(req: { potential: QPotential; x0?: number; x1?: number; n: number; re?: number[]; im?: number[]; packet?: { x0: number; sigma: number; k0: number }; cre?: number[]; cim?: number[]; t0: number; duration: number; frames: number; absorb?: number; split?: number }): QRun {
+export function quantumRun(req: { potential: QPotential; x0?: number; x1?: number; n: number; re?: number[]; im?: number[]; packet?: { x0: number; sigma: number; k0: number }; cre?: number[]; cim?: number[]; t0: number; duration: number; frames: number; absorb?: number; split?: number; dt?: number }): QRun {
   return calc<QRun>({ op: 'quantumRun', ...req })
 }
 export function barrierT(V0: number, w: number, E: number[]): number[] {
@@ -296,16 +296,40 @@ export function decayChain(req: { halfLives: number[]; n0: number[]; tEnd: numbe
   return calc<ChainResult>({ op: 'decayChain', ...req })
 }
 export interface NuclideInfo { Z: number; A: number; symbol: string; B: number; BA: number; measured?: boolean; massExcess?: number; mass?: number }
-export function binding(nuclides: Array<{ Z: number; A: number }> = []): { measured: NuclideInfo[]; semf: Array<[number, number, number]>; nuclides: NuclideInfo[] } {
-  return calc({ op: 'binding', nuclides })
+export function binding(nuclides: Array<{ Z: number; A: number }> = [], constantsSet?: string): { measured: NuclideInfo[]; semf: Array<[number, number, number]>; nuclides: NuclideInfo[] } {
+  return calc({ op: 'binding', nuclides, ...(constantsSet ? { constantsSet } : {}) })
 }
 export interface ReactionParticle { kind: 'nuclide' | 'n' | 'e-' | 'e+' | 'gamma' | 'nu'; Z?: number; A?: number }
-export interface ReactionResult { valid: boolean; A?: [number, number]; Z?: [number, number]; balanced?: boolean; Q?: number | null; estimated?: boolean }
-export function reaction(before: ReactionParticle[], after: ReactionParticle[]): ReactionResult {
-  return calc<ReactionResult>({ op: 'reaction', before, after })
+export interface ReactionResult { valid: boolean; A?: [number, number]; Z?: [number, number]; balanced?: boolean; Q?: number | null; dm?: number | null; uMeV?: number; estimated?: boolean }
+export function reaction(before: ReactionParticle[], after: ReactionParticle[], constantsSet?: string): ReactionResult {
+  return calc<ReactionResult>({ op: 'reaction', before, after, ...(constantsSet ? { constantsSet } : {}) })
 }
-export interface ComptonResult { lambda2: number; shift: number; compton: number; E1: number; E2: number; Ek: number; phi: number; curve: Float64Array }
+export interface ComptonResult { lambda2: number; shift: number; compton: number; E1: number; E2: number; Ek: number; phi: number; constantsSet: string; curve: Float64Array }
 /** Compton scattering of a photon of wavelength lambda (pm) by theta (rad). */
-export function compton(lambda: number, theta: number): ComptonResult {
-  return calc<ComptonResult>({ op: 'compton', lambda, theta })
+export function compton(lambda: number, theta: number, constantsSet?: string): ComptonResult {
+  return calc<ComptonResult>({ op: 'compton', lambda, theta, ...(constantsSet ? { constantsSet } : {}) })
+}
+
+// ---- Particle processes (26.56, D100) ----
+
+export interface ParticleItem { Z: number; A: number }
+export interface ParticleProcess {
+  known: boolean
+  allowed: boolean
+  violations: Array<'charge' | 'baryon' | 'leptonE' | 'leptonMu' | 'leptonTau' | 'energy' | 'unknown'>
+  charge: [number, number]
+  baryon: [number, number]
+  lepton: [[number, number, number], [number, number, number]]
+  strangeness: [number, number]
+  strangenessChanges: boolean
+  mass: [number, number]
+  Q: number | null
+  threshold: number | null
+  estimated: boolean
+  constantsSet: string
+  catalogue: string[]
+}
+/** Check a particle process against charge, baryon and lepton-family numbers and energy (not only A and Z). */
+export function particleProcess(before: Array<string | ParticleItem>, after: Array<string | ParticleItem>, constantsSet = 'CODATA2022'): ParticleProcess {
+  return calc<ParticleProcess>({ op: 'particleProcess', before, after, constantsSet })
 }

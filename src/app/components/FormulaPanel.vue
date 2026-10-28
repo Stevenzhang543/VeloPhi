@@ -39,6 +39,8 @@ import Icon from './Icon.vue'
 import { openFormulaDetail } from '../details'
 import { openHandbook } from '../handbook'
 import { FORMULAS } from '../../formula/library'
+import { formulaRef } from '../../formula/refKind'
+import type { FormulaRef } from '../../formula/refKind'
 
 const props = withDefaults(defineProps<{ active?: boolean }>(), { active: true })
 
@@ -125,7 +127,7 @@ function jumpTo(s: Situation) {
   sitOpen.value = m
 }
 
-interface Shown { c: FormulaCard; sol: Solution | null; tag: string; pinned: boolean }
+interface Shown { c: FormulaCard; sol: Solution | null; tag: string; pinned: boolean; rk: FormulaRef }
 interface Group { key: string; title: string; sit: Situation | null; sample: Sample | null; cards: Shown[]; above: number; na: FormulaCard[]; t0: number; t1: number; tEvent?: number }
 
 /** Every applicable card at the frame, before the filters (the cards of the core, cached per frame). */
@@ -144,7 +146,7 @@ const groups = computed<Group[]>(() => {
   const digits = state.digits
   const cur = effectiveCurriculum(), level = settings.knowledge.level
   const f = filter.value
-  const show = (c: FormulaCard, sample: Sample): Shown => ({ c, sol: compact(c, sample, digits), tag: tl(levelTag(c.formula.id, cur)), pinned: fu.pinned.includes(c.formula.id) })
+  const show = (c: FormulaCard, sample: Sample): Shown => ({ c, sol: compact(c, sample, digits), tag: tl(levelTag(c.formula.id, cur)), pinned: fu.pinned.includes(c.formula.id), rk: formulaRef(c.formula, sample) })
   const perSit = base.value.map(({ sit: s, cards }) => {
     const sample = cards[0]?.sample ?? s.sample(Math.min(Math.max(frame.value * (state.recording?.dt ?? 0), s.t0), s.t1))
     const applicable = cards.filter(c => c.verdict !== 'not-applicable')
@@ -250,6 +252,13 @@ function onSearchKey(e: KeyboardEvent) {
   if (e.key === 'Escape') { search.value = ''; (e.target as HTMLInputElement).blur() } else if (e.key === 'ArrowDown') { e.preventDefault(); focusCard(0) }
 }
 
+/** 26.56 (FOR06, D101): how independent the comparison of a card is. */
+const REF_TEXT: Record<FormulaRef, string> = { analytic: tl('独立解析'), conservation: tl('守恒/定理检验'), consistency: tl('同源一致性') }
+const REF_TIP: Record<FormulaRef, string> = {
+  analytic: tl('公式由给定参数独立求出，与仿真比较是独立证据'),
+  conservation: tl('检验守恒律或定理在本次运行中成立；它不单独决定运动'),
+  consistency: tl('公式用到同一次仿真读出的量，一致只说明内部自洽，不是正确性证据')
+}
 const VERDICT: Record<Verdict, { text: string; cls: string }> = {
   match: { text: tl('一致'), cls: 'ok' },
   deviate: { text: tl('偏差超限'), cls: 'bad' },
@@ -378,7 +387,7 @@ const forceTitle = (c: FormulaCard) => forceKindsOf(c.formula).map(k => tl(force
               <span class="mono">{{ fmtQ(v.value, v.unit) }}</span>
             </div>
           </details>
-          <template v-for="{ c, sol, tag, pinned } in g.cards" :key="c.key">
+          <template v-for="{ c, sol, tag, pinned, rk } in g.cards" :key="c.key">
             <!-- Compact: one line per formula, opened into the full card on click -->
             <div
               v-if="fu.density === 'compact' && !opened.has(c.key)" class="crow" :class="[VERDICT[c.verdict].cls, { focus: state.formulaFocus === c.formula.id, cur: flat[cursor]?.key === c.key }]"
@@ -401,6 +410,7 @@ const forceTitle = (c: FormulaCard) => forceKindsOf(c.formula).map(k => tl(force
                 <span class="card-title">{{ c.formula.title }}<span v-if="fu.group === 'body'" class="tiny muted"> · {{ c.situation.title }}</span></span>
                 <span v-if="c.formula.method" class="badge info">{{ c.formula.method }}</span>
                 <span class="badge level" :title="tl('知识水平（设置 › 知识与公式）')">{{ tag }}</span>
+                <span class="badge ref" :class="rk" :title="REF_TIP[rk]">{{ REF_TEXT[rk] }}</span>
                 <span class="spacer" />
                 <span class="badge" :class="VERDICT[c.verdict].cls">{{ VERDICT[c.verdict].text }}</span>
                 <button class="btn ghost small detail-btn" :title="tl('在学习手册中查看这条公式的原理与推导')" @click="openHandbook(c.formula.id)">{{ tl('手册') }}</button>
@@ -459,6 +469,9 @@ const forceTitle = (c: FormulaCard) => forceKindsOf(c.formula).map(k => tl(force
 </template>
 
 <style scoped>
+.badge.ref { font-weight: 500; }
+.badge.ref.consistency { color: var(--warning, #b45309); }
+.badge.ref.conservation { color: var(--accent); }
 .formulas { padding-top: 4px; }
 .ftools { position: sticky; top: 0; z-index: 3; background: var(--pane); padding: 2px 0 6px; margin-bottom: 4px; box-shadow: 0 1px 0 var(--separator); }
 .ftools .row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 4px; }

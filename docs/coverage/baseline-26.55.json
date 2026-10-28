@@ -1,0 +1,4126 @@
+{
+ "baseline": "26.55",
+ "commit": "f71a4ffd1b3c0e470987e7d8d46d851af2025585",
+ "models": [
+  {
+   "id": "G01",
+   "title": "单位换算与前缀",
+   "stage": "初中",
+   "priority": "P1",
+   "path": "通用数据与计算层",
+   "status": "partial",
+   "level": 1,
+   "implementation": "src/units/units.ts 显示单位表（km/h、g、cm…），输入在提交时换算为 SI",
+   "tests": "tests/units.test.ts（读数与公式的 SI 单位一致）",
+   "gap": "无“保存再载入＋三语切换后 SI 不变”的组合测试；温度、物质的量等单位缺失",
+   "example": "速度输入 72 km/h，质量输入 500 g，求 SI 记录。",
+   "answer": "1 h = 3600 s；速度为 20 m/s，质量为 0.500 kg。",
+   "point": "显示单位改变不改变物理状态；区分数量值与单位。",
+   "verify": "保存再载入及中英德语言切换后 SI 值不变。",
+   "sources": [
+    "S01",
+    "S03",
+    "S09",
+    "S57",
+    "S58",
+    "S60",
+    "S80"
+   ]
+  },
+  {
+   "id": "G02",
+   "title": "矢量分解与坐标变换",
+   "stage": "高中",
+   "priority": "P1",
+   "path": "通用数据与计算层",
+   "status": "partial",
+   "level": 1,
+   "implementation": "受力图 src/teaching/fbd.ts、矢量箭头、vx/vy 读数",
+   "tests": "tests/teaching2652.test.ts free-body diagram（沿接触面的分量）",
+   "gap": "没有可旋转坐标系；分量随坐标系变换、模与点积不变未测",
+   "example": "力 10 N，与 x 正轴夹角 30°，求分量。",
+   "answer": "投影得 Fx = 8.6603 N，Fy = 5.0000 N；模仍为 10 N。",
+   "point": "箭头长度是表征，物理向量必须绑定坐标系。",
+   "verify": "旋转坐标系 30° 后分量改变但模及功的点积不变。",
+   "sources": [
+    "S09"
+   ]
+  },
+  {
+   "id": "G03",
+   "title": "采样 微分与积分",
+   "stage": "高中至大学",
+   "priority": "P1",
+   "path": "通用数据与计算层",
+   "status": "partial",
+   "level": 2,
+   "implementation": "纸带 src/teaching/tape.ts（逐段平均速度）、面积 src/teaching/area.ts、calc `simpson`",
+   "tests": "tests/teaching2652.test.ts（纸带与面积）",
+   "gap": "没有中心差分与端点单侧公式的通用工具；采样率改变后的误差比较未提供",
+   "example": "x(t) = 2t² m，采样间隔 0.1 s，求 t = 1 s 的速度及 0 到 1 s 位移。",
+   "answer": "中心差分用 x(1.1) 与 x(0.9)，得 4 m/s；对 v = 4t 积分得 2 m。",
+   "point": "导数和面积连接曲线与运动；带噪数据求导会放大噪声。",
+   "verify": "端点另用单侧公式；更换采样率后比较误差而非图像平滑度。",
+   "sources": [
+    "S10",
+    "S57"
+   ]
+  },
+  {
+   "id": "G04",
+   "title": "线性拟合与残差",
+   "stage": "高中至大学",
+   "priority": "P1",
+   "path": "通用数据与计算层",
+   "status": "missing",
+   "level": 0,
+   "implementation": "无（参数扫描 src/analysis/sweep.ts 只列表，不拟合）",
+   "tests": "—",
+   "gap": "缺最小二乘拟合、残差、拟合区间与保留原始点",
+   "example": "测得 (t,x) 为 (0,1)、(1,3)、(2,5)，单位为 s 与 m。",
+   "answer": "最小二乘得 a = 2 m/s，b = 1 m，三点残差均为 0。",
+   "point": "拟合参数有物理意义；残差为零不能证明假设普遍正确。",
+   "verify": "加入一个偏离点后保留原始点、残差及拟合区间。",
+   "sources": [
+    "S57",
+    "S67",
+    "S80"
+   ]
+  },
+  {
+   "id": "G05",
+   "title": "不确定度与相关性",
+   "stage": "大学",
+   "priority": "P1",
+   "path": "通用数据与计算层",
+   "status": "missing",
+   "level": 0,
+   "implementation": "无",
+   "tests": "—",
+   "gap": "缺不确定度传播（独立与相关）与误差条语义",
+   "example": "s = 1.00 m，u(s) = 0.01 m；t = 2.00 s，u(t) = 0.02 s，输入独立。",
+   "answer": "v = 0.500 m/s；一阶传播得相对标准不确定度 1.414%，u(v) = 0.00707 m/s。",
+   "point": "测量不确定度与数值误差是不同量；有相关性时须加协方差项。",
+   "verify": "误差条使用标准不确定度标签；相关输入不能沿用独立公式。",
+   "sources": [
+    "S80"
+   ]
+  },
+  {
+   "id": "G06",
+   "title": "量纲检查与温标",
+   "stage": "高中至大学",
+   "priority": "P1",
+   "path": "通用数据与计算层",
+   "status": "partial",
+   "level": 1,
+   "implementation": "Rust expr.rs Dim 为 [L, M, T] 三维；TS formula/units.ts 为 [L, M, T, Q] 四维（26.54 D78 以电荷为第四基量）",
+   "tests": "tests/custom.test.ts、derivations*.test.ts（量纲一致）",
+   "gap": "A01：不是七个 SI 基本量纲；无温度（绝对与温差）语义与摄氏仿射换算；两端维数不一致",
+   "example": "检查 F = ma 与 F = mv 是否都可作力公式；把 20 °C 转为热力学温度。",
+   "answer": "ma 为 kg·m/s²，合法；mv 为动量，拒绝作为力；20 °C = 293.15 K。",
+   "point": "使用七个 SI 基本量纲；温差与摄氏绝对温度的转换不同。",
+   "verify": "拒绝电压加速度之和及 ln(1 m)；允许 10 K 温差等于 10 °C 温差。",
+   "sources": [
+    "S01",
+    "S80"
+   ]
+  },
+  {
+   "id": "G07",
+   "title": "时间步与网格收敛",
+   "stage": "大学",
+   "priority": "P1",
+   "path": "通用数据与计算层",
+   "status": "missing",
+   "level": 0,
+   "implementation": "量子与波实验可改网格，但无收敛研究工具",
+   "tests": "—",
+   "gap": "缺三档细化、观测阶数与 Richardson 外推",
+   "example": "同一观测量的三次结果为 1.04、1.01、1.0025，步长逐次减半。",
+   "answer": "相邻差为 0.03、0.0075，阶数 p = 2；外推极限为 1.0000。",
+   "point": "更小容差不自动等于更高物理准确度；须处于渐近区。",
+   "verify": "重复三档细化并报告观测量和成本；差趋零时避免 0/0。",
+   "sources": [
+    "S57",
+    "S58"
+   ]
+  },
+  {
+   "id": "G08",
+   "title": "随机种子与统计误差",
+   "stage": "大学",
+   "priority": "P1",
+   "path": "通用数据与计算层",
+   "status": "partial",
+   "level": 1,
+   "implementation": "放射性衰变 labs/decay.rs 有 seed",
+   "tests": "decay.rs same_seed_same_sequence、counts_follow_the_law_within_three_sigma",
+   "gap": "没有多种子分布与标准误差的报告界面",
+   "example": "10000 次独立伯努利试验，理论 p = 0.5，求比例估计的标准误差。",
+   "answer": "SE = 0.005，正态近似 95% 区间半宽约 0.0098；样本量增四倍，SE 减半。",
+   "point": "期望值不是某次随机实验的必然结果。",
+   "verify": "固定种子做回归，多种子做分布验证；不能要求每次样本恰好命中均值。",
+   "sources": [
+    "S60",
+    "S80"
+   ]
+  },
+  {
+   "id": "M01",
+   "title": "匀速运动与参考系",
+   "stage": "初中",
+   "priority": "P1",
+   "path": "二维动力学或解析求解",
+   "status": "partial",
+   "level": 2,
+   "implementation": "模板 uniform-motion；情形 uniform（uni.*）",
+   "tests": "tests/models.test.ts、golden.test.ts",
+   "gap": "没有参考系变换与反向变换",
+   "example": "物体 x0 = 2 m，v = 3 m/s；观察者以 1 m/s 同向运动，求 4 s 后位置与相对速度。",
+   "answer": "地面系 x = 14 m；同原点参考系 x′ = 10 m，v′ = 2 m/s。",
+   "point": "同一运动在不同参考系有不同描述。",
+   "verify": "保存坐标系定义并验证反向变换恢复原数据。",
+   "sources": [
+    "S10",
+    "S11"
+   ]
+  },
+  {
+   "id": "M02",
+   "title": "匀变速直线运动",
+   "stage": "高中",
+   "priority": "P1",
+   "path": "二维动力学或解析求解",
+   "status": "verified",
+   "level": 2,
+   "implementation": "模板 pull-force；情形 const-force（cf.*）；题 k-pull",
+   "tests": "tests/models.test.ts、acceptance.test.ts",
+   "gap": "无收敛与有效域记录；非恒定加速度时撤下结论已由条件实现",
+   "example": "x0 = 0，v0 = 2 m/s，a = 3 m/s²，t = 4 s。",
+   "answer": "v = 2 + 12 = 14 m/s；位移 = 8 + 24 = 32 m。",
+   "point": "只有加速度恒定才能直接使用这组闭式公式。",
+   "verify": "用解析解检验整段轨迹；改变力使 a 非常量后撤下恒加速度结论。",
+   "sources": [
+    "S10"
+   ]
+  },
+  {
+   "id": "M03",
+   "title": "自由落体与事件时刻",
+   "stage": "高中",
+   "priority": "P1",
+   "path": "二维动力学或解析求解",
+   "status": "verified",
+   "level": 2,
+   "implementation": "模板 free-fall；情形 projectile（ff.*）；题 k-free-fall；事件 impact 前后",
+   "tests": "tests/models.test.ts、acceptance.test.ts（事件 1e-9 s）",
+   "gap": "公式卡对照未标记独立性；“落地前／碰撞后”的学习活动缺失",
+   "example": "从 20 m 高静止释放，g = 9.8 m/s²，不计阻力。",
+   "answer": "t = 2.02031 s；落地前速率为 19.7990 m/s。",
+   "point": "落地前与碰撞后读数不同；必须定义事件左右极限。",
+   "verify": "地面接触事件、轨迹、理论时刻分别比较，不能取最近显示帧代替事件。",
+   "sources": [
+    "S10",
+    "S12"
+   ]
+  },
+  {
+   "id": "M04",
+   "title": "斜抛运动",
+   "stage": "高中",
+   "priority": "P1",
+   "path": "二维动力学或解析求解",
+   "status": "verified",
+   "level": 2,
+   "implementation": "模板 projectile；情形 projectile（pr.*）；题 p-*",
+   "tests": "acceptance.test.ts 5 projectile",
+   "gap": "高台抛出时同高射程式的“不适用”提示需核对；独立性标签缺失",
+   "example": "v0 = 20 m/s，θ = 30°，g = 9.8 m/s²，同高度起落。",
+   "answer": "T = 2.04082 s；R = 35.3480 m；最高点相对起点高 5.10204 m。",
+   "point": "分运动独立；射程式要求同高度且无阻力。",
+   "verify": "改为高台抛出后解 y = 0 的正根，原射程式应显示条件不满足。",
+   "sources": [
+    "S11"
+   ]
+  },
+  {
+   "id": "M05",
+   "title": "追及与分段运动",
+   "stage": "高中",
+   "priority": "P1",
+   "path": "二维动力学或解析求解",
+   "status": "unverified",
+   "level": 2,
+   "implementation": "模板 pursuit",
+   "tests": "golden.test.ts（指纹回归）",
+   "gap": "无相遇事件的公式与分支（反向、无追及、中途变速）",
+   "example": "A 从原点以 5 m/s 前进；B 在前方 12 m，以 2 m/s 同向运动。",
+   "answer": "令 5t = 12 + 2t，t = 4 s，相遇位置 20 m。",
+   "point": "交点既是位置相等条件，也是事件求根问题。",
+   "verify": "反向、无追及及中途变速三个分支需明确给出是否相遇。",
+   "sources": [
+    "S10"
+   ]
+  },
+  {
+   "id": "M06",
+   "title": "两绳悬挂与静力平衡",
+   "stage": "高中",
+   "priority": "P1",
+   "path": "二维动力学或解析求解",
+   "status": "unverified",
+   "level": 2,
+   "implementation": "模板 two-ropes",
+   "tests": "golden.test.ts",
+   "gap": "无静力平衡公式卡；松绳分支未单独验证",
+   "example": "质量 10 kg，两根对称轻绳与水平夹角各 30°，g = 9.8 m/s²。",
+   "answer": "竖直分力平衡：2T × 0.5 = 98，故每根绳张力 98 N。",
+   "point": "对同一物体列平衡方程；绳只能拉不能推。",
+   "verify": "角度趋于 0 时警示张力增大；松绳分支不能产生负张力。",
+   "sources": [
+    "S12",
+    "S79"
+   ]
+  },
+  {
+   "id": "M07",
+   "title": "粗糙斜面滑动",
+   "stage": "高中",
+   "priority": "P1",
+   "path": "二维动力学或解析求解",
+   "status": "verified",
+   "level": 2,
+   "implementation": "模板 incline、slope-up、incline-efficiency；情形 incline（incline.*）；题 k-incline",
+   "tests": "acceptance.test.ts 1 incline slider；models.test.ts",
+   "gap": "公式卡的对照独立性未标记；键盘完成任务未验收",
+   "example": "物块已沿 30° 斜面下滑，μk = 0.2，g = 9.8 m/s²。",
+   "answer": "沿斜面合力除以质量，a = 3.20259 m/s²，方向向下。",
+   "point": "静摩擦判定与滑动后的动摩擦公式应分开。",
+   "verify": "分别验证上滑、下滑和静止，摩擦方向",
+   "sources": [
+    "S12",
+    "S49"
+   ]
+  },
+  {
+   "id": "M08",
+   "title": "静摩擦阈值与滑动切换",
+   "stage": "高中",
+   "priority": "P1",
+   "path": "二维动力学或解析求解",
+   "status": "verified",
+   "level": 2,
+   "implementation": "情形 incline（stick、staticHolds）、flat；题 f-incline-rest、f-table-rest",
+   "tests": "acceptance.test.ts（μ = 0.7 静止 f = mg sinθ；m2 ≤ μs m1 静止）",
+   "gap": "临界值两侧与重粘连未成组测试；概念诊断（静摩擦≠μsN）缺失",
+   "example": "2 kg 物块，μs = 0.4、μk = 0.3，g = 10；水平拉力从 6 N 升至 10 N。",
+   "answer": "最大静摩擦 8 N；6 N 时静止且摩擦 6 N；滑动后摩擦 6 N，加速度 2 m/s²。",
+   "point": "静摩擦通常不等于 μsN。",
+   "verify": "临界值两侧及零速重粘连均须测试；切换不能产生非物理能量。",
+   "sources": [
+    "S12",
+    "S49",
+    "S50"
+   ]
+  },
+  {
+   "id": "M09",
+   "title": "功 能量与机械效率",
+   "stage": "初中至高中",
+   "priority": "P1",
+   "path": "二维动力学或解析求解",
+   "status": "verified",
+   "level": 2,
+   "implementation": "能量账本 observe.rs、效率读数（26.55 D92b）；模板 incline-efficiency",
+   "tests": "models.test.ts 账本闭合",
+   "gap": "输入功为零时不计算效率的分支待核对",
+   "example": "水平拉力 10 N，位移 5 m，摩擦 4 N，初动能为零。",
+   "answer": "输入功 50 J，摩擦耗散 20 J，末动能 30 J；以动能增加为有用功时效率 60%。",
+   "point": "先定义系统和有用功；机械能不守恒不代表总能量丢失。",
+   "verify": "账本独立显示输入、动能和耗散；输入功为零时不计算效率比值。",
+   "sources": [
+    "S13"
+   ]
+  },
+  {
+   "id": "M10",
+   "title": "超重 失重与加速度计",
+   "stage": "高中",
+   "priority": "P1",
+   "path": "二维动力学或解析求解",
+   "status": "unverified",
+   "level": 2,
+   "implementation": "模板 elevator",
+   "tests": "golden.test.ts",
+   "gap": "无支持力公式卡与接触失效分支",
+   "example": "60 kg 人随电梯向上加速 2 m/s²，g = 9.8。",
+   "answer": "N = 60 × 11.8 = 708 N；自由下落时 N = 0。",
+   "point": "秤读支持力而不是直接测重力；非惯性系需要惯性力。",
+   "verify": "接触失效时不能继续使用负支持力；和自由落体进行对照。",
+   "sources": [
+    "S12"
+   ]
+  },
+  {
+   "id": "M11",
+   "title": "阿特伍德机",
+   "stage": "高中",
+   "priority": "P1",
+   "path": "二维动力学或解析求解",
+   "status": "verified",
+   "level": 2,
+   "implementation": "模板 atwood；情形 atwood",
+   "tests": "acceptance.test.ts 8b",
+   "gap": "到达滑轮停止（R13）已有；滑轮有惯量时两侧张力不同未覆盖",
+   "example": "m1 = 2 kg，m2 = 3 kg，轻绳无质量滑轮，g = 9.8。",
+   "answer": "重物向下加速度 1.96 m/s²，绳张力 23.52 N。",
+   "point": "约束关联加速度；滑轮有转动惯量时两侧张力可以不同。",
+   "verify": "到达滑轮的停止事件应正确处理，不能穿过滑轮继续求解。",
+   "sources": [
+    "S12",
+    "S50"
+   ]
+  },
+  {
+   "id": "M12",
+   "title": "动滑轮与绳长约束",
+   "stage": "初中至高中",
+   "priority": "P1",
+   "path": "二维动力学或解析求解",
+   "status": "verified",
+   "level": 2,
+   "implementation": "模板 movable-pulley；情形 movable-pulley",
+   "tests": "pulleys.test.ts、models.test.ts",
+   "gap": "加轮重或损耗后的重新计账未单独测试",
+   "example": "理想动滑轮提升 10 kg 物体 0.5 m，g = 10，匀速。",
+   "answer": "拉力 50 N，绳端位移 1 m；输入和有用功均为 50 J。",
+   "point": "省力与位移的交换来自绳长约束。",
+   "verify": "加入轮重或损耗后重新计账，不能保持理想效率结论。",
+   "sources": [
+    "S12",
+    "S13",
+    "S50"
+   ]
+  },
+  {
+   "id": "M13",
+   "title": "板块与相对滑动",
+   "stage": "高中",
+   "priority": "P1",
+   "path": "二维动力学或解析求解",
+   "status": "verified",
+   "level": 2,
+   "implementation": "模板 board-block；情形 board-block、board-together",
+   "tests": "acceptance.test.ts 2",
+   "gap": "F 扫描穿越临界值自动换分支未测",
+   "example": "M = 4 kg 的板受 12 N 水平力，上有 1 kg 物块，地面光滑，g = 10，μs = 0.5。",
+   "answer": "共同加速度应为 12/5 = 2.4 m/s²；需摩擦 2.4 N，小于最大静摩擦 5 N，故无相对滑动。",
+   "point": "先假设共同运动，再用摩擦不等式验证。",
+   "verify": "扫描 F 穿过临界值时自动换分支，比较板与块两套运动方程。",
+   "sources": [
+    "S12",
+    "S49"
+   ]
+  },
+  {
+   "id": "M14",
+   "title": "传送带与共速事件",
+   "stage": "高中",
+   "priority": "P1",
+   "path": "二维动力学或解析求解",
+   "status": "verified",
+   "level": 2,
+   "implementation": "模板 conveyor、conveyor-incline",
+   "tests": "acceptance.test.ts 3",
+   "gap": "—",
+   "example": "传送带向右 3 m/s，物块初静止，μk = 0.2，g = 10，带足够长。",
+   "answer": "a = 2 m/s²；1.5 s 后共速，物块位移 2.25 m。",
+   "point": "摩擦方向取决于相对运动，摩擦也能对物块做正功。",
+   "verify": "共速后切换静摩擦；分别记录带驱动做功与摩擦热。",
+   "sources": [
+    "S12",
+    "S13"
+   ]
+  },
+  {
+   "id": "M15",
+   "title": "可动斜面与系统动量",
+   "stage": "大学",
+   "priority": "P2",
+   "path": "二维动力学或解析求解",
+   "status": "verified",
+   "level": 2,
+   "implementation": "模板 movable-wedge；情形 wedge",
+   "tests": "models.test.ts movable wedge",
+   "gap": "固定斜面极限未成组",
+   "example": "光滑斜面 M = 3 kg，物块 m = 1 kg，θ = 30°，g = 10，无水平外力。",
+   "answer": "相对斜面下滑加速度 6.15385 m/s²；斜面加速度大小 1.33235 m/s²，与物块水平运动方向相反。",
+   "point": "约束与参考系转换；水平方向总动量守恒。",
+   "verify": "使用系统动量和能量双重检查，固定斜面应恢复普通斜面极限。",
+   "sources": [
+    "S14",
+    "S42",
+    "S50"
+   ]
+  },
+  {
+   "id": "M16",
+   "title": "弹簧与能量交换",
+   "stage": "高中",
+   "priority": "P1",
+   "path": "二维动力学或解析求解",
+   "status": "verified",
+   "level": 2,
+   "implementation": "模板 spring、spring-blocks",
+   "tests": "acceptance.test.ts 6；models.test.ts",
+   "gap": "—",
+   "example": "k = 100 N/m，m = 1 kg，水平无摩擦，弹簧压缩 0.2 m 后释放。",
+   "answer": "初始弹性势能 2 J；通过平衡位置时速率 2 m/s。",
+   "point": "参考势能零点不影响可观测速度。",
+   "verify": "连接点、弹簧自然长和系统能量定义必须一致。",
+   "sources": [
+    "S13",
+    "S18"
+   ]
+  },
+  {
+   "id": "M17",
+   "title": "一维弹性碰撞",
+   "stage": "高中",
+   "priority": "P1",
+   "path": "二维动力学或解析求解",
+   "status": "verified",
+   "level": 2,
+   "implementation": "模板 collision-1d、three-balls；情形 collision",
+   "tests": "acceptance.test.ts 4",
+   "gap": "—",
+   "example": "m1 = 1 kg 以 3 m/s 碰向静止的 m2 = 2 kg，正碰完全弹性。",
+   "answer": "由动量与动能守恒，v1 = −1 m/s，v2 = 2 m/s；总动能仍为 4.5 J。",
+   "point": "守恒定律用于同一封闭系统；恢复系数不是额外的能量来源。",
+   "verify": "检查两者动量、动能和接触前后相对法向速度。",
+   "sources": [
+    "S14"
+   ]
+  },
+  {
+   "id": "M18",
+   "title": "完全非弹性碰撞",
+   "stage": "高中",
+   "priority": "P1",
+   "path": "二维动力学或解析求解",
+   "status": "verified",
+   "level": 2,
+   "implementation": "模板 collision-1d（e = 0）；情形 collision（col.in.*）",
+   "tests": "acceptance.test.ts 4",
+   "gap": "—",
+   "example": "1 kg 物体以 3 m/s 撞上静止的 2 kg 物体并粘合。",
+   "answer": "共同速度 1 m/s；动能由 4.5 J 变为 1.5 J，损失 3 J。",
+   "point": "动量守恒与机械能不守恒可同时成立。",
+   "verify": "损失进入内能或形变项；禁止仅把损失从总账删除。",
+   "sources": [
+    "S14"
+   ]
+  },
+  {
+   "id": "M19",
+   "title": "斜碰与接触冲量",
+   "stage": "大学",
+   "priority": "P2",
+   "path": "二维动力学或解析求解",
+   "status": "verified",
+   "level": 2,
+   "implementation": "模板 collision-2d、bouncing-ball、slider-stop；情形 collision、bounce",
+   "tests": "acceptance.test.ts 4、physics2652.test.ts",
+   "gap": "多点摩擦碰撞仅有警告（D37），无额外模型",
+   "example": "1 kg 小球碰静止光滑平墙，入射速度法向 −4 m/s、切向 3 m/s，e = 0.5。",
+   "answer": "出射法向 2 m/s、切向 3 m/s；法向冲量 6 N·s；动能损失 6 J。",
+   "point": "冲量与平均接触力不同；多点摩擦碰撞需要额外模型。",
+   "verify": "法向和切向分别验证，恢复系数应限制在所选材料模型的有效域。",
+   "sources": [
+    "S14",
+    "S49",
+    "S50"
+   ]
+  },
+  {
+   "id": "M20",
+   "title": "转动惯量与定轴转动",
+   "stage": "大学",
+   "priority": "P2",
+   "path": "二维动力学或解析求解",
+   "status": "verified",
+   "level": 2,
+   "implementation": "模板 hinged-rod、motor-disc、gears；情形 rotation、spin、gear",
+   "tests": "acceptance.test.ts 7、physics2651.test.ts",
+   "gap": "—",
+   "example": "均匀圆盘 m = 2 kg，R = 0.5 m，恒力矩 1 N·m，从静止转动 3 s。",
+   "answer": "I = 0.25 kg·m²；α = 4 rad/s²；ω = 12 rad/s；转动动能 18 J。",
+   "point": "惯量依赖转轴，合力矩与合力不能混同。",
+   "verify": "偏心连接时使用平行轴定理；核对力矩做功。",
+   "sources": [
+    "S15"
+   ]
+  },
+  {
+   "id": "M21",
+   "title": "杠杆与力矩平衡",
+   "stage": "初中",
+   "priority": "P1",
+   "path": "二维动力学或解析求解",
+   "status": "verified",
+   "level": 2,
+   "implementation": "模板 lever、wheel-axle；情形 lever；题 f-lever",
+   "tests": "models.test.ts",
+   "gap": "倾斜施力与杆自重的分支待核对",
+   "example": "无重杠杆左侧 0.2 m 处向下施力 30 N，右侧力臂 0.5 m。",
+   "answer": "平衡需右侧向下施力 12 N；支点向上支持力 42 N。",
+   "point": "力臂是支点到力作用线的垂距。",
+   "verify": "倾斜施力改用垂直力臂；杠杆自重可选并计入力矩。",
+   "sources": [
+    "S79"
+   ]
+  },
+  {
+   "id": "M22",
+   "title": "纯滚动",
+   "stage": "大学",
+   "priority": "P2",
+   "path": "二维动力学或解析求解",
+   "status": "verified",
+   "level": 2,
+   "implementation": "模板 rolling、rolling-resistance；情形 rolling",
+   "tests": "acceptance.test.ts 7、physics2652.test.ts",
+   "gap": "—",
+   "example": "均匀实心圆柱沿 30° 斜面纯滚动，g = 9.8。",
+   "answer": "I/(mR²) = 1/2，得 a = 3.26667 m/s²；需 μs 至少为 tan30°/3 = 0.19245。",
+   "point": "静摩擦可建立滚动约束，但并非总在耗散能量。",
+   "verify": "验证 v = Rω 及摩擦阈值；不足时切入滑动，不能强行滚动。",
+   "sources": [
+    "S15",
+    "S12"
+   ]
+  },
+  {
+   "id": "M23",
+   "title": "滑动到滚动",
+   "stage": "大学",
+   "priority": "P2",
+   "path": "二维动力学或解析求解",
+   "status": "verified",
+   "level": 2,
+   "implementation": "模板 rolling-slip；情形 roll-slip",
+   "tests": "models.test.ts rolling with slipping",
+   "gap": "—",
+   "example": "均匀圆柱初速 3 m/s、无自转，水平面 μk = 0.2，g = 10。",
+   "answer": "平动减速 2 m/s²，自转加速满足 Rα = 4 m/s²；0.5 s 后纯滚动，速率 2 m/s。",
+   "point": "接触点相对速度归零是状态切换条件。",
+   "verify": "进入纯滚动前后速度连续，能量损失等于摩擦耗散。",
+   "sources": [
+    "S12",
+    "S15",
+    "S49"
+   ]
+  },
+  {
+   "id": "M24",
+   "title": "竖直圆周与轻绳临界条件",
+   "stage": "高中",
+   "priority": "P1",
+   "path": "二维动力学或解析求解",
+   "status": "verified",
+   "level": 2,
+   "implementation": "模板 vertical-circle-rope；情形 vcircle-rope",
+   "tests": "models.test.ts vertical circle on a rope",
+   "gap": "—",
+   "example": "半径 1 m，轻绳约束小球完成整周，g = 10，无阻力。",
+   "answer": "顶点张力临界为 0，顶点速率 3.16228 m/s；能量差 2mgR 给出底点最小速率 7.07107 m/s。",
+   "point": "几何路径限制不等于绳一定能提供所需约束力。",
+   "verify": "低于临界值时发生松绳并转入抛体，不能让绳承受压力。",
+   "sources": [
+    "S11",
+    "S12",
+    "S13"
+   ]
+  },
+  {
+   "id": "M25",
+   "title": "竖直圆周与轻杆",
+   "stage": "高中至大学",
+   "priority": "P2",
+   "path": "二维动力学或解析求解",
+   "status": "verified",
+   "level": 2,
+   "implementation": "模板 vertical-circle-rod；情形 vcircle-rod",
+   "tests": "models.test.ts vertical circle on a rod",
+   "gap": "恰以零速到顶点的极限未单独测",
+   "example": "理想轻杆连接小球，R = 1 m，g = 10，底点初速 7 m/s。",
+   "answer": "能量守恒得顶点速率 3 m/s；杆对小球在顶点可提供朝上支撑，力的符号须由方程计算。",
+   "point": "杆可拉可推，临界条件不能照搬轻绳。",
+   "verify": "低速接近顶点时检查约束符号；恰以零速到不稳定顶点属于极限，不能误报有限周期。",
+   "sources": [
+    "S11",
+    "S13",
+    "S50"
+   ]
+  },
+  {
+   "id": "M26",
+   "title": "两体引力与开普勒轨道",
+   "stage": "高中至大学",
+   "priority": "P2",
+   "path": "二维动力学或解析求解",
+   "status": "verified",
+   "level": 2,
+   "implementation": "模板 orbit、kepler、binary-star；情形 orbit",
+   "tests": "physics2651.test.ts gravitation",
+   "gap": "长期相位与近地点漂移未监控",
+   "example": "教学无量纲单位取 μ = GM = 1，圆轨道 r = 4。",
+   "answer": "圆轨道速度 0.5；周期 16π = 50.2655；单位质量角动量为 2。",
+   "point": "无量纲教学常数必须显式标识；两体约化与守恒量。",
+   "verify": "偏心轨道验证面积速度与能量；长期监控相位及近地点，不只检查能量。",
+   "sources": [
+    "S16",
+    "S42"
+   ]
+  },
+  {
+   "id": "M27",
+   "title": "宇宙速度与逃逸",
+   "stage": "高中",
+   "priority": "P1",
+   "path": "二维动力学或解析求解",
+   "status": "partial",
+   "level": 2,
+   "implementation": "模板 cosmic-velocity（情形 orbit）",
+   "tests": "golden.test.ts",
+   "gap": "无逃逸阈值的束缚／非束缚分支公式",
+   "example": "教学参数 μ = 100 m³/s²，天体半径 R = 2 m，不计大气。",
+   "answer": "表面圆轨道速度 7.07107 m/s；逃逸速度 10 m/s。",
+   "point": "零总机械能给出逃逸阈值；不等于达到某固定高度的速度。",
+   "verify": "边界附近分别测试束缚与非束缚轨道，保持参考势能定义。",
+   "sources": [
+    "S16"
+   ]
+  },
+  {
+   "id": "M28",
+   "title": "阻力与终端速度",
+   "stage": "高中至大学",
+   "priority": "P2",
+   "path": "二维动力学或解析求解",
+   "status": "verified",
+   "level": 2,
+   "implementation": "模板 drag-fall、sinking-ball；情形 drag",
+   "tests": "physics2651.test.ts drag",
+   "gap": "—",
+   "example": "向下为正，m = 1 kg，b = 2 kg/s，g = 10，初静止。",
+   "answer": "时间常数 m/b = 0.5 s；v∞ = 5 m/s；t = 1 s 时 v = 5(1−e⁻²) = 4.32332 m/s。",
+   "point": "线性阻力与平方阻力有不同有效范围和终端速度。",
+   "verify": "用瞬态解析解及功热平衡验证，不能把预设终端速度直接作为轨迹。",
+   "sources": [
+    "S12",
+    "S55"
+   ]
+  },
+  {
+   "id": "M29",
+   "title": "变力 冲量与数值积分",
+   "stage": "大学",
+   "priority": "P2",
+   "path": "二维动力学或解析求解",
+   "status": "verified",
+   "level": 2,
+   "implementation": "模板 variable-force；情形 var-force",
+   "tests": "models.test.ts variable force",
+   "gap": "—",
+   "example": "m = 2 kg，初静止，0 到 2 s 内 F = (2 N/s)t。",
+   "answer": "冲量 4 N·s；v(2) = 2 m/s；x(2)−x0 = 4/3 m。",
+   "point": "表达式需要时间量纲；同一力的冲量与做功积分不能混淆。",
+   "verify": "解析积分作为独立参照，表达式除零和非法状态必须有可解释错误。",
+   "sources": [
+    "S13",
+    "S14",
+    "S55"
+   ]
+  },
+  {
+   "id": "M30",
+   "title": "弹性杆与梁挠度",
+   "stage": "大学",
+   "priority": "P2",
+   "path": "二维动力学或解析求解",
+   "status": "missing",
+   "level": 0,
+   "implementation": "无（刚体模型）",
+   "tests": "—",
+   "gap": "弹性杆与梁需要连续介质或解析模块",
+   "example": "杆长 1 m，截面积 10⁻⁴ m²，E = 2×10¹¹ Pa，轴向拉力 1000 N。",
+   "answer": "应力 10 MPa；应变 5×10⁻⁵；伸长 5×10⁻⁵ m。梁公式另需截面惯性矩与边界条件。",
+   "point": "刚体与弹性体是不同近似；小变形模型需要有效性提示。",
+   "verify": "零载荷、线性缩放、边界约束与网格收敛分别验证。",
+   "sources": [
+    "S79",
+    "S54"
+   ]
+  },
+  {
+   "id": "M31",
+   "title": "拉格朗日单摆",
+   "stage": "大学",
+   "priority": "P2",
+   "path": "二维动力学或解析求解",
+   "status": "partial",
+   "level": 0,
+   "implementation": "手册 concept math 提及；observe.rs 有拉格朗日量读数",
+   "tests": "—",
+   "gap": "无广义坐标推导与牛顿约束求解的交叉比较",
+   "example": "m = 1 kg，ℓ = 1 m，g = 10，θ = 0.1 rad 且角速度为零。",
+   "answer": "由 Euler–Lagrange 方程，初角加速度 −10sin0.1 = −0.998334 rad/s²。",
+   "point": "广义坐标减少约束未知量；势能常数不影响方程。",
+   "verify": "与牛顿约束求解交叉比较，显示符号推导及坐标定义。",
+   "sources": [
+    "S42",
+    "S50"
+   ]
+  },
+  {
+   "id": "M32",
+   "title": "哈密顿方法与对称性",
+   "stage": "大学至研究生",
+   "priority": "P3",
+   "path": "二维动力学或解析求解",
+   "status": "partial",
+   "level": 1,
+   "implementation": "PhasePlot.vue 相图；Gauss–Legendre 辛积分器（D61）",
+   "tests": "physics2652.test.ts Gauss–Legendre",
+   "gap": "无哈密顿量与相空间教学模型",
+   "example": "m = 1、k = 4、x = 0.5、p = 0，使用一致单位。",
+   "answer": "H = 0.5；初始 ẋ = 0，ṗ = −2；轨道为相空间椭圆。",
+   "point": "时间平移对应能量守恒；辛结构是长期动力学的重要约束。",
+   "verify": "比较积分器长期相位和能量有界性，不能承诺辛方法每步精确保能量。",
+   "sources": [
+    "S42",
+    "S55"
+   ]
+  },
+  {
+   "id": "F01",
+   "title": "液体压强",
+   "stage": "初中",
+   "priority": "P1",
+   "path": "解析或连续介质模块",
+   "status": "partial",
+   "level": 1,
+   "implementation": "regions.rs 液体：物体中心处的表压读数",
+   "tests": "regions.rs 测试（间接）",
+   "gap": "无绝对压强与 p0 选择；零点与单位切换未测",
+   "example": "水密度 1000 kg/m³，深度 2 m，p0 = 101325 Pa，g = 9.8。",
+   "answer": "表压 19600 Pa；绝对压强 120925 Pa。",
+   "point": "压强是标量，表压与绝对压强要区分。",
+   "verify": "更换液面零点、外界压强和单位后仍得到同一结果。",
+   "sources": [
+    "S17"
+   ]
+  },
+  {
+   "id": "F02",
+   "title": "浮力与沉浮",
+   "stage": "初中",
+   "priority": "P1",
+   "path": "解析或连续介质模块",
+   "status": "verified",
+   "level": 2,
+   "implementation": "regions.rs 浸入面积 × 厚度 depth；模板 floating-block、densities、weigh-in-water、rising-block、sinking-ball、loaded-boat",
+   "tests": "engine/velophi-core/tests/regions.rs floating_block_draft_and_archimedes",
+   "gap": "厚度语义在界面上不突出；预测—实验—解释活动缺失（任务一）",
+   "example": "体积 0.01 m³、密度 600 kg/m³ 的木块漂浮于水，g = 10。",
+   "answer": "物块质量 6 kg；浮力 60 N；排水体积 0.006 m³，即浸没 60%。",
+   "point": "二维图的面积必须结合明确厚度才能得到体积。",
+   "verify": "单位厚度与真实厚度两种模式不可混用；截面裁剪与浮心力矩分别核验。",
+   "sources": [
+    "S17"
+   ]
+  },
+  {
+   "id": "F03",
+   "title": "浮体稳定性与浮心",
+   "stage": "大学",
+   "priority": "P2",
+   "path": "解析或连续介质模块",
+   "status": "partial",
+   "level": 2,
+   "implementation": "浮力作用于浸入部分形心（隐含回复力矩）",
+   "tests": "—",
+   "gap": "无 GM 与小角稳定性分析",
+   "example": "小倾角浮体 m = 10 kg，GM = 0.05 m，φ = 0.1 rad，g = 10。",
+   "answer": "回复力矩约为 −0.499167 N·m；GM > 0 表示小角度稳定。",
+   "point": "浮心随浸没几何变化，质心与浮心不一定重合。",
+   "verify": "GM 为给定船型水线几何的结果，不能替代完整大角度稳定计算。",
+   "sources": [
+    "S17",
+    "S50"
+   ]
+  },
+  {
+   "id": "F04",
+   "title": "帕斯卡原理与液压",
+   "stage": "初中",
+   "priority": "P1",
+   "path": "解析或连续介质模块",
+   "status": "missing",
+   "level": 0,
+   "implementation": "无",
+   "tests": "—",
+   "gap": "帕斯卡原理与液压缺失",
+   "example": "A1 = 1 cm²，A2 = 20 cm²，小活塞力 50 N，移动 0.1 m。",
+   "answer": "理想输出力 1000 N，大活塞升高 0.005 m；两端功均为 5 J。",
+   "point": "增力不增能量；需要不可压缩与低损耗假设。",
+   "verify": "面积单位先转 SI，检查体积约束和机械能量账本。",
+   "sources": [
+    "S17"
+   ]
+  },
+  {
+   "id": "F05",
+   "title": "连续性方程",
+   "stage": "高中至大学",
+   "priority": "P2",
+   "path": "解析或连续介质模块",
+   "status": "missing",
+   "level": 0,
+   "implementation": "无",
+   "tests": "—",
+   "gap": "",
+   "example": "不可压缩水管 A1 = 4 cm²、A2 = 1 cm²，v1 = 0.5 m/s。",
+   "answer": "流量 2×10⁻⁴ m³/s；v2 = 2 m/s。",
+   "point": "守恒的是质量通量；变密度时体积流量不必恒定。",
+   "verify": "输入出口质量通量残差可监视，源汇和压缩性需显式设置。",
+   "sources": [
+    "S17"
+   ]
+  },
+  {
+   "id": "F06",
+   "title": "伯努利与流速压差",
+   "stage": "高中至大学",
+   "priority": "P2",
+   "path": "解析或连续介质模块",
+   "status": "missing",
+   "level": 0,
+   "implementation": "无",
+   "tests": "—",
+   "gap": "",
+   "example": "同高理想水流，v1 = 1 m/s，v2 = 3 m/s，ρ = 1000 kg/m³。",
+   "answer": "压差 p1−p2 = ρ(9−1)/2 = 4000 Pa。",
+   "point": "只沿适用的稳态无黏流线使用；不能从流速大推导任意场景压强小。",
+   "verify": "加入黏性或泵后增加损失和做功项，并提示原式失效。",
+   "sources": [
+    "S17"
+   ]
+  },
+  {
+   "id": "F07",
+   "title": "泊肃叶流",
+   "stage": "大学",
+   "priority": "P2",
+   "path": "解析或连续介质模块",
+   "status": "missing",
+   "level": 0,
+   "implementation": "无",
+   "tests": "—",
+   "gap": "",
+   "example": "圆管 r = 1 mm，L = 1 m，动力黏度 10⁻³ Pa·s，压差 100 Pa。",
+   "answer": "Q = 3.92699×10⁻⁸ m³/s；平均流速 0.0125 m/s。",
+   "point": "管径四次方效应；要求充分发展层流及无滑移边界。",
+   "verify": "以解析抛物线速度剖面验证场求解；半径翻倍时流量应为 16 倍。",
+   "sources": [
+    "S17"
+   ]
+  },
+  {
+   "id": "F08",
+   "title": "斯托克斯沉降",
+   "stage": "大学",
+   "priority": "P2",
+   "path": "解析或连续介质模块",
+   "status": "partial",
+   "level": 2,
+   "implementation": "线性阻力（drag）可用于沉降",
+   "tests": "physics2651.test.ts drag（一般线性阻力）",
+   "gap": "无 Stokes 系数与 Re 适用性检查",
+   "example": "球半径 0.1 mm，ρs = 2000、ρf = 1000 kg/m³，η = 1 Pa·s，g = 10。",
+   "answer": "终端速度 2.22222×10⁻⁵ m/s；以直径为尺度的 Re 约 4.44×10⁻⁶。",
+   "point": "适用性靠 Re 检查；浮力必须计入。",
+   "verify": "Re 不够小时禁止把 Stokes 结果标成高精度参照。",
+   "sources": [
+    "S17"
+   ]
+  },
+  {
+   "id": "F09",
+   "title": "雷诺数与相似性",
+   "stage": "大学",
+   "priority": "P2",
+   "path": "解析或连续介质模块",
+   "status": "missing",
+   "level": 0,
+   "implementation": "无",
+   "tests": "—",
+   "gap": "",
+   "example": "ρ = 1000 kg/m³，v = 0.1 m/s，管径 L = 0.01 m，η = 10⁻³ Pa·s。",
+   "answer": "Re = 1000；若采用光滑直圆管经验判据可讨论层流，但不能推广到所有几何。",
+   "point": "无量纲数连接不同尺度系统；转捩受几何和扰动影响。",
+   "verify": "场景保留特征尺度和判据来源，不用单一阈值代替湍流求解。",
+   "sources": [
+    "S17",
+    "S58"
+   ]
+  },
+  {
+   "id": "F10",
+   "title": "表面张力与毛细",
+   "stage": "大学",
+   "priority": "P2",
+   "path": "解析或连续介质模块",
+   "status": "partial",
+   "level": 0,
+   "implementation": "概念页 solids（表面张力与毛细）",
+   "tests": "—",
+   "gap": "无计算",
+   "example": "完全润湿毛细管，γ = 0.072 N/m，r = 0.5 mm，ρ = 1000，g = 9.8。",
+   "answer": "h = 0.0293878 m，约 2.94 cm。",
+   "point": "接触角、曲率和表面能是附加物理，不由普通浮力自动产生。",
+   "verify": "90° 接触角时 h = 0，疏水时符号反转；有限管径限制需说明。",
+   "sources": [
+    "S17",
+    "S79"
+   ]
+  },
+  {
+   "id": "F11",
+   "title": "应力应变与弹性波",
+   "stage": "大学",
+   "priority": "P2",
+   "path": "解析或连续介质模块",
+   "status": "missing",
+   "level": 0,
+   "implementation": "无",
+   "tests": "—",
+   "gap": "",
+   "example": "细长杆 E = 2×10¹¹ Pa，ρ = 8000 kg/m³，应变 10⁻⁴。",
+   "answer": "应力 20 MPa；细杆纵波速度 5000 m/s。",
+   "point": "本构关系与运动方程共同决定连续介质；三维纵波速度另含泊松比。",
+   "verify": "张量和边界定义正确，不能把细杆速度公式用于任意三维体。",
+   "sources": [
+    "S79",
+    "S19"
+   ]
+  },
+  {
+   "id": "F12",
+   "title": "可压缩性与声速",
+   "stage": "大学",
+   "priority": "P2",
+   "path": "解析或连续介质模块",
+   "status": "missing",
+   "level": 0,
+   "implementation": "无",
+   "tests": "—",
+   "gap": "",
+   "example": "理想气体 γ = 1.4，p = 100000 Pa，ρ = 1.25 kg/m³，流速 100 m/s。",
+   "answer": "声速 334.664 m/s；Ma = 0.298807。",
+   "point": "小扰动声学、可压缩流与激波是不同求解级别。",
+   "verify": "高 Mach 或大振幅时退出线性声学假设，压强和密度必须保持物理有效。",
+   "sources": [
+    "S19",
+    "S21"
+   ]
+  },
+  {
+   "id": "W01",
+   "title": "简谐振子",
+   "stage": "高中",
+   "priority": "P1",
+   "path": "ODE 或一维波模块",
+   "status": "verified",
+   "level": 2,
+   "implementation": "模板 spring、vertical-spring、central-spring；情形 spring",
+   "tests": "acceptance.test.ts 6",
+   "gap": "相位与能量的长时验收可补",
+   "example": "m = 1 kg，k = 4 N/m，A = 0.1 m，从最大位移释放。",
+   "answer": "ω0 = 2 rad/s，T = π s，最大速率 0.2 m/s，总能量 0.02 J。",
+   "point": "相位、振幅和频率各有不同含义。",
+   "verify": "同时检验相位、周期、能量及 x–v 相图，不能只比较周期。",
+   "sources": [
+    "S18"
+   ]
+  },
+  {
+   "id": "W02",
+   "title": "单摆与小角近似",
+   "stage": "高中至大学",
+   "priority": "P1",
+   "path": "ODE 或一维波模块",
+   "status": "verified",
+   "level": 2,
+   "implementation": "模板 pendulum、physical-pendulum；情形 pendulum（小角近似分级、椭圆积分精确周期）",
+   "tests": "acceptance.test.ts 6（5°、8°、30°）",
+   "gap": "—",
+   "example": "ℓ = 1 m，g = 9.8；小振幅与 θ0 = 0.2 rad 对比。",
+   "answer": "小角周期 2.00709 s；含二阶幅度修正约 2.01211 s。",
+   "point": "近似有适用域；0.2 必须是弧度。",
+   "verify": "大角度改用数值积分或椭圆积分参照，修正式不可当精确解。",
+   "sources": [
+    "S18",
+    "S42"
+   ]
+  },
+  {
+   "id": "W03",
+   "title": "阻尼与三种响应",
+   "stage": "大学",
+   "priority": "P2",
+   "path": "ODE 或一维波模块",
+   "status": "verified",
+   "level": 2,
+   "implementation": "模板 damped-spring；情形 damped",
+   "tests": "physics2651.test.ts damper",
+   "gap": "临界与过阻尼分支未成组",
+   "example": "m = 1 kg，k = 4 N/m，b = 2 kg/s。",
+   "answer": "ζ = 0.5，属欠阻尼；振幅包络 e⁻ᵗ，阻尼角频率 √3 rad/s。",
+   "point": "欠阻尼、临界和过阻尼由无量纲阻尼比区分。",
+   "verify": "检查耗散率 b v²；分别覆盖 ζ 小于、等于、大于 1。",
+   "sources": [
+    "S18",
+    "S55"
+   ]
+  },
+  {
+   "id": "W04",
+   "title": "受迫振动与共振",
+   "stage": "高中至大学",
+   "priority": "P2",
+   "path": "ODE 或一维波模块",
+   "status": "unverified",
+   "level": 2,
+   "implementation": "模板 resonance",
+   "tests": "golden.test.ts",
+   "gap": "无稳态振幅与相位公式卡",
+   "example": "m = 1、k = 4、b = 0.4，单位为 SI；F0 = 1 N，以 ω = 2 rad/s 驱动。",
+   "answer": "稳态振幅 A = 1.25 m，相位滞后 π/2；这是理想线性模型结果。",
+   "point": "稳态共振峰与固有频率未必重合；大振幅需检查线性假设。",
+   "verify": "先消除瞬态再读幅值；无阻尼共振不能强行给出有限稳态。",
+   "sources": [
+    "S18"
+   ]
+  },
+  {
+   "id": "W05",
+   "title": "耦合振子与简正模",
+   "stage": "大学",
+   "priority": "P2",
+   "path": "ODE 或一维波模块",
+   "status": "partial",
+   "level": 2,
+   "implementation": "模板 coupled-oscillators、spring-blocks；情形 spring-pair",
+   "tests": "models.test.ts two blocks joined by a spring",
+   "gap": "无简正模频率与本征向量",
+   "example": "两个等质量 m = 1 kg，各以 k = 4 N/m 连到固定端，中间 kc = 2 N/m。",
+   "answer": "同相模角频率 2 rad/s；反相模 √8 = 2.82843 rad/s。",
+   "point": "复杂线性运动可分解为本征模。",
+   "verify": "本征向量、能量交换和对称极限分别验证，避免模式标号交换误判。",
+   "sources": [
+    "S18",
+    "S42"
+   ]
+  },
+  {
+   "id": "W06",
+   "title": "双摆与混沌",
+   "stage": "大学至研究生",
+   "priority": "P3",
+   "path": "ODE 或一维波模块",
+   "status": "unverified",
+   "level": 2,
+   "implementation": "模板 double-pendulum",
+   "tests": "golden.test.ts",
+   "gap": "无有限时间 Lyapunov 与统计报告",
+   "example": "双摆两条近邻轨迹若局部拟合 λ = 0.5 s⁻¹，初始差 10⁻⁶ rad，估算 10 s 后差。",
+   "answer": "指数增长估算为 1.48413×10⁻⁴ rad；λ 由具体能量和轨迹决定。",
+   "point": "混沌不等于随机数；长期逐点误差不是唯一指标。",
+   "verify": "短期收敛、能量账本、Poincaré 统计与有限时间 Lyapunov 拟合分开报告。",
+   "sources": [
+    "S42",
+    "S50",
+    "S57"
+   ]
+  },
+  {
+   "id": "W07",
+   "title": "弦上的行波",
+   "stage": "高中至大学",
+   "priority": "P1",
+   "path": "ODE 或一维波模块",
+   "status": "verified",
+   "level": 2,
+   "implementation": "labs/waves.rs 蛙跳法弦",
+   "tests": "waves.rs pulse_travels_at_c_and_reflects、energy_is_kept_on_a_fixed_string",
+   "gap": "—",
+   "example": "张力 Ts = 100 N，线密度 μ = 0.01 kg/m，波长 0.5 m。",
+   "answer": "波速 100 m/s；频率 200 Hz；2 m 传播需 0.02 s。",
+   "point": "质点振动方向不等于波传播方向；Ts 与周期 T 应分符号。",
+   "verify": "波速、相位和离散能量同时验证；CFL 条件必须满足。",
+   "sources": [
+    "S19"
+   ]
+  },
+  {
+   "id": "W08",
+   "title": "界面反射与阻抗",
+   "stage": "大学",
+   "priority": "P2",
+   "path": "ODE 或一维波模块",
+   "status": "partial",
+   "level": 2,
+   "implementation": "waves.rs 两种介质（c1、c2、split）",
+   "tests": "waves.rs（反射）",
+   "gap": "无阻抗与反射系数的定量对照",
+   "example": "同张力两段弦，Z1 = 1、Z2 = 3，入射位移振幅 0.01 m。",
+   "answer": "位移反射系数 −0.5，透射位移系数 0.5；反射能量比 0.25、透射 0.75。",
+   "point": "位移、压强等不同波变量的反射符号不同。",
+   "verify": "接头连续条件、能流和相位同时正确，不能仅用波速比猜振幅。",
+   "sources": [
+    "S19"
+   ]
+  },
+  {
+   "id": "W09",
+   "title": "驻波与边界条件",
+   "stage": "高中",
+   "priority": "P1",
+   "path": "ODE 或一维波模块",
+   "status": "verified",
+   "level": 2,
+   "implementation": "waves.rs 驻波",
+   "tests": "waves.rs standing_mode_is_exact_and_has_its_frequency",
+   "gap": "网格细化下的收敛未报告",
+   "example": "两端固定弦 L = 1 m，波速 100 m/s，求前三个本征频率。",
+   "answer": "n = 1、2、3 时为 50、100、150 Hz。",
+   "point": "端点条件选择允许模式；固定自由端有不同谱列。",
+   "verify": "端点严格满足约束，细化网格后频率按预期收敛。",
+   "sources": [
+    "S19"
+   ]
+  },
+  {
+   "id": "W10",
+   "title": "多普勒效应",
+   "stage": "高中",
+   "priority": "P1",
+   "path": "ODE 或一维波模块",
+   "status": "verified",
+   "level": 1,
+   "implementation": "waves.rs doppler",
+   "tests": "waves.rs doppler_and_notes",
+   "gap": "—",
+   "example": "声源 440 Hz 以 34 m/s 向静止观察者接近，声速 340 m/s。",
+   "answer": "f′ = 440 × 340/306 = 488.889 Hz。",
+   "point": "声波相对介质传播；需统一接近方向的符号。",
+   "verify": "离去时频率降低；源速接近或超过声速时退出该公式。",
+   "sources": [
+    "S19"
+   ]
+  },
+  {
+   "id": "W11",
+   "title": "拍与叠加",
+   "stage": "高中",
+   "priority": "P1",
+   "path": "ODE 或一维波模块",
+   "status": "partial",
+   "level": 1,
+   "implementation": "WaveLab 拍（sound op）",
+   "tests": "waves.rs doppler_and_notes",
+   "gap": "拍频的时域包络与频谱未对照",
+   "example": "两同幅声波频率 440 Hz 与 444 Hz。",
+   "answer": "拍频 4 Hz，相邻响度极大间隔 0.25 s。",
+   "point": "叠加不意味着源的频率发生改变。",
+   "verify": "时域包络与频谱分别显示，音频播放采用正确采样率。",
+   "sources": [
+    "S19"
+   ]
+  },
+  {
+   "id": "W12",
+   "title": "声强级与对数尺度",
+   "stage": "高中",
+   "priority": "P1",
+   "path": "ODE 或一维波模块",
+   "status": "partial",
+   "level": 1,
+   "implementation": "sound op：声强与声强级",
+   "tests": "waves.rs doppler_and_notes",
+   "gap": "零强度的 dB 下限标签待核对",
+   "example": "声强 I = 10⁻⁶ W/m²；再叠加一个相同但不相干的声源。",
+   "answer": "初始声强级 60 dB；声强翻倍后约 63.0103 dB。",
+   "point": "dB 不能直接相加；声强级和声压级须区分。",
+   "verify": "零强度读数用负无穷或下限标签，禁止无说明截成 0 dB。",
+   "sources": [
+    "S19"
+   ]
+  },
+  {
+   "id": "W13",
+   "title": "傅里叶分析与采样混叠",
+   "stage": "大学",
+   "priority": "P2",
+   "path": "ODE 或一维波模块",
+   "status": "missing",
+   "level": 0,
+   "implementation": "无（quantum.rs 有 FFT，未用于采样教学）",
+   "tests": "—",
+   "gap": "",
+   "example": "采样率 100 Hz，1000 点，真实正弦频率 70 Hz。",
+   "answer": "Nyquist 频率 50 Hz；频率间隔 0.1 Hz；70 Hz 混叠为 30 Hz。",
+   "point": "采样丢失的信息不能靠插值恢复；窗函数影响谱泄漏。",
+   "verify": "保存采样元数据，抗混叠与降采样策略可追溯。",
+   "sources": [
+    "S19",
+    "S67"
+   ]
+  },
+  {
+   "id": "W14",
+   "title": "色散与群速度",
+   "stage": "大学",
+   "priority": "P2",
+   "path": "ODE 或一维波模块",
+   "status": "missing",
+   "level": 0,
+   "implementation": "无",
+   "tests": "—",
+   "gap": "",
+   "example": "模型系数 a = 1 m²/s，中心波数 k0 = 2 m⁻¹。",
+   "answer": "ω0 = 4 rad/s；相速度 2 m/s；群速度 4 m/s。",
+   "point": "包络、相位和信息传播速度不应混同。",
+   "verify": "用窄谱波包测包络速度，宽谱时提示近似限制。",
+   "sources": [
+    "S19",
+    "S38"
+   ]
+  },
+  {
+   "id": "T01",
+   "title": "比热与升温",
+   "stage": "初中",
+   "priority": "P1",
+   "path": "热学解析或统计模块",
+   "status": "verified",
+   "level": 1,
+   "implementation": "labs/heat.rs 加热曲线",
+   "tests": "heat.rs ice_to_steam",
+   "gap": "—",
+   "example": "0.5 kg 水，比热取 4200 J/(kg·K)，从 20 °C 升到 40 °C。",
+   "answer": "温差 20 K；需热量 42000 J。",
+   "point": "热量是传递过程量，温度不是热量。",
+   "verify": "比热与温度范围有来源，跨相变时切换模型。",
+   "sources": [
+    "S20"
+   ]
+  },
+  {
+   "id": "T02",
+   "title": "潜热与加热曲线",
+   "stage": "初中",
+   "priority": "P1",
+   "path": "热学解析或统计模块",
+   "status": "verified",
+   "level": 1,
+   "implementation": "labs/heat.rs 熔化与汽化平台",
+   "tests": "heat.rs ice_to_steam",
+   "gap": "—",
+   "example": "0.1 kg 冰已在熔点，L = 3.34×10⁵ J/kg，理想恒功率 100 W。",
+   "answer": "完全熔化需 33400 J；时间 334 s，熔化阶段温度保持不变。",
+   "point": "相变能量不能用 mcΔT 代替。",
+   "verify": "同时跟踪相分数与能量，压力及材料适用条件明确。",
+   "sources": [
+    "S20"
+   ]
+  },
+  {
+   "id": "T03",
+   "title": "热平衡与量热",
+   "stage": "初中",
+   "priority": "P1",
+   "path": "热学解析或统计模块",
+   "status": "verified",
+   "level": 1,
+   "implementation": "labs/heat.rs heatMix",
+   "tests": "heat.rs mixing_reaches_the_weighted_mean",
+   "gap": "—",
+   "example": "0.2 kg 的 80 °C 水与 0.3 kg 的 20 °C 水混合，绝热且比热相同。",
+   "answer": "Tf = (0.2×80 + 0.3×20)/0.5 = 44 °C。",
+   "point": "容器热容与散热是可逐步加入的修正。",
+   "verify": "终温不能超出初温范围；加入容器后重新求能量平衡。",
+   "sources": [
+    "S20"
+   ]
+  },
+  {
+   "id": "T04",
+   "title": "热膨胀",
+   "stage": "高中",
+   "priority": "P1",
+   "path": "热学解析或统计模块",
+   "status": "missing",
+   "level": 0,
+   "implementation": "无",
+   "tests": "—",
+   "gap": "",
+   "example": "杆长 2 m，α = 1.2×10⁻⁵ K⁻¹，升温 50 K。",
+   "answer": "伸长 0.0012 m，即 1.2 mm。",
+   "point": "温差可用 K 或 °C；线性式假设 α 近似恒定。",
+   "verify": "固定两端时需要热应力耦合，不能仍自由伸长。",
+   "sources": [
+    "S20"
+   ]
+  },
+  {
+   "id": "T05",
+   "title": "热传导",
+   "stage": "高中至大学",
+   "priority": "P2",
+   "path": "热学解析或统计模块",
+   "status": "missing",
+   "level": 0,
+   "implementation": "无",
+   "tests": "—",
+   "gap": "",
+   "example": "平板 κ = 200 W/(m·K)，A = 0.01 m²，L = 0.1 m，温差 50 K。",
+   "answer": "稳态热流率 1000 W；1 s 传递 1000 J。",
+   "point": "稳态热流与温度随时间演化不同。",
+   "verify": "冷热端热流一致；非稳态另用热方程并检验网格。",
+   "sources": [
+    "S20",
+    "S54"
+   ]
+  },
+  {
+   "id": "T06",
+   "title": "牛顿冷却",
+   "stage": "高中至大学",
+   "priority": "P2",
+   "path": "热学解析或统计模块",
+   "status": "partial",
+   "level": 1,
+   "implementation": "heatMix 的交换系数 k（指数趋近）",
+   "tests": "heat.rs",
+   "gap": "无牛顿冷却独立模型",
+   "example": "物体初温 80 °C，环境 20 °C，k = 0.1 s⁻¹，求 10 s 温度。",
+   "answer": "T(10) = 20 + 60/e = 42.0728 °C。",
+   "point": "集中参数要求内部近似等温；k 是经验参数。",
+   "verify": "向环境的传热与内能减少一致，k 的单位不可省略。",
+   "sources": [
+    "S20",
+    "S55"
+   ]
+  },
+  {
+   "id": "T07",
+   "title": "热辐射与黑体",
+   "stage": "高中至大学",
+   "priority": "P2",
+   "path": "热学解析或统计模块",
+   "status": "missing",
+   "level": 0,
+   "implementation": "无",
+   "tests": "—",
+   "gap": "",
+   "example": "黑体面积 1 m²，T = 400 K，环境 300 K，采用 CODATA 常数。",
+   "answer": "净辐射功率约 992.316 W；峰值波长约 7.24443 μm。",
+   "point": "四次方必须使用绝对温度；灰体与黑体分开。",
+   "verify": "同温时净交换为零，分清总发射与净交换。",
+   "sources": [
+    "S20",
+    "S38",
+    "S03"
+   ]
+  },
+  {
+   "id": "T08",
+   "title": "理想气体状态方程",
+   "stage": "高中",
+   "priority": "P1",
+   "path": "热学解析或统计模块",
+   "status": "verified",
+   "level": 1,
+   "implementation": "labs/gas.rs（R = 8.314462618）",
+   "tests": "gas.rs processes_satisfy_the_first_law_and_the_integral",
+   "gap": "—",
+   "example": "n = 1 mol，T = 300 K，V = 0.024 m³，R = 8.314462618 J/(mol·K)。",
+   "answer": "p = 103930.783 Pa，约 103.931 kPa。",
+   "point": "宏观状态方程不直接给出微观碰撞轨迹。",
+   "verify": "低温高密度时标识近似失效；示意粒子与真正动力学区分。",
+   "sources": [
+    "S21"
+   ]
+  },
+  {
+   "id": "T09",
+   "title": "热力学第一定律",
+   "stage": "高中",
+   "priority": "P1",
+   "path": "热学解析或统计模块",
+   "status": "verified",
+   "level": 1,
+   "implementation": "labs/gas.rs 第一定律",
+   "tests": "gas.rs processes_satisfy_the_first_law_and_the_integral",
+   "gap": "—",
+   "example": "气体吸热 500 J，对外做功 200 J。",
+   "answer": "内能增加 300 J；改用外界对系统做功时须同步换符号。",
+   "point": "热和功依路径，内能是状态量。",
+   "verify": "固定符号约定，p–V 面积和账本使用同一约定。",
+   "sources": [
+    "S22"
+   ]
+  },
+  {
+   "id": "T10",
+   "title": "理想气体四类过程",
+   "stage": "高中至大学",
+   "priority": "P1",
+   "path": "热学解析或统计模块",
+   "status": "verified",
+   "level": 1,
+   "implementation": "labs/gas.rs 四种过程",
+   "tests": "gas.rs processes_satisfy_the_first_law_and_the_integral",
+   "gap": "对照与功积分来自同一模块（需外部独立参照）；γ 与自由度一致性未检",
+   "example": "1 mol 理想气体在 300 K 可逆等温膨胀，V2 = 2V1。",
+   "answer": "Wby = 1728.944 J；ΔU = 0，Q 相同。等容、等压、绝热是同模型的其他分支。",
+   "point": "过程约束决定路径；绝热不代表温度不变。",
+   "verify": "四分支分别验证；γ 与自由度一致，循环首尾状态闭合。",
+   "sources": [
+    "S21",
+    "S22"
+   ]
+  },
+  {
+   "id": "T11",
+   "title": "卡诺热机与熵",
+   "stage": "高中至大学",
+   "priority": "P1",
+   "path": "热学解析或统计模块",
+   "status": "partial",
+   "level": 1,
+   "implementation": "labs/gas.rs 卡诺循环效率",
+   "tests": "gas.rs cycle_efficiencies",
+   "gap": "无熵变",
+   "example": "可逆热机 Th = 600 K、Tc = 300 K，每周期吸热 1000 J。",
+   "answer": "效率 50%；输出功 500 J、向冷源放热 500 J；两热源总熵变为 0。",
+   "point": "相同热源间卡诺效率是上限；不可逆过程有非负总熵产生。",
+   "verify": "不能用摄氏温度作比值；检查循环能量与熵。",
+   "sources": [
+    "S23"
+   ]
+  },
+  {
+   "id": "T12",
+   "title": "奥托循环",
+   "stage": "大学",
+   "priority": "P2",
+   "path": "热学解析或统计模块",
+   "status": "verified",
+   "level": 1,
+   "implementation": "labs/gas.rs 奥托循环",
+   "tests": "gas.rs cycle_efficiencies",
+   "gap": "—",
+   "example": "空气标准理想奥托循环，压缩比 r = 8，γ = 1.4。",
+   "answer": "η = 0.564725，约 56.47%。",
+   "point": "理想循环效率不等于真实发动机效率。",
+   "verify": "四过程及 Q、W 账本闭合；输入范围与 γ 假设可见。",
+   "sources": [
+    "S22",
+    "S23"
+   ]
+  },
+  {
+   "id": "T13",
+   "title": "分子速率分布",
+   "stage": "大学",
+   "priority": "P2",
+   "path": "热学解析或统计模块",
+   "status": "partial",
+   "level": 0,
+   "implementation": "GasLab 中的分子为示意",
+   "tests": "—",
+   "gap": "无速率分布与采样统计",
+   "example": "理想氮气 T = 300 K，摩尔质量取 0.028 kg/mol。",
+   "answer": "vrms ≈ 516.963 m/s，与平均速率及最概然速率不同。",
+   "point": "微观分布与宏观温度通过矩联系。",
+   "verify": "归一化直方图并比较二阶矩；示意速率不冒充采样统计。",
+   "sources": [
+    "S21",
+    "S44"
+   ]
+  },
+  {
+   "id": "T14",
+   "title": "系综 配分函数与两能级",
+   "stage": "大学至研究生",
+   "priority": "P3",
+   "path": "热学解析或统计模块",
+   "status": "missing",
+   "level": 0,
+   "implementation": "无",
+   "tests": "—",
+   "gap": "",
+   "example": "两非简并能级 0 与 Δ，设 Δ/(kBT) = ln3。",
+   "answer": "激发态权重 1/3，Z = 4/3，P1 = 1/4，平均能量 Δ/4。",
+   "point": "先定义系综；热混合与相干叠加不同。",
+   "verify": "高温概率趋于 1/2，低温趋于基态，检查归一化。",
+   "sources": [
+    "S44",
+    "S43"
+   ]
+  },
+  {
+   "id": "T15",
+   "title": "随机游走与扩散",
+   "stage": "大学",
+   "priority": "P2",
+   "path": "热学解析或统计模块",
+   "status": "missing",
+   "level": 0,
+   "implementation": "无",
+   "tests": "—",
+   "gap": "",
+   "example": "一维扩散 D = 0.1 m²/s，初位置确定，演化 5 s。",
+   "answer": "均方位移为 1 m²，标准差 1 m，平均位置仍为 0。",
+   "point": "单条轨迹不必遵循平均值。",
+   "verify": "概率守恒、均方位移、多样本与网格收敛分别报告。",
+   "sources": [
+    "S44",
+    "S60"
+   ]
+  },
+  {
+   "id": "T16",
+   "title": "伊辛模型与相变思想",
+   "stage": "大学至研究生",
+   "priority": "P3",
+   "path": "热学解析或统计模块",
+   "status": "missing",
+   "level": 0,
+   "implementation": "无",
+   "tests": "—",
+   "gap": "",
+   "example": "两自旋仅一个相互作用键，s = ±1，J = 1、h = 0，取 kBT = 1。",
+   "answer": "同向能量 −1、反向 +1；能量上升 2 的 Metropolis 接受概率为 0.135335。",
+   "point": "局部更新与有限尺寸效应；两自旋本身没有热力学相变。",
+   "verify": "与四状态精确枚举对照，报告热化、自相关与独立样本数。",
+   "sources": [
+    "S44",
+    "S60"
+   ]
+  },
+  {
+   "id": "E01",
+   "title": "库仑力与叠加",
+   "stage": "高中",
+   "priority": "P1",
+   "path": "静电或电路 MNA",
+   "status": "verified",
+   "level": 1,
+   "implementation": "labs/field.rs；模板 two-charges（情形 coulomb）",
+   "tests": "field.rs single_charge_field_is_coulomb；electric.rs",
+   "gap": "常数 k 的版号未记录",
+   "example": "q1 = 1 μC、q2 = 2 μC，间距 0.1 m，使用 CODATA 的 ke。",
+   "answer": "力大小 1.79751 N；同号相斥、异号相吸。",
+   "point": "点电荷奇点与有限尺寸软化必须区分。",
+   "verify": "远场符合 r⁻²；近场标明软化；教学 ke = 1 不与 SI 混用。",
+   "sources": [
+    "S24",
+    "S03"
+   ]
+  },
+  {
+   "id": "E02",
+   "title": "电场线与合场",
+   "stage": "高中",
+   "priority": "P1",
+   "path": "静电或电路 MNA",
+   "status": "verified",
+   "level": 1,
+   "implementation": "labs/field.rs 电场线与等势线",
+   "tests": "field.rs dipole_lines…、uniform_field_equipotentials…",
+   "gap": "零场点处理待核对",
+   "example": "相同的 +1 μC 电荷分别在 x = ±0.1 m，求中点场。",
+   "answer": "两电场相消，合场为 0；电势却约为 179751 V。",
+   "point": "场线不是轨迹；零场不等于零电势。",
+   "verify": "箭头、探针与等势线用一致场数据；零场点避免除零。",
+   "sources": [
+    "S24",
+    "S26"
+   ]
+  },
+  {
+   "id": "E03",
+   "title": "高斯定律与对称性",
+   "stage": "大学",
+   "priority": "P2",
+   "path": "静电或电路 MNA",
+   "status": "missing",
+   "level": 0,
+   "implementation": "无",
+   "tests": "—",
+   "gap": "",
+   "example": "闭合面包围 1 nC 电荷，使用 CODATA ε0。",
+   "answer": "总电通量约 112.941 V·m，与面的具体形状无关。",
+   "point": "高斯定律普遍成立，直接求局部场还需要对称性。",
+   "verify": "跨面电荷和通量积分收敛分别检验；不封闭的面不能套用。",
+   "sources": [
+    "S25",
+    "S03"
+   ]
+  },
+  {
+   "id": "E04",
+   "title": "电势 电势能与功",
+   "stage": "高中",
+   "priority": "P1",
+   "path": "静电或电路 MNA",
+   "status": "verified",
+   "level": 2,
+   "implementation": "field.rs fieldAt（V）；模板 charge-deflection、oscilloscope；情形 charge-e",
+   "tests": "electric.rs deflection_in_uniform_electric_field",
+   "gap": "—",
+   "example": "2 μC 正电荷从 100 V 移到 20 V。",
+   "answer": "ΔU = −1.6×10⁻⁴ J；电场做功 1.6×10⁻⁴ J。",
+   "point": "电势零点任意，电势差有物理意义。",
+   "verify": "换零点不改受力；时变非保守场不能只用静电势表示。",
+   "sources": [
+    "S26"
+   ]
+  },
+  {
+   "id": "E05",
+   "title": "导体平衡与屏蔽",
+   "stage": "高中至大学",
+   "priority": "P2",
+   "path": "静电或电路 MNA",
+   "status": "missing",
+   "level": 0,
+   "implementation": "无",
+   "tests": "—",
+   "gap": "",
+   "example": "孤立导体球半径 0.1 m，带电 1 nC，真空静电平衡。",
+   "answer": "表面电势约 89.8755 V；内部电场为 0，电势等于表面。",
+   "point": "内部零场不等于零电势；自由电荷在边界重排。",
+   "verify": "任意形状需解边值问题，球形解析式不能冒充通用导体求解。",
+   "sources": [
+    "S25",
+    "S26"
+   ]
+  },
+  {
+   "id": "E06",
+   "title": "电容器与储能",
+   "stage": "高中",
+   "priority": "P1",
+   "path": "静电或电路 MNA",
+   "status": "unverified",
+   "level": 1,
+   "implementation": "labs/mod.rs plateCapacitor（恒压与恒电荷）",
+   "tests": "—（无自动测试）",
+   "gap": "常数版号；断电与恒压两种约束的电源做功对照待核对",
+   "example": "真空平行板 A = 0.01 m²，d = 1 mm，接 100 V。",
+   "answer": "忽略边缘场，C ≈ 88.5419 pF，Q ≈ 8.85419 nC，储能约 4.42709×10⁻⁷ J。",
+   "point": "恒压与断电恒电荷是不同约束。",
+   "verify": "减半板距分别算两情形，并记录电源做功。",
+   "sources": [
+    "S27",
+    "S03"
+   ]
+  },
+  {
+   "id": "E07",
+   "title": "介质极化与边界",
+   "stage": "大学",
+   "priority": "P2",
+   "path": "静电或电路 MNA",
+   "status": "unverified",
+   "level": 1,
+   "implementation": "plateCapacitor 的 εr",
+   "tests": "—",
+   "gap": "无 D、P 与边界条件",
+   "example": "线性各向同性介质 εr = 4，内部 E = 1000 V/m。",
+   "answer": "D ≈ 3.54168×10⁻⁸ C/m²；P ≈ 2.65626×10⁻⁸ C/m²。",
+   "point": "自由电荷与束缚电荷不同；非线性介质另设模型。",
+   "verify": "法向 D 跳变等于自由面电荷；验证切向静电 E 连续。",
+   "sources": [
+    "S27",
+    "S25",
+    "S03"
+   ]
+  },
+  {
+   "id": "E08",
+   "title": "欧姆定律与电阻率",
+   "stage": "初中至大学",
+   "priority": "P1",
+   "path": "静电或电路 MNA",
+   "status": "partial",
+   "level": 1,
+   "implementation": "circuit.rs 电阻、滑动变阻器",
+   "tests": "circuit.rs series_with_internal_resistance",
+   "gap": "无电阻率 R = ρL/A",
+   "example": "ρe = 1.7×10⁻⁸ Ω·m，长 2 m，截面 10⁻⁶ m²，电流 3 A。",
+   "answer": "R = 0.034 Ω；压降 0.102 V；热功率 0.306 W。",
+   "point": "欧姆关系并非所有器件的普遍定律。",
+   "verify": "电子漂移与电流方向区分；温度变化更新材料模型。",
+   "sources": [
+    "S28",
+    "S51"
+   ]
+  },
+  {
+   "id": "E09",
+   "title": "串并联电路",
+   "stage": "初中",
+   "priority": "P1",
+   "path": "静电或电路 MNA",
+   "status": "verified",
+   "level": 1,
+   "implementation": "circuit.rs 串并联、预设 series／parallel",
+   "tests": "circuit.rs series_with_internal_resistance、parallel_and_mixed",
+   "gap": "KCL 残差不可查；对照与实现同源",
+   "example": "6 Ω 与 3 Ω 分别串联和并联在 9 V 理想源上。",
+   "answer": "串联 9 Ω、总电流 1 A；并联 2 Ω、总电流 4.5 A，两支路 1.5 A 与 3 A。",
+   "point": "节点连接决定电路，不由图上远近决定。",
+   "verify": "移动导线不改变拓扑；开短路有单独诊断。",
+   "sources": [
+    "S28"
+   ]
+  },
+  {
+   "id": "E10",
+   "title": "基尔霍夫与桥式电路",
+   "stage": "高中至大学",
+   "priority": "P1",
+   "path": "静电或电路 MNA",
+   "status": "partial",
+   "level": 1,
+   "implementation": "circuit.rs MNA；检流计",
+   "tests": "circuit.rs wire_loops_share_current",
+   "gap": "电桥算例与奇异拓扑原因待补",
+   "example": "电桥两分压支路均为上臂 100 Ω、下臂 200 Ω，源 6 V，中点接理想检流计。",
+   "answer": "中点均为 4 V，检流计电流 0；每分压支路电流 0.02 A。",
+   "point": "一般电路依靠节点与约束方程。",
+   "verify": "每节点 KCL 残差可查，奇异拓扑给出原因。",
+   "sources": [
+    "S28",
+    "S51"
+   ]
+  },
+  {
+   "id": "E11",
+   "title": "戴维南与诺顿等效",
+   "stage": "大学",
+   "priority": "P2",
+   "path": "静电或电路 MNA",
+   "status": "missing",
+   "level": 0,
+   "implementation": "无（可通过电路搭建间接得到）",
+   "tests": "—",
+   "gap": "",
+   "example": "12 V 源，两只 1 kΩ 分压，端口在下臂，接 1 kΩ 负载。",
+   "answer": "Vth = 6 V、Rth = 500 Ω；负载电压 4 V、电流 4 mA。",
+   "point": "端口等效不保证内部能量分布相同。",
+   "verify": "原网络与等效网络对多个负载比较；受控源不可简单全置零。",
+   "sources": [
+    "S51",
+    "S28"
+   ]
+  },
+  {
+   "id": "E12",
+   "title": "内阻与最大功率",
+   "stage": "高中",
+   "priority": "P1",
+   "path": "静电或电路 MNA",
+   "status": "partial",
+   "level": 1,
+   "implementation": "电池内阻 r；预设 emf",
+   "tests": "circuit.rs series_with_internal_resistance",
+   "gap": "无最大功率的扫描与效率对照",
+   "example": "电动势 12 V、内阻 2 Ω，负载 2 Ω。",
+   "answer": "I = 3 A，负载电压 6 V，功率 18 W；负载功率最大，效率 50%。",
+   "point": "最大功率与最大效率不同。",
+   "verify": "负载趋零和无穷的极限正确，内阻热单独入账。",
+   "sources": [
+    "S28"
+   ]
+  },
+  {
+   "id": "E13",
+   "title": "电表内阻与测量扰动",
+   "stage": "高中",
+   "priority": "P1",
+   "path": "静电或电路 MNA",
+   "status": "partial",
+   "level": 1,
+   "implementation": "电表改装预设（ammeterConv、voltmeterConv、ohmmeter）",
+   "tests": "circuit.rs",
+   "gap": "理想表与真实表切换、负载扰动的对照缺失",
+   "example": "10 V 源，两只 10 kΩ 分压；100 kΩ 电压表并下臂。",
+   "answer": "下臂等效 9.09091 kΩ；读数 4.76190 V，低于原来的 5 V。",
+   "point": "测量仪器也是电路的一部分。",
+   "verify": "理想表与真实表可切换；量程和过载有独立反馈。",
+   "sources": [
+    "S28",
+    "S51"
+   ]
+  },
+  {
+   "id": "E14",
+   "title": "焦耳热与电热耦合",
+   "stage": "初中至大学",
+   "priority": "P1",
+   "path": "静电或电路 MNA",
+   "status": "partial",
+   "level": 1,
+   "implementation": "circuitRun 能量 ∫UI dt",
+   "tests": "transient.rs rc_charging_and_energy",
+   "gap": "无电热耦合",
+   "example": "2 A 流过 5 Ω 电阻 10 s，总热容 100 J/K，忽略散热。",
+   "answer": "发热 200 J，升温 2 K。",
+   "point": "热量反过来可改变电阻。",
+   "verify": "电路与热模块共享焦耳热通量，避免重复计能量。",
+   "sources": [
+    "S20",
+    "S28"
+   ]
+  },
+  {
+   "id": "E15",
+   "title": "RC 充放电",
+   "stage": "高中至大学",
+   "priority": "P1",
+   "path": "静电或电路 MNA",
+   "status": "verified",
+   "level": 2,
+   "implementation": "transient.rs 梯形法自适应；预设 rc",
+   "tests": "transient.rs rc_charging_and_energy",
+   "gap": "解析参照与数值的收敛研究缺失；教师参数化题缺失（任务二）",
+   "example": "R = 1 kΩ，C = 100 μF，源 5 V，初电压 0，求 0.1 s 电压。",
+   "answer": "τ = 0.1 s；VC = 3.16060 V；电流 1.83940 mA。",
+   "point": "有限电流下电容电压连续。",
+   "verify": "解析与暂态数值两路独立；开关后满足一致初值。",
+   "sources": [
+    "S28",
+    "S51",
+    "S56"
+   ]
+  },
+  {
+   "id": "E16",
+   "title": "RL 自感暂态",
+   "stage": "高中至大学",
+   "priority": "P1",
+   "path": "静电或电路 MNA",
+   "status": "verified",
+   "level": 2,
+   "implementation": "transient.rs；预设 rl",
+   "tests": "transient.rs rl_and_discharge",
+   "gap": "—",
+   "example": "R = 10 Ω，L = 1 H，源 10 V，初电流 0，求 0.1 s 电流。",
+   "answer": "τ = 0.1 s；I = 0.632121 A。",
+   "point": "有限电压下电感电流连续。",
+   "verify": "拓扑不一致时解释原因，不能强制归零并抹掉能量。",
+   "sources": [
+    "S32",
+    "S51",
+    "S56"
+   ]
+  },
+  {
+   "id": "E17",
+   "title": "LC 振荡",
+   "stage": "高中至大学",
+   "priority": "P1",
+   "path": "静电或电路 MNA",
+   "status": "verified",
+   "level": 2,
+   "implementation": "transient.rs；预设 lc",
+   "tests": "transient.rs lc_oscillation_keeps_energy_and_period",
+   "gap": "长时相位漂移未单独验收",
+   "example": "L = 1 H，C = 100 μF，初电容电压 10 V、电流 0。",
+   "answer": "ω0 = 100 rad/s；周期 0.0628319 s；能量 0.005 J；最大电流 0.1 A。",
+   "point": "场能交换可类比弹簧振子。",
+   "verify": "长时相位与能量漂移分别验收。",
+   "sources": [
+    "S32"
+   ]
+  },
+  {
+   "id": "E18",
+   "title": "RLC 交流与相量",
+   "stage": "高中至大学",
+   "priority": "P1",
+   "path": "静电或电路 MNA",
+   "status": "verified",
+   "level": 2,
+   "implementation": "transient.rs 交流；预设 acR、rlc",
+   "tests": "transient.rs ac_rms_phase_and_rectifier",
+   "gap": "相量稳态与瞬态分离的对照待补",
+   "example": "R = 10 Ω，L = 0.1 H，C = 100 μF，谐振，源电压有效值 10 V。",
+   "answer": "ω0 = 316.228 rad/s；Z = 10 Ω；Irms = 1 A；平均功率 10 W。",
+   "point": "相量限于线性正弦稳态；任意波形不能一律峰值除 √2。",
+   "verify": "消除瞬态后比较相量；非线性需时域和谐波分析。",
+   "sources": [
+    "S33",
+    "S51"
+   ]
+  },
+  {
+   "id": "E19",
+   "title": "二极管与整流",
+   "stage": "高中至大学",
+   "priority": "P2",
+   "path": "静电或电路 MNA",
+   "status": "verified",
+   "level": 2,
+   "implementation": "transient.rs 二极管（定压降＋电阻）；预设 rectifier",
+   "tests": "transient.rs ac_rms_phase_and_rectifier；circuit.rs diodes…",
+   "gap": "无指数模型",
+   "example": "先用定压降模型：5 V 源串 1 kΩ 与正向二极管，压降 0.7 V。",
+   "answer": "导通时 I = 4.3 mA；这是定压降模型结果，不是指数器件方程的精确解。",
+   "point": "分段线性和指数模型有不同保真度。",
+   "verify": "反偏、过零和温度各检验；指数模型有收敛诊断。",
+   "sources": [
+    "S51"
+   ]
+  },
+  {
+   "id": "E20",
+   "title": "传感器 放大与晶体管接口",
+   "stage": "大学",
+   "priority": "P2",
+   "path": "静电或电路 MNA",
+   "status": "partial",
+   "level": 1,
+   "implementation": "热敏、光敏、压敏电阻",
+   "tests": "circuit.rs diodes_fuses_rcd_sensors_2655",
+   "gap": "无运放与晶体管",
+   "example": "理想非反相运放 Rf = 9 kΩ、Rg = 1 kΩ，输入 0.2 V，供电允许 2 V 输出。",
+   "answer": "增益 10，输出 2 V；若输入升为 1 V 而供电 ±5 V，则进入饱和。",
+   "point": "理想增益与带宽、饱和不同；晶体管式有工作区条件。",
+   "verify": "传感器标定和供电限制进入模型，不能普遍外推固定增益。",
+   "sources": [
+    "S51",
+    "S82"
+   ]
+  },
+  {
+   "id": "B01",
+   "title": "长直导线磁场",
+   "stage": "高中至大学",
+   "priority": "P1",
+   "path": "场与粒子或电路耦合",
+   "status": "verified",
+   "level": 1,
+   "implementation": "labs/magnet.rs（二维截面、每米、μ0 取 CODATA2018）",
+   "tests": "magnet.rs straight_wire_and_parallel_wires",
+   "gap": "A03：μ0 版号固定为 2018；几何语义仅写在代码注释",
+   "example": "直导线电流 10 A，距导线 0.05 m，真空。",
+   "answer": "按 CODATA μ0，B 约为 40 μT；方向由右手定则确定。",
+   "point": "该式描述三维长直导线截面，不能把任意画出的线圈当同一几何。",
+   "verify": "导线内外不同模型与半径参数可见；远场 B 随 r⁻¹ 变化。",
+   "sources": [
+    "S30",
+    "S03"
+   ]
+  },
+  {
+   "id": "B02",
+   "title": "线圈与螺线管",
+   "stage": "高中至大学",
+   "priority": "P1",
+   "path": "场与粒子或电路耦合",
+   "status": "partial",
+   "level": 1,
+   "implementation": "magnet.rs 螺线管为两片电流层的二维截面",
+   "tests": "magnet.rs long_sheet_pair_is_a_solenoid",
+   "gap": "无三维圆线圈轴对称模型（A04）",
+   "example": "三维圆线圈 N = 10 匝，I = 2 A，R = 0.1 m，求中心场。",
+   "answer": "中心 B ≈ 1.25664×10⁻⁴ T；长螺线管采用另一适用条件。",
+   "point": "真实三维圆环与二维无限延伸截面不等价。",
+   "verify": "分别标明轴对称解析模型和二维截面模型，核对中心场及远场。",
+   "sources": [
+    "S30",
+    "S03"
+   ]
+  },
+  {
+   "id": "B03",
+   "title": "平行电流相互作用",
+   "stage": "高中至大学",
+   "priority": "P1",
+   "path": "场与粒子或电路耦合",
+   "status": "verified",
+   "level": 1,
+   "implementation": "magnet.rs 每米作用力",
+   "tests": "magnet.rs straight_wire_and_parallel_wires",
+   "gap": "每米量的标签需在界面明确",
+   "example": "两长平行导线相距 0.1 m，电流各 10 A，同向。",
+   "answer": "相互吸引，每米作用力约 2×10⁻⁴ N/m。",
+   "point": "每单位长度的量不能直接标成总力。",
+   "verify": "厚度或有效长度明确；改变电流方向后力反向。",
+   "sources": [
+    "S30",
+    "S03"
+   ]
+  },
+  {
+   "id": "B04",
+   "title": "带电粒子圆周运动",
+   "stage": "高中",
+   "priority": "P1",
+   "path": "场与粒子或电路耦合",
+   "status": "verified",
+   "level": 2,
+   "implementation": "模板 cyclotron、bounded-field、circular-field；情形 charge-b、zone-b",
+   "tests": "electric.rs cyclotron_radius_and_period",
+   "gap": "—",
+   "example": "教学粒子 m = 1 kg、q = 1 C，垂直以 3 m/s 进入 B = 2 T 匀强场。",
+   "answer": "半径 1.5 m，周期 π s；速率不变。",
+   "point": "磁力只改变方向而不做功；教学尺度显式标识。",
+   "verify": "轨道半径、相位、速率及正负电荷方向分别验证。",
+   "sources": [
+    "S29"
+   ]
+  },
+  {
+   "id": "B05",
+   "title": "速度选择器",
+   "stage": "高中",
+   "priority": "P1",
+   "path": "场与粒子或电路耦合",
+   "status": "verified",
+   "level": 2,
+   "implementation": "模板 velocity-selector；情形 selector",
+   "tests": "electric.rs velocity_selector_goes_straight",
+   "gap": "—",
+   "example": "互相垂直且使两力相反的 E = 600 V/m、B = 0.2 T。",
+   "answer": "无偏转速度 3000 m/s；快慢粒子的偏转方向相反。",
+   "point": "力抵消有速度和方向条件。",
+   "verify": "扫描速度及电荷正负，零偏转不是无电磁力。",
+   "sources": [
+    "S29"
+   ]
+  },
+  {
+   "id": "B06",
+   "title": "质谱仪",
+   "stage": "高中",
+   "priority": "P1",
+   "path": "场与粒子或电路耦合",
+   "status": "verified",
+   "level": 2,
+   "implementation": "模板 mass-spectrometer；情形 zone-b（zb.d）",
+   "tests": "regions.rs mass_spectrometer_lands_at_twice_the_radius",
+   "gap": "—",
+   "example": "粒子电荷 10⁻¹⁹ C，速率 10⁵ m/s，在 0.1 T 场中半径 0.2 m。",
+   "answer": "m = 2×10⁻²⁶ kg；需另有电荷态信息才能确定质量。",
+   "point": "测得的是质荷比；先选择速度再弯转分析。",
+   "verify": "场区进入退出事件与探测位置一致，不能把直径误作半径。",
+   "sources": [
+    "S29"
+   ]
+  },
+  {
+   "id": "B07",
+   "title": "回旋加速器",
+   "stage": "高中至大学",
+   "priority": "P2",
+   "path": "场与粒子或电路耦合",
+   "status": "verified",
+   "level": 2,
+   "implementation": "模板 cyclotron-dees",
+   "tests": "regions.rs cyclotron_gains_energy_each_gap_crossing",
+   "gap": "无相对论失效提示",
+   "example": "质子处于 B = 0.5 T 的非相对论回旋模型，采用 CODATA 电荷和质量。",
+   "answer": "回旋频率约 7.62259 MHz；在低速近似下与轨道半径无关。",
+   "point": "相对论质量效应通过 γ 改变同步条件，不用经典式无限加速。",
+   "verify": "低速圆周参照与跨间隙电场做功分别验证；高能时显示近似失效。",
+   "sources": [
+    "S29",
+    "S37",
+    "S03"
+   ]
+  },
+  {
+   "id": "B08",
+   "title": "霍尔效应",
+   "stage": "大学",
+   "priority": "P2",
+   "path": "场与粒子或电路耦合",
+   "status": "missing",
+   "level": 0,
+   "implementation": "无",
+   "tests": "—",
+   "gap": "",
+   "example": "单一载流子，n = 10²⁸ m⁻³，电流 1 A，B = 0.5 T，厚度 1 mm，|q| = e。",
+   "answer": "霍尔电压大小约 0.312075 μV；符号取决于载流子和坐标方向。",
+   "point": "载流子浓度、符号及横向平衡。",
+   "verify": "厚度不是宽度；电子和空穴模型分别验证。",
+   "sources": [
+    "S29",
+    "S03"
+   ]
+  },
+  {
+   "id": "B09",
+   "title": "法拉第与楞次定律",
+   "stage": "高中",
+   "priority": "P1",
+   "path": "场与粒子或电路耦合",
+   "status": "partial",
+   "level": 1,
+   "implementation": "magnet.rs 线框磁通（每米）",
+   "tests": "magnet.rs",
+   "gap": "无 dΦ/dt 感应电动势的时变对照",
+   "example": "100 匝线圈，每匝面积 0.01 m²，法向同 B，0.5 s 内 B 增加 0.2 T。",
+   "answer": "平均感应电动势大小 0.4 V；负号由选定法向和绕行方向解释。",
+   "point": "反抗的是磁通变化，不是总反抗运动或磁场。",
+   "verify": "改变线圈法向后电动势符号一致变换，有限差分只作独立核对。",
+   "sources": [
+    "S31"
+   ]
+  },
+  {
+   "id": "B10",
+   "title": "运动电动势",
+   "stage": "高中",
+   "priority": "P1",
+   "path": "场与粒子或电路耦合",
+   "status": "verified",
+   "level": 2,
+   "implementation": "模板 rail-coast；情形 rail",
+   "tests": "regions.rs rail_loop_terminal_velocity_and_energy",
+   "gap": "外力功率＝焦耳热的独立对照待补",
+   "example": "垂直导体棒 B = 0.5 T，L = 0.2 m，以 3 m/s 匀速，回路 R = 2 Ω。",
+   "answer": "电动势 0.3 V；电流 0.15 A；焦耳热功率 0.045 W；维持力大小 0.015 N。",
+   "point": "电磁制动的反作用与能量转换。",
+   "verify": "外力功率 Fv 等于焦耳热；方向按叉乘与回路约定求出。",
+   "sources": [
+    "S31"
+   ]
+  },
+  {
+   "id": "B11",
+   "title": "导轨回路的动力学",
+   "stage": "高中至大学",
+   "priority": "P1",
+   "path": "场与粒子或电路耦合",
+   "status": "verified",
+   "level": 2,
+   "implementation": "模板 rail-force、rail-fall；情形 rail",
+   "tests": "regions.rs rail_loop_terminal_velocity_and_energy",
+   "gap": "忽略自感为明确近似；EX 数值待对照",
+   "example": "m = 1 kg，B = 2 T，L = 0.5 m，R = 1 Ω，恒力 4 N，初静止。",
+   "answer": "等效阻尼 1 kg/s；终速 4 m/s，t = 1 s 时 v = 2.52848 m/s。",
+   "point": "同时解机械运动与电路；忽略自感是明确近似。",
+   "verify": "加入 L 后用耦合方程替代纯阻尼公式，电磁反作用与热流不重复计数。",
+   "sources": [
+    "S31",
+    "S32",
+    "S56"
+   ]
+  },
+  {
+   "id": "B12",
+   "title": "自感 互感与磁能",
+   "stage": "大学",
+   "priority": "P2",
+   "path": "场与粒子或电路耦合",
+   "status": "partial",
+   "level": 1,
+   "implementation": "变压器励磁电感",
+   "tests": "transient.rs transformer_ratio_and_dc",
+   "gap": "无互感 M = k√(L1L2) 的独立元件",
+   "example": "L1 = 0.1 H，L2 = 0.4 H，耦合系数 k = 0.5，dI1/dt = 2 A/s。",
+   "answer": "M = 0.1 H；按同名端约定，感应电动势为 −0.2 V。",
+   "point": "互感符号与绕组方向相关；能量矩阵必须物理有效。",
+   "verify": "验证 |M| ≤ √(L1L2)，并检查总磁能非负。",
+   "sources": [
+    "S32"
+   ]
+  },
+  {
+   "id": "B13",
+   "title": "变压器与输电",
+   "stage": "高中",
+   "priority": "P1",
+   "path": "场与粒子或电路耦合",
+   "status": "verified",
+   "level": 2,
+   "implementation": "预设 transformer、transmission",
+   "tests": "transient.rs transformer_ratio_and_dc",
+   "gap": "—",
+   "example": "理想变压器匝比 10∶1，初级有效值 230 V，次级负载电流 2 A。",
+   "answer": "次级 23 V；初级电流 0.2 A；输入输出平均功率均为 46 W。",
+   "point": "匝比关系适于相应交流模型，直流不能维持理想变压传能。",
+   "verify": "含绕组损耗和励磁电流时重新计账；线路损耗按 I²R 验证。",
+   "sources": [
+    "S33",
+    "S51"
+   ]
+  },
+  {
+   "id": "B14",
+   "title": "电动机与发电机耦合",
+   "stage": "大学",
+   "priority": "P2",
+   "path": "场与粒子或电路耦合",
+   "status": "verified",
+   "level": 2,
+   "implementation": "电动机／发电机元件；预设 generator",
+   "tests": "transient.rs motor_reaches_its_speed",
+   "gap": "功率端口账本的独立对照待补",
+   "example": "V = 12 V，R = 1 Ω，ke = kt = 0.1 SI，瞬时 ω = 50 rad/s。",
+   "answer": "反电动势 5 V，I = 7 A，电磁力矩 0.7 N·m；机械功率 35 W、铜耗 49 W。",
+   "point": "一致 SI 中互易常数数值相等；电与机械共享功率端口。",
+   "verify": "84 W 电输入等于 35 + 49 W；发电模式符号和负载反作用单独测试。",
+   "sources": [
+    "S31",
+    "S51",
+    "S82"
+   ]
+  },
+  {
+   "id": "B15",
+   "title": "位移电流与电荷连续",
+   "stage": "大学",
+   "priority": "P2",
+   "path": "场与粒子或电路耦合",
+   "status": "missing",
+   "level": 0,
+   "implementation": "无",
+   "tests": "—",
+   "gap": "",
+   "example": "真空平行板面积 0.01 m²，均匀电场增长率 10⁶ V/(m·s)。",
+   "answer": "位移电流约 8.85419×10⁻⁸ A，应与充电导线电流相等。",
+   "point": "传导电流与位移电流共同保证连续性。",
+   "verify": "不同积分面得到相同总电流，电荷守恒残差可监视。",
+   "sources": [
+    "S34",
+    "S03"
+   ]
+  },
+  {
+   "id": "B16",
+   "title": "电磁平面波与能流",
+   "stage": "大学",
+   "priority": "P2",
+   "path": "场与粒子或电路耦合",
+   "status": "missing",
+   "level": 0,
+   "implementation": "无",
+   "tests": "—",
+   "gap": "",
+   "example": "真空正弦平面波电场振幅 E0 = 100 V/m。",
+   "answer": "磁场振幅约 3.33564×10⁻⁷ T；平均能流密度约 13.2721 W/m²。",
+   "point": "电磁场相互耦合；E、B、传播方向互相垂直。",
+   "verify": "幅值与有效值区分，能流与边界吸收功率相符。",
+   "sources": [
+    "S34",
+    "S03"
+   ]
+  },
+  {
+   "id": "B17",
+   "title": "电磁界面与菲涅耳系数",
+   "stage": "大学",
+   "priority": "P2",
+   "path": "场与粒子或电路耦合",
+   "status": "partial",
+   "level": 1,
+   "implementation": "waveoptics.rs 薄膜反射（正入射）",
+   "tests": "waveoptics.rs single_slit_and_film_and_polarizers",
+   "gap": "无 s、p 偏振的斜入射",
+   "example": "无吸收非磁性介质正入射，n1 = 1，n2 = 1.5。",
+   "answer": "功率反射率 0.04；透射率 0.96；电场振幅反射系数 −0.2。",
+   "point": "场振幅平方还需阻抗因子才能成为功率透射率。",
+   "verify": "验证 R + T = 1；斜入射区分 s、p 偏振，吸收介质另算损耗。",
+   "sources": [
+    "S35",
+    "S34"
+   ]
+  },
+  {
+   "id": "B18",
+   "title": "FDTD 腔模与电磁传播",
+   "stage": "大学至研究生",
+   "priority": "P3",
+   "path": "场与粒子或电路耦合",
+   "status": "missing",
+   "level": 0,
+   "implementation": "无",
+   "tests": "—",
+   "gap": "",
+   "example": "真空二维等间距网格 Δx = Δy = 1 mm，给出 Yee 格点时间步上限。",
+   "answer": "上限约 2.35865 ps；实际可取 2 ps，并通过空间和时间细化验证。",
+   "point": "CFL 稳定不等于结果已收敛；PML 也有数值反射。",
+   "verify": "独立细化网格、步长及 PML 厚度；检查 Gauss 约束与谱峰收敛。",
+   "sources": [
+    "S52",
+    "S53",
+    "S58"
+   ]
+  },
+  {
+   "id": "B19",
+   "title": "磁性材料与磁滞",
+   "stage": "大学至研究生",
+   "priority": "P3",
+   "path": "场与粒子或电路耦合",
+   "status": "missing",
+   "level": 0,
+   "implementation": "无",
+   "tests": "—",
+   "gap": "",
+   "example": "演示给定矩形 B–H 回线，H 半宽 100 A/m、B 半高 0.5 T，f = 50 Hz。",
+   "answer": "回线面积 200 J/m³，每秒损耗 10000 W/m³；只是给定教学回线。",
+   "point": "磁化依历史；常数 μr 无法表达磁滞。",
+   "verify": "注明材料模型和标定数据，回线方向与损耗符号一致。",
+   "sources": [
+    "S40",
+    "S45",
+    "S54"
+   ]
+  },
+  {
+   "id": "B20",
+   "title": "传输线与反射",
+   "stage": "大学",
+   "priority": "P2",
+   "path": "场与粒子或电路耦合",
+   "status": "missing",
+   "level": 0,
+   "implementation": "无",
+   "tests": "—",
+   "gap": "",
+   "example": "无损线 L′ = 250 nH/m，C′ = 100 pF/m，终端 ZL = 100 Ω。",
+   "answer": "Z0 = 50 Ω，传播速度 2×10⁸ m/s，电压反射系数 1/3。",
+   "point": "导线在高频或长距离时成为分布参数系统。",
+   "verify": "匹配、开路、短路三种极限；传播延迟与能量通量均需验证。",
+   "sources": [
+    "S34",
+    "S51",
+    "S52"
+   ]
+  },
+  {
+   "id": "O01",
+   "title": "平面镜与反射",
+   "stage": "初中",
+   "priority": "P1",
+   "path": "光线或波动光学模块",
+   "status": "verified",
+   "level": 1,
+   "implementation": "labs/optics.rs 平面镜光路",
+   "tests": "optics.rs snell_and_total_internal_reflection",
+   "gap": "—",
+   "example": "物体距平面镜 2 m，入射光与法线夹角 30°。",
+   "answer": "像在镜后 2 m，虚像等大；反射角为 30°。",
+   "point": "角度相对法线量，虚像不是实际光线会聚。",
+   "verify": "实线与反向延长线语义不同，移动镜面后几何关系保持。",
+   "sources": [
+    "S35",
+    "S77"
+   ]
+  },
+  {
+   "id": "O02",
+   "title": "折射与色散",
+   "stage": "初中至高中",
+   "priority": "P1",
+   "path": "光线或波动光学模块",
+   "status": "verified",
+   "level": 1,
+   "implementation": "optics.rs 折射与色散",
+   "tests": "optics.rs snell…、prism_disperses_white_light",
+   "gap": "—",
+   "example": "空气 n1 = 1 入射玻璃 n2 = 1.5，入射角 30°。",
+   "answer": "sinθ2 = 1/3，θ2 = 19.4712°。",
+   "point": "频率跨界面不变，波长和速度改变。",
+   "verify": "折射率可随波长变化；全反射前先检查方程是否有实解。",
+   "sources": [
+    "S35"
+   ]
+  },
+  {
+   "id": "O03",
+   "title": "全反射与光纤",
+   "stage": "高中",
+   "priority": "P1",
+   "path": "光线或波动光学模块",
+   "status": "verified",
+   "level": 1,
+   "implementation": "optics.rs 全反射",
+   "tests": "optics.rs snell_and_total_internal_reflection",
+   "gap": "—",
+   "example": "玻璃 n1 = 1.5 到空气 n2 = 1，求临界角。",
+   "answer": "临界角 41.8103°；从玻璃侧以 50° 入射发生全反射。",
+   "point": "仅从高折射率到低折射率时有该临界角。",
+   "verify": "临界值两侧分别测试，光纤几何与实际模态求解保真度分开。",
+   "sources": [
+    "S35"
+   ]
+  },
+  {
+   "id": "O04",
+   "title": "薄透镜成像",
+   "stage": "初中至高中",
+   "priority": "P1",
+   "path": "光线或波动光学模块",
+   "status": "verified",
+   "level": 1,
+   "implementation": "optics.rs opticsImage（焦点处 v = null）",
+   "tests": "optics.rs thin_lens_and_mirror_formula",
+   "gap": "—",
+   "example": "凸透镜 f = 0.1 m，实物距 u = 0.3 m。",
+   "answer": "像距 v = 0.15 m，放大率 −0.5，为倒立缩小实像。",
+   "point": "统一符号约定；焦点处像在无穷远，不是数值崩溃。",
+   "verify": "正负透镜、虚像和焦点邻域均验收，近轴假设可见。",
+   "sources": [
+    "S77"
+   ]
+  },
+  {
+   "id": "O05",
+   "title": "球面镜成像",
+   "stage": "初中至高中",
+   "priority": "P1",
+   "path": "光线或波动光学模块",
+   "status": "verified",
+   "level": 1,
+   "implementation": "optics.rs 面镜",
+   "tests": "optics.rs thin_lens_and_mirror_formula、ideal_lens…_mirror_shows_aberration",
+   "gap": "—",
+   "example": "凹面镜曲率半径 0.4 m，实物距 0.6 m。",
+   "answer": "f = 0.2 m；v = 0.3 m；放大率 −0.5。",
+   "point": "镜面与透镜符号需一致说明；球差超出近轴公式。",
+   "verify": "光线交点和解析像距互证，不能靠绘图位置返回数值答案。",
+   "sources": [
+    "S77"
+   ]
+  },
+  {
+   "id": "O06",
+   "title": "透镜组合与光学仪器",
+   "stage": "高中至大学",
+   "priority": "P2",
+   "path": "光线或波动光学模块",
+   "status": "partial",
+   "level": 1,
+   "implementation": "opticsTrace 多元件",
+   "tests": "—",
+   "gap": "无组合焦距的独立对照",
+   "example": "两片紧贴薄凸透镜焦距分别 0.1 m 与 0.2 m。",
+   "answer": "等效焦距 0.0666667 m，屈光度 15 m⁻¹。",
+   "point": "望远镜、显微镜由组合模型派生；非零间距不能沿用紧贴式。",
+   "verify": "逐面光线追迹与组合矩阵一致；光阑和视场作为扩展变量。",
+   "sources": [
+    "S77"
+   ]
+  },
+  {
+   "id": "O07",
+   "title": "双缝干涉",
+   "stage": "高中",
+   "priority": "P1",
+   "path": "光线或波动光学模块",
+   "status": "verified",
+   "level": 1,
+   "implementation": "labs/waveoptics.rs 双缝",
+   "tests": "waveoptics.rs double_slit_fringes",
+   "gap": "—",
+   "example": "λ = 500 nm，屏距 D = 2 m，缝距 d = 0.5 mm，近轴远场。",
+   "answer": "相邻亮纹间距 0.002 m，即 2 mm。",
+   "point": "相位差决定增强和相消；相干性与有限缝宽有条件。",
+   "verify": "与精确几何路程差比较，角度增大时标识小角近似误差。",
+   "sources": [
+    "S36"
+   ]
+  },
+  {
+   "id": "O08",
+   "title": "单缝衍射与分辨率",
+   "stage": "高中至大学",
+   "priority": "P1",
+   "path": "光线或波动光学模块",
+   "status": "verified",
+   "level": 1,
+   "implementation": "waveoptics.rs 单缝",
+   "tests": "waveoptics.rs single_slit_and_film_and_polarizers",
+   "gap": "无圆孔分辨率",
+   "example": "缝宽 a = 0.1 mm，λ = 500 nm，屏距 2 m。",
+   "answer": "首个暗纹 sinθ = 0.005；近轴中央亮纹全宽约 20 mm。",
+   "point": "暗纹公式与中央亮纹宽度不同；圆孔分辨率另有系数。",
+   "verify": "零角处使用 sinc 极限，积分强度和采样分辨率收敛。",
+   "sources": [
+    "S78"
+   ]
+  },
+  {
+   "id": "O09",
+   "title": "光栅与有限缝宽包络",
+   "stage": "高中至大学",
+   "priority": "P1",
+   "path": "光线或波动光学模块",
+   "status": "partial",
+   "level": 1,
+   "implementation": "waveoptics.rs 光栅",
+   "tests": "waveoptics.rs",
+   "gap": "缺级与 |mλ/d| > 1 的拒绝待核对",
+   "example": "光栅每毫米 500 条，λ = 500 nm，求一级主极大。",
+   "answer": "d = 2 μm；sinθ = 0.25，θ = 14.4775°。",
+   "point": "多缝干涉峰叠加单缝包络；阶次有几何上限。",
+   "verify": "验证主峰位置及缺级条件，禁止在 |mλ/d| > 1 时输出虚假角度。",
+   "sources": [
+    "S36",
+    "S78"
+   ]
+  },
+  {
+   "id": "O10",
+   "title": "薄膜干涉",
+   "stage": "高中至大学",
+   "priority": "P1",
+   "path": "光线或波动光学模块",
+   "status": "verified",
+   "level": 1,
+   "implementation": "waveoptics.rs 薄膜",
+   "tests": "waveoptics.rs single_slit_and_film…",
+   "gap": "—",
+   "example": "空气中的薄膜 n = 1.5，正入射 λ = 600 nm，一次反射有 π 相变。",
+   "answer": "最薄非零反射增强厚度取 m = 0，t = 100 nm。",
+   "point": "条件由两界面相位反转决定，不能固定套同一奇偶规则。",
+   "verify": "切换两侧介质后重新计算相位；多层膜需传输矩阵。",
+   "sources": [
+    "S36",
+    "S35"
+   ]
+  },
+  {
+   "id": "O11",
+   "title": "迈克耳孙干涉仪",
+   "stage": "高中至大学",
+   "priority": "P2",
+   "path": "光线或波动光学模块",
+   "status": "missing",
+   "level": 0,
+   "implementation": "无",
+   "tests": "—",
+   "gap": "",
+   "example": "激光 λ = 632.8 nm，镜面移动使条纹变化 100 条。",
+   "answer": "镜面位移 Δx = 31.64 μm。",
+   "point": "往返光程是镜面位移的两倍。",
+   "verify": "光程和条纹计数的正负一致，可加入折射率变化作为另一分支。",
+   "sources": [
+    "S36"
+   ]
+  },
+  {
+   "id": "O12",
+   "title": "偏振与马吕斯定律",
+   "stage": "高中",
+   "priority": "P1",
+   "path": "光线或波动光学模块",
+   "status": "verified",
+   "level": 1,
+   "implementation": "waveoptics.rs 偏振片",
+   "tests": "waveoptics.rs single_slit_and_film_and_polarizers",
+   "gap": "—",
+   "example": "已线偏振光强 100 W/m²，检偏器与偏振方向夹角 60°。",
+   "answer": "输出 25 W/m²；若输入为非偏振光，第一片理想偏振片先减半。",
+   "point": "先确定入射偏振状态；光强不是电场振幅。",
+   "verify": "多片逐次应用，交叉片、零强度与无偏振输入分别检验。",
+   "sources": [
+    "S35"
+   ]
+  },
+  {
+   "id": "O13",
+   "title": "ABCD 矩阵与近轴光学",
+   "stage": "大学",
+   "priority": "P2",
+   "path": "光线或波动光学模块",
+   "status": "missing",
+   "level": 0,
+   "implementation": "无",
+   "tests": "—",
+   "gap": "",
+   "example": "薄透镜 f = 0.1 m，入射近轴光线 y = 1 mm，θ = 0。",
+   "answer": "出射 θ′ = −0.01 rad；再传播 0.1 m 时 y = 0。",
+   "point": "矩阵按传播顺序相乘；像差不在一阶近轴矩阵中。",
+   "verify": "与单光线追迹交叉验证，明显离轴时切换更高保真度。",
+   "sources": [
+    "S77"
+   ]
+  },
+  {
+   "id": "O14",
+   "title": "菲涅耳衍射与波前传播",
+   "stage": "大学至研究生",
+   "priority": "P3",
+   "path": "光线或波动光学模块",
+   "status": "missing",
+   "level": 0,
+   "implementation": "无",
+   "tests": "—",
+   "gap": "",
+   "example": "孔的特征半宽 a = 0.5 mm，λ = 500 nm，z = 0.1 m。",
+   "answer": "Fresnel 数 NF = 5，不能默认使用远场 Fraunhofer 图样。",
+   "point": "近场与远场是近似范围，不是不同光学定律。",
+   "verify": "传播积分或角谱法核验采样、零填充、边界及 z 变化的收敛。",
+   "sources": [
+    "S78",
+    "S52",
+    "S53"
+   ]
+  },
+  {
+   "id": "Q01",
+   "title": "光电效应",
+   "stage": "高中",
+   "priority": "P1",
+   "path": "量子专用求解模块",
+   "status": "verified",
+   "level": 1,
+   "implementation": "labs/atom.rs photoelectric",
+   "tests": "atom.rs photoelectric_einstein_equation",
+   "gap": "—",
+   "example": "波长 400 nm，材料逸出功取 2.00 eV。",
+   "answer": "光子能量约 3.09960 eV；最大动能 1.09960 eV，遏止电压约 1.09960 V。",
+   "point": "频率改变单光子能量，光强主要影响光子数；低于阈频不发射。",
+   "verify": "阈值两侧、强度变化和电流方向分别验证。",
+   "sources": [
+    "S38",
+    "S03"
+   ]
+  },
+  {
+   "id": "Q02",
+   "title": "康普顿散射",
+   "stage": "高中至大学",
+   "priority": "P1",
+   "path": "量子专用求解模块",
+   "status": "verified",
+   "level": 1,
+   "implementation": "labs/nuclear.rs compton（COMPTON 取 CODATA2018）",
+   "tests": "nuclear.rs compton_shift",
+   "gap": "常数版号",
+   "example": "自由静止电子散射光子，光子散射角 90°。",
+   "answer": "波长增加约 2.42631 pm；0° 时增量为 0。",
+   "point": "光子能量与动量共同参与守恒。",
+   "verify": "同时验证散射前后四动量，束缚电子和介质效应不是本模型。",
+   "sources": [
+    "S38",
+    "S03"
+   ]
+  },
+  {
+   "id": "Q03",
+   "title": "德布罗意波与电子衍射",
+   "stage": "高中至大学",
+   "priority": "P1",
+   "path": "量子专用求解模块",
+   "status": "missing",
+   "level": 0,
+   "implementation": "无",
+   "tests": "—",
+   "gap": "",
+   "example": "电子从静止经 150 V 加速，采用非相对论近似。",
+   "answer": "波长约 0.10014 nm；动量由动能而非任意动画速度求得。",
+   "point": "波粒二象性连接动量与波长。",
+   "verify": "高压切换相对论动量；可与 O09 衍射角联动。",
+   "sources": [
+    "S38",
+    "S03"
+   ]
+  },
+  {
+   "id": "Q04",
+   "title": "氢原子能级与光谱",
+   "stage": "高中",
+   "priority": "P1",
+   "path": "量子专用求解模块",
+   "status": "verified",
+   "level": 1,
+   "implementation": "labs/atom.rs hydrogen（E1 = −13.6 eV 简化）",
+   "tests": "atom.rs balmer_lines、excitation_rules",
+   "gap": "简化精度标签",
+   "example": "采用简化能级系数 13.6 eV，电子从 n = 3 跃迁到 n = 2。",
+   "answer": "光子能量为 1.88889 eV；按此简化模型波长约 656.39 nm。",
+   "point": "能级差决定光谱；玻尔轨道图与量子轨道概率密度不同。",
+   "verify": "标明简化精度，精密谱线需约化质量和精细结构，不拿圆整答案作精密常数。",
+   "sources": [
+    "S38",
+    "S39",
+    "S03"
+   ]
+  },
+  {
+   "id": "Q05",
+   "title": "无限深势阱",
+   "stage": "大学",
+   "priority": "P2",
+   "path": "量子专用求解模块",
+   "status": "verified",
+   "level": 2,
+   "implementation": "labs/quantum.rs Sturm 二分本征值（有限差分）",
+   "tests": "quantum.rs infinite_well_and_oscillator_levels",
+   "gap": "无网格收敛阶报告；约化单位标签",
+   "example": "电子在长 1 nm 的一维无限深势阱中，求前两能级。",
+   "answer": "E1 约 0.376030 eV，E2 约 1.50412 eV；比值严格为 4。",
+   "point": "边界条件量子化能谱；节点数与量子数对应。",
+   "verify": "网格细化验证能级、本征态正交和端点零值。",
+   "sources": [
+    "S39",
+    "S03"
+   ]
+  },
+  {
+   "id": "Q06",
+   "title": "量子谐振子",
+   "stage": "大学",
+   "priority": "P2",
+   "path": "量子专用求解模块",
+   "status": "verified",
+   "level": 2,
+   "implementation": "labs/quantum.rs",
+   "tests": "quantum.rs infinite_well_and_oscillator_levels",
+   "gap": "—",
+   "example": "约化单位 ℏ = m = ω = 1，求前三能级。",
+   "answer": "E0 = 0.5，E1 = 1.5，E2 = 2.5；基态不具有零总能量。",
+   "point": "零点能来自量子约束，不能套经典静止图像。",
+   "verify": "解析 Hermite 本征态与数值谱比较，检查截断边界影响。",
+   "sources": [
+    "S39",
+    "S43"
+   ]
+  },
+  {
+   "id": "Q07",
+   "title": "有限势垒与隧穿",
+   "stage": "大学",
+   "priority": "P2",
+   "path": "量子专用求解模块",
+   "status": "verified",
+   "level": 2,
+   "implementation": "labs/quantum.rs barrierT",
+   "tests": "quantum.rs barrier_transmission_matches_the_average",
+   "gap": "—",
+   "example": "约化单位 ℏ = m = 1，方势垒 V0 = 1、宽 a = 1，平面波 E = 0.5。",
+   "answer": "κ = √[2(V0−E)] = 1；T = 1/cosh²1 = 0.419974，R = 0.580026。",
+   "point": "波包有能量展宽，其透射率未必等于单能平面波公式。",
+   "verify": "R + T = 1 仅适于无吸收封闭散射；波包需按能谱加权。",
+   "sources": [
+    "S39"
+   ]
+  },
+  {
+   "id": "Q08",
+   "title": "高斯波包与自由演化",
+   "stage": "大学",
+   "priority": "P2",
+   "path": "量子专用求解模块",
+   "status": "partial",
+   "level": 2,
+   "implementation": "labs/quantum.rs 分步傅里叶、吸收层",
+   "tests": "quantum.rs norm_is_kept_and_packets_move",
+   "gap": "无 σ(t) 解析对照与网格／步长收敛；吸收损失与离散误差未分开（任务三）",
+   "example": "最小不确定高斯包，约化单位 ℏ = m = 1，x0 = −5、p0 = 2、σ0 = 1，t = 2。",
+   "answer": "中心到达 −1；方差为 2，位置标准差 √2。",
+   "point": "概率流不是确定粒子轨迹；自由波包会展宽。",
+   "verify": "验证范数、中心、方差及周期 FFT 边界回绕；吸收损失另记。",
+   "sources": [
+    "S39",
+    "S43"
+   ]
+  },
+  {
+   "id": "Q09",
+   "title": "自旋与量子测量",
+   "stage": "大学",
+   "priority": "P2",
+   "path": "量子专用求解模块",
+   "status": "missing",
+   "level": 0,
+   "implementation": "无",
+   "tests": "—",
+   "gap": "",
+   "example": "自旋 1/2 粒子制备为 z 向上，改沿 x 测量，重复 1000 次。",
+   "answer": "两结果期望各 500 次；比例的理论标准误差约 0.01581。",
+   "point": "测量基底决定概率；不能给单个粒子预填两个确定分量。",
+   "verify": "Born 概率归一、投影后状态与重复同轴测量分别测试。",
+   "sources": [
+    "S43",
+    "S60"
+   ]
+  },
+  {
+   "id": "Q10",
+   "title": "两能级与 Rabi 振荡",
+   "stage": "大学",
+   "priority": "P2",
+   "path": "量子专用求解模块",
+   "status": "missing",
+   "level": 0,
+   "implementation": "无",
+   "tests": "—",
+   "gap": "",
+   "example": "共振且无退相干的两能级系统初在基态，Ω = 2 rad/s，t = π/2 s。",
+   "answer": "Pexcited = sin²(π/2) = 1，为一个 π 脉冲。",
+   "point": "驱动、失谐和退相干是不同参数。",
+   "verify": "与二维矩阵指数参照比较，迹和概率保持正确；RWA 适用域可见。",
+   "sources": [
+    "S43"
+   ]
+  },
+  {
+   "id": "Q11",
+   "title": "纠缠与密度矩阵",
+   "stage": "大学至研究生",
+   "priority": "P3",
+   "path": "量子专用求解模块",
+   "status": "missing",
+   "level": 0,
+   "implementation": "无",
+   "tests": "—",
+   "gap": "",
+   "example": "Bell 态在 z 基测量两粒子，求联合概率与单粒子熵。",
+   "answer": "P00 = P11 = 1/2，P01 = P10 = 0；单粒子熵为 ln2 或 1 bit。",
+   "point": "整体纯态可有混合约化态；相关性不等于可超光速通信。",
+   "verify": "密度矩阵 Hermitian、半正定、迹 1；部分迹及局部操作概率正确。",
+   "sources": [
+    "S43"
+   ]
+  },
+  {
+   "id": "Q12",
+   "title": "微扰与变分近似",
+   "stage": "大学至研究生",
+   "priority": "P3",
+   "path": "量子专用求解模块",
+   "status": "missing",
+   "level": 0,
+   "implementation": "无",
+   "tests": "—",
+   "gap": "",
+   "example": "约化单位 ℏ = m = ω = 1，λ = 0.1，用未扰动基态做一阶或试探态。",
+   "answer": "一阶能量 0.575；同一高斯试探态期望也为 0.575，作为变分值是上界。",
+   "point": "近似展开与变分上界的逻辑不同。",
+   "verify": "加大基底与网格得到收敛参考；不把一阶近似声称为精确谱。",
+   "sources": [
+    "S43"
+   ]
+  },
+  {
+   "id": "Q13",
+   "title": "费米与玻色统计",
+   "stage": "大学至研究生",
+   "priority": "P3",
+   "path": "量子专用求解模块",
+   "status": "missing",
+   "level": 0,
+   "implementation": "无",
+   "tests": "—",
+   "gap": "",
+   "example": "T > 0，费米态 E = μ；另一玻色态满足 (E−μ)/(kBT) = ln2。",
+   "answer": "费米平均占据 1/2；玻色平均占据 1，玻色情形要求化学势处于有效域。",
+   "point": "占据数不是单粒子波函数概率，Pauli 原理约束费米态。",
+   "verify": "零温极限与 Bose 奇点专门处理，粒子数归一和能量积分受控。",
+   "sources": [
+    "S44",
+    "S45"
+   ]
+  },
+  {
+   "id": "Q14",
+   "title": "晶格与紧束缚能带",
+   "stage": "大学至研究生",
+   "priority": "P3",
+   "path": "量子专用求解模块",
+   "status": "missing",
+   "level": 0,
+   "implementation": "无",
+   "tests": "—",
+   "gap": "",
+   "example": "一维最近邻链，ε0 = 0、跃迁参数 th = 1 eV。",
+   "answer": "带边为 −2 与 2 eV，带宽 4 eV；k = π/(2a) 时 E = 0。",
+   "point": "周期性和边界条件形成能带；不是把孤立原子能级简单连线。",
+   "verify": "有限链本征值与大链色散极限一致；填充、态密度和带隙另设状态。",
+   "sources": [
+    "S40",
+    "S45"
+   ]
+  },
+  {
+   "id": "N01",
+   "title": "放射性衰变与半衰期",
+   "stage": "高中",
+   "priority": "P1",
+   "path": "核数据与随机过程模块",
+   "status": "verified",
+   "level": 2,
+   "implementation": "labs/decay.rs 蒙特卡罗（seed）",
+   "tests": "decay.rs counts_follow_the_law_within_three_sigma",
+   "gap": "多种子分布与统计带的界面与报告",
+   "example": "教学核素 N0 = 1600，半衰期 4 s，求 12 s 的期望剩余量。",
+   "answer": "经过三个半衰期，期望 N = 200；此时活度约 34.6574 Bq。",
+   "point": "单个衰变随机，指数律描述群体期望。",
+   "verify": "同时保存种子、期望曲线和统计带，不能让每次剩余量精确相同。",
+   "sources": [
+    "S41",
+    "S60"
+   ]
+  },
+  {
+   "id": "N02",
+   "title": "衰变链与简并寿命",
+   "stage": "大学",
+   "priority": "P2",
+   "path": "核数据与随机过程模块",
+   "status": "verified",
+   "level": 1,
+   "implementation": "labs/nuclear.rs Bateman（含相等常数）",
+   "tests": "nuclear.rs bateman_chains",
+   "gap": "—",
+   "example": "链 1→2→稳定 3，前两项 λ 均为 ln2 s⁻¹，N10 = 100、其余为 0，t = 1 s。",
+   "answer": "N1 = 50，N2 = 34.6574，N3 = 15.3426；总量 100。",
+   "point": "相等衰变常数要取解析极限，不能直接除以 λ2−λ1。",
+   "verify": "近等寿命、稳定末项、分支比和总核素数账本分别验证。",
+   "sources": [
+    "S41",
+    "S55",
+    "S75"
+   ]
+  },
+  {
+   "id": "N03",
+   "title": "核反应配平与 Q 值",
+   "stage": "高中至大学",
+   "priority": "P1",
+   "path": "核数据与随机过程模块",
+   "status": "partial",
+   "level": 1,
+   "implementation": "labs/nuclear.rs reaction（核子数与电荷）",
+   "tests": "nuclear.rs textbook_q_values",
+   "gap": "A05：只校验 A 与 Z，不能作一般粒子过程校验器",
+   "example": "238U→234Th+4He，给定原子质量过剩分别 47.309、40.615、2.424916 MeV。",
+   "answer": "核子数 238 = 234 + 4，电荷 92 = 90 + 2；Q = 4.269084 MeV。",
+   "point": "用原子质量还是核质量必须一致；配平不是只看方程排版。",
+   "verify": "这些给定值有舍入；精密 Q 需数据不确定度。β±、电子俘获和轻子另有规则。",
+   "sources": [
+    "S41",
+    "S73",
+    "S74"
+   ]
+  },
+  {
+   "id": "N04",
+   "title": "质量亏损与结合能",
+   "stage": "高中",
+   "priority": "P1",
+   "path": "核数据与随机过程模块",
+   "status": "verified",
+   "level": 1,
+   "implementation": "labs/nuclear.rs binding（AME2020 取整到 1 keV，SEMF 估计另标）",
+   "tests": "nuclear.rs textbook_q_values",
+   "gap": "数据版号未随结果导出",
+   "example": "氘的 ΔH = 7.288971、Δn = 8.071318、ΔD = 13.135722，单位 MeV。",
+   "answer": "总结合能 2.224567 MeV；每核子 1.1122835 MeV。",
+   "point": "稳定性由总能量比较，不能只数质子中子。",
+   "verify": "表值与半经验估计分开标记，来源、核素状态和数据版号随结果导出。",
+   "sources": [
+    "S73",
+    "S74"
+   ]
+  },
+  {
+   "id": "N05",
+   "title": "卢瑟福散射",
+   "stage": "大学",
+   "priority": "P2",
+   "path": "核数据与随机过程模块",
+   "status": "verified",
+   "level": 2,
+   "implementation": "模板 alpha-scattering；情形 coulomb",
+   "tests": "electric.rs coulomb_scattering_conserves_energy",
+   "gap": "散射角与碰撞参数的对照待补",
+   "example": "α 粒子 E = 5 MeV，重靶 Z = 79，碰撞参数 b = 100 fm，取 ke e² = 1.44 MeV·fm。",
+   "answer": "tan(θ/2) = 0.22752；散射角约 25.6355°。",
+   "point": "由散射反推相互作用模型；重靶和纯库仑有适用域。",
+   "verify": "角分布与解析轨道对照，核尺寸和反冲显著时不能继续用此近似。",
+   "sources": [
+    "S24",
+    "S41"
+   ]
+  },
+  {
+   "id": "N06",
+   "title": "射线衰减与相互作用",
+   "stage": "高中至大学",
+   "priority": "P2",
+   "path": "核数据与随机过程模块",
+   "status": "missing",
+   "level": 0,
+   "implementation": "无",
+   "tests": "—",
+   "gap": "",
+   "example": "单能窄束，线性衰减系数 μ = 0.2 cm⁻¹，厚度 5 cm。",
+   "answer": "透射比例 e⁻¹ = 0.367879；半值层厚度 ln2/μ = 3.46574 cm。",
+   "point": "几何、散射累积和能谱会改变探测到的强度。",
+   "verify": "给出材料、能量与截面版号；本例只作单能窄束教学计算。",
+   "sources": [
+    "S41",
+    "S59",
+    "S60"
+   ]
+  },
+  {
+   "id": "N07",
+   "title": "探测计数与泊松统计",
+   "stage": "大学",
+   "priority": "P2",
+   "path": "核数据与随机过程模块",
+   "status": "missing",
+   "level": 0,
+   "implementation": "无",
+   "tests": "—",
+   "gap": "",
+   "example": "独立等时测量总计数 1100、背景 100。",
+   "answer": "净计数 1000，标准不确定度 √1200 = 34.6410；相对约 3.46%。",
+   "point": "背景扣除会增加方差；探测效率和死时间另有校正。",
+   "verify": "低计数采用适当置信区间；不能把零计数解释为精确零辐射。",
+   "sources": [
+    "S60",
+    "S80"
+   ]
+  },
+  {
+   "id": "N08",
+   "title": "活度 吸收剂量与单位",
+   "stage": "高中至大学",
+   "priority": "P2",
+   "path": "核数据与随机过程模块",
+   "status": "missing",
+   "level": 0,
+   "implementation": "无",
+   "tests": "—",
+   "gap": "",
+   "example": "仅作单位练习：0.01 kg 介质吸收能量 10⁻⁶ J。",
+   "answer": "吸收剂量 10⁻⁴ Gy，即 0.1 mGy；不能仅由这个数换算活度或有效剂量。",
+   "point": "Bq、Gy、Sv 表示不同物理或加权量。",
+   "verify": "不得把教学能量沉积计算用于个体剂量决策；Sv 需明确定义加权方案。",
+   "sources": [
+    "S01",
+    "S41"
+   ]
+  },
+  {
+   "id": "N09",
+   "title": "分支过程与链式反应思想",
+   "stage": "高中至大学",
+   "priority": "P3",
+   "path": "核数据与随机过程模块",
+   "status": "missing",
+   "level": 0,
+   "implementation": "无",
+   "tests": "—",
+   "gap": "",
+   "example": "纯抽象分支模型 N0 = 100，平均繁殖数 k = 0.8，求五代后的期望。",
+   "answer": "期望为 100×0.8⁵ = 32.768，不是某次实现的整数计数。",
+   "point": "亚临界、临界、超临界是平均演化分类；随机过程仍可能灭绝。",
+   "verify": "限定无材料和几何的教学模型；验证分布与期望，不能宣称为反应堆设计计算。",
+   "sources": [
+    "S41",
+    "S60"
+   ]
+  },
+  {
+   "id": "N10",
+   "title": "聚变与恒星能源",
+   "stage": "高中至大学",
+   "priority": "P2",
+   "path": "核数据与随机过程模块",
+   "status": "partial",
+   "level": 1,
+   "implementation": "reaction 可算聚变 Q",
+   "tests": "nuclear.rs textbook_q_values",
+   "gap": "—",
+   "example": "以 D + T → 4He + n 为例，给定本算例质量亏损 0.01888 u。",
+   "answer": "Q ≈ 17.5866 MeV；质量亏损经舍入，精确值应按选定质量表重算。",
+   "point": "能量来自初末态质量差，放热不等于反应自动发生。",
+   "verify": "不由 Q 值推断速率；数据版号、单位与舍入保留。",
+   "sources": [
+    "S41",
+    "S74",
+    "S47"
+   ]
+  },
+  {
+   "id": "N11",
+   "title": "粒子目录与守恒选择",
+   "stage": "大学至研究生",
+   "priority": "P3",
+   "path": "核数据与随机过程模块",
+   "status": "missing",
+   "level": 0,
+   "implementation": "无（reaction 不区分中微子与反中微子）",
+   "tests": "—",
+   "gap": "",
+   "example": "自由中子 β⁻ 衰变，给定中子与质子静能差 1.2933 MeV，电子静能 0.5110 MeV。",
+   "answer": "可分配总动能约 0.7823 MeV；电荷 0 = +1−1，电子轻子数 0 = +1−1。",
+   "point": "只检验 A 和 Z 不足以构成一般粒子反应校验。",
+   "verify": "守恒规则按相互作用类型配置，区分中微子与反中微子，检查阈值和四动量。",
+   "sources": [
+    "S41",
+    "S43",
+    "S59"
+   ]
+  },
+  {
+   "id": "N12",
+   "title": "核素图与数据溯源",
+   "stage": "高中至大学",
+   "priority": "P2",
+   "path": "核数据与随机过程模块",
+   "status": "partial",
+   "level": 1,
+   "implementation": "binding 的核素符号与 N = A − Z",
+   "tests": "nuclear.rs",
+   "gap": "无核素图",
+   "example": "给定核素 14C，Z = 6、A = 14；仅根据标记确定位置。",
+   "answer": "中子数 N = 8；核素图以 Z 和 N 定位。同 Z 不同 N 是同位素。",
+   "point": "质量、寿命、能级和衰变支路来自不同评估数据。",
+   "verify": "未知核素或亚稳态需明确标识；数据缺失不能自动伪造寿命或当作实测。",
+   "sources": [
+    "S75",
+    "S76",
+    "S74"
+   ]
+  },
+  {
+   "id": "R01",
+   "title": "时间延缓与长度收缩",
+   "stage": "高中至大学",
+   "priority": "P1",
+   "path": "相对论或天体模块",
+   "status": "verified",
+   "level": 1,
+   "implementation": "labs/relativity.rs",
+   "tests": "relativity.rs textbook_values",
+   "gap": "—",
+   "example": "v = 0.6c，钟的固有时间间隔 10 s，杆固有长 5 m。",
+   "answer": "γ = 1.25；地面系测时间间隔 12.5 s，平行杆长 4 m。",
+   "point": "固有量与坐标测量要分清，长度比较要求各自系同时测两端。",
+   "verify": "v = 0 极限恢复经典值；|v|≥c 的有质量输入拒绝。",
+   "sources": [
+    "S37"
+   ]
+  },
+  {
+   "id": "R02",
+   "title": "洛伦兹变换与同时性",
+   "stage": "大学",
+   "priority": "P2",
+   "path": "相对论或天体模块",
+   "status": "verified",
+   "level": 1,
+   "implementation": "labs/relativity.rs 事件变换",
+   "tests": "relativity.rs textbook_values",
+   "gap": "—",
+   "example": "取 c = 1、v = 0.6，事件 x = 3、t = 5，使用一致时空单位。",
+   "answer": "γ = 1.25，x′ = 0，t′ = 4；间隔 t²−x² = 16 保持不变。",
+   "point": "时空坐标转换，不是屏幕视角旋转。",
+   "verify": "正反变换和类时间、类光、类空间事件分别验收。",
+   "sources": [
+    "S37"
+   ]
+  },
+  {
+   "id": "R03",
+   "title": "相对论速度合成",
+   "stage": "高中至大学",
+   "priority": "P1",
+   "path": "相对论或天体模块",
+   "status": "verified",
+   "level": 1,
+   "implementation": "labs/relativity.rs 速度合成",
+   "tests": "relativity.rs textbook_values",
+   "gap": "—",
+   "example": "飞船相对地面 0.5c，飞船发射物相对船同向 0.5c。",
+   "answer": "地面测速度为 0.8c。",
+   "point": "经典加法是低速极限，光速不随惯性系改变。",
+   "verify": "正反向与 u′ = c 的极限检验；不同坐标方向的合成另用向量形式。",
+   "sources": [
+    "S37"
+   ]
+  },
+  {
+   "id": "R04",
+   "title": "相对论能量与动量",
+   "stage": "大学",
+   "priority": "P2",
+   "path": "相对论或天体模块",
+   "status": "verified",
+   "level": 1,
+   "implementation": "labs/relativity.rs dynamics",
+   "tests": "relativity.rs textbook_values",
+   "gap": "低速动能的消减误差待核对",
+   "example": "电子以 0.6c 运动，静能取 0.5110 MeV。",
+   "answer": "总能量 0.63875 MeV；动能 0.12775 MeV；pc = 0.38325 MeV。",
+   "point": "静质量不随速度变；低速动能应稳定求差避免消减。",
+   "verify": "能动量不变量和非相对论极限分别验证。",
+   "sources": [
+    "S37",
+    "S03"
+   ]
+  },
+  {
+   "id": "R05",
+   "title": "固有时与双生子模型",
+   "stage": "大学",
+   "priority": "P2",
+   "path": "相对论或天体模块",
+   "status": "partial",
+   "level": 1,
+   "implementation": "labs/relativity.rs 固有时延缓",
+   "tests": "relativity.rs textbook_values",
+   "gap": "无分段世界线积分",
+   "example": "理想化旅程：地面时间总 10 年，旅行者两段匀速速率均为 0.8c，转向耗时忽略。",
+   "answer": "旅行者固有时为 10×0.6 = 6 年，比地面少 4 年。",
+   "point": "比较同一出发和重逢事件间不同世界线；转向打破对称。",
+   "verify": "转向假设须显式，分段积分与事件配对一致。",
+   "sources": [
+    "S37",
+    "S46"
+   ]
+  },
+  {
+   "id": "R06",
+   "title": "弱引力场与引力红移",
+   "stage": "大学至研究生",
+   "priority": "P3",
+   "path": "相对论或天体模块",
+   "status": "missing",
+   "level": 0,
+   "implementation": "无",
+   "tests": "—",
+   "gap": "",
+   "example": "弱场近地面高度差 100 m，g = 9.8。",
+   "answer": "上方钟相对下方走得更快，频率相对差约 1.09040×10⁻¹⁴。",
+   "point": "等效原理与势差；只是一阶弱场近似。",
+   "verify": "弱场与完整度规极限对比，不能把整个广义相对论化成均匀 g。",
+   "sources": [
+    "S46",
+    "S03"
+   ]
+  },
+  {
+   "id": "R07",
+   "title": "史瓦西时空与光线偏折",
+   "stage": "大学至研究生",
+   "priority": "P3",
+   "path": "相对论或天体模块",
+   "status": "missing",
+   "level": 0,
+   "implementation": "无",
+   "tests": "—",
+   "gap": "",
+   "example": "教学单位 c = G = 1，质量 M = 1，弱偏折参数 b = 100。",
+   "answer": "史瓦西半径 2；弱场偏折角约 0.04 rad。",
+   "point": "时空几何和测地线；强场不能沿用弱偏折公式。",
+   "verify": "测地线守恒量、弱场极限和积分误差分别验证，坐标奇点不等于物理奇点。",
+   "sources": [
+    "S46"
+   ]
+  },
+  {
+   "id": "R08",
+   "title": "恒星辐射与尺度",
+   "stage": "高中至大学",
+   "priority": "P2",
+   "path": "相对论或天体模块",
+   "status": "missing",
+   "level": 0,
+   "implementation": "无",
+   "tests": "—",
+   "gap": "",
+   "example": "理想化恒星总光度为参照星的 4 倍、有效温度相同，求半径比。",
+   "answer": "R/Rref = √4 = 2；若温度相同，光度随半径平方变化。",
+   "point": "观测量到模型参数的反演，黑体有效温度是近似。",
+   "verify": "区分距离引起的视亮度与本征光度；恒星结构和演化另需状态方程与反应数据。",
+   "sources": [
+    "S38",
+    "S47"
+   ]
+  },
+  {
+   "id": "X01",
+   "title": "泊松方程与静电边值",
+   "stage": "大学",
+   "priority": "P2",
+   "path": "专用后端或扩展插件",
+   "status": "missing",
+   "level": 0,
+   "implementation": "无",
+   "tests": "—",
+   "gap": "",
+   "example": "一维无电荷区间长 1 m，V(0) = 0 V，V(1) = 10 V。",
+   "answer": "解析解 V(x) = 10x V，Ex = −10 V/m；x = 0.3 m 时 V = 3 V。",
+   "point": "几何、材料、源和边界共同定义 PDE 问题。",
+   "verify": "用解析线性解及非均匀制造解验证，网格细化和边界残差可见。",
+   "sources": [
+    "S25",
+    "S26",
+    "S54",
+    "S58"
+   ]
+  },
+  {
+   "id": "X02",
+   "title": "黏性流场与 CFD",
+   "stage": "大学至研究生",
+   "priority": "P3",
+   "path": "专用后端或扩展插件",
+   "status": "missing",
+   "level": 0,
+   "implementation": "无",
+   "tests": "—",
+   "gap": "",
+   "example": "稳态平面 Couette 流，板距 0.01 m，上板速度 1 m/s，下板静止，η = 0.1 Pa·s。",
+   "answer": "u(y) = 100y m/s；剪应力 10 Pa；这是无压差、无滑移的解析基准。",
+   "point": "数值流场需要质量守恒与压力约束；湍流闭合不是画流线。",
+   "verify": "速度剖面、质量残差、黏性耗散与网格收敛同时验收。",
+   "sources": [
+    "S17",
+    "S54",
+    "S57",
+    "S58"
+   ]
+  },
+  {
+   "id": "X03",
+   "title": "弹性有限元与振型",
+   "stage": "大学至研究生",
+   "priority": "P3",
+   "path": "专用后端或扩展插件",
+   "status": "missing",
+   "level": 0,
+   "implementation": "无",
+   "tests": "—",
+   "gap": "",
+   "example": "单自由度等效弹性系统 m = 2 kg，k = 200 N/m，无阻尼。",
+   "answer": "角频率 10 rad/s，频率 1.59155 Hz；作为多单元模型的简化参照。",
+   "point": "质量矩阵、刚度矩阵和边界决定振型。",
+   "verify": "刚体零模、约束、网格谱收敛和振型正交均检验。",
+   "sources": [
+    "S79",
+    "S54",
+    "S58"
+   ]
+  },
+  {
+   "id": "X04",
+   "title": "热方程与热应力",
+   "stage": "大学至研究生",
+   "priority": "P3",
+   "path": "专用后端或扩展插件",
+   "status": "missing",
+   "level": 0,
+   "implementation": "无",
+   "tests": "—",
+   "gap": "",
+   "example": "两端完全固定细杆 E = 2×10¹¹ Pa，α = 10⁻⁵ K⁻¹，均匀升温 10 K。",
+   "answer": "轴向自由热应变应为 10⁻⁴；因固定约束产生压应力 −20 MPa。",
+   "point": "温度场改变本构应变；先热后力或强耦合取决于反馈程度。",
+   "verify": "自由端应无热应力；约束反力及热能共享清晰，网格收敛可复现。",
+   "sources": [
+    "S20",
+    "S79",
+    "S54"
+   ]
+  },
+  {
+   "id": "X05",
+   "title": "线圈磁通与电路耦合",
+   "stage": "大学",
+   "priority": "P2",
+   "path": "专用后端或扩展插件",
+   "status": "missing",
+   "level": 0,
+   "implementation": "无",
+   "tests": "—",
+   "gap": "",
+   "example": "线圈 R = 2 Ω、L = 0.5 H，外源电压 0，外磁链增加率为 1 Wb/s。",
+   "answer": "方程 0.5 İ + 2I = −1；稳态电流 −0.5 A，初 I = 0 时 İ = −2 A/s。",
+   "point": "磁链变化驱动电流，电流又可产生反作用；不能双重计入外场。",
+   "verify": "外磁链给定与自由机械源两模式分开；全耦合时功率账本闭合。",
+   "sources": [
+    "S31",
+    "S32",
+    "S56"
+   ]
+  },
+  {
+   "id": "X06",
+   "title": "等离子体与 MHD 分层",
+   "stage": "研究生",
+   "priority": "P3",
+   "path": "专用后端或扩展插件",
+   "status": "missing",
+   "level": 0,
+   "implementation": "无",
+   "tests": "—",
+   "gap": "",
+   "example": "电子密度 10¹⁶ m⁻³，电子温度以 kBT = 1 eV 给定。",
+   "answer": "电子等离子体角频率约 5.64146×10⁹ rad/s；Debye 长约 74.3394 μm。",
+   "point": "单粒子、流体、MHD、PIC 和 Vlasov 有不同尺度前提。",
+   "verify": "先通过无量纲尺度审查；PIC 需电荷沉积、场解与推粒一致，MHD 不替代动力学。",
+   "sources": [
+    "S81",
+    "S03",
+    "S52"
+   ]
+  },
+  {
+   "id": "X07",
+   "title": "分子动力学与系综",
+   "stage": "大学至研究生",
+   "priority": "P3",
+   "path": "专用后端或扩展插件",
+   "status": "missing",
+   "level": 0,
+   "implementation": "无",
+   "tests": "—",
+   "gap": "",
+   "example": "Lennard–Jones 约化单位 ε = σ = 1，取 r = 2^(1/6)。",
+   "answer": "势能 U = −1，势能导数为 0，处于两粒子势能极小点。",
+   "point": "宏观温度来自多自由度统计，恒温器改变采样系综。",
+   "verify": "NVE 能量、步长收敛、邻居表及 NVT 分布分别检验；不把示意碰撞当 MD。",
+   "sources": [
+    "S61",
+    "S44"
+   ]
+  },
+  {
+   "id": "X08",
+   "title": "参数反演与可辨识性",
+   "stage": "大学",
+   "priority": "P2",
+   "path": "专用后端或扩展插件",
+   "status": "missing",
+   "level": 0,
+   "implementation": "无",
+   "tests": "—",
+   "gap": "",
+   "example": "x0 = v0 = 0，观测 t = 1 s 时 x = 1 m，t = 2 s 时 x = 4 m，无噪声。",
+   "answer": "由两点得到 a = 2 m/s²；若只观测加速度且不知道 m，只能识别 F/m。",
+   "point": "拟合好不等于参数唯一；结构可辨识性先于优化器。",
+   "verify": "报告残差、参数相关性和置信区间；留出不同初值轨迹检验。",
+   "sources": [
+    "S57",
+    "S62",
+    "S80"
+   ]
+  },
+  {
+   "id": "X09",
+   "title": "反馈控制与状态空间",
+   "stage": "大学",
+   "priority": "P2",
+   "path": "专用后端或扩展插件",
+   "status": "missing",
+   "level": 0,
+   "implementation": "无",
+   "tests": "—",
+   "gap": "",
+   "example": "a = 1 s⁻¹，b = 1，K = 3 s⁻¹，初状态 x0 = 1。",
+   "answer": "闭环极点为 −2 s⁻¹，x(1) = e⁻² = 0.135335。",
+   "point": "反馈可稳定不稳定系统，但执行器饱和、采样和噪声会改变结果。",
+   "verify": "开放与闭环分别比较，离散时间稳定性及饱和分支有专门用例。",
+   "sources": [
+    "S82"
+   ]
+  },
+  {
+   "id": "X10",
+   "title": "经典场与量子场入门",
+   "stage": "研究生及更高",
+   "priority": "P3",
+   "path": "专用后端或扩展插件",
+   "status": "partial",
+   "level": 0,
+   "implementation": "概念页 qft",
+   "tests": "—",
+   "gap": "无计算",
+   "example": "自由标量场单模，约化单位 ℏ = c = 1，k = 3，m = 4。",
+   "answer": "ωk = 5；单模真空能为 2.5，增加一个量子使能量增加 5。",
+   "point": "场模量子化与粒子激发；单模不代表已实现相互作用 QFT。",
+   "verify": "自由极限与模式截断可核验；相互作用、重整化及规范场作为需专门设计的插件。",
+   "sources": [
+    "S48",
+    "S43"
+   ]
+  }
+ ],
+ "requirements": [
+  {
+   "id": "ENG01",
+   "priority": "P0",
+   "title": "单位与类型",
+   "status": "partial",
+   "evidence": "TS 4 维 [L,M,T,Q]（formula/units.ts），Rust 3 维（expr.rs）；显示单位表 units/units.ts",
+   "gap": "七量纲、温度仿射、物质的量与发光强度缺失；两端不一致",
+   "plan": "Rust 与 TS 统一为 L M T I Θ N J；温度分绝对温度与温差；°C 仿射换算；显示单位增加温度、压强、密度、体积、物质的量等"
+  },
+  {
+   "id": "ENG02",
+   "priority": "P0",
+   "title": "常数 材料与数据",
+   "status": "partial",
+   "evidence": "常数散在各实验模块（magnet.rs μ0 = CODATA2018，nuclear.rs u、mₑ、λC = 2018，atom.rs 2019 SI 定义值），AME2020 表与 SEMF 估计已区分",
+   "gap": "无常数集合与版号；旧场景锁定原版的机制缺失",
+   "plan": "constants.rs：CODATA2018 与 CODATA2022 两套（值、单位、标准不确定度、来源）；请求带 constantsSet，旧文件默认 2018，新实验默认 2022；数据版号 dataSetVersion"
+  },
+  {
+   "id": "ENG03",
+   "priority": "P0",
+   "title": "几何与坐标",
+   "status": "partial",
+   "evidence": "magnet.rs 注释写明二维截面每米；液体 depth 为垂直纸面的厚度",
+   "gap": "几何语义未作为模型定义，界面不显示",
+   "plan": "ModelSpec.geometry（平面运动、二维截面每米、平面内三维点电荷、轴对称、一维、集中参数、三维）；实验页与模型页显示几何标签"
+  },
+  {
+   "id": "ENG04",
+   "priority": "P0",
+   "title": "场景与初边值",
+   "status": "partial",
+   "evidence": "场景加载 scene.rs 诊断键（MESSAGES.md）；电路 issues（浮动、冲突…）",
+   "gap": "模型计算器无诊断",
+   "plan": "模型计算返回诊断：缺输入、非法域、无解、多解"
+  },
+  {
+   "id": "ENG05",
+   "priority": "P0",
+   "title": "时间与事件",
+   "status": "verified",
+   "evidence": "事件定位（events.rs）、事件前后状态（event op）、阶段与分支",
+   "gap": "—",
+   "plan": "沿用；在活动与运行清单中引用事件前后"
+  },
+  {
+   "id": "ENG06",
+   "priority": "P1",
+   "title": "求解器选择",
+   "status": "partial",
+   "evidence": "刚体：多积分器（含 Gauss–Legendre）与 Moreau–Jean；电路：梯形法 MNA；量子：分步傅里叶；波：蛙跳",
+   "gap": "PDE 与本征值插件化未做",
+   "plan": "沿用；量子实验增加网格／步长收敛研究"
+  },
+  {
+   "id": "ENG07",
+   "priority": "P1",
+   "title": "约束与接触",
+   "status": "verified",
+   "evidence": "D73 最小范数选择（physics2653.test.ts）与警告",
+   "gap": "最小范数在界面标为“数值约定”",
+   "plan": "沿用；模型 SV10 标注求解约定"
+  },
+  {
+   "id": "ENG08",
+   "priority": "P2",
+   "title": "PDE 与边界",
+   "status": "missing",
+   "evidence": "无通用 PDE",
+   "gap": "—",
+   "plan": "暂缓（P2–P3，X01 受限解析）"
+  },
+  {
+   "id": "ENG09",
+   "priority": "P1",
+   "title": "耦合守恒",
+   "status": "partial",
+   "evidence": "导轨回路与焦耳热写入账本（D90）；电路能量 ∫UI dt、电动机机械功",
+   "gap": "跨模块重复入账的系统检查",
+   "plan": "B10 B11 E14 的能量闭合基准"
+  },
+  {
+   "id": "ENG10",
+   "priority": "P0",
+   "title": "独立验证",
+   "status": "partial",
+   "evidence": "大量手写解析值测试（acceptance.test.ts 等）与 Rust 单元测试；Rust–TS 指纹对照",
+   "gap": "对照类型未区分；公式卡未标独立性",
+   "plan": "referenceKind 与 regressionKind；每个模型族的独立 oracle（mpmath，另一实现与方法）"
+  },
+  {
+   "id": "ENG11",
+   "priority": "P0",
+   "title": "误差与诊断",
+   "status": "partial",
+   "evidence": "公式卡 absError／relError；NaN 显示为“—”",
+   "gap": "未统一 e = |q−qref|/max(|qref|, qscale)；百分比分母不明",
+   "plan": "模型基准与活动评分使用带单位的缩放误差；NaN、未收敛不显示为 0"
+  },
+  {
+   "id": "ENG12",
+   "priority": "P1",
+   "title": "守恒与通量",
+   "status": "partial",
+   "evidence": "能量账本、电路能量",
+   "gap": "KCL 残差不可查",
+   "plan": "电路 KCL 残差（独立计算）；量子范数；随机过程归一"
+  },
+  {
+   "id": "ENG13",
+   "priority": "P0",
+   "title": "记录与复现",
+   "status": "partial",
+   "evidence": "场景指纹、检查点、分支继承账本",
+   "gap": "无 physicsVersion、solverVersion、constantsSet 的统一运行清单",
+   "plan": "RunManifest（Rust 提供版本与常数，场景 SHA-256），导出时随附"
+  },
+  {
+   "id": "ENG14",
+   "priority": "P1",
+   "title": "性能与取消",
+   "status": "verified",
+   "evidence": "D97：结果不变的性能优化；运行可取消",
+   "gap": "—",
+   "plan": "沿用；新功能不改 77 个模板指纹"
+  },
+  {
+   "id": "ENG15",
+   "priority": "P1",
+   "title": "数据接口与导出",
+   "status": "partial",
+   "evidence": "CSV、报告、课件导出",
+   "gap": "CSV 缺运行元数据",
+   "plan": "CSV 头部写运行清单；实验与活动导出 JSON（参数、结果、常数、版本）"
+  },
+  {
+   "id": "ENG16",
+   "priority": "P1",
+   "title": "内容和插件注册",
+   "status": "partial",
+   "evidence": "模板、实验、题目各自注册",
+   "gap": "无模型族注册；三者未关联",
+   "plan": "src/content/models：180 个 ModelSpec，关联模板、实验、题目、公式、基准与活动；公式为受限 AST"
+  },
+  {
+   "id": "ENG17",
+   "priority": "P0",
+   "title": "兼容与迁移",
+   "status": "partial",
+   "evidence": "场景格式 7、实验室文件 2、旧名兼容",
+   "gap": "learnDone 语义为“已打开”",
+   "plan": "learnDone 迁为“已访问”，不生成掌握记录；实验文件 3 带常数集合"
+  },
+  {
+   "id": "ENG18",
+   "priority": "P1",
+   "title": "可靠性与内容治理",
+   "status": "partial",
+   "evidence": "三语文本测试、文件错误提示",
+   "gap": "无审阅记录",
+   "plan": "模型注册记录 review 字段（物理、教学、语言）"
+  },
+  {
+   "id": "FOR01",
+   "priority": "P0",
+   "title": "注册字段",
+   "status": "partial",
+   "evidence": "FormulaDef：id、situation、expr、unit、measure、requires、approxOf",
+   "gap": "无来源、有效域、先修与语义 ID",
+   "plan": "FormulaSpec：formulaId、版本、来源、符号的语义 ID 与量纲、条件、有效域、推导"
+  },
+  {
+   "id": "FOR02",
+   "priority": "P0",
+   "title": "语义 AST",
+   "status": "partial",
+   "evidence": "受限表达式语言（expr.rs／formula/expr.ts），LaTeX 由 AST 生成",
+   "gap": "量纲三／四维",
+   "plan": "七量纲推断；新增 sinh、cosh 等函数"
+  },
+  {
+   "id": "FOR03",
+   "priority": "P0",
+   "title": "参数与数据来源",
+   "status": "partial",
+   "evidence": "情形样本变量带 ref（D72）",
+   "gap": "来源类别未区分",
+   "plan": "模型计算输出区分给定、常数（含版号）、派生"
+  },
+  {
+   "id": "FOR04",
+   "priority": "P0",
+   "title": "适用条件",
+   "status": "partial",
+   "evidence": "条件 ok／approx／fail（CondStatus）",
+   "gap": "缺“信息不足”状态",
+   "plan": "模型条件四态：适用、不适用、信息不足、近似适用，带原因"
+  },
+  {
+   "id": "FOR05",
+   "priority": "P1",
+   "title": "求解与分支",
+   "status": "partial",
+   "evidence": "情形分支（如 slideUp／slideDown／stick）",
+   "gap": "无求未知数、无解与多解",
+   "plan": "modelSolve：在给定区间求根，报告无解／单解／多解与物理筛选"
+  },
+  {
+   "id": "FOR06",
+   "priority": "P0",
+   "title": "对照独立性",
+   "status": "missing",
+   "evidence": "公式卡一律“一致／偏差”",
+   "gap": "未区分解析独立、同源一致、守恒检查",
+   "plan": "公式库 ref 字段与卡片标签；Rust–TS 对照标为移植回归"
+  },
+  {
+   "id": "FOR07",
+   "priority": "P0",
+   "title": "误差度量",
+   "status": "partial",
+   "evidence": "absError、relError",
+   "gap": "无按量纲缩放",
+   "plan": "缩放误差 qscale（模型基准与评分）"
+  },
+  {
+   "id": "FOR08",
+   "priority": "P1",
+   "title": "推导与步骤",
+   "status": "verified",
+   "evidence": "三语推导（derivations/*）与代入步骤（trace）",
+   "gap": "—",
+   "plan": "沿用；模型页显示条件与推导链"
+  },
+  {
+   "id": "FOR09",
+   "priority": "P1",
+   "title": "跨表征",
+   "status": "partial",
+   "evidence": "变量 ref 定位画面元素（D72）、公式时间线",
+   "gap": "—",
+   "plan": "沿用"
+  },
+  {
+   "id": "FOR10",
+   "priority": "P2",
+   "title": "符号等价与答案",
+   "status": "missing",
+   "evidence": "—",
+   "gap": "—",
+   "plan": "暂缓"
+  },
+  {
+   "id": "EDU01",
+   "priority": "P0",
+   "title": "目标与证据",
+   "status": "missing",
+   "evidence": "学习路径只有“已打开”",
+   "gap": "访问、练习、掌握证据未分开",
+   "plan": "三种记录分开；活动带目标与证据类别"
+  },
+  {
+   "id": "EDU02",
+   "priority": "P1",
+   "title": "先修图与课程包",
+   "status": "partial",
+   "evidence": "学习路径按学段排序",
+   "gap": "无先修关系",
+   "plan": "模型与活动的 prerequisites"
+  },
+  {
+   "id": "EDU03",
+   "priority": "P1",
+   "title": "诊断与误概念",
+   "status": "missing",
+   "evidence": "—",
+   "gap": "—",
+   "plan": "概念诊断题：选项对应误概念与针对性反馈"
+  },
+  {
+   "id": "EDU04",
+   "priority": "P1",
+   "title": "深度和支架",
+   "status": "partial",
+   "evidence": "学段与公式分级（levels.ts）",
+   "gap": "—",
+   "plan": "逐级提示"
+  },
+  {
+   "id": "EDU05",
+   "priority": "P1",
+   "title": "预测 观察 解释",
+   "status": "partial",
+   "evidence": "预测面板（数值＋备注）",
+   "gap": "理由与修订未单列",
+   "plan": "活动中的预测＋理由，运行后修订解释"
+  },
+  {
+   "id": "EDU06",
+   "priority": "P1",
+   "title": "实验设计",
+   "status": "partial",
+   "evidence": "参数扫描",
+   "gap": "—",
+   "plan": "活动的控变量步骤"
+  },
+  {
+   "id": "EDU07",
+   "priority": "P1",
+   "title": "多表征与过程证据",
+   "status": "partial",
+   "evidence": "受力图、纸带、面积、能量图",
+   "gap": "过程证据未记录",
+   "plan": "活动记录过程证据"
+  },
+  {
+   "id": "EDU08",
+   "priority": "P2",
+   "title": "真实数据与迁移",
+   "status": "missing",
+   "evidence": "—",
+   "gap": "—",
+   "plan": "暂缓"
+  },
+  {
+   "id": "EDU09",
+   "priority": "P1",
+   "title": "题型与评分",
+   "status": "partial",
+   "evidence": "数值题统一 2 % 容差",
+   "gap": "评分不分概念、单位、方向、建模、计算、解释",
+   "plan": "评分分维度；每个量独立容差；单位与方向检查"
+  },
+  {
+   "id": "EDU10",
+   "priority": "P1",
+   "title": "有约束的参数化",
+   "status": "partial",
+   "evidence": "“换一组数”在 vary 范围内随机，答案读自仿真",
+   "gap": "不检查物理前提与可解性",
+   "plan": "约束参数化：先由 Rust 模型判定条件与可解性，固定种子可重现"
+  },
+  {
+   "id": "EDU11",
+   "priority": "P1",
+   "title": "提示与反馈",
+   "status": "partial",
+   "evidence": "题目 hint 与 explain",
+   "gap": "—",
+   "plan": "分级提示，记录求助但不惩罚"
+  },
+  {
+   "id": "EDU12",
+   "priority": "P2",
+   "title": "熟练度与复习",
+   "status": "missing",
+   "evidence": "—",
+   "gap": "—",
+   "plan": "证据充分判定（规则可见），复习暂缓"
+  },
+  {
+   "id": "EDU13",
+   "priority": "P1",
+   "title": "活动编辑器",
+   "status": "partial",
+   "evidence": "题目包编辑（课件对话框）",
+   "gap": "—",
+   "plan": "教师把活动复制为参数化题、预览多组参数、校验"
+  },
+  {
+   "id": "EDU14",
+   "priority": "P1",
+   "title": "教师使用",
+   "status": "partial",
+   "evidence": "演示与题目模式",
+   "gap": "—",
+   "plan": "沿用"
+  },
+  {
+   "id": "EDU15",
+   "priority": "P2",
+   "title": "交换与分享",
+   "status": "missing",
+   "evidence": "—",
+   "gap": "—",
+   "plan": "暂缓（不声称 QTI／LTI）"
+  },
+  {
+   "id": "EDU16",
+   "priority": "P1",
+   "title": "学习数据与离线",
+   "status": "partial",
+   "evidence": "本地设置与试用日志",
+   "gap": "学生无法导出与清除学习记录",
+   "plan": "学习记录查看、导出与清除"
+  },
+  {
+   "id": "EDU17",
+   "priority": "P1",
+   "title": "可访问学习",
+   "status": "partial",
+   "evidence": "可聚焦画布、aria-live（26.55）",
+   "gap": "—",
+   "plan": "活动键盘可用；M07 键盘任务"
+  },
+  {
+   "id": "EDU18",
+   "priority": "P2",
+   "title": "AI 辅导与教学有效性",
+   "status": "missing",
+   "evidence": "—",
+   "gap": "—",
+   "plan": "暂缓"
+  },
+  {
+   "id": "UX01",
+   "priority": "—",
+   "title": "按目标找到合适内容",
+   "status": "partial",
+   "evidence": "全局搜索（模板、实验、题目、手册）",
+   "gap": "不能按保真度与成熟度检索",
+   "plan": "模型目录：主题、学段、先修、成熟度筛选；全局搜索收录模型"
+  },
+  {
+   "id": "UX02",
+   "priority": "—",
+   "title": "在沙盒 实验 题目间切换",
+   "status": "verified",
+   "evidence": "页面与题目模式",
+   "gap": "—",
+   "plan": "沿用"
+  },
+  {
+   "id": "UX03",
+   "priority": "—",
+   "title": "看懂学习进度",
+   "status": "missing",
+   "evidence": "只有“已打开”",
+   "gap": "—",
+   "plan": "已访问／已练习／掌握证据分开显示"
+  },
+  {
+   "id": "UX04",
+   "priority": "—",
+   "title": "判断结果适用范围",
+   "status": "missing",
+   "evidence": "—",
+   "gap": "—",
+   "plan": "模型标签：几何、厚度、假设、常数与数据版本"
+  },
+  {
+   "id": "UX05",
+   "priority": "—",
+   "title": "发现与修正不适用公式",
+   "status": "partial",
+   "evidence": "公式卡“不适用”带条件文字",
+   "gap": "—",
+   "plan": "四态条件与原因"
+  },
+  {
+   "id": "UX06",
+   "priority": "—",
+   "title": "关联变量和物体",
+   "status": "verified",
+   "evidence": "D72 变量定位",
+   "gap": "—",
+   "plan": "沿用"
+  },
+  {
+   "id": "UX07",
+   "priority": "—",
+   "title": "看懂精度与数值状态",
+   "status": "missing",
+   "evidence": "—",
+   "gap": "—",
+   "plan": "解析／数值／同源／示意标签"
+  },
+  {
+   "id": "UX08",
+   "priority": "—",
+   "title": "管理运行和失败",
+   "status": "partial",
+   "evidence": "运行状态与取消",
+   "gap": "—",
+   "plan": "模型计算与活动的失败状态"
+  },
+  {
+   "id": "UX09",
+   "priority": "—",
+   "title": "对比实验分支",
+   "status": "verified",
+   "evidence": "分支（branches.ts）",
+   "gap": "—",
+   "plan": "沿用；量子收敛表同单位对比"
+  },
+  {
+   "id": "UX10",
+   "priority": "—",
+   "title": "分阶段学习",
+   "status": "partial",
+   "evidence": "题目模式隐藏答案",
+   "gap": "—",
+   "plan": "活动先预测后看答案"
+  },
+  {
+   "id": "UX11",
+   "priority": "—",
+   "title": "编辑并发布教学活动",
+   "status": "partial",
+   "evidence": "题目包",
+   "gap": "—",
+   "plan": "参数化题预览与校验"
+  },
+  {
+   "id": "UX12",
+   "priority": "—",
+   "title": "使用键盘和辅助技术",
+   "status": "partial",
+   "evidence": "可聚焦画布、快捷键",
+   "gap": "—",
+   "plan": "M07 键盘任务验收与修正"
+  },
+  {
+   "id": "UX13",
+   "priority": "—",
+   "title": "在不同设备上连续工作",
+   "status": "verified",
+   "evidence": "窄屏与触屏布局（26.55）",
+   "gap": "—",
+   "plan": "新界面同样适配"
+  },
+  {
+   "id": "UX14",
+   "priority": "—",
+   "title": "保存和交换结果",
+   "status": "partial",
+   "evidence": "场景、题目、CSV",
+   "gap": "缺条件与版本",
+   "plan": "导出带运行清单"
+  }
+ ]
+}

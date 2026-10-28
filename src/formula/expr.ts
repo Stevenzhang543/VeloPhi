@@ -47,7 +47,16 @@ export const FUNCS: Record<string, { arity: number; latex: string }> = {
   ellipF: { arity: 2, latex: 'F' },
   min: { arity: 2, latex: '\\min' },
   max: { arity: 2, latex: '\\max' },
-  if: { arity: 3, latex: '' }
+  if: { arity: 3, latex: '' },
+  // 26.56 (D106): functions of the model registry (the Rust core evaluates them; force expressions do not accept them)
+  sinh: { arity: 1, latex: '\\sinh' },
+  cosh: { arity: 1, latex: '\\cosh' },
+  asinh: { arity: 1, latex: '\\operatorname{arsinh}' },
+  acosh: { arity: 1, latex: '\\operatorname{arcosh}' },
+  atanh: { arity: 1, latex: '\\operatorname{artanh}' },
+  sinc: { arity: 1, latex: '\\operatorname{sinc}' },
+  floor: { arity: 1, latex: '\\operatorname{floor}' },
+  cbrt: { arity: 1, latex: '' }
 }
 
 /** Parse, evaluation or dimension error with a user-facing message. */
@@ -201,6 +210,7 @@ export function dimension(node: Node, dims: Record<string, Dim>): Dim {
       }
       const args = node.args.map(a => dimension(a, dims))
       if (node.fn === 'sqrt') return dimPow(args[0], 0.5)
+      if (node.fn === 'cbrt') return dimPow(args[0], 1 / 3)
       if (node.fn === 'abs') return args[0]
       if (node.fn === 'sign' || node.fn === 'step') return DIMLESS
       if (node.fn === 'min' || node.fn === 'max' || node.fn === 'clamp') return same(args, node.fn)
@@ -262,6 +272,7 @@ export function inferDimension(node: Node, dims: Record<string, Dim>): Dim | nul
       const args = node.args.map(a => inferDimension(a, dims))
       switch (node.fn) {
         case 'sqrt': return args[0] ? dimPow(args[0], 0.5) : null
+        case 'cbrt': return args[0] ? dimPow(args[0], 1 / 3) : null
         case 'abs': return args[0]
         case 'sign': case 'step': return DIMLESS
         case 'min': case 'max': case 'clamp': return unify(args, tl('{0} 的参数', [node.fn]))
@@ -317,6 +328,7 @@ export function toLatex(node: Node, opts: LatexOptions = {}, parentPrec = 0): st
     case 'call': {
       const f = FUNCS[node.fn]
       if (node.fn === 'sqrt') return `\\sqrt{${toLatex(node.args[0], opts, 0)}}`
+      if (node.fn === 'cbrt') return `\\sqrt[3]{${toLatex(node.args[0], opts, 0)}}`
       if (node.fn === 'abs') return `\\left|${toLatex(node.args[0], opts, 0)}\\right|`
       if (node.fn === 'if') {
         const [c, a, b] = node.args.map(x => toLatex(x, opts, 0))

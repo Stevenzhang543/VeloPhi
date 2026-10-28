@@ -9,15 +9,17 @@ import { tl } from '../../../i18n'
 import { fmtQ } from '../../settings'
 import { plateCapacitor } from '../../../engine/labs'
 import { labState } from '../../lab/state'
+import { constantSet } from '../../../engine/models'
 import { useLabCanvas } from '../../lab/canvas'
 import { FONT } from '../../../render/style'
 import NumField from '../NumField.vue'
 import LabFormula from './LabFormula.vue'
 
 const props = withDefaults(defineProps<{ active?: boolean }>(), { active: true })
-const EPS0 = 8.8541878128e-12
-const S = labState('capacitor', () => ({ mode: 'battery' as 'battery' | 'isolated', U: 100, S: 0.02, d: 2e-3, er: 1, start: { S: 0.02, d: 2e-3, er: 1 } }))
-const res = computed(() => { try { return plateCapacitor({ S: S.S, d: S.d, er: S.er, mode: S.mode, U: S.U, Q: S.mode === 'isolated' ? S.start.er * EPS0 * S.start.S / S.start.d * S.U : undefined, S0: S.start.S, d0: S.start.d, er0: S.start.er }) } catch { return null } })
+/** ε₀ of the experiment's constant set, from the core (26.56, D100). */
+const EPS0 = computed(() => constantSet(S.constantsSet).constants.find(k => k.id === 'eps0')?.value ?? NaN)
+const S = labState('capacitor', () => ({ mode: 'battery' as 'battery' | 'isolated', U: 100, S: 0.02, d: 2e-3, er: 1, start: { S: 0.02, d: 2e-3, er: 1 }, constantsSet: 'CODATA2022' }))
+const res = computed(() => { try { return plateCapacitor({ S: S.S, d: S.d, er: S.er, mode: S.mode, U: S.U, S0: S.start.S, d0: S.start.d, er0: S.start.er, constantsSet: S.constantsSet }) } catch { return null } })
 function setStart() { S.start = { S: S.S, d: S.d, er: S.er } }
 
 const { canvas, wrap, redraw } = useLabCanvas(() => props.active, (ctx, w, h, _dt, P) => {
@@ -69,6 +71,8 @@ watch(() => [res.value, S.mode], redraw, { deep: true })
           <button :class="{ on: S.mode === 'battery' }" @click="S.mode = 'battery'">{{ tl('始终接电源（U 不变）') }}</button>
           <button :class="{ on: S.mode === 'isolated' }" @click="S.mode = 'isolated'">{{ tl('充电后断开（Q 不变）') }}</button>
         </div>
+        <span class="grow" />
+        <label class="ctl tiny">{{ tl('常数集') }}<select v-model="S.constantsSet" class="field small" :aria-label="tl('常数集')"><option value="CODATA2022">CODATA 2022</option><option value="CODATA2018">CODATA 2018</option></select></label>
         <button class="btn ghost small" :title="tl('以当前的板面积、间距和介质作为比较的起点')" @click="setStart">{{ tl('设为起点') }}</button>
       </div>
       <div ref="wrap" class="lab-canvas"><canvas ref="canvas" /></div>

@@ -20,8 +20,11 @@ import wasmUrl from '../engine/velophi_core.wasm?url'
 import { loadCore } from '../engine/core'
 import { initHost } from '../engine/host'
 import { ensureLibrary } from '../formula/match'
+import { initRecords } from './learn/records'
 
 loadSettings()
+// 26.56 (D103): learning records after the settings (the 26.55 list of opened steps migrates to visits once)
+initRecords()
 initAppearance()
 
 // Interface language (D27): set before anything builds texts; a switch re-renders and re-recognises the

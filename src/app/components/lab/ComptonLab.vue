@@ -15,8 +15,8 @@ import LabChart from './LabChart.vue'
 import LabFormula from './LabFormula.vue'
 
 const props = withDefaults(defineProps<{ active?: boolean }>(), { active: true })
-const S = labState('compton', () => ({ lambda: 71.1, theta: 90 }))
-const res = computed(() => { try { return compton(S.lambda, S.theta * Math.PI / 180) } catch { return null } })
+const S = labState('compton', () => ({ lambda: 71.1, theta: 90, constantsSet: 'CODATA2022' }))
+const res = computed(() => { try { return compton(S.lambda, S.theta * Math.PI / 180, S.constantsSet) } catch { return null } })
 
 const { canvas, wrap, redraw } = useLabCanvas(() => props.active, (ctx, w, h, _dt, P) => {
   const r = res.value
@@ -59,6 +59,8 @@ const curve = computed(() => {
     <div class="lab-stage">
       <div class="lab-bar">
         <label class="ctl">{{ tl('散射角 θ') }} <input v-model.number="S.theta" type="range" min="0" max="180" step="1" :aria-label="tl('散射角')" /> {{ S.theta }}°</label>
+        <span class="grow" />
+        <label class="ctl tiny">{{ tl('常数集') }}<select v-model="S.constantsSet" class="field small" :aria-label="tl('常数集')"><option value="CODATA2022">CODATA 2022</option><option value="CODATA2018">CODATA 2018</option></select></label>
       </div>
       <div ref="wrap" class="lab-canvas"><canvas ref="canvas" /></div>
       <div class="lab-under"><LabChart :series="[{ x: curve.x, y: curve.y, color: '#db2777' }]" :markers="res ? [{ x: S.theta, y: res.shift }] : []" :x-label="tl('θ（°）')" :y-label="tl('Δλ（pm）')" :height="150" /></div>

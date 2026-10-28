@@ -152,6 +152,9 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .btn:disabled { opacity: 0.45; cursor: default; transform: none; }
 .btn.primary { background: var(--accent); color: var(--on-accent); box-shadow: 0 1px 2px rgba(10, 108, 255, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.18); }
 .btn.primary:hover { filter: brightness(1.06); }
+/* 26.56 hand check: the accent outline vanished on accent buttons */
+.btn.primary:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+.dialog[tabindex="-1"]:focus { outline: none; }
 .btn.ghost { background: transparent; }
 .btn.ghost:hover { background: var(--hover); }
 .btn.active { background: var(--accent-soft); color: var(--accent); }

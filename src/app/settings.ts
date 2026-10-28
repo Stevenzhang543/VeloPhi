@@ -8,8 +8,8 @@
  * SI everywhere and are converted only when shown (`fmtQ`, `toDisp`, `unitLabel`) or entered (`fromDisp`).
  */
 import { reactive, watch, watchEffect } from 'vue'
-import type { UnitChoice } from '../units/units'
-import { defaultChoice, displayLabel, formatQuantity, formatSig, fromDisplay, latexQuantity, numberStyle, presetChoice, toDisplay, withDecimal } from '../units/units'
+import type { UnitChoice, UnitKind } from '../units/units'
+import { defaultChoice, displayLabel, formatQuantity, formatQuantityKind, formatSig, fromDisplay, fromDisplayKind, labelKind, latexQuantity, numberStyle, presetChoice, toDisplay, toDisplayKind, withDecimal } from '../units/units'
 import type { Curriculum } from '../formula/levels'
 import { locale } from '../i18n/locale'
 import { shownTime } from '../units/clock'
@@ -299,6 +299,11 @@ export function fmtTime(t: number, dt: number, withUnit = true): string {
   const s = withDecimal(toDisplay(shownTime(t), 's', settings.units).toFixed(decimals))
   return withUnit ? `${s} ${displayLabel('s', settings.units)}` : s
 }
+/** 26.56 (D99): the same for a quantity of a named kind (a temperature difference shows no °C offset). */
+export function fmtK(v: number | null, siUnit: string, kind?: UnitKind, digits: number = settings.digits): string { return formatQuantityKind(v, siUnit, kind, settings.units, digits) }
+export function toDispK(v: number, siUnit: string, kind?: UnitKind): number { return toDisplayKind(v, siUnit, kind, settings.units) }
+export function fromDispK(v: number, siUnit: string, kind?: UnitKind): number { return fromDisplayKind(v, siUnit, kind, settings.units) }
+export function unitLabelK(siUnit: string, kind?: UnitKind): string { return labelKind(siUnit, kind, settings.units) }
 /** An SI value as KaTeX with its display unit, e.g. "12.5\,\mathrm{cm}". */
 export function texQ(v: number | null, siUnit: string, digits: number = settings.digits): string { return latexQuantity(v, siUnit, settings.units, digits) }
 

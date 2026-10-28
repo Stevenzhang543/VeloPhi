@@ -102,6 +102,18 @@ Nested in `scene.forceExprInvalid`. The editor checks expressions with the TypeS
 | `expr.argumentNotDimensionless` | function, dim |
 | `expr.notForce` | dim |
 
+## Model registry (Rust `modelcalc.rs`, 26.56)
+
+| key | params |
+| --- | --- |
+| `model.unknown` | model |
+| `model.unknownInput` | model, input |
+| `model.unknownName` | name |
+| `model.dimensionedExponent` | — |
+| `model.dimensionedPower` | — |
+| `model.argumentNotDimensionless` | function, dim |
+| `model.dimMismatch` | what, a, b |
+
 ## ABI
 
 | Key | Parameters |

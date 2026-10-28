@@ -16,15 +16,23 @@ import type { UnitKind } from '../src/units/units'
 import { kindOf } from '../src/units/units'
 import { FORCE_VARIABLES } from './reference/core/solver/forceExpr'
 
+// 26.56 (D99): the seven SI base dimensions (L, M, T, I, Θ, N, J); trailing zeros are trimmed as in formula/units.ts.
+// Electrical kinds move from the former charge dimension to the current dimension (C = A·s).
 const KIND_DIM: Record<UnitKind, Dim> = {
   length: [1, 0, 0], mass: [0, 1, 0], time: [0, 0, 1], velocity: [1, 0, -1], acceleration: [1, 0, -2], force: [1, 1, -2],
   energy: [2, 1, -2], power: [2, 1, -3], momentum: [1, 1, -1], angularMomentum: [2, 1, -1], angle: [0, 0, 0],
   angularVelocity: [0, 0, -1], angularAcceleration: [0, 0, -2], stiffness: [0, 1, -2], damping: [0, 1, -1],
   inertia: [2, 1, 0], torque: [2, 1, -2], frequency: [0, 0, -1],
   quadDrag: [-1, 1, 0], cubicStiffness: [-2, 1, -2], gravConst: [3, -1, -2], area: [2, 0, 0], arealVelocity: [2, 0, -1],
-  // 26.54: charge as the fourth base dimension
-  charge: [0, 0, 0, 1], electricField: [1, 1, -2, -1], magneticField: [0, 1, -1, -1], coulombConst: [3, 1, -2, -2],
-  voltage: [2, 1, -2, -1], current: [0, 0, -1, 1], resistance: [2, 1, -1, -2], capacitance: [-2, -1, 2, 2]
+  charge: [0, 0, 1, 1], electricField: [1, 1, -3, -1], magneticField: [0, 1, -2, -1], coulombConst: [3, 1, -4, -2],
+  voltage: [2, 1, -3, -1], current: [0, 0, 0, 1], resistance: [2, 1, -3, -2], capacitance: [-2, -1, 4, 2],
+  temperature: [0, 0, 0, 0, 1], temperatureDifference: [0, 0, 0, 0, 1], amount: [0, 0, 0, 0, 0, 1], pressure: [-1, 1, -2],
+  density: [-3, 1, 0], volume: [3, 0, 0], heatCapacity: [2, 1, -2, 0, -1], specificHeat: [2, 0, -2, 0, -1],
+  molarHeatCapacity: [2, 1, -2, 0, -1, -1], specificEnergy: [2, 0, -2], thermalConductivity: [1, 1, -3, 0, -1],
+  intensity: [0, 1, -3], viscosity: [-1, 1, -1], flowRate: [3, 0, -1], inductance: [2, 1, -2, -2], magneticFlux: [2, 1, -2, -1],
+  linearDensity: [-1, 1, 0], expansion: [0, 0, 0, 0, -1], molarMass: [0, 1, 0, 0, 0, -1], wavenumber: [-1, 0, 0],
+  numberDensity: [-3, 0, 0], permittivity: [-3, -1, 4, 2], permeability: [1, 1, -2, -2], surfaceCharge: [-2, 0, 1, 1],
+  resistivity: [3, 1, -3, -2], action: [2, 1, -1], activity: [0, 0, -1]
 }
 
 function checkUnit(unit: string, where: string) {

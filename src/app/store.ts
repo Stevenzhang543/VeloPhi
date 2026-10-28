@@ -171,6 +171,10 @@ export interface AppState {
   handbookTopic: string | null
   showLearning: boolean
   showPalette: boolean
+  /** 26.56 (D102, D105): the teaching activity in progress and the model catalogue (with the model shown). */
+  activity: string | null
+  showModels: boolean
+  modelId: string | null
   /** Formula card to bring into view in the formula panel (opened from the handbook). */
   formulaFocus: string | null
   /** Situation to bring into view in the formula panel (clicked on the formula timeline, D71). */
@@ -245,6 +249,9 @@ export const state = reactive<AppState>({
   handbookTopic: null,
   showLearning: false,
   showPalette: false,
+  activity: null,
+  showModels: false,
+  modelId: null,
   branch: null,
   mainScene: null,
   formulaFocus: null,

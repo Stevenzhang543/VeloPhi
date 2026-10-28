@@ -94,7 +94,7 @@ checksum = "a2c754d6c33795a1c324727428e5a7dedb5b06195f9890bdbcba760d3e246563"
 
 [[package]]
 name = "velophi-cli"
-version = "26.55.0"
+version = "26.56.0"
 dependencies = [
  "serde_json",
  "velophi-core",
@@ -102,7 +102,7 @@ dependencies = [
 
 [[package]]
 name = "velophi-core"
-version = "26.55.0"
+version = "26.56.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -110,7 +110,7 @@ dependencies = [
 
 [[package]]
 name = "velophi-native"
-version = "26.55.0"
+version = "26.56.0"
 dependencies = [
  "serde_json",
  "velophi-core",
@@ -118,7 +118,7 @@ dependencies = [
 
 [[package]]
 name = "velophi-wasm"
-version = "26.55.0"
+version = "26.56.0"
 dependencies = [
  "serde_json",
  "velophi-core",

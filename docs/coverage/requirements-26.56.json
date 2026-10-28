@@ -1,0 +1,559 @@
+{
+ "version": "26.56",
+ "requirements": [
+  {
+   "id": "ENG01",
+   "status": "verified",
+   "evidence": "Rust expr.rs 与 TS formula/units.ts 统一为七个 SI 基本量纲 L M T I Θ N J（D99）；UnitKind 区分绝对温度与温差，°C 显示为仿射换算；显示单位表增加温度、压强、密度、体积、物质的量等",
+   "tests": [
+    "test:units2656 dims2656 seven dimensions",
+    "test:units2656 Celsius affine",
+    "test:units2656 display conversions",
+    "test:dims2656 rejects V + m/s² and ln(1 m)"
+   ],
+   "remaining": "复合单位仍按表匹配，没有用户自定义单位"
+  },
+  {
+   "id": "ENG02",
+   "status": "verified",
+   "evidence": "engine/velophi-core/src/constants.rs：CODATA2018 与 CODATA2022 两套（值、单位、标准不确定度、来源）；康普顿、磁场、核反应、结合能、平行板电容器实验带 constantsSet，新实验默认 2022，旧状态与旧文件保持 2018；运行清单列出数据集（AME2020、PDG 2024）",
+   "tests": [
+    "test:labs2656 magnetMap constants by set",
+    "test:labs2656 compton constants by set",
+    "test:particles2656 the electron rest energy of the set"
+   ],
+   "remaining": "刚体场景的库仑常数保持 26.55 的 CODATA 2018 值，以保留 77 个模板指纹（D97）；切换需要新的 physicsVersion"
+  },
+  {
+   "id": "ENG03",
+   "status": "verified",
+   "evidence": "ModelSpec.geometry（平面运动、二维截面每米、平面内三维点电荷、轴对称、一维、集中参数、三维、无空间）；模型页与实验页（模型标签）显示几何、假设、有效域",
+   "tests": [
+    "test:models2656 restricted models say what is computed and the matrix fields are filled",
+    "test:loop1 the thickness scales volume and force"
+   ],
+   "remaining": "刚体场景的读数面板尚未逐量标注“每米厚度”"
+  },
+  {
+   "id": "ENG04",
+   "status": "verified",
+   "evidence": "模型计算返回逐项诊断：缺输入（信息不足）、输入超出定义域、无解／单解／多解；场景加载诊断沿用 26.55",
+   "tests": [
+    "rust:src/modelcalc.rs four_states_branches_and_roots",
+    "rust:src/modelcalc.rs solving_for_an_unknown_finds_both_angles"
+   ],
+   "remaining": "—"
+  },
+  {
+   "id": "ENG05",
+   "status": "verified",
+   "evidence": "事件定位与事件前后状态沿用 26.55；闭环一检查事件时刻、事件两侧速度和事件定位随容差收敛",
+   "tests": [
+    "test:loop1 free fall event time and both sides",
+    "test:loop1 step convergence"
+   ],
+   "remaining": "—"
+  },
+  {
+   "id": "ENG06",
+   "status": "partial",
+   "evidence": "沿用多积分器、梯形 MNA、分步傅里叶、蛙跳；量子实验新增网格与步长收敛研究（观测阶数、外推）",
+   "tests": [
+    "test:loop3 the split-operator time step converges at second order",
+    "test:loop3 the free packet converges spectrally to Q08"
+   ],
+   "remaining": "PDE 与本征值求解器的插件接口未做"
+  },
+  {
+   "id": "ENG07",
+   "status": "verified",
+   "evidence": "D73 最小范数约定与警告沿用；SV10 的数值约定在模型中注明",
+   "tests": [
+    "test:physics2653"
+   ],
+   "remaining": "—"
+  },
+  {
+   "id": "ENG08",
+   "status": "deferred",
+   "evidence": "没有通用 PDE 求解器；X01 等以受限解析模型交付并标明受限",
+   "tests": [
+    "test:models2656 restricted models say what is computed"
+   ],
+   "remaining": "通用 PDE（P2–P3）暂缓，依赖求解器插件接口"
+  },
+  {
+   "id": "ENG09",
+   "status": "partial",
+   "evidence": "导轨回路的焦耳热与机械功、RC 电路能量账本的闭合检查（闭环二）",
+   "tests": [
+    "test:loop2 rail force: simulation vs B11 and energy balance",
+    "test:loop2 energy ledger RC"
+   ],
+   "remaining": "没有跨模块重复入账的系统检查"
+  },
+  {
+   "id": "ENG10",
+   "status": "verified",
+   "evidence": "每个模型族至少三组独立参照（scripts/oracles/*.py，mpmath 另行实现与方法，591 组）；模型注册记录 references 类别；Rust–TS 对照标为移植回归",
+   "tests": [
+    "test:models2656 independent reference values",
+    "test:models2656 every verified model has a benchmark, a boundary and a limit or transfer case"
+   ],
+   "remaining": "参照由开发者编写，未经外部同行复核"
+  },
+  {
+   "id": "ENG11",
+   "status": "verified",
+   "evidence": "模型基准与活动评分统一使用 e = |q − qref| / max(|qref|, qscale)；未定义结果返回 null 与原因，不显示为 0",
+   "tests": [
+    "test:activities2656 separates calculation, unit and direction",
+    "test:models2656 evaluates every worked example without undefined results"
+   ],
+   "remaining": "—"
+  },
+  {
+   "id": "ENG12",
+   "status": "verified",
+   "evidence": "电路 KCL 残差由测试另行计算；量子范数与吸收层损失分开报告；衰变统计归一（多种子均值与方差）",
+   "tests": [
+    "test:loop2 circuitSolve vs E09 with independent KCL residual",
+    "test:loop3 absorber loss is reported apart from discretization error",
+    "test:loop3 over many seeds"
+   ],
+   "remaining": "—"
+  },
+  {
+   "id": "ENG13",
+   "status": "verified",
+   "evidence": "运行清单 manifest（核心版本、场景格式、后端及其 physicsVersion 与求解器、常数集与来源、数据集、输入 SHA-256）；CSV 头、模型计算、活动记录、参数化题与实验导出均附带",
+   "tests": [
+    "test:labs2656 an exported experiment carries the run manifest"
+   ],
+   "remaining": "旧版本导出的文件没有清单（读入时不补造）"
+  },
+  {
+   "id": "ENG14",
+   "status": "verified",
+   "evidence": "D97：本版不改变 77 个模板指纹；Rust 与 TS 参考逐帧一致；calc-parity 逐位一致",
+   "tests": [
+    "test:engine bounded run identical to the reference engine"
+   ],
+   "remaining": "—"
+  },
+  {
+   "id": "ENG15",
+   "status": "verified",
+   "evidence": "CSV 写入运行清单；实验、模型计算、活动与学习记录导出 JSON（参数、结果、常数集、版本）",
+   "tests": [
+    "test:labs2656 an exported experiment carries the run manifest",
+    "test:activities2656 keeps visits, practice and mastery apart; exports and clears"
+   ],
+   "remaining": "不提供 QTI／LTI 等交换格式"
+  },
+  {
+   "id": "ENG16",
+   "status": "verified",
+   "evidence": "src/content/models：180 个 ModelSpec（输入、条件、输出、几何、假设、来源、成熟度、基准、关联模板／实验／题目／公式情形／活动）；受限表达式在 Rust 中检查量纲",
+   "tests": [
+    "test:models2656 covers the 180 model families of the blueprint",
+    "test:models2656 links point at existing templates",
+    "test:models2656 installs in the core without problems"
+   ],
+   "remaining": "—"
+  },
+  {
+   "id": "ENG17",
+   "status": "verified",
+   "evidence": "learnDone 迁移为“已访问”，不生成练习或掌握记录；实验文件 3 带常数集，旧文件保持 2018；场景格式与旧名兼容沿用",
+   "tests": [
+    "test:activities2656 migrates the 26.55 “opened” list to visits only",
+    "test:labs2656 lab states: new experiments use 2022"
+   ],
+   "remaining": "—"
+  },
+  {
+   "id": "ENG18",
+   "status": "partial",
+   "evidence": "模型注册 review 字段记录物理与语言审阅日期（开发者审阅）",
+   "tests": [
+    "test:models2656 restricted models say what is computed and the matrix fields are filled"
+   ],
+   "remaining": "没有教师或外部专家的教学审阅记录；审阅为开发者自审"
+  },
+  {
+   "id": "FOR01",
+   "status": "partial",
+   "evidence": "ModelSpec 记录来源编号、输入的语义量与单位、条件、有效域、假设与推导链接；公式工作室的 FormulaDef 库沿用",
+   "tests": [
+    "test:models2656 has unique ids and matches the core’s unit table"
+   ],
+   "remaining": "公式工作室的 FormulaDef 尚未迁到带版本号与来源的 FormulaSpec"
+  },
+  {
+   "id": "FOR02",
+   "status": "verified",
+   "evidence": "受限表达式语言七量纲推断（两端一致）；新增 sinh、cosh、asinh、acosh、atanh、sinc、cbrt、floor；数字 0 适配任何量纲",
+   "tests": [
+    "test:dims2656 rejects V + m/s² and ln(1 m)",
+    "rust:src/modelcalc.rs four_states_branches_and_roots"
+   ],
+   "remaining": "—"
+  },
+  {
+   "id": "FOR03",
+   "status": "partial",
+   "evidence": "模型计算输出区分输入、中间量与所用常数（含常数集）",
+   "tests": [
+    "test:models2656 evaluates every worked example without undefined results"
+   ],
+   "remaining": "公式卡片的变量尚未逐一标注“给定／常数／派生”"
+  },
+  {
+   "id": "FOR04",
+   "status": "verified",
+   "evidence": "条件四态：适用、不适用、信息不足、近似适用（附缺少的量）",
+   "tests": [
+    "rust:src/modelcalc.rs four_states_branches_and_roots"
+   ],
+   "remaining": "—"
+  },
+  {
+   "id": "FOR05",
+   "status": "verified",
+   "evidence": "modelSolve：区间内求根，报告无解／单解／多解并按物理条件筛选；分支输出带分支名",
+   "tests": [
+    "rust:src/modelcalc.rs solving_for_an_unknown_finds_both_angles"
+   ],
+   "remaining": "—"
+  },
+  {
+   "id": "FOR06",
+   "status": "verified",
+   "evidence": "公式卡显示“独立解析／守恒检验／同源一致性”；模型基准记录参照类别；Rust–TS 对照标为移植回归",
+   "tests": [
+    "test:models2656 formula reference kinds"
+   ],
+   "remaining": "—"
+  },
+  {
+   "id": "FOR07",
+   "status": "verified",
+   "evidence": "带量纲尺度的缩放误差（模型基准与评分）",
+   "tests": [
+    "test:models2656 independent reference values"
+   ],
+   "remaining": "—"
+  },
+  {
+   "id": "FOR08",
+   "status": "verified",
+   "evidence": "三语推导与代入步骤沿用",
+   "tests": [
+    "test:derivationsA the steps hold numerically in the recognised template situations"
+   ],
+   "remaining": "—"
+  },
+  {
+   "id": "FOR09",
+   "status": "partial",
+   "evidence": "变量定位画面元素（D72）、公式时间线沿用",
+   "tests": [],
+   "remaining": "没有自动测试（复核时未找到）"
+  },
+  {
+   "id": "FOR10",
+   "status": "deferred",
+   "evidence": "—",
+   "tests": [],
+   "remaining": "符号等价判定暂缓"
+  },
+  {
+   "id": "EDU01",
+   "status": "verified",
+   "evidence": "15 个活动各有目标、证据类别；学习记录把“已访问”“已练习”“掌握证据”分开",
+   "tests": [
+    "test:activities2656 keeps visits, practice and mastery apart",
+    "test:activities2656 there are the activities the models link to"
+   ],
+   "remaining": "—"
+  },
+  {
+   "id": "EDU02",
+   "status": "partial",
+   "evidence": "活动与模型记录 prerequisites（活动、模型）",
+   "tests": [
+    "test:activities2656 there are the activities the models link to"
+   ],
+   "remaining": "没有课程包和先修图的可视化与路径排序"
+  },
+  {
+   "id": "EDU03",
+   "status": "verified",
+   "evidence": "每个活动有概念诊断题，选项对应误概念并给出针对性反馈",
+   "tests": [
+    "test:ux2656 every activity: diagnosis, prediction, questions and transfer pass the same checks"
+   ],
+   "remaining": "误概念库来自文档与教学经验，未经学生数据校准"
+  },
+  {
+   "id": "EDU04",
+   "status": "partial",
+   "evidence": "题目带逐级提示（hints），按学段分配活动",
+   "tests": [
+    "test:ux2656 every activity"
+   ],
+   "remaining": "没有按学生表现自适应的深度调整"
+  },
+  {
+   "id": "EDU05",
+   "status": "verified",
+   "evidence": "活动先预测（选项＋理由），实验后修订解释，记录修订与是否改变",
+   "tests": [
+    "test:activities2656 keeps visits, practice and mastery apart"
+   ],
+   "remaining": "—"
+  },
+  {
+   "id": "EDU06",
+   "status": "partial",
+   "evidence": "活动的控变量实验：一次只改一个输入，其余保持",
+   "tests": [
+    "test:ux2656 every activity"
+   ],
+   "remaining": "学生不能自行设计实验方案"
+  },
+  {
+   "id": "EDU07",
+   "status": "partial",
+   "evidence": "作答记录保存预测、理由、实验设置、修订与逐题证据",
+   "tests": [
+    "test:activities2656 keeps visits, practice and mastery apart"
+   ],
+   "remaining": "图表与画面操作不作为过程证据记录"
+  },
+  {
+   "id": "EDU08",
+   "status": "partial",
+   "evidence": "每个活动有迁移题（换情境、换参数）",
+   "tests": [
+    "test:ux2656 every activity"
+   ],
+   "remaining": "真实测量数据导入暂缓"
+  },
+  {
+   "id": "EDU09",
+   "status": "verified",
+   "evidence": "评分分概念、单位、方向、建模、计算、解释六个维度；每量独立容差",
+   "tests": [
+    "test:activities2656 separates calculation, unit and direction",
+    "test:activities2656 reads the friction direction from the branch of the model"
+   ],
+   "remaining": "—"
+  },
+  {
+   "id": "EDU10",
+   "status": "verified",
+   "evidence": "参数化题：固定种子可重现（种子经打散，相邻种子的题目分散），网格取值后由 Rust 模型判定条件与可解性，失败给出原因",
+   "tests": [
+    "test:activities2656 is reproducible from the seed",
+    "test:activities2656 rejects draws whose conditions fail and reports why",
+    "test:activities2656 neighbouring seeds give spread-out problems"
+   ],
+   "remaining": "—"
+  },
+  {
+   "id": "EDU11",
+   "status": "verified",
+   "evidence": "逐级提示；求助次数照记，不扣分（规则可见）；核对后显示参考答案，评分以每题第一次核对为准，之后的修改只作练习",
+   "tests": [
+    "test:activities2656 mastery needs every dimension",
+    "test:activities2656 the first check is the evidence"
+   ],
+   "remaining": "—"
+  },
+  {
+   "id": "EDU12",
+   "status": "partial",
+   "evidence": "掌握证据的判定规则在学习路径中可见",
+   "tests": [
+    "test:activities2656 mastery needs every dimension"
+   ],
+   "remaining": "间隔复习暂缓；L4 需要学生试用与修订记录，本版不声称"
+  },
+  {
+   "id": "EDU13",
+   "status": "partial",
+   "evidence": "教师把模型复制为参数化题，预览多组参数、校验并导出",
+   "tests": [
+    "test:activities2656 checks the specification"
+   ],
+   "remaining": "没有完整的活动编辑器（问题文字、诊断选项仍在代码中）"
+  },
+  {
+   "id": "EDU14",
+   "status": "verified",
+   "evidence": "演示与题目模式沿用；参数化题供教师出题",
+   "tests": [
+    "test:teaching2652 another set of numbers gives other answers"
+   ],
+   "remaining": "—"
+  },
+  {
+   "id": "EDU15",
+   "status": "deferred",
+   "evidence": "—",
+   "tests": [],
+   "remaining": "不声称 QTI／LTI 兼容"
+  },
+  {
+   "id": "EDU16",
+   "status": "verified",
+   "evidence": "学习记录只存本机（velophi.learning.v1），学生可查看、导出 JSON、清除",
+   "tests": [
+    "test:activities2656 keeps visits, practice and mastery apart; exports and clears"
+   ],
+   "remaining": "—"
+  },
+  {
+   "id": "EDU17",
+   "status": "verified",
+   "evidence": "活动可全键盘完成；斜面受力分析用复选框与单选组（M07 键盘任务）；对话框焦点陷阱与 Escape",
+   "tests": [
+    "test:ux2656 the forces are check boxes (Space) and the friction direction a radio group (arrow keys)",
+    "test:ux2656 Tab stays inside the dialog"
+   ],
+   "remaining": "未做屏幕阅读器实机测试"
+  },
+  {
+   "id": "EDU18",
+   "status": "deferred",
+   "evidence": "—",
+   "tests": [],
+   "remaining": "AI 辅导暂缓"
+  },
+  {
+   "id": "UX01",
+   "status": "verified",
+   "evidence": "模型目录：领域、学段、成熟度、状态筛选与搜索；全局搜索收录模型与活动",
+   "tests": [
+    "test:models2656 covers the 180 model families"
+   ],
+   "remaining": "—"
+  },
+  {
+   "id": "UX02",
+   "status": "verified",
+   "evidence": "沙盒、实验、题目切换沿用",
+   "tests": [
+    "test:engine bounded run identical to the reference engine"
+   ],
+   "remaining": "—"
+  },
+  {
+   "id": "UX03",
+   "status": "verified",
+   "evidence": "学习路径分别显示已访问（眼）、已练习（笔）、掌握证据（旗）",
+   "tests": [
+    "test:activities2656 keeps visits, practice and mastery apart"
+   ],
+   "remaining": "—"
+  },
+  {
+   "id": "UX04",
+   "status": "verified",
+   "evidence": "模型标签：几何、假设、有效域、受限说明、常数集与数据版本",
+   "tests": [
+    "test:models2656 restricted models say what is computed and the matrix fields are filled"
+   ],
+   "remaining": "—"
+  },
+  {
+   "id": "UX05",
+   "status": "verified",
+   "evidence": "条件四态与原因（缺少的量、超出定义域）",
+   "tests": [
+    "rust:src/modelcalc.rs four_states_branches_and_roots"
+   ],
+   "remaining": "—"
+  },
+  {
+   "id": "UX06",
+   "status": "unverified",
+   "evidence": "变量定位沿用（D72）",
+   "tests": [],
+   "remaining": "基线标为已验证；复核时没有找到对应的自动测试，改为存在但待验证"
+  },
+  {
+   "id": "UX07",
+   "status": "partial",
+   "evidence": "公式卡参照类别标签；量子实验收敛表；模型页显示参照类别",
+   "tests": [
+    "test:models2656 formula reference kinds"
+   ],
+   "remaining": "其余实验的数值误差状态未逐一显示"
+  },
+  {
+   "id": "UX08",
+   "status": "partial",
+   "evidence": "模型计算与活动的失败状态显示为消息（不显示数字）",
+   "tests": [
+    "test:dims2656 rejects V + m/s² and ln(1 m)"
+   ],
+   "remaining": "失败状态的界面没有专门的自动测试"
+  },
+  {
+   "id": "UX09",
+   "status": "verified",
+   "evidence": "分支对比沿用；量子收敛表同单位对比",
+   "tests": [
+    "test:branch"
+   ],
+   "remaining": "—"
+  },
+  {
+   "id": "UX10",
+   "status": "verified",
+   "evidence": "活动先预测后看结果，答案在作答后显示",
+   "tests": [
+    "test:ux2656 every activity"
+   ],
+   "remaining": "—"
+  },
+  {
+   "id": "UX11",
+   "status": "partial",
+   "evidence": "参数化题预览与校验",
+   "tests": [
+    "test:activities2656 checks the specification"
+   ],
+   "remaining": "没有活动发布流程"
+  },
+  {
+   "id": "UX12",
+   "status": "verified",
+   "evidence": "M07 键盘任务；新对话框为模态（aria-modal），Tab 不离开对话框，Escape 关闭，强调色按钮焦点可见",
+   "tests": [
+    "test:ux2656 the forces are check boxes (Space)",
+    "test:ux2656 Tab stays inside the dialog"
+   ],
+   "remaining": "26.55 及更早的对话框尚无焦点陷阱；未做屏幕阅读器实机测试"
+  },
+  {
+   "id": "UX13",
+   "status": "partial",
+   "evidence": "新界面沿用窄屏布局",
+   "tests": [],
+   "remaining": "新对话框在触屏与窄屏上只做了人工检查"
+  },
+  {
+   "id": "UX14",
+   "status": "verified",
+   "evidence": "导出带运行清单（CSV、实验、模型计算、活动、学习记录）",
+   "tests": [
+    "test:labs2656 an exported experiment carries the run manifest"
+   ],
+   "remaining": "—"
+  }
+ ]
+}

@@ -1,12 +1,14 @@
 <script setup lang="ts">
 /**
  * Nuclei (26.55): decay chains (Bateman's exact solution, `decayChain`), the binding-energy curve (measured values
- * of AME2020 and the semi-empirical formula, `binding`) and nuclear reactions with their Q values (`reaction`).
+ * of AME2020 and the semi-empirical formula, `binding`) and nuclear reactions with their Q values (`reaction`, which
+ * balances only A and Z). 26.56 (D100): general particle processes (`particleProcess`: charge, baryon number, the
+ * three lepton numbers, energy) and the constant set of the experiment (CODATA 2022 for new ones, 2018 for old files).
  */
 import { computed, ref } from 'vue'
 import { tl } from '../../../i18n'
 import type { ReactionParticle } from '../../../engine/labs'
-import { binding, decayChain, reaction } from '../../../engine/labs'
+import { binding, decayChain, reaction, particleProcess } from '../../../engine/labs'
 import { labState } from '../../lab/state'
 import NumField from '../NumField.vue'
 import LabChart from './LabChart.vue'
@@ -23,8 +25,8 @@ const CHAINS: Record<string, { label: string; unit: string; members: Member[]; t
   radon: { label: tl('²²²Rn 的子体（天）'), unit: 'min', members: [{ name: '²²²Rn', halfLife: 5501.5 }, { name: '²¹⁸Po', halfLife: 3.098 }, { name: '²¹⁴Pb', halfLife: 26.8 }, { name: '²¹⁴Bi', halfLife: 19.9 }, { name: '²¹⁰Pb …', halfLife: 0 }], tEnd: 300 }
 }
 const S = labState('nuclear', () => ({
-  part: 'chain' as 'chain' | 'binding' | 'reaction', chain: 'ab', members: CHAINS.ab.members.map(m => ({ ...m })), tEnd: 20, log: false, activity: false,
-  reactionId: 'dt', Z: 26, A: 56
+  part: 'chain' as 'chain' | 'binding' | 'reaction' | 'particle', chain: 'ab', members: CHAINS.ab.members.map(m => ({ ...m })), tEnd: 20, log: false, activity: false,
+  reactionId: 'dt', Z: 26, A: 56, processId: 'nDecay', constantsSet: 'CODATA2022'
 }))
 function loadChain(id: string) { const c = CHAINS[id]; S.chain = id; S.members = c.members.map(m => ({ ...m })); S.tEnd = c.tEnd }
 const COLORS = ['#dc2626', '#2563eb', '#16a34a', '#d97706', '#7c3aed', '#0891b2']
@@ -42,7 +44,7 @@ const chainSeries = computed(() => {
 const unitText = computed(() => (CHAINS[S.chain]?.unit === 'min' ? tl('min') : tl('s')))
 
 // ---- binding energy ----
-const bind = computed(() => { try { return binding([{ Z: S.Z, A: S.A }]) } catch { return null } })
+const bind = computed(() => { try { return binding([{ Z: S.Z, A: S.A }], S.constantsSet) } catch { return null } })
 const bindSeries = computed(() => {
   const b = bind.value
   if (!b) return []
@@ -66,7 +68,33 @@ const REACTIONS: Record<string, { label: string; before: ReactionParticle[]; aft
   chadwick: { label: tl('查德威克发现中子'), before: [nuc(4, 9), nuc(2, 4)], after: [nuc(6, 12), n], text: '⁹Be + ⁴He → ¹²C + n' },
   li: { label: tl('锂 6 俘获中子'), before: [nuc(3, 6), n], after: [nuc(1, 3), nuc(2, 4)], text: '⁶Li + n → ³H + ⁴He' }
 }
-const reac = computed(() => { const r = REACTIONS[S.reactionId]; try { return r ? reaction(r.before, r.after) : null } catch { return null } })
+const reac = computed(() => { const r = REACTIONS[S.reactionId]; try { return r ? reaction(r.before, r.after, S.constantsSet) : null } catch { return null } })
+
+// ---- particle processes (26.56): conservation rules beyond A and Z ----
+const PROCESSES: Record<string, { label: string; before: string[]; after: string[]; text: string }> = {
+  nDecay: { label: tl('自由中子衰变'), before: ['n'], after: ['p', 'e-', 'anti_nu_e'], text: 'n → p + e⁻ + ν̄ₑ' },
+  nDecayNu: { label: tl('中子衰变（错写为中微子）'), before: ['n'], after: ['p', 'e-', 'nu_e'], text: 'n → p + e⁻ + νₑ' },
+  nDecayBare: { label: tl('中子衰变（漏写轻子）'), before: ['n'], after: ['p'], text: 'n → p' },
+  pDecay: { label: tl('自由质子的 β⁺ 衰变'), before: ['p'], after: ['n', 'e+', 'nu_e'], text: 'p → n + e⁺ + νₑ' },
+  muDecay: { label: tl('μ 子衰变'), before: ['mu-'], after: ['e-', 'anti_nu_e', 'nu_mu'], text: 'μ⁻ → e⁻ + ν̄ₑ + ν_μ' },
+  muGamma: { label: tl('μ → eγ（轻子味）'), before: ['mu-'], after: ['e-', 'gamma'], text: 'μ⁻ → e⁻ + γ' },
+  piDecay: { label: tl('π⁺ 衰变'), before: ['pi+'], after: ['mu+', 'nu_mu'], text: 'π⁺ → μ⁺ + ν_μ' },
+  antiproton: { label: tl('反质子的产生（阈能）'), before: ['p', 'p'], after: ['p', 'p', 'p', 'anti_p'], text: 'p + p → p + p + p + p̄' },
+  lambda: { label: tl('Λ 衰变（奇异数改变）'), before: ['Lambda'], after: ['p', 'pi-'], text: 'Λ → p + π⁻' },
+  kp: { label: tl('K⁻p → Λπ⁰'), before: ['K-', 'p'], after: ['Lambda', 'pi0'], text: 'K⁻ + p → Λ + π⁰' }
+}
+const proc = computed(() => { const r = PROCESSES[S.processId]; try { return r ? particleProcess(r.before, r.after, S.constantsSet) : null } catch { return null } })
+const RULES: Array<[string, string]> = [['charge', '电荷'], ['baryon', '重子数'], ['leptonE', '电子轻子数'], ['leptonMu', 'μ 子轻子数'], ['leptonTau', 'τ 子轻子数'], ['energy', '能量']]
+const ruleValues = (k: string) => {
+  const p = proc.value
+  if (!p) return ''
+  const pair = (a: number, b: number) => `${a} → ${b}`
+  if (k === 'charge') return pair(p.charge[0], p.charge[1])
+  if (k === 'baryon') return pair(p.baryon[0], p.baryon[1])
+  const i = ['leptonE', 'leptonMu', 'leptonTau'].indexOf(k)
+  if (i >= 0) return pair(p.lepton[0][i], p.lepton[1][i])
+  return p.Q !== null ? `Q = ${p.Q.toFixed(4)} MeV` : p.threshold !== null ? tl('阈能 {0} MeV', [p.threshold.toFixed(1)]) : '—'
+}
 const showMass = ref(true)
 </script>
 
@@ -78,6 +106,7 @@ const showMass = ref(true)
           <button :class="{ on: S.part === 'chain' }" @click="S.part = 'chain'">{{ tl('衰变链') }}</button>
           <button :class="{ on: S.part === 'binding' }" @click="S.part = 'binding'">{{ tl('结合能曲线') }}</button>
           <button :class="{ on: S.part === 'reaction' }" @click="S.part = 'reaction'">{{ tl('核反应') }}</button>
+          <button :class="{ on: S.part === 'particle' }" @click="S.part = 'particle'">{{ tl('粒子过程') }}</button>
         </div>
         <template v-if="S.part === 'chain'">
           <select class="field small" :value="S.chain" :aria-label="tl('衰变链')" @change="loadChain(($event.target as HTMLSelectElement).value)">
@@ -91,10 +120,21 @@ const showMass = ref(true)
             <option v-for="(r, id) in REACTIONS" :key="id" :value="id">{{ r.label }}</option>
           </select>
         </template>
+        <template v-if="S.part === 'particle'">
+          <select v-model="S.processId" class="field small" :aria-label="tl('粒子过程')">
+            <option v-for="(r, id) in PROCESSES" :key="id" :value="id">{{ r.label }}</option>
+          </select>
+        </template>
+        <span class="grow" />
+        <label class="ctl tiny">{{ tl('常数集') }}<select v-model="S.constantsSet" class="field small" :aria-label="tl('常数集')"><option value="CODATA2022">CODATA 2022</option><option value="CODATA2018">CODATA 2018</option></select></label>
       </div>
       <div class="lab-canvas pad">
         <LabChart v-if="S.part === 'chain'" :series="chainSeries" :x-label="tl('t（{0}）', [unitText])" :y-label="S.activity ? (S.log ? tl('lg A') : tl('活度 A')) : (S.log ? tl('lg N') : tl('核数 N'))" :height="380" />
         <LabChart v-if="S.part === 'binding'" :series="bindSeries" :markers="[...bindMarkers, ...(picked ? [{ x: picked.A, y: picked.BA, label: `${picked.symbol}-${picked.A}`, color: '#0a6cff' }] : [])]" :x-label="tl('质量数 A')" :y-label="tl('比结合能（MeV）')" :y-range="[0, 9.5]" :height="380" />
+        <div v-if="S.part === 'particle' && PROCESSES[S.processId]" class="eq">
+          <div class="eq-text">{{ PROCESSES[S.processId].text }}</div>
+          <div v-if="proc" class="eq-q" :class="{ exo: proc.allowed }">{{ proc.allowed ? tl('守恒律允许') : tl('被禁止：{0}', [proc.violations.map(v => tl(RULES.find(r => r[0] === v)?.[1] ?? v)).join('、')]) }}</div>
+        </div>
         <div v-if="S.part === 'reaction' && REACTIONS[S.reactionId]" class="eq">
           <div class="eq-text">{{ REACTIONS[S.reactionId].text }}</div>
           <div v-if="reac" class="eq-q" :class="{ exo: (reac.Q ?? 0) > 0 }">Q = {{ reac.Q === null || reac.Q === undefined ? '—' : `${reac.Q.toFixed(3)} MeV` }}</div>
@@ -138,11 +178,23 @@ const showMass = ref(true)
             <span>{{ tl('电荷数') }}</span><b>{{ reac.Z?.[0] }} → {{ reac.Z?.[1] }}</b>
             <span>{{ tl('守恒') }}</span><b>{{ reac.balanced ? tl('是') : tl('否') }}</b>
             <span>{{ tl('释放的能量 Q') }}</span><b class="big">{{ reac.Q === null || reac.Q === undefined ? '—' : `${reac.Q.toFixed(3)} MeV` }}</b>
-            <template v-if="reac.Q"><span>{{ tl('质量亏损 Δm') }}</span><b>{{ (reac.Q / 931.49410242).toFixed(6) }} u</b></template>
+            <template v-if="reac.Q && reac.dm"><span>{{ tl('质量亏损 Δm') }}</span><b>{{ reac.dm.toFixed(6) }} u</b></template>
           </div>
-          <LabFormula v-if="reac.Q" :title="tl('质能方程')" tex="\Delta E = \Delta m\,c^2" expr="dm*931.49410242" :vars="[{ name: 'dm', symbol: '\Delta m', value: reac.Q / 931.49410242, unit: '' }]" unit="" lhs="\Delta E/\text{MeV}" :result="reac.Q" />
+          <LabFormula v-if="reac.Q && reac.dm && reac.uMeV" :title="tl('质能方程')" tex="\Delta E = \Delta m\,c^2" expr="dm*uc2" :vars="[{ name: 'dm', symbol: '\Delta m', value: reac.dm, unit: '' }, { name: 'uc2', symbol: 'uc^2/\text{MeV}', value: reac.uMeV, unit: '' }]" unit="" lhs="\Delta E/\text{MeV}" :result="reac.Q" />
           <p class="tiny muted lab-note">{{ tl('核反应中质量数和电荷数都守恒。Q 由反应前后原子质量之差算出（1 u 相当于 931.494 MeV）；数据为原子质量评价表 AME2020 的值。') }}</p>
+          <p class="tiny muted lab-note">{{ tl('这里只检查质量数 A 与电荷数 Z，不是一般粒子过程的校验；含轻子与强子的过程请看“粒子过程”（电荷、重子数、三种轻子数与能量）。') }}</p>
           <p v-if="reac.estimated" class="tiny lab-note warn">{{ tl('有核素不在数据表中，其质量用半经验公式估计。') }}</p>
+        </section>
+      </template>
+      <template v-if="S.part === 'particle' && proc">
+        <section class="lab-block">
+          <div class="lab-kv">
+            <template v-for="[k, n] in RULES" :key="k"><span>{{ tl(n) }}</span><b :class="proc.violations.includes(k as never) ? 'bad' : 'good'">{{ ruleValues(k) }} {{ proc.violations.includes(k as never) ? '✗' : '✓' }}</b></template>
+            <span>{{ tl('奇异数') }}</span><b>{{ proc.strangeness[0] }} → {{ proc.strangeness[1] }}</b>
+            <span>{{ tl('静能（MeV）') }}</span><b>{{ proc.mass[0].toFixed(3) }} → {{ proc.mass[1].toFixed(3) }}</b>
+          </div>
+          <p v-if="proc.strangenessChanges" class="tiny lab-note warn">{{ tl('奇异数改变：只有弱相互作用允许，过程会慢得多。') }}</p>
+          <p class="tiny muted lab-note">{{ tl('守恒律是必要条件，不是充分条件：通过检查的过程仍可能被其他选择定则（角动量、宇称、奇异数）禁止或极少发生。中微子按无质量处理；静能取 PDG 2024 与所选常数集。') }}</p>
         </section>
       </template>
     </aside>
@@ -157,4 +209,6 @@ const showMass = ref(true)
 .eq-q { font-size: 22px; font-weight: 650; }
 .eq-q.exo { color: var(--success); }
 .warn { color: var(--warning); }
+.bad { color: var(--danger, #dc2626); }
+.good { color: var(--success); }
 </style>

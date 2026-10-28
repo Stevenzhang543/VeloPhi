@@ -1,18 +1,18 @@
 @echo off
-rem VeloPhi 26.55 release build (Windows). Double-click to run.
+rem VeloPhi 26.56 release build (Windows). Double-click to run.
 rem Runs: npm ci, Rust engine tests (native), WebAssembly build, type check, all tests on the new WebAssembly core,
 rem the calculation parity check (TypeScript reference vs native Rust), Tauri build (web build + NSIS installer),
 rem the check that the web build contains no reference code, the engine self-check inside WebView2 (native Rust vs
-rem WebAssembly in the worker and on the interface thread, every template), packaging into releases\v26.55.
+rem WebAssembly in the worker and on the interface thread, every template), packaging into releases\v26.56.
 rem No Git write operations of any kind.
 setlocal
 chcp 65001 >nul
 cd /d "%~dp0\.."
 if not exist .cache mkdir .cache
-set "LOG=%CD%\.cache\release-26.55.log"
-set "EV=%CD%\.cache\evidence-26.55"
+set "LOG=%CD%\.cache\release-26.56.log"
+set "EV=%CD%\.cache\evidence-26.56"
 if not exist "%EV%" mkdir "%EV%"
-echo VeloPhi 26.55 release started %date% %time% > "%LOG%"
+echo VeloPhi 26.56 release started %date% %time% > "%LOG%"
 echo [1/11] tools
 (where node && node --version && where npm && call npm --version && where cargo && cargo --version && rustc --version) >> "%LOG%" 2>&1 || goto fail
 echo [2/11] npm ci
@@ -29,7 +29,7 @@ echo [5/11] type check
 call npx vue-tsc --noEmit -p . >> "%LOG%" 2>&1 || goto fail
 echo [6/11] tests (on the WebAssembly core just built)
 set "VELOPHI_CORE=wasm"
-call npx vitest run --reporter=default --reporter=junit --outputFile.junit=.cache\evidence-26.55\vitest-junit.xml >> "%LOG%" 2>&1 || goto fail
+call npx vitest run --reporter=default --reporter=junit --outputFile.junit=.cache\evidence-26.56\vitest-junit.xml >> "%LOG%" 2>&1 || goto fail
 set "VELOPHI_CORE="
 echo [7/11] calculation parity (TypeScript reference vs native Rust)
 call node scripts\calc-parity.mjs --random 30 --random2651 20 --random2652 20 --impacts 10 > "%EV%\calc-parity.txt" 2>&1 || (type "%EV%\calc-parity.txt" >> "%LOG%" & goto fail)
@@ -44,7 +44,7 @@ echo [11/11] package
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\package-release.ps1 >> "%LOG%" 2>&1 || goto fail
 echo RELEASE OK >> "%LOG%"
 echo.
-echo RELEASE OK - releases\v26.55
+echo RELEASE OK - releases\v26.56
 echo Log: %LOG%
 if not defined NOPAUSE pause
 exit /b 0

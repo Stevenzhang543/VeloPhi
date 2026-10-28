@@ -1,7 +1,8 @@
 <script setup lang="ts">
 /**
  * Global search (26.55, D96; Ctrl+K / ⌘K): one box over the tools, templates, experiments and circuit presets,
- * formulas, handbook topics and concept pages, built-in problems, learning-path units and the pages. Results are
+ * formulas, handbook topics and concept pages, built-in problems, learning-path units, the pages and (26.56) the
+ * model families and teaching activities. Results are
  * grouped by category; ↑ ↓ choose, Enter opens, Esc closes. The index is built once per language when the box
  * opens; a query is a scan of a few hundred short strings (well under the 50 ms of the manual).
  *
@@ -24,12 +25,15 @@ import { CHAPTERS, ptext } from '../../teaching/problems'
 import { openBuiltin } from '../problemMode'
 import { openHandbook } from '../handbook'
 import { PATHS } from '../learn/paths'
-import { openLab, openTemplate, openTopic } from '../learn/actions'
+import { openLab, openTemplate, openTopic, openActivity } from '../learn/actions'
+import { MODELS } from '../../content/models'
+import { ACTIVITIES } from '../../teaching/activities'
+import { LEVEL_TEXT } from '../models/labels'
 import Icon from './Icon.vue'
 
 interface Item { cat: string; icon: string; title: string; detail: string; hay: string; run: () => unknown }
 
-const CATS: Array<[string, string]> = [['page', '页面'], ['tool', '工具'], ['template', '模板'], ['lab', '实验'], ['formula', '公式'], ['handbook', '手册'], ['problem', '题目'], ['path', '学习路径']]
+const CATS: Array<[string, string]> = [['page', '页面'], ['tool', '工具'], ['template', '模板'], ['lab', '实验'], ['model', '模型'], ['activity', '活动'], ['formula', '公式'], ['handbook', '手册'], ['problem', '题目'], ['path', '学习路径']]
 const catLabel = (c: string) => tl(CATS.find(x => x[0] === c)?.[1] ?? c)
 
 const norm = (s: string) => s.toLowerCase().replace(/\s+/g, '')
@@ -57,6 +61,10 @@ function buildIndex(): Item[] {
   for (const f of FORMULAS) add('formula', 'phi', f.title, plainTex(f.latex), `${f.id} ${f.situation} ${f.note ?? ''} ${f.method ?? ''}`, () => openHandbook(f.id))
   for (const t of TOPICS) add('handbook', t.icon, T(t.title), tl('学习手册的主题'), t.id, () => openTopic(t.id))
   for (const c of CONCEPTS) add('handbook', c.icon, T(c.title), tl('学习手册的概念页'), `${c.id} ${c.sections.map(s => T(s.heading)).join(' ')}`, () => openTopic(`concept:${c.id}`))
+  // 26.56 (D105): the model families (with their maturity) and the teaching activities
+  add('page', 'layers', tl('模型目录'), tl('180 个模型族：条件、分支、常数与核验'), 'models catalogue', () => { state.showModels = true })
+  for (const m of MODELS) add('model', 'layers', `${m.id} ${T(m.title)}`, LEVEL_TEXT[m.level], `${m.title.zh} ${m.title.en} ${m.title.de}`, () => { state.modelId = m.id; state.showModels = true })
+  for (const a of ACTIVITIES) add('activity', 'graduation', T(a.title), a.models.join(' '), `${a.id} ${a.title.zh} ${a.title.en}`, () => openActivity(a.id))
   for (const p of BUILTIN_PROBLEMS) add('problem', 'problem', ptext(p.title, lang), CHAPTERS.find(c => c.id === p.chapter)?.label[lang] ?? p.chapter, p.id, () => openBuiltin(p))
   for (const s of PATHS) for (const u of s.units) add('path', 'graduation', u.title, s.title, `${s.id} ${u.id}`, () => { settings.ui.learnStage = s.id; state.showLearning = true })
   cache = { lang, items }

@@ -9,6 +9,7 @@ import { tl } from '../../../i18n'
 import { fmtQ } from '../../settings'
 import type { QPotential, QSetup } from '../../../engine/labs'
 import { quantumRun, quantumSetup } from '../../../engine/labs'
+import QuantumConvergence from './QuantumConvergence.vue'
 import { labState } from '../../lab/state'
 import { useLabCanvas } from '../../lab/canvas'
 import { FONT, MONO } from '../../../render/style'
@@ -231,6 +232,7 @@ const uncertainty = computed(() => (ex.value?.dp !== undefined ? ex.value.dx * e
         </div>
         <p class="tiny muted lab-note">{{ tl('不确定关系：Δx·Δp ≥ ħ/2，高斯波包刚发射时取等号。粒子能量低于势垒高度时仍有一部分概率穿过势垒（隧穿），经典粒子做不到。') }}</p>
       </section>
+      <QuantumConvergence />
       <details class="lab-block lab-details">
         <summary>{{ tl('原理') }}</summary>
         <p class="tiny muted lab-note">{{ tl('含时薛定谔方程 iħ∂ψ/∂t = −ħ²/(2m)∂²ψ/∂x² + Vψ 用分步傅里叶法求解：势能项在坐标空间、动能项在动量空间（快速傅里叶变换）各乘一个相位因子，每一步都严格保持总概率。本征态由有限差分哈密顿量（三对角矩阵）用 Sturm 序列二分法求得。计算区域边缘有吸收层，飞出去的概率单独列出。') }}</p>

@@ -33,6 +33,9 @@ const ProblemGallery = defineAsyncComponent(() => import('./components/ProblemGa
 // 26.55 (D96): learning path and global search
 const LearningPath = defineAsyncComponent(() => import('./components/LearningPath.vue'))
 const CommandPalette = defineAsyncComponent(() => import('./components/CommandPalette.vue'))
+// 26.56: teaching activities and the model catalogue (D102, D105)
+const ActivityRunner = defineAsyncComponent(() => import('./components/ActivityRunner.vue'))
+const ModelCatalog = defineAsyncComponent(() => import('./components/models/ModelCatalog.vue'))
 import ProblemPanel from './components/ProblemPanel.vue'
 import PredictionPanel from './components/PredictionPanel.vue'
 import { editor } from './editor/editorState'
@@ -247,6 +250,8 @@ watch(() => state.problem, p => { if (!p && state.rightTab === 'problem') state.
     <ProblemGallery v-if="state.showProblems" />
     <LearningPath v-if="state.showLearning" />
     <CommandPalette v-if="state.showPalette" />
+    <ModelCatalog v-if="state.showModels" />
+    <ActivityRunner v-if="state.activity" :key="state.activity" />
     <div v-if="state.toast" class="toast" :class="{ error: state.toast.error }" role="status">{{ state.toast.text }}</div>
   </div>
 </template>

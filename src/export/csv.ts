@@ -15,6 +15,7 @@ import { ENGINE_VERSION } from '../core/scene/types'
 import type { UnitChoice } from '../units/units'
 import { displayLabel, toDisplay } from '../units/units'
 import { fingerprintText } from './fingerprint'
+import { manifest } from '../engine/models'
 
 /** Field separator of CSV exports. */
 export type CsvSeparator = ',' | ';' | '\t'
@@ -87,6 +88,8 @@ export function recordingCsv(rec: Recording, opts: CsvOptions): string {
     tl('场景: {0}', [rec.scene.name]),
     tl('记录步长 Δt = {0} s; 积分方法 {1}; 相对容差 {2}; 绝对容差 {3}; g = ({4}, {5}) m/s²', [rec.dt, s.integrator, s.relTol, s.absTol, s.gravity.x, s.gravity.y]),
     tl('结果指纹 {0}', [fingerprintText(rec)]),
+    // 26.56 (ENG13, D104): the run manifest of the core
+    ...runManifestLines(rec),
     display ? tl('数值单位: 显示单位（由国际单位换算，见各列表头）') : tl('数值单位: 国际单位（SI，见各列表头）；数值为双精度完整写出，与仿真结果逐位一致'),
     tl('分隔符 {0}，小数点 “{1}”', [sep === '\t' ? tl('制表符') : `“${sep}”`, opts.decimal ?? '.']),
     ...(s.startTime ? [tl('分支：从 t = {0} s 开始，表中 t 为绝对时间', [s.startTime])] : [])
@@ -100,6 +103,17 @@ export function recordingCsv(rec: Recording, opts: CsvOptions): string {
     rows.push(row)
   }
   return tableCsv(header, rows, opts, comments)
+}
+
+/** '#' lines of the run manifest: core, scene format, backend and its physics version, constant set, scene hash. */
+export function runManifestLines(rec: Recording): string[] {
+  try {
+    // rigid-body scenes keep the Coulomb constant of 26.55 (CODATA 2018) so that their fingerprints stay (D97, D100)
+    const m = manifest('rigid', JSON.stringify(rec.scene), 'CODATA2018')
+    return [tl('运行清单: 核心 {0}; 场景格式 {1}; 后端 {2}（物理版本 {3}，{4}）; 常数 {6}; 场景 SHA-256 {5}', [m.core, m.sceneFormat, m.backend, m.physicsVersion ?? '—', m.solver ?? '—', m.inputSha256 ?? '—', m.constantsSet])]
+  } catch {
+    return []
+  }
 }
 
 /** Default columns: every body's position, velocity and acceleration plus the watch list and energies. */

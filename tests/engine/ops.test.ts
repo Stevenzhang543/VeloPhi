@@ -50,7 +50,7 @@ describe('calculation operations', () => {
     expect([...session].sort()).toEqual([...docOps('Session operations')].sort())
     expect([...stateless].sort()).toEqual([...docOps('Stateless operations')].sort())
     expect([...labs].sort()).toEqual([...docOps('Lab operations')].sort())
-    expect(labs.size).toBe(28)
+    expect(labs.size).toBe(29)
   })
 
   it('every operation the front end sends exists', () => {

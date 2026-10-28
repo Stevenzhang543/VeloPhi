@@ -7,3 +7,4 @@ releases/
 *.log
 .verity-workspace
 engine/target/
+__pycache__/
