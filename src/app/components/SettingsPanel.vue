@@ -191,7 +191,7 @@ const reducedFrom = computed(() => rec.value?.reducedFrom ?? null)
         <template #badge><span v-if="!rec.completed && !(rec.unbounded && state.computing)" class="badge warn">{{ tl('未完成') }}</span><span v-if="rec.unbounded && state.computing" class="badge info">{{ tl('持续计算') }}</span><span v-if="reducedFrom !== null" class="badge warn">{{ tl('精度降级') }}</span></template>
         <div class="group stats small">
           <div class="row"><label>{{ tl('计算引擎') }}</label><span>{{ engineText }}</span></div>
-          <div class="row"><label>{{ tl('已算到') }}</label><span class="mono">t = {{ fmtQ(state.run.tComputed || (rec.frameCount - 1) * rec.dt, 's', 5) }}<template v-if="state.run.paused">{{ tl('（领先播放位置，暂停中）') }}</template></span></div>
+          <div class="row"><label>{{ tl('已计算至') }}</label><span class="mono">t = {{ fmtQ(state.run.tComputed || (rec.frameCount - 1) * rec.dt, 's', 5) }}<template v-if="state.run.paused">{{ tl('（领先播放位置，暂停中）') }}</template></span></div>
           <div v-if="state.run.speed > 0" class="row"><label>{{ tl('计算速度') }}</label><span class="mono">{{ tl('{0} × 实时', [state.run.speed >= 100 ? state.run.speed.toFixed(0) : state.run.speed.toPrecision(3)]) }}</span></div>
           <div v-if="rec.unbounded" class="row"><label>{{ tl('记录内存') }}</label><span class="mono">{{ MB(state.run.memoryBytes) }} / {{ settings.sim.memoryMB }} MB</span></div>
           <div v-if="rec.unbounded" class="row"><label>{{ tl('计算块') }}</label><span class="mono">{{ tl('在内存 {0} / 共 {1}，检查点 {2}，已重算 {3}', [state.run.residentChunks, state.run.chunks, state.run.checkpoints, state.run.rebuilds]) }}</span></div>

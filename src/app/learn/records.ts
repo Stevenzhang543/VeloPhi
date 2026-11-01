@@ -7,6 +7,8 @@ import { reactive, watch } from 'vue'
 import { settings } from '../settings'
 import { emptyRecords, loadRecords, saveRecords, markVisited, unmarkVisited, addAttempt, activityProgress, stepProgress, exportRecords, clearRecords } from '../../teaching/records'
 import type { AttemptRecord, KeyStore, LearningRecords } from '../../teaching/records'
+import { ENGINE_VERSION } from '../../core/scene/types'
+import { PACKAGE_CONTENT_VERSION } from '../../content/packages'
 
 const store: KeyStore | null = typeof localStorage !== 'undefined' ? localStorage : null
 
@@ -36,7 +38,7 @@ export function isVisited(key: string): boolean { initRecords(); return key in r
 export function recordAttempt(a: AttemptRecord) { initRecords(); addAttempt(records, a) }
 export function progressOfActivity(id: string) { initRecords(); return activityProgress(records, id) }
 export function progressOfStep(key: string, activities: string[]) { initRecords(); return stepProgress(records, key, activities) }
-export function exportJson(): string { initRecords(); return exportRecords(records, { app: 'VeloPhi' }) }
+export function exportJson(): string { initRecords(); return exportRecords(records, { app: 'VeloPhi', appVersion: ENGINE_VERSION, contentVersion: PACKAGE_CONTENT_VERSION }) }
 
 /** Clear everything (the learner asked for it). */
 export function clearAll() {

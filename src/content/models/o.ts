@@ -64,7 +64,7 @@ export const MODELS_O: ModelSpec[] = [
     example: { text: T('凸透镜 f = 0.1 m，实物距 u = 0.3 m。', 'A converging lens f = 0.1 m, real object at u = 0.3 m.', 'Sammellinse f = 0,1 m, reeller Gegenstand bei u = 0,3 m.'), answer: T('像距 v = 0.15 m，放大率 −0.5，为倒立缩小实像。', 'v = 0.15 m, magnification −0.5: a real, inverted, smaller image.', 'v = 0,15 m, Vergrößerung −0,5: reelles, umgekehrtes, verkleinertes Bild.') },
     point: T('统一符号约定；焦点处像在无穷远，不是数值崩溃。', 'Use one sign convention; at the focus the image is at infinity, not a numerical failure.', 'Eine Vorzeichenregel nutzen; im Brennpunkt liegt das Bild im Unendlichen, kein numerischer Fehler.'),
     status: 'verified', level: 2, teaching: 1, references: ['analytic', 'otherMethod'], benchmarks: ['oracle:O04', 'rust:src/labs/optics.rs thin_lens_and_mirror_formula'],
-    links: { labs: ['lens'] }, review: R2
+    links: { activities: ['act-lens'], labs: ['lens'] }, review: R2
   },
   {
     id: 'O05', title: T('球面镜成像', 'Spherical mirrors', 'Kugelspiegel'),

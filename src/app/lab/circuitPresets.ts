@@ -231,6 +231,18 @@ export const PRESETS: Record<string, Preset> = {
 }
 
 /** Elements with ids and names (E1, R1 …). */
+/**
+ * 26.57 (D116): the circuit of a task — a source (E, r), R1 and R2 in series or in parallel and an ideal ammeter in
+ * the main branch — laid out like the series and parallel presets.
+ */
+export function taskCircuit(series: boolean, E: number, r: number, R1: number, R2: number): El[] {
+  const bat = el('battery', [-4, 2], [-4, -2], { E, r })
+  const list = series
+    ? [bat, el('wire', [-4, 2], [-2, 2]), el('resistor', [-2, 2], [1, 2], { R: R1 }), el('wire', [1, 2], [4, 2]), el('resistor', [4, 2], [4, -2], { R: R2 }), el('ammeter', [4, -2], [0, -2]), el('wire', [0, -2], [-4, -2])]
+    : [bat, el('wire', [-4, 2], [0, 2]), el('resistor', [0, 2], [0, -2], { R: R1 }), el('wire', [0, 2], [3, 2]), el('resistor', [3, 2], [3, -2], { R: R2 }), el('wire', [3, -2], [0, -2]), el('ammeter', [0, -2], [-4, -2])]
+  return named(list)
+}
+
 export function named(list: Raw[]): El[] {
   const count: Record<string, number> = {}
   return list.map((e, i) => {

@@ -3,6 +3,7 @@
  * Watch panel: all readings of the selected body at the current frame, and the scene's watch list (values in
  * display units). Values follow `state.panelFrame` only while the panel is visible (`active`).
  */
+import { quantityNote } from '../../analysis/quantityNote'
 import { tl, paren } from '../../i18n'
 import { computed, ref } from 'vue'
 import { state, edit, problemLocked } from '../store'
@@ -151,7 +152,7 @@ function removeCustom(id: string) {
       <Section v-if="readings" id="watch.readings" class="readings" :title="tl('{0} · 当前时刻读数', [readings.name])">
         <div class="grid">
           <template v-for="r in readings.items" :key="r.q.id">
-            <span class="small muted" :title="r.q.id">{{ r.q.label }}<template v-if="r.q.id.startsWith('contact.')">{{ paren(r.q.owner) }}</template></span>
+            <span class="small muted" :title="quantityNote(r.q) ? tl(quantityNote(r.q)) : r.q.id">{{ r.q.label }}<template v-if="r.q.id.startsWith('contact.')">{{ paren(r.q.owner) }}</template></span>
             <span class="mono small val">{{ fmtNum(r.v, r.q.unit) }} <span class="unit">{{ unitLabel(r.q.unit) }}</span></span>
             <button class="btn icon ghost tiny-btn" :title="tl('加入监视')" :disabled="watched.has(r.q.id) || r.q.id.endsWith('.Lc')" @click="picking = r.q.id; add()"><Icon name="plus" :size="13" /></button>
           </template>
@@ -175,6 +176,7 @@ function removeCustom(id: string) {
             <Tex v-if="qOf(id)" :tex="qOf(id)!.symbol" />
             <span class="small" :title="id">{{ qOf(id)?.label ?? id }}</span>
             <span class="tiny muted">{{ qOf(id)?.owner ?? tl('（本场景中没有这个量）') }}</span>
+            <span v-if="qOf(id) && quantityNote(qOf(id)!)" class="tiny muted qnote">{{ tl(quantityNote(qOf(id)!)) }}</span>
           </div>
           <div class="value mono">
             <template v-if="state.stale">—</template>
@@ -234,6 +236,7 @@ function removeCustom(id: string) {
 .list { display: flex; flex-direction: column; gap: 6px; }
 .item { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; background: var(--group); border-radius: var(--radius-group); padding: 6px 8px 6px 10px; }
 .name { display: flex; flex-direction: column; min-width: 0; }
+.qnote { line-height: 1.3; }
 .value { font-size: var(--type-title); font-weight: 600; text-align: right; white-space: nowrap; }
 .unit { font-size: var(--type-tiny); color: var(--text-3); margin-left: 4px; font-weight: 400; }
 .ops { display: flex; gap: 2px; }

@@ -69,6 +69,8 @@ export interface DrawOptions {
   strobe?: boolean; strobeInterval?: number; strobeCount?: number; strobeOpacity?: number; strobeLabels?: boolean
   /** 26.54 (D78–D79): symbols of the uniform fields (absent: on), field lines and equipotentials of the charges. */
   fields?: boolean; fieldLines?: boolean; equipotentials?: boolean
+  /** 26.57 (D119, manual §4.3 item 3): each contact point's normal force N1, N2 … instead of their sum (absent: the sum). */
+  contactPoints?: boolean
 }
 
 /** Extra drawing passes around the bodies (purely visual effects). */
@@ -311,21 +313,64 @@ export function tag(ctx: CanvasRenderingContext2D, x: number, y: number, text: s
 export interface LabelBox { x: number; y: number; w: number; h: number }
 
 /**
- * A label like `tag`, moved up or down in steps of one line until it no longer covers a label placed before it
- * (26.53: force labels at a shared contact point used to print over each other). The rectangle is added to
- * `placed`; when no free place is found within four lines either way the label goes where it was asked.
+ * A label like `tag`, moved until it covers neither a label placed before it nor an obstacle (26.53: force labels at
+ * a shared contact point used to print over each other; 26.57, D119: the bodies are obstacles too, so a value does
+ * not hide the block or its angle). It is tried one line up or down at a time, then on the other side of its anchor;
+ * a label that had to move away from its arrow gets a thin leader line back to the arrow's tip. The rectangle is
+ * added to `placed`; when no free place is found the label goes where it was asked.
  */
-export function placeTag(ctx: CanvasRenderingContext2D, placed: LabelBox[], x: number, y: number, text: string, color: string, P: Palette, fontSpec = font(12)) {
+export function placeTag(ctx: CanvasRenderingContext2D, placed: LabelBox[], x: number, y: number, text: string, color: string, P: Palette, fontSpec = font(12), opts: { anchor?: [number, number]; obstacles?: LabelBox[] } = {}) {
   ctx.font = fontSpec
   const w = ctx.measureText(text).width + 6
   const m = /(\d+(?:\.\d+)?)px/.exec(fontSpec)
   const h = (m ? parseFloat(m[1]) : 12) + 4
-  const free = (yy: number) => placed.every(r => x - 3 >= r.x + r.w || x - 3 + w <= r.x || yy - h + 4 >= r.y + r.h || yy + 4 <= r.y)
-  let yy = y
-  for (let k = 1; k <= 8 && !free(yy); k++) yy = y + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * (h + 1)
-  if (!free(yy)) yy = y
-  placed.push({ x: x - 3, y: yy - h + 4, w, h })
-  tag(ctx, x, yy, text, color, P, fontSpec)
+  const pos = tagPosition(placed, opts.obstacles ?? [], x, y, w, h, opts.anchor)
+  placed.push({ x: pos.x - 3, y: pos.y - h + 4, w, h })
+  if (opts.anchor && Math.hypot(pos.x - x, pos.y - y) > 1.2 * h) {
+    // leader line from the arrow's tip to the nearest point of the moved label
+    const bx = Math.max(pos.x - 3, Math.min(opts.anchor[0], pos.x - 3 + w)), by = Math.max(pos.y - h + 4, Math.min(opts.anchor[1], pos.y + 4))
+    ctx.save()
+    ctx.strokeStyle = color
+    ctx.globalAlpha = 0.55
+    ctx.lineWidth = 1
+    ctx.beginPath(); ctx.moveTo(opts.anchor[0], opts.anchor[1]); ctx.lineTo(bx, by); ctx.stroke()
+    ctx.restore()
+  }
+  tag(ctx, pos.x, pos.y, text, color, P, fontSpec)
+}
+
+/**
+ * Where a w × h label asked at (x, y) goes (26.57, D119; pure, tested): the first position free of the labels and
+ * obstacles among one line up or down at a time (up to four lines either way), then the same on the other side of
+ * the anchor (or of x); the asked position when none is free.
+ */
+export function tagPosition(placed: LabelBox[], obstacles: LabelBox[], x: number, y: number, w: number, h: number, anchor?: [number, number]): { x: number; y: number } {
+  const overlaps = (r: LabelBox, xx: number, yy: number) => !(xx - 3 >= r.x + r.w || xx - 3 + w <= r.x || yy - h + 4 >= r.y + r.h || yy + 4 <= r.y)
+  const free = (xx: number, yy: number) => placed.every(r => !overlaps(r, xx, yy)) && obstacles.every(r => !overlaps(r, xx, yy))
+  const ax = anchor ? anchor[0] : x
+  const sides = [x, ax - (x - ax) - w]
+  for (const xx of sides) {
+    for (let k = 0; k <= 8; k++) {
+      const yy = k === 0 ? y : y + (k % 2 ? 1 : -1) * Math.ceil(k / 2) * (h + 1)
+      if (free(xx, yy)) return { x: xx, y: yy }
+    }
+  }
+  return { x, y }
+}
+
+/** Screen rectangle of a body at a pose (an obstacle for the value labels, 26.57). */
+export function bodyBox(b: BodyModel, pose: Pose, cam: Camera): LabelBox {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
+  const add = (lx: number, ly: number, r = 0) => {
+    const wx = pose.x + pose.c * lx - pose.s * ly, wy = pose.y + pose.s * lx + pose.c * ly
+    x0 = Math.min(x0, wx - r); x1 = Math.max(x1, wx + r); y0 = Math.min(y0, wy - r); y1 = Math.max(y1, wy + r)
+  }
+  if (b.shape.kind === 'circle') add(0, 0, b.shape.radius)
+  else if (b.shape.kind === 'polygon') for (const v of b.shape.verts) add(v.x, v.y)
+  else for (const p of b.shape.outline) { if (p.kind === 'circle') add(p.center.x, p.center.y, p.radius); else for (const v of p.verts) add(v.x, v.y) }
+  if (!Number.isFinite(x0)) add(0, 0)
+  const [sx0, sy0] = toScreen(cam, x0, y1), [sx1, sy1] = toScreen(cam, x1, y0)
+  return { x: sx0, y: sy0, w: sx1 - sx0, h: sy1 - sy0 }
 }
 
 function drawSpring(ctx: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number, color: string, ppm: number) {
@@ -417,6 +462,50 @@ export function forceLabelOfKind(kind: ForceKind | 'other'): string {
 /** Forces acting on a body (computed in the core with the frame view: gravity, contacts, connectors, applied forces). */
 export function bodyForces(input: Pick<DrawInput, 'view' | 'palette'>, b: BodyModel): ForceArrow[] {
   return (input.view.forces.get(b.global) ?? []).map(f => ({ x: f.x, y: f.y, fx: f.fx, fy: f.fy, kind: f.kind, color: forceColor(f.kind, input.palette), label: forceLabel(f.label) }))
+}
+
+/**
+ * The arrows drawn on one body (26.57; D72 and D119, pure, tested): with the overlay on, all its forces — the contact
+ * points summed unless `contactPoints`; with a hovered formula or variable, its force kinds are lit (and drawn even
+ * when the overlay is off).
+ */
+export function arrowsOfBody<T extends { x: number; y: number; fx: number; fy: number; kind: ForceKind; label: string }>(raw: T[], o: { overlay: boolean; lit: readonly ForceKind[] | null; contactPoints: boolean }): Array<SummedForce<T> & { lit: boolean }> {
+  const list = o.contactPoints ? raw.map(r => ({ ...r, points: 1 })) : sumContactPoints(raw)
+  const out: Array<SummedForce<T> & { lit: boolean }> = []
+  for (const f of list) {
+    const lit = !!o.lit && o.lit.includes(f.kind)
+    if (o.overlay || lit) out.push({ ...f, lit })
+  }
+  return out
+}
+
+/** A force arrow with the number of contact points it sums (1 for a single force). */
+export type SummedForce<T> = T & { points: number }
+
+/**
+ * The normal forces of one contact at several points (N1, N2 … of the core, one run from N1 per contact) summed into
+ * one N at the magnitude-weighted centre of the points — the teaching summary of manual §4.3 item 3 (26.57, D119; the
+ * core's free-body diagram sums them the same way, teaching.rs). Other forces are kept as they are; a sum is never
+ * shown together with its parts, so no force is counted twice.
+ */
+export function sumContactPoints<T extends { x: number; y: number; fx: number; fy: number; kind: string; label: string }>(forces: T[]): Array<SummedForce<T>> {
+  const out: Array<SummedForce<T>> = []
+  const numbered = (f: T) => f.kind === 'normal' && /^N\d+$/.test(f.label)
+  let i = 0
+  while (i < forces.length) {
+    const a = forces[i]
+    if (!numbered(a)) { out.push({ ...a, points: 1 }); i++; continue }
+    let j = i, fx = 0, fy = 0, wx = 0, wy = 0, w = 0, sx = 0, sy = 0
+    while (j < forces.length && numbered(forces[j]) && (j === i || forces[j].label !== 'N1')) {
+      const f = forces[j], m = Math.hypot(f.fx, f.fy)
+      fx += f.fx; fy += f.fy; wx += f.x * m; wy += f.y * m; w += m; sx += f.x; sy += f.y
+      j++
+    }
+    const n = j - i
+    out.push({ ...a, label: 'N', fx, fy, x: w > 0 ? wx / w : sx / n, y: w > 0 ? wy / w : sy / n, points: n })
+    i = j
+  }
+  return out
 }
 
 // Static bodies first, then dynamic ones, in scene order (cached per model: no per-frame sort)
@@ -738,8 +827,19 @@ export function drawScene(ctx: CanvasRenderingContext2D, cam: Camera, input: Dra
   // arrow covers a label drawn before it)
   const valueFont = font(11, MONO)
   const forceLabels: LabelBox[] = []
-  const pendingTags: Array<[number, number, string, string]> = []
-  const later = (x: number, y: number, text: string, color: string) => { pendingTags.push([x, y, text, color]) }
+  const pendingTags: Array<[number, number, string, string, [number, number] | undefined]> = []
+  const later = (x: number, y: number, text: string, color: string, anchor?: [number, number]) => { pendingTags.push([x, y, text, color, anchor]) }
+  // 26.57 (D119): the moving bodies and their names are obstacles for the value labels
+  const obstacles: LabelBox[] = input.editing ? [] : model.dynamic.map(b => bodyBox(b, poses[b.global], cam))
+  if (options.names && !input.editing) {
+    ctx.font = font(12)
+    for (const b of model.dynamic) {
+      const pose = poses[b.global]
+      const [sx] = toScreen(cam, pose.x, pose.y), [, ty] = toScreen(cam, pose.x, bodyTop(b, pose))
+      const w = ctx.measureText(b.name).width
+      obstacles.push({ x: sx - w / 2 - 2, y: ty - 6 - fpx(12), w: w + 4, h: fpx(12) + 4 })
+    }
+  }
   for (const b of model.dynamic) {
     const pose = poses[b.global]
     const [sx, sy] = toScreen(cam, pose.x, pose.y)
@@ -751,7 +851,7 @@ export function drawScene(ctx: CanvasRenderingContext2D, cam: Camera, input: Dra
       arrow(ctx, sx, sy, sx + vx * input.scales.v, sy - vy * input.scales.v, P.velocity, litV ? 3.2 : 2.2, input.editing)
       ctx.restore()
       const speed = Math.sqrt(vx * vx + vy * vy)
-      if (speed * input.scales.v > 14 && !input.editing) later(sx + vx * input.scales.v + 4, sy - vy * input.scales.v - 4, `v = ${q(speed, 'm/s', input.digits)}`, P.velocity)
+      if (speed * input.scales.v > 14 && !input.editing) later(sx + vx * input.scales.v + 4, sy - vy * input.scales.v - 4, `v = ${q(speed, 'm/s', input.digits)}`, P.velocity, [sx + vx * input.scales.v, sy - vy * input.scales.v])
     }
     if (options.acceleration && view.acc) {
       const ax = view.acc[3 * b.index], ay = view.acc[3 * b.index + 1]
@@ -760,7 +860,7 @@ export function drawScene(ctx: CanvasRenderingContext2D, cam: Camera, input: Dra
       const len = am * input.scales.a, maxLen = 0.3 * Math.min(cam.width, cam.height), k = len > maxLen ? maxLen / len : 1
       const x1 = sx + ax * input.scales.a * k, y1 = sy - ay * input.scales.a * k
       arrow(ctx, sx, sy, x1, y1, P.acceleration, 2.2)
-      if (len > 14) later(x1 + 4, y1 + fpx(14), `a = ${q(am, 'm/s²', input.digits)}${k < 1 ? tl('（箭头已缩短）') : ''}`, P.acceleration)
+      if (len > 14) later(x1 + 4, y1 + fpx(14), `a = ${q(am, 'm/s²', input.digits)}${k < 1 ? tl('（箭头已缩短）') : ''}`, P.acceleration, [x1, y1])
     }
   }
   const arrowsDrawn: ForceHit[] = []
@@ -770,9 +870,8 @@ export function drawScene(ctx: CanvasRenderingContext2D, cam: Camera, input: Dra
     const targets = model.dynamic.filter(b => (options.forces && (options.forcesAll || b.id === input.selectedId)) || (litForces && litForces.bodies.includes(b.id)))
     for (const b of targets) {
       const overlay = options.forces && (options.forcesAll || b.id === input.selectedId)
-      for (const f of bodyForces(input, b)) {
-        const lit = !!litForces && litForces.bodies.includes(b.id) && litForces.forces.includes(f.kind)
-        if (!overlay && !lit) continue
+      for (const f of arrowsOfBody(bodyForces(input, b), { overlay: !!overlay, lit: litForces && litForces.bodies.includes(b.id) ? litForces.forces : null, contactPoints: !!options.contactPoints })) {
+        const lit = f.lit
         const [x0, y0] = toScreen(cam, f.x, f.y)
         // Very large forces are drawn shortened (the label keeps the true value)
         const len = Math.hypot(f.fx, f.fy) * input.scales.f, maxLen = 0.3 * Math.min(cam.width, cam.height)
@@ -784,12 +883,12 @@ export function drawScene(ctx: CanvasRenderingContext2D, cam: Camera, input: Dra
         ctx.restore()
         arrowsDrawn.push({ body: b.id, kind: f.kind, x0, y0, x1, y1 })
         const mag = Math.sqrt(f.fx * f.fx + f.fy * f.fy)
-        if (mag * input.scales.f > 5) later(x1 + 4, y1 + (f.fy > 0 ? -4 : fpx(14)), `${f.label} = ${q(mag, 'N', input.digits)}${k < 1 ? tl('（箭头已缩短）') : ''}`, f.color)
+        if (mag * input.scales.f > 5) later(x1 + 4, y1 + (f.fy > 0 ? -4 : fpx(14)), `${f.label} = ${q(mag, 'N', input.digits)}${f.points > 1 ? tl('（{n} 处接触合计）', { n: f.points }) : ''}${k < 1 ? tl('（箭头已缩短）') : ''}`, f.color, [x1, y1])
       }
     }
   }
   forceHits.set(ctx.canvas, arrowsDrawn)
-  for (const [x, y, text, color] of pendingTags) placeTag(ctx, forceLabels, x, y, text, color, P, valueFont)
+  for (const [x, y, text, color, anchor] of pendingTags) placeTag(ctx, forceLabels, x, y, text, color, P, valueFont, { anchor, obstacles })
   // 26.53 (D72): the angle of a surface (θ of an incline) at the body's main contact
   if (hl && hl.angle.length && view.forces.size) {
     for (const b of model.dynamic) {

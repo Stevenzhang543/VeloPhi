@@ -29,7 +29,7 @@ export const MODELS_M2: ModelSpec[] = [
     example: { text: T('m1 = 1 kg 以 3 m/s 碰向静止的 m2 = 2 kg，正碰完全弹性。', 'm1 = 1 kg at 3 m/s hits a resting m2 = 2 kg head-on, perfectly elastic.', 'm1 = 1 kg mit 3 m/s stößt gerade und vollkommen elastisch auf ruhende m2 = 2 kg.'), answer: T('v1 = −1 m/s，v2 = 2 m/s；总动能仍为 4.5 J。', 'v1 = −1 m/s, v2 = 2 m/s; the kinetic energy stays 4.5 J.', 'v1 = −1 m/s, v2 = 2 m/s; die kinetische Energie bleibt 4,5 J.') },
     point: T('守恒定律用于同一封闭系统；恢复系数不是额外的能量来源。', 'Conservation laws apply to one closed system; restitution is no extra source of energy.', 'Erhaltungssätze gelten für ein abgeschlossenes System; die Stoßzahl ist keine zusätzliche Energiequelle.'),
     status: 'verified', level: 2, teaching: 1, references: ['analytic'], benchmarks: ['oracle:M17', 'test:acceptance 4 collisions'],
-    links: { situations: ['collision'], topics: ['momentum'] }, review: R2
+    links: { activities: ['act-collision'], situations: ['collision'], topics: ['momentum'] }, review: R2
   },
   {
     id: 'M18', title: T('完全非弹性碰撞', 'Perfectly inelastic collision', 'Vollkommen unelastischer Stoß'),

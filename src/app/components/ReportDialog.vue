@@ -8,6 +8,7 @@
  * Mounted by App.vue while `state.showReport` is true (and a recording exists); closes itself by setting the
  * flag to false. No props, no emits.
  */
+import { vDialog } from '../focusTrap'
 import { tl, listSep, paren, commaSep, stripLabel, activeLang } from '../../i18n'
 import { exportSituations, inExportLanguage } from '../exportLang'
 import { msgText } from '../../i18n/locale'
@@ -280,7 +281,7 @@ function close() { if (!busy.value) state.showReport = false }
 
 <template>
   <div class="dialog-backdrop" @mousedown.self="close">
-    <div class="dialog report">
+    <div v-dialog="close" class="dialog report" role="dialog" :aria-label="tl('实验报告')">
       <div class="dialog-header"><Icon name="file" :size="18" />{{ tl('实验报告') }}<span class="spacer" /><button class="btn icon ghost" :disabled="busy" :title="tl('关闭')" @click="close"><Icon name="close" /></button></div>
       <div v-if="!rec" class="dialog-body"><div class="empty">{{ tl('请先运行仿真（结果需与当前场景一致）。') }}</div></div>
       <div v-else class="dialog-body">

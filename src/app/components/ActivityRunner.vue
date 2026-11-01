@@ -8,6 +8,8 @@
  *
  * Mounted by App.vue while `state.activity` names an activity.
  */
+import { PACKAGE_CONTENT_VERSION } from '../../content/packages'
+import { ENGINE_VERSION } from '../../core/scene/types'
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { dialogKeys } from '../focusTrap'
 import { tl, activeLang } from '../../i18n'
@@ -170,7 +172,9 @@ function finish() {
     items: itemRecords(act.value.questions),
     transfer: itemRecords(act.value.transfer.questions),
     dims: dims.value,
-    mastery: mastery.value
+    mastery: mastery.value,
+    contentVersion: PACKAGE_CONTENT_VERSION,
+    appVersion: ENGINE_VERSION
   }
   recordAttempt(saved)
   visit(`activity:${act.value.id}`)

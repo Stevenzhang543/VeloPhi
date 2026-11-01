@@ -37,9 +37,12 @@ const CommandPalette = defineAsyncComponent(() => import('./components/CommandPa
 const ActivityRunner = defineAsyncComponent(() => import('./components/ActivityRunner.vue'))
 const ModelCatalog = defineAsyncComponent(() => import('./components/models/ModelCatalog.vue'))
 import ProblemPanel from './components/ProblemPanel.vue'
+// 26.57 (D114): the task panel
+import TaskPanel from './components/task/TaskPanel.vue'
 import PredictionPanel from './components/PredictionPanel.vue'
 import { editor } from './editor/editorState'
 import MonitorPage from './components/MonitorPage.vue'
+import CanvasPins from './components/task/CanvasPins.vue'
 // 26.55 (D97): the lab and settings pages load on their first visit (smaller start-up bundle)
 const SettingsPage = defineAsyncComponent(() => import('./components/SettingsPage.vue'))
 const LabPage = defineAsyncComponent(() => import('./components/lab/LabPage.vue'))
@@ -167,7 +170,7 @@ function dragSplit(kind: 'bottom' | 'right', e: MouseEvent) {
  * and scene — plus the problem tab in problem mode. `state.rightTab` keeps naming the panel shown; the top tab and
  * the analysis page are derived from it and remembered in the settings.
  */
-type TopTab = 'problem' | 'analysis' | 'inspect' | 'settings'
+type TopTab = 'problem' | 'task' | 'analysis' | 'inspect' | 'settings'
 const ANALYSIS = ['formula', 'watch', 'predict'] as const
 const isAnalysis = (t: typeof state.rightTab): t is (typeof ANALYSIS)[number] => (ANALYSIS as readonly string[]).includes(t)
 const topTab = computed<TopTab>(() => (isAnalysis(state.rightTab) ? 'analysis' : state.rightTab))
@@ -175,6 +178,8 @@ const topTab = computed<TopTab>(() => (isAnalysis(state.rightTab) ? 'analysis' :
 const RIGHT_TABS = computed((): Array<{ id: TopTab; label: string }> => [
   // The problem tab exists while a problem is open (26.52, D40)
   ...(state.problem ? [{ id: 'problem' as const, label: tl('题目') }] : []),
+  // 26.57 (D114): what is studied, known and asked, in one stable place
+  { id: 'task', label: tl('任务') },
   { id: 'analysis', label: tl('分析') }, { id: 'inspect', label: tl('属性') }, { id: 'settings', label: tl('场景') }
 ])
 const ANALYSIS_TABS = computed(() => [{ id: 'formula' as const, label: tl('公式') }, { id: 'watch' as const, label: tl('监视') }, { id: 'predict' as const, label: tl('预测') }])
@@ -198,7 +203,7 @@ watch(() => state.problem, p => { if (!p && state.rightTab === 'problem') state.
         <div class="page page-studio" :class="[pageClass('studio'), { rail: railOn, narrow, 'drawer-open': drawerOpen }]" :inert="!studioOn">
           <aside class="left"><LeftPanel /></aside>
           <main class="center">
-            <div class="view"><Viewport variant="studio" /></div>
+            <div class="view"><Viewport variant="studio" /><CanvasPins /></div>
             <div class="split-h" @mousedown.prevent="dragSplit('bottom', $event)" />
             <section class="pane bottom">
               <Timeline :active="studioOn" />
@@ -216,7 +221,7 @@ watch(() => state.problem, p => { if (!p && state.rightTab === 'problem') state.
           <button v-if="narrow" class="drawer-btn btn small" :aria-expanded="drawerOpen" :title="drawerOpen ? tl('收起面板') : tl('分析、属性与场景')" @click="drawerOpen = !drawerOpen"><Icon :name="drawerOpen ? 'close' : 'sidebar'" :size="14" />{{ drawerOpen ? tl('收起') : tl('面板') }}</button>
           <aside class="pane right">
             <div class="right-head">
-              <div v-slide-indicator class="tabs" :class="{ four: !!state.problem }" role="tablist">
+              <div v-slide-indicator class="tabs" :class="{ four: true, five: !!state.problem }" role="tablist">
                 <button v-for="t in RIGHT_TABS" :key="t.id" role="tab" :aria-selected="topTab === t.id" :class="{ on: topTab === t.id }" @click="openTop(t.id)">{{ t.label }}</button>
               </div>
               <!-- Second level of the analysis tab (D86) -->
@@ -226,6 +231,7 @@ watch(() => state.problem, p => { if (!p && state.rightTab === 'problem') state.
             </div>
             <div class="tab-stack">
               <div v-if="state.problem" class="tab-panel" :class="tabClass(state.rightTab === 'problem')" :inert="state.rightTab !== 'problem'"><ProblemPanel /></div>
+              <div class="tab-panel" :class="tabClass(state.rightTab === 'task')" :inert="state.rightTab !== 'task'"><TaskPanel /></div>
               <div class="tab-panel" :class="tabClass(state.rightTab === 'formula')" :inert="state.rightTab !== 'formula'"><FormulaPanel :active="studioOn && state.rightTab === 'formula'" /></div>
               <div class="tab-panel" :class="tabClass(state.rightTab === 'inspect')" :inert="state.rightTab !== 'inspect'"><Inspector /></div>
               <div class="tab-panel" :class="tabClass(state.rightTab === 'watch')" :inert="state.rightTab !== 'watch'"><WatchPanel :active="studioOn && state.rightTab === 'watch'" /></div>
@@ -279,7 +285,7 @@ watch(() => state.problem, p => { if (!p && state.rightTab === 'problem') state.
 /* Icon rail of the tool palette (D56) */
 .page-studio.rail { --left-w: calc(56px * var(--zoom)); }
 .center { grid-area: center; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
-.view { flex: 1; min-height: 160px; }
+.view { flex: 1; min-height: 160px; position: relative; }
 .split-h { height: 8px; cursor: row-resize; flex: 0 0 auto; }
 .split-v { grid-area: splitv; cursor: col-resize; margin: 0 -4px; }
 .bottom { height: var(--bottom-h); flex: 0 0 auto; }
@@ -291,6 +297,7 @@ watch(() => state.problem, p => { if (!p && state.rightTab === 'problem') state.
 .right-head { padding: 10px 10px 6px; container-type: inline-size; }
 /* Three tabs (four in problem mode) and the analysis switch below them (D86) */
 .right-head .tabs.four button { flex: 1 1 auto; padding: 0 3px; }
+.right-head .tabs.five button { font-size: var(--type-tiny); padding: 0 2px; }
 @container (max-width: 300px) { .right-head .tabs button { font-size: var(--type-tiny); padding: 0 2px; } }
 .subtabs { display: flex; gap: 2px; margin-top: 6px; position: relative; }
 .subtabs button { flex: 1; border: 0; background: none; color: var(--text-2); font-size: var(--type-small); padding: 3px 4px; border-radius: 6px; cursor: pointer; border-bottom: 2px solid transparent; }

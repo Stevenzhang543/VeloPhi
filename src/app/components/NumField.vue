@@ -7,7 +7,8 @@
  * Shows full precision while editing, validates on commit (Enter / blur), and emits only finite values inside
  * [min, max] (SI). Arrow keys step by `step` (SI; default: a tenth of the shown magnitude, 1° for angles).
  * Continuous adjustment (D47): drag the unit label (or the grip) left and right — Shift for fine, Ctrl for coarse
- * — or turn the mouse wheel over the focused field. Values are never rounded to the step.
+ * — or turn the mouse wheel over the field with Alt held (26.57: the wheel alone scrolls). Values are never rounded
+ * to the step.
  * 26.56 (D99): `kind` names the kind when the SI unit alone is ambiguous (K as a temperature difference: no offset).
  */
 import { tl } from '../../i18n'
@@ -16,6 +17,7 @@ import { kindOf } from '../../units/units'
 import type { UnitKind } from '../../units/units'
 import { fromDispK, toDispK, unitLabelK } from '../settings'
 import { beginEditGesture, endEditGesture } from '../store'
+import { wheelSteps } from '../numWheel'
 
 const props = withDefaults(defineProps<{ modelValue: number; unit?: string; kind?: UnitKind; label?: string; min?: number; max?: number; scale?: number; step?: number; disabled?: boolean; width?: string }>(), { unit: '', scale: 1, disabled: false, width: '100%' })
 const emit = defineEmits<{ (e: 'update:modelValue', v: number): void }>()
@@ -128,12 +130,16 @@ function scrubUp(e: PointerEvent) {
   endEditGesture()
 }
 
+/**
+ * The wheel changes the value only with Alt held (26.57, T21; manual §7.5: a parameter must not change because the
+ * pointer rested on its field while the panel was scrolled). Without Alt the wheel scrolls the page as usual.
+ */
 function wheel(e: WheelEvent) {
-  if (!focused.value || props.disabled) return
+  const n = wheelSteps(e, props.disabled)
+  if (n === null) return
   e.preventDefault()
   const v = parse(text.value) ?? toShown(props.modelValue)
-  const k = e.shiftKey ? 0.1 : e.ctrlKey || e.metaKey ? 10 : 1
-  setShown(v + (e.deltaY < 0 ? 1 : -1) * shownStep(v) * k)
+  setShown(v + n * shownStep(v))
 }
 
 function key(e: KeyboardEvent) {
@@ -153,7 +159,7 @@ function key(e: KeyboardEvent) {
   <span class="numfield" :class="{ 'has-unit': !!shownLabel, [`bump-${bump}`]: !!bump }" :style="{ width }" :title="message">
     <input class="field mono" :class="{ invalid }" :value="text" :disabled="disabled" inputmode="decimal" :aria-invalid="invalid"
       @input="text = ($event.target as HTMLInputElement).value" @focus="focused = true" @blur="focused = false; commit()" @keydown="key" @wheel="wheel" />
-    <span class="scrub" :class="{ on: scrubbing, bare: !shownLabel }" :title="tl('左右拖动连续调节（Shift 细调，Ctrl 粗调）')"
+    <span class="scrub" :class="{ on: scrubbing, bare: !shownLabel }" :title="tl('左右拖动连续调节（Shift 细调，Ctrl 粗调）；按住 Alt 滚动滚轮也可调节')"
       @pointerdown="scrubDown" @pointermove="scrubMove" @pointerup="scrubUp" @pointercancel="scrubUp">{{ shownLabel || '⇔' }}</span>
     <span v-if="invalid && message" class="msg">{{ message }}</span>
   </span>

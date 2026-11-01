@@ -131,7 +131,7 @@ fn field_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()> {
                     let mut vars = vec![
                         ("q", var(q, "C", "q", t!("电荷量"))),
                         ("m", var(mass, "kg", "m", t!("质量"))),
-                        ("t", var(t - t0, "s", "t", t!("运动时间"))),
+                        ("t", var_time(t - t0, "s", "t", t!("运动时间"))),
                     ];
                     let mut measures = Vec::new();
                     let mut conditions = Vec::new();
@@ -149,12 +149,12 @@ fn field_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()> {
                                 ("Ey", var(ey, "V/m", "E_y", t!("电场强度 y 分量"))),
                                 ("gx", var(gv.x, "m/s²", "g_x", t!("重力加速度 x 分量"))),
                                 ("gy", var(gv.y, "m/s²", "g_y", t!("重力加速度 y 分量"))),
-                                ("vx0", var(s0.vx, "m/s", "v_{0x}", t!("初速度 x 分量"))),
-                                ("vy0", var(s0.vy, "m/s", "v_{0y}", t!("初速度 y 分量"))),
-                                ("v0", var(v0, "m/s", "v_0", t!("初速度大小"))),
-                                ("sx", var(sx, "m", "s_x", t!("x 方向位移（仿真）"))),
-                                ("sy", var(sy, "m", "s_y", t!("y 方向位移（仿真）"))),
-                                ("L", var(sx * pux + sy * puy, "m", "L", t!("沿初速度方向的位移（仿真）"))),
+                                ("vx0", var_phase(s0.vx, "m/s", "v_{0x}", t!("初速度 x 分量"))),
+                                ("vy0", var_phase(s0.vy, "m/s", "v_{0y}", t!("初速度 y 分量"))),
+                                ("v0", var_phase(v0, "m/s", "v_0", t!("初速度大小"))),
+                                ("sx", var_sim(sx, "m", "s_x", t!("x 方向位移（仿真）"))),
+                                ("sy", var_sim(sy, "m", "s_y", t!("y 方向位移（仿真）"))),
+                                ("L", var_sim(sx * pux + sy * puy, "m", "L", t!("沿初速度方向的位移（仿真）"))),
                             ]);
                             measures.extend([
                                 ("a", meas(Some(a), "m/s²", t!("加速度大小"))),
@@ -183,7 +183,7 @@ fn field_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()> {
                             }
                             let per = period.borrow().expect("measured");
                             let cross = (st.vx * ay - st.vy * ax).abs();
-                            vars.extend([("B", var(bz.abs(), "T", "B", t!("磁感应强度大小"))), ("v", var(v0, "m/s", "v", t!("速度大小")))]);
+                            vars.extend([("B", var(bz.abs(), "T", "B", t!("磁感应强度大小"))), ("v", var_phase(v0, "m/s", "v", t!("速度大小")))]);
                             measures.extend([
                                 ("F", meas(Some(fb), "N", t!("洛伦兹力大小"))),
                                 ("r", meas(if cross > 0.0 { Some(v * v * v / cross) } else { None }, "m", t!("轨迹的曲率半径"))),
@@ -212,8 +212,8 @@ fn field_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()> {
                                 ("Ey", var(ey, "V/m", "E_y", t!("电场强度 y 分量"))),
                                 ("gx", var(gv.x, "m/s²", "g_x", t!("重力加速度 x 分量"))),
                                 ("gy", var(gv.y, "m/s²", "g_y", t!("重力加速度 y 分量"))),
-                                ("sx", var(sx, "m", "s_x", t!("x 方向位移（仿真）"))),
-                                ("sy", var(sy, "m", "s_y", t!("y 方向位移（仿真）"))),
+                                ("sx", var_sim(sx, "m", "s_x", t!("x 方向位移（仿真）"))),
+                                ("sy", var_sim(sy, "m", "s_y", t!("y 方向位移（仿真）"))),
                             ]);
                             measures.extend([("dEk", meas(Some(ek - ek0), "J", t!("动能的增加"))), ("P", meas(Some(lorentz_power), "W", t!("洛伦兹力的功率 F·v")))]);
                         }
@@ -313,14 +313,14 @@ fn coulomb_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()> {
                 let rm = rmin.borrow().unwrap_or(None);
                 Ok(Sample {
                     vars: vec![
-                        ("k", var(k, "N·m²/C²", "k", t!("静电力常量"))),
+                        ("k", var_const(k, "N·m²/C²", "k", t!("静电力常量"))),
                         ("q1", var(q1, "C", "q_1", t!("{0}的电荷量", sys.model.bodies[mg].name.clone()))),
                         ("q2", var(q2, "C", "q_2", t!("{0}的电荷量", sys.model.bodies[og].name.clone()))),
                         ("m", var(mass, "kg", "m", t!("{0}质量", sys.model.bodies[mg].name.clone()))),
-                        ("r", var(d, "m", "r", t!("两电荷间的距离（仿真）"))),
-                        ("r0", var(r0, "m", "r_0", t!("初始距离"))),
-                        ("v0", var(v0, "m/s", "v_0", t!("初速度大小"))),
-                        ("E0", var(e0, "J", "E_0", t!("初始的动能与电势能之和"))),
+                        ("r", var_sim(d, "m", "r", t!("两电荷间的距离（仿真）"))),
+                        ("r0", var_phase(r0, "m", "r_0", t!("初始距离"))),
+                        ("v0", var_phase(v0, "m/s", "v_0", t!("初速度大小"))),
+                        ("E0", var_phase(e0, "J", "E_0", t!("初始的动能与电势能之和"))),
                     ],
                     measures: vec![
                         ("F", meas(Some((fc.0 * fc.0 + fc.1 * fc.1).sqrt()), "N", t!("库仑力大小"))),

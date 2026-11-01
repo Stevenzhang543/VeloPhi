@@ -10,6 +10,7 @@
  *
  * Pure (no DOM, no Vue).
  */
+import { compareValues, problemRule } from '../task/compare'
 import { tl } from '../i18n'
 import type { Lang, Tri } from '../i18n/tri'
 import { fillParams } from '../i18n/tri'
@@ -125,7 +126,11 @@ export function evaluateProblemTarget(rec: Recording, sits: Situation[], target:
   const q = listQuantities(rec).find(x => x.id === target.id)
   if (!q) return { sim: null, formula: null, unit: '', simNote: tl('场景中没有这个量（物体或连接件可能已删除）') }
   const finite = (v: number) => (Number.isFinite(v) ? v : null)
-  if (target.kind === 'end') return { sim: finite(valueAtFrame(rec, rec.frameCount - 1, target.id)), formula: null, unit: q.unit }
+  if (target.kind === 'end') {
+    // 26.57 (T28): an unbounded recording has no end value — its last frame is only where computing stopped
+    if (rec.unbounded && !(rec.stopReason === 'stopAt' || rec.stopReason === 'rest' || rec.stopReason === 'restApprox')) return { sim: null, formula: null, unit: q.unit, simNote: tl('无限时长的记录没有“结束值”：请改为指定时刻，或给场景设定终止条件') }
+    return { sim: finite(valueAtFrame(rec, rec.frameCount - 1, target.id)), formula: null, unit: q.unit }
+  }
   if (target.kind === 'extreme') {
     if (rec.frameCount > EXTREME_MAX_FRAMES) return { sim: null, formula: null, unit: q.unit, simNote: tl('记录太长，无法查找最值') }
     const best = extremeOf(rec, target.id, target.which === 'max' ? 'max' : 'min')
@@ -167,8 +172,8 @@ export function questionKey(rec: Recording, sits: Situation[], q: ProblemQuestio
 export function isCorrect(q: ProblemQuestion, answer: number | null | undefined, key: QuestionKey): boolean | null {
   if (answer === null || answer === undefined || !Number.isFinite(answer) || key.value === null) return null
   if (q.type === 'choice') return answer === key.value
-  const tol = q.tolerance ?? 0.02, abs = q.absTolerance ?? 1e-6
-  return Math.abs(answer - key.value) <= tol * Math.abs(key.value) + abs
+  // 26.57 (D117): the shared comparison service, with the problem's own tolerance rule
+  return compareValues(answer, key.value, problemRule(q)).pass
 }
 
 /** Relative error of a numeric answer (null without a key). */

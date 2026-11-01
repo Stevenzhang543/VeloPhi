@@ -359,7 +359,37 @@ pub fn call(s: &mut Session, req: &Value) -> SimResult<(Value, Blob)> {
         "extreme" => {
             let id = req.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
             let max = req.get("which").and_then(|v| v.as_str()) != Some("min");
-            json!({ "value": jnum(crate::teaching::extreme(s, &id, max)?) })
+            // 26.57: an optional interval [t0, t1] and the time of the extreme (the whole recording by default)
+            if req.get("t0").is_some() || req.get("t1").is_some() || req.get("withTime").is_some() {
+                let (v, t) = crate::teaching::extreme_in(s, &id, max, arg_f64(req, "t0"), arg_f64(req, "t1"))?;
+                json!({ "value": jnum(v), "t": jnum(t) })
+            } else {
+                json!({ "value": jnum(crate::teaching::extreme(s, &id, max)?) })
+            }
+        }
+        "crossing" => {
+            // 26.57 (D111): times where Σ c·q crosses a level (task conditions such as “after 2 m along the incline”)
+            let terms: Vec<(String, f64)> = req
+                .get("terms")
+                .and_then(|v| v.as_array())
+                .map(|a| a.iter().filter_map(|t| Some((t.get("id")?.as_str()?.to_string(), t.get("c").map(dnum).unwrap_or(1.0)))).collect())
+                .unwrap_or_default();
+            let all = req.get("which").and_then(|v| v.as_str()) == Some("all");
+            let direction = match req.get("direction").and_then(|v| v.as_str()) {
+                Some("up") => 1,
+                Some("down") => -1,
+                _ => 0,
+            };
+            crate::teaching::crossing(
+                s,
+                &terms,
+                arg_f64(req, "level").unwrap_or(0.0),
+                arg_f64(req, "t0").unwrap_or(0.0),
+                arg_f64(req, "t1").unwrap_or(f64::INFINITY),
+                all,
+                direction,
+                arg_f64(req, "tol").unwrap_or(0.0),
+            )?
         }
         "pick" | "bodyAt" | "bodiesAt" | "surfaceBelow" | "featurePoints" => {
             // Editor queries at the drawn state: the initial state of a scene session, else the state at t

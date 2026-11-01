@@ -43,7 +43,7 @@ export const MODELS_E: ModelSpec[] = [
     example: { text: T('相同的 +1 μC 电荷分别在 x = ±0.1 m，求中点场。', 'Equal +1 μC charges at x = ±0.1 m: the field at the midpoint.', 'Gleiche Ladungen +1 μC bei x = ±0,1 m: Feld in der Mitte.'), answer: T('合场为 0；电势却约为 179751 V。', 'The field is 0, but the potential is about 179751 V.', 'Das Feld ist 0, das Potential aber etwa 179751 V.') },
     point: T('场线不是轨迹；零场不等于零电势。', 'Field lines are not paths; zero field does not mean zero potential.', 'Feldlinien sind keine Bahnen; Feld null heißt nicht Potential null.'),
     status: 'verified', level: 2, teaching: 1, references: ['analytic', 'otherMethod'], benchmarks: ['oracle:E02', 'rust:src/labs/field.rs dipole_lines_go_from_plus_to_minus', 'test:labs2656 fieldAt vs E02'],
-    links: { topics: ['electric'] }, review: R2
+    links: { activities: ['act-field'], topics: ['electric'] }, review: R2
   },
   {
     id: 'E03', title: T('高斯定律与对称性', 'Gauss’s law and symmetry', 'Gaußscher Satz und Symmetrie'),

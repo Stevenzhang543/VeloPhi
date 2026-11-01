@@ -15,12 +15,11 @@
  */
 import { tl } from '../../i18n'
 import { msgText } from '../../i18n/locale'
-import { shownTime } from '../../units/clock'
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, toRaw, watch } from 'vue'
 import { state, edit, markStale, viewCamera, problemLocked } from '../store'
 import { usePageActive } from '../live'
 import type { Selection } from '../store'
-import { calmMotion, settings, effectiveEffects, fmtQ, toDisp, unitLabel } from '../settings'
+import { calmMotion, settings, effectiveEffects, fmtQ, fmtTime } from '../settings'
 import { EngineSession } from '../../engine/session'
 import type { FrameView } from '../../engine/views'
 import { featurePointsOf, frameView, posesAt, positions } from '../../engine/views'
@@ -256,7 +255,8 @@ function fitView() {
   }
   // Keep a little of the supporting surface in view
   minY -= 0.15 * Math.max(0.5, maxY - minY)
-  const w = Math.max(0.6, maxX - minX), h = Math.max(0.6, maxY - minY)
+  // 26.57: a body that stays (nearly) at rest still shows enough of its support to read the slope and the scale
+  const w = Math.max(1.5, maxX - minX), h = Math.max(1, maxY - minY)
   const ppm = Math.max(10, Math.min(2000, Math.min((cam.value.width * 0.8) / w, (cam.value.height * 0.72) / h)))
   cam.value = { ...cam.value, cx: (minX + maxX) / 2, cy: (minY + maxY) / 2, ppm }
   requestDraw()
@@ -1366,10 +1366,11 @@ function restoreSnapshot(snapshot: string) {
 }
 
 // ---- HUD ----
+// 26.57 (D121): the same playing time, written the same way as the time line and the monitor's clock (one time,
+// not two readings that differ in the last digit)
 const timeText = computed(() => {
   if (editing.value) return null
-  const decimals = Math.max(2, Math.min(5, state.digits - 2))
-  return `t = ${toDisp(shownTime(state.time), 's').toFixed(decimals)} ${unitLabel('s')}`
+  return `t = ${fmtTime(state.time, state.recording?.dt ?? state.scene.settings.outputStep)}`
 })
 
 const toolHint = computed(() => {

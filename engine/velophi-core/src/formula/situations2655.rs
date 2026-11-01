@@ -161,11 +161,11 @@ fn rail_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()> {
                             ("L", var(ll, "m", "L", t!("导轨间距（导体棒的有效长度）"))),
                             ("R", var(rr, "Ω", "R", t!("回路电阻"))),
                             ("m", var(mass, "kg", "m", t!("导体棒质量"))),
-                            ("F", var(drive, "N", "F", t!("沿导轨的恒定动力（外力与重力的分力）"))),
-                            ("v0", var(v0, "m/s", "v_0", t!("初速度（沿导轨）"))),
-                            ("t", var(t - t0, "s", "t", t!("运动时间"))),
-                            ("v", var(v, "m/s", "v", t!("此刻的速度（仿真）"))),
-                            ("s", var(sd, "m", "s", t!("沿导轨的位移（仿真）"))),
+                            ("F", var_derived(drive, "N", "F", t!("沿导轨的恒定动力（外力与重力的分力）"))),
+                            ("v0", var_phase(v0, "m/s", "v_0", t!("初速度（沿导轨）"))),
+                            ("t", var_time(t - t0, "s", "t", t!("运动时间"))),
+                            ("v", var_sim(v, "m/s", "v", t!("此刻的速度（仿真）"))),
+                            ("s", var_sim(sd, "m", "s", t!("沿导轨的位移（仿真）"))),
                         ],
                         measures: vec![
                             ("emf", meas(Some(emf), "V", t!("感应电动势"))),
@@ -289,9 +289,9 @@ fn float_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()> {
                             ("g", var(g, "m/s²", "g", t!("重力加速度"))),
                             ("m", var(mass, "kg", "m", t!("物体质量"))),
                             ("d", var(depth, "m", "d", t!("物体厚度（垂直纸面）"))),
-                            ("A", var(area, "m²", "A", t!("浸入部分的面积（仿真）"))),
+                            ("A", var_sim(area, "m²", "A", t!("浸入部分的面积（仿真）"))),
                             ("S", var(total, "m²", "S", t!("物体的截面积"))),
-                            ("rhoB", var(rho_b, "kg/m³", "\\rho_b", t!("物体的平均密度"))),
+                            ("rhoB", var_derived(rho_b, "kg/m³", "\\rho_b", t!("物体的平均密度"))),
                             ("w", var(width.unwrap_or(f64::NAN), "m", "w", t!("物体宽度"))),
                         ],
                         measures: vec![
@@ -433,12 +433,12 @@ fn zone_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()> {
                     let a = (ax * ax + ay * ay).sqrt();
                     let v = (st.vx * st.vx + st.vy * st.vy).sqrt();
                     let (sx, sy) = (st.x - s0.x, st.y - s0.y);
-                    let mut vars = vec![("q", var(q, "C", "q", t!("电荷量"))), ("m", var(mass, "kg", "m", t!("质量"))), ("t", var(t - t0, "s", "t", t!("在区域内的时间")))];
+                    let mut vars = vec![("q", var(q, "C", "q", t!("电荷量"))), ("m", var(mass, "kg", "m", t!("质量"))), ("t", var_time(t - t0, "s", "t", t!("在区域内的时间")))];
                     let mut measures = Vec::new();
                     let mut conditions = Vec::new();
                     if ty == "zone-b" {
                         let cross = (st.vx * ay - st.vy * ax).abs();
-                        vars.extend([("B", var(z2.b.abs(), "T", "B", t!("磁感应强度大小"))), ("v", var(v0, "m/s", "v", t!("进入时的速度大小")))]);
+                        vars.extend([("B", var(z2.b.abs(), "T", "B", t!("磁感应强度大小"))), ("v", var_phase(v0, "m/s", "v", t!("进入时的速度大小")))]);
                         let (tin, chord) = match &x1 {
                             Some(x) => {
                                 let e = body_vel(&sys, x, &sys.model.bodies[bg]);
@@ -469,10 +469,10 @@ fn zone_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()> {
                             ("Ey", var(ey, "V/m", "E_y", t!("电场强度 y 分量"))),
                             ("gx", var(gv.x, "m/s²", "g_x", t!("重力加速度 x 分量"))),
                             ("gy", var(gv.y, "m/s²", "g_y", t!("重力加速度 y 分量"))),
-                            ("v0", var(v0, "m/s", "v_0", t!("进入时的速度大小"))),
-                            ("sx", var(sx, "m", "s_x", t!("x 方向位移（仿真）"))),
-                            ("sy", var(sy, "m", "s_y", t!("y 方向位移（仿真）"))),
-                            ("d", var((sx * eux + sy * euy).abs(), "m", "d", t!("沿电场方向移动的距离（仿真）"))),
+                            ("v0", var_phase(v0, "m/s", "v_0", t!("进入时的速度大小"))),
+                            ("sx", var_sim(sx, "m", "s_x", t!("x 方向位移（仿真）"))),
+                            ("sy", var_sim(sy, "m", "s_y", t!("y 方向位移（仿真）"))),
+                            ("d", var_sim((sx * eux + sy * euy).abs(), "m", "d", t!("沿电场方向移动的距离（仿真）"))),
                         ]);
                         measures.extend([
                             ("a", meas(Some(a), "m/s²", t!("加速度大小"))),

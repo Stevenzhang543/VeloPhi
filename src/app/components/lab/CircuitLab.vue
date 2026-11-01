@@ -22,9 +22,9 @@ import { DARK, LIGHT } from '../../../render/renderer'
 import { FONT, MONO } from '../../../render/style'
 import type { CircuitElement, CircuitRun, CircuitSolution, ElemState } from '../../../engine/labs'
 import { circuitResistance, circuitRun, circuitSolve } from '../../../engine/labs'
-import { labRequest, labState } from '../../lab/state'
+import { labRequest, labState, labTaskRequest } from '../../lab/state'
 import type { EditorKind, El, Pt } from '../../lab/circuitPresets'
-import { FOUR_TERMINAL, KINDS, KIND_INFO, PRESETS, PRESET_GROUPS, besides, defaultsOf, named } from '../../lab/circuitPresets'
+import { FOUR_TERMINAL, KINDS, KIND_INFO, PRESETS, PRESET_GROUPS, besides, defaultsOf, named, taskCircuit } from '../../lab/circuitPresets'
 import Icon from '../Icon.vue'
 import NumField from '../NumField.vue'
 import LabFormula from './LabFormula.vue'
@@ -812,6 +812,18 @@ const EVENT_TEXT: Record<string, string> = {
 const presetIds = (g: string) => Object.keys(PRESETS).filter(k => PRESETS[k].group === g)
 // 26.55 (D96): the learning path and the global search open the circuit lab at a preset
 watch(() => labRequest.seq, () => { if (labRequest.lab === 'circuit' && labRequest.preset) { const id = labRequest.preset; labRequest.preset = null; loadPreset(id) } }, { immediate: true, flush: 'post' })
+// 26.57 (D116): a task opens its own circuit (source, R1, R2 in series or parallel, ammeter)
+watch(() => labTaskRequest.seq, () => {
+  const p = labTaskRequest.payload
+  if (labTaskRequest.lab !== 'circuit' || !p) return
+  labTaskRequest.payload = null
+  S.elements = taskCircuit(p.series as boolean, p.E as number, p.r as number, p.R1 as number, p.R2 as number)
+  S.preset = 'task'
+  S.mode = 'dc'
+  selected.value = null
+  resetRun()
+  fit()
+}, { immediate: true, flush: 'post' })
 </script>
 
 <template>

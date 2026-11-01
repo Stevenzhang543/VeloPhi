@@ -1,0 +1,1085 @@
+{
+ "version": "26.57",
+ "generated": "scripts/coverage2657.mjs",
+ "contentVersion": "26.57.1",
+ "summary": {
+  "vp": {
+   "verified": 9,
+   "hand": 3,
+   "partial": 3,
+   "deferred": 3
+  },
+  "cases": {
+   "verified": 26,
+   "hand": 3,
+   "partial": 2,
+   "deferred": 1
+  },
+  "packages": {
+   "total": 24,
+   "complete": 8,
+   "discoverable": 24,
+   "runnable": 24,
+   "explainable": 24,
+   "practisable": 8,
+   "transferable": 8,
+   "trialled": 0
+  }
+ },
+ "vp": [
+  {
+   "id": "VP-01",
+   "priority": "P0",
+   "status": "verified",
+   "title": "三张截图对应的最小场景与当前版本基线",
+   "evidence": "26.56 便携版中重拍图 A（斜面）、图 B（电场实验）、图 C（渲染与监视）；图 A 的 N、f、a 读数按 2 kg、30°、μk = 0.2 复现到显示精度",
+   "tests": [
+    "test:task2657 reproduces N = mg cosθ, f = μk N, a = g(sinθ − μk cosθ)"
+   ],
+   "remaining": "图 B、图 C 是界面状态（无数值缺陷），只作截图基线"
+  },
+  {
+   "id": "VP-02",
+   "priority": "P0",
+   "status": "verified",
+   "title": "QuantityRef、EvaluationPoint 与结果版本封装",
+   "evidence": "src/task/types.ts：量引用（对象、量、参考系、分量）、求值点（时刻、事件左右、条件穿越、区间、稳态）、结果封装（任务、修订号、内容哈希、引擎与模型版本、常数集、证据、条件检查、来源、核对）",
+   "tests": [
+    "test:task2657 every result carries its revision, content hash, engine version and provenance",
+    "test:task2657 T11: velocities after a collision are read on the right side of the event",
+    "test:task2657 T02: “speed after 2 m” binds the first arrival"
+   ],
+   "remaining": ""
+  },
+  {
+   "id": "VP-03",
+   "priority": "P0",
+   "status": "verified",
+   "title": "显式 provenance 与条件四态适配",
+   "evidence": "Rust 核心为每个公式变量发送 src（给定/常数/初态/时刻/仿真/派生）；界面只显示，不再从标签文字推断；核心的条件状态映射为四态",
+   "tests": [
+    "test:task2657 every variable of every recognised situation comes with an explicit source from the core",
+    "test:task2657 VP-03: the four condition states of the core map onto the task applicability",
+    "test:details shows known values in display units"
+   ],
+   "remaining": ""
+  },
+  {
+   "id": "VP-04",
+   "priority": "P0",
+   "status": "verified",
+   "title": "斜面三分支及 μs/μk 模板升级",
+   "evidence": "新模板 incline-friction（μs、μk 分开，初速度可向上，六个预设）；旧模板 incline 与 77 个旧模板指纹不变",
+   "tests": [
+    "test:task2657 a block that can stay at rest has static friction mg sinθ",
+    "test:task2657 sliding up then back: the task finds the stop",
+    "test:determinism two runs are bit-identical"
+   ],
+   "remaining": ""
+  },
+  {
+   "id": "VP-05",
+   "priority": "P0",
+   "status": "verified",
+   "title": "结果失效、取消与后台请求竞争处理",
+   "evidence": "TaskRunner：请求票据（任务、修订号、哈希）；新请求取代旧请求；显示前再核对；修改条件后旧结果标为“旧结果”只供比较",
+   "tests": [
+    "test:task2657 drops an answer when the task changed while it was solved",
+    "test:task2657 a newer request supersedes an older one",
+    "test:task2657 an old result is never current for the new revision",
+    "test:task2657 T16"
+   ],
+   "remaining": ""
+  },
+  {
+   "id": "VP-06",
+   "priority": "P0",
+   "status": "verified",
+   "title": "手动结构化任务编辑器",
+   "evidence": "任务面板：题型、已知量（单位、来源、冲突）、所求（目录选择，不猜题意）、条件与假设、澄清问题、撤销",
+   "tests": [
+    "test:task2657 VP-06: a task filled in by hand asks for what is missing, then solves",
+    "test:task2657 T12"
+   ],
+   "remaining": "触屏上的连接只做了人工检查"
+  },
+  {
+   "id": "VP-07",
+   "priority": "P1",
+   "status": "partial",
+   "title": "文字题解析与最小澄清",
+   "evidence": "规则解析（中文题干）；240 条评测集（165 开发、75 冻结盲测），按 §14.2 的八项分别报告",
+   "tests": [
+    "test:taskeval2657 the holdout is the frozen file",
+    "test:taskeval2657 scores both parts and writes the report"
+   ],
+   "remaining": "首次盲测有 2 条应澄清未澄清（发布阻断项），已修正其中一条、另一条复核为标注错误；修正后盲测集不再“盲”，下一版需要新的盲测集；只支持中文题干"
+  },
+  {
+   "id": "VP-08",
+   "priority": "P1",
+   "status": "verified",
+   "title": "统一旧题、活动、预测的求值与比较服务",
+   "evidence": "src/task/compare.ts：一处比较；题目、活动、预测保留各自的容差语义；不同单位先换算；符号错误记为方向错误",
+   "tests": [
+    "test:task2657 problems, activities and predictions agree with 26.56",
+    "test:task2657 an answer in another unit is converted first"
+   ],
+   "remaining": ""
+  },
+  {
+   "id": "VP-09",
+   "priority": "P1",
+   "status": "verified",
+   "title": "六个代表任务的完整教学样板",
+   "evidence": "斜面、抛体、一维碰撞、直流电路、薄透镜、点电荷电场：示例题、解析步骤、独立核对、演示（模板或实验带入任务数值）、练习活动、迁移题",
+   "tests": [
+    "test:task2657 incline: speed after 2 m",
+    "test:task2657 projectile: first time at 3 m",
+    "test:task2657 collision: elastic",
+    "test:task2657 circuit: 12 V",
+    "test:task2657 lens: f = 10 cm",
+    "test:task2657 field: superposed field",
+    "test:task2657 VP-09",
+    "test:task2657 the incline crosses tanθ = μs"
+   ],
+   "remaining": "没有学生试用（§14.4）"
+  },
+  {
+   "id": "VP-10",
+   "priority": "P1",
+   "status": "hand",
+   "title": "工作方式预设与目标优先的公式/图线筛选",
+   "evidence": "学习、解题、实验、编辑四种工作方式（只换面板与叠层，不动场景）；任务演示时公式面板先列任务相关情形、其余收进“更多分析”，曲线有“任务”预设",
+   "tests": [
+    "test:task2657 switching mode changes panels and overlays"
+   ],
+   "remaining": "公式与曲线的目标筛选只做了人工检查"
+  },
+  {
+   "id": "VP-11",
+   "priority": "P1",
+   "status": "hand",
+   "title": "视觉 token 与画布标注整理",
+   "evidence": "默认正文 14 px、常用按钮 32 px，紧凑与课堂投影两种密度；阅读面板不透明；接触力合计、标签避让物体与引线；量的参考系与正方向说明；播放时刻与“已计算至”分开",
+   "tests": [
+    "test:task2657 N1, N2 of one contact become one N",
+    "test:task2657 moves a label off an obstacle",
+    "test:task2657 components name the frame"
+   ],
+   "remaining": "色盲模拟与灰度阅读没有做"
+  },
+  {
+   "id": "VP-12",
+   "priority": "P1",
+   "status": "partial",
+   "title": "按钮、三态勾选、叠卡基础组件",
+   "evidence": "TriCheck（mixed 状态、键盘）、StackCards（就地展开、保持阅读位置）",
+   "tests": [
+    "test:task2657 T17"
+   ],
+   "remaining": "叠卡的阅读锚点与触屏只做了人工检查"
+  },
+  {
+   "id": "VP-13",
+   "priority": "P1",
+   "status": "verified",
+   "title": "第一批 24 教学包与模型入口",
+   "evidence": "24 个教学包：标准/边界/对比预设、讲解、四种练习角色、常见错误；进度由内容计算（六个字段），没有一个声称已试用；模型页“看演示 / 做练习 / 自由实验”；全局搜索按目标词",
+   "tests": [
+    "test:task2657 24 packages; progress is computed",
+    "test:task2657 a goal word finds its packages"
+   ],
+   "remaining": "完整（六项中前五项全满足）的包见下表；没有学生试用记录"
+  },
+  {
+   "id": "VP-14",
+   "priority": "P2",
+   "status": "partial",
+   "title": "卡片停靠与类型化语义连线",
+   "evidence": "结果卡片可经菜单或拖动（吸附与迟滞）固定到任务面板顶部或画面右上角，可撤销、可恢复默认；题干中未用的数值可点选后连到已知量，单位不符时阻止并说明",
+   "tests": [
+    "test:task2657 VP-14: pins snap with hysteresis"
+   ],
+   "remaining": "方程变量与目标之间的连线没有做；连线的单位检查只有人工检查"
+  },
+  {
+   "id": "VP-15",
+   "priority": "P2",
+   "status": "hand",
+   "title": "滚动策略与圆形扩散转场",
+   "evidence": "数值框只在按住 Alt 时响应滚轮；工作方式与主题切换用视图过渡的圆形扩散（约 320 ms），减弱动态效果或不支持时立即切换",
+   "tests": [
+    "test:task2657 does nothing without Alt",
+    "test:task2657 T23/T24"
+   ],
+   "remaining": "触控板与触屏没有设备可测"
+  },
+  {
+   "id": "VP-16",
+   "priority": "P2",
+   "status": "deferred",
+   "title": "图片题识别与字段证据回显",
+   "evidence": "",
+   "tests": [],
+   "remaining": "本版不读图片；评测集的图片输入方式明确排除"
+  },
+  {
+   "id": "VP-17",
+   "priority": "P2",
+   "status": "deferred",
+   "title": "第二批 24 教学包",
+   "evidence": "",
+   "tests": [],
+   "remaining": ""
+  },
+  {
+   "id": "VP-18",
+   "priority": "P3",
+   "status": "deferred",
+   "title": "第三批 24 教学包与教学试用",
+   "evidence": "",
+   "tests": [],
+   "remaining": ""
+  }
+ ],
+ "cases": [
+  {
+   "id": "T01",
+   "status": "verified",
+   "tests": [
+    "test:task2657 T01"
+   ]
+  },
+  {
+   "id": "T02",
+   "status": "verified",
+   "tests": [
+    "test:task2657 T02",
+    "test:task2657 incline: speed after 2 m"
+   ]
+  },
+  {
+   "id": "T03",
+   "status": "verified",
+   "tests": [
+    "test:task2657 T03"
+   ]
+  },
+  {
+   "id": "T04",
+   "status": "verified",
+   "tests": [
+    "test:task2657 T04"
+   ]
+  },
+  {
+   "id": "T05",
+   "status": "verified",
+   "tests": [
+    "test:task2657 T05"
+   ],
+   "note": "修正：此前任何含可动“斜面”角色物体的场景都被当作固定斜面题"
+  },
+  {
+   "id": "T06",
+   "status": "verified",
+   "tests": [
+    "test:task2657 T06",
+    "test:task2657 the detailed view shows each point"
+   ]
+  },
+  {
+   "id": "T07",
+   "status": "verified",
+   "tests": [
+    "test:task2657 T07"
+   ]
+  },
+  {
+   "id": "T08",
+   "status": "verified",
+   "tests": [
+    "test:task2657 T08"
+   ]
+  },
+  {
+   "id": "T09",
+   "status": "verified",
+   "tests": [
+    "test:task2657 T09"
+   ]
+  },
+  {
+   "id": "T10",
+   "status": "verified",
+   "tests": [
+    "test:task2657 projectile: first time at 3 m",
+    "test:task2657 finds both times a projectile passes"
+   ]
+  },
+  {
+   "id": "T11",
+   "status": "verified",
+   "tests": [
+    "test:task2657 T11"
+   ]
+  },
+  {
+   "id": "T12",
+   "status": "verified",
+   "tests": [
+    "test:task2657 T12"
+   ]
+  },
+  {
+   "id": "T13",
+   "status": "deferred",
+   "tests": [],
+   "note": "没有图片输入（VP-16）"
+  },
+  {
+   "id": "T14",
+   "status": "verified",
+   "tests": [
+    "test:task2657 drops an answer when the task changed while it was solved"
+   ]
+  },
+  {
+   "id": "T15",
+   "status": "verified",
+   "tests": [
+    "test:task2657 T15"
+   ]
+  },
+  {
+   "id": "T16",
+   "status": "verified",
+   "tests": [
+    "test:task2657 T16"
+   ]
+  },
+  {
+   "id": "T17",
+   "status": "verified",
+   "tests": [
+    "test:task2657 T17"
+   ]
+  },
+  {
+   "id": "T18",
+   "status": "hand",
+   "tests": [],
+   "note": "任务面板的连线：单位不符时提示并阻止"
+  },
+  {
+   "id": "T19",
+   "status": "hand",
+   "tests": [],
+   "note": "点选数值再点选一行已知量完成连接（不需要拖线）"
+  },
+  {
+   "id": "T20",
+   "status": "hand",
+   "tests": [],
+   "note": "叠卡展开时阅读位置与焦点保持"
+  },
+  {
+   "id": "T21",
+   "status": "verified",
+   "tests": [
+    "test:task2657 T21"
+   ]
+  },
+  {
+   "id": "T22",
+   "status": "partial",
+   "tests": [],
+   "note": "没有触控板可测；内容列表保留原生滚动，没有加平滑层"
+  },
+  {
+   "id": "T23",
+   "status": "verified",
+   "tests": [
+    "test:task2657 T23/T24"
+   ]
+  },
+  {
+   "id": "T24",
+   "status": "verified",
+   "tests": [
+    "test:task2657 T23/T24"
+   ]
+  },
+  {
+   "id": "T25",
+   "status": "verified",
+   "tests": [
+    "test:task2657 T25",
+    "test:task2657 field: superposed field"
+   ]
+  },
+  {
+   "id": "T26",
+   "status": "verified",
+   "tests": [
+    "test:task2657 a goal word finds its packages"
+   ]
+  },
+  {
+   "id": "T27",
+   "status": "verified",
+   "tests": [
+    "test:task2657 an answer in another unit is converted first"
+   ]
+  },
+  {
+   "id": "T28",
+   "status": "verified",
+   "tests": [
+    "test:task2657 T28"
+   ]
+  },
+  {
+   "id": "T29",
+   "status": "verified",
+   "tests": [
+    "test:task2657 T29",
+    "test:determinism two runs are bit-identical"
+   ]
+  },
+  {
+   "id": "T30",
+   "status": "verified",
+   "tests": [
+    "test:task2657 a task comes back with its targets"
+   ]
+  },
+  {
+   "id": "T31",
+   "status": "verified",
+   "tests": [
+    "test:loop3 over many seeds the count left after 12 s"
+   ]
+  },
+  {
+   "id": "T32",
+   "status": "partial",
+   "tests": [
+    "test:ux2656 Tab stays inside the dialog"
+   ],
+   "note": "键盘走查任务面板与对话框（人工）；触屏没有设备"
+  }
+ ],
+ "updates": [
+  {
+   "id": "FOR03",
+   "from": "partial",
+   "to": "verified",
+   "evidence": "公式卡片的每个变量带来源（给定/常数/初态/时刻/仿真/派生），由核心发送",
+   "tests": [
+    "test:task2657 every variable of every recognised situation comes with an explicit source from the core"
+   ]
+  },
+  {
+   "id": "FOR09",
+   "from": "partial",
+   "to": "verified",
+   "evidence": "变量定位：悬停变量时在画布上强调对应物体与力，抽出为纯函数后有自动测试",
+   "tests": [
+    "test:task2657 μ of a contact lights the normal and friction arrows",
+    "test:formula/panel cards and known values refer to bodies, forces, contacts and angles"
+   ]
+  },
+  {
+   "id": "UX06",
+   "from": "unverified",
+   "to": "verified",
+   "evidence": "同上（D72 的画布部分）",
+   "tests": [
+    "test:task2657 μ of a contact lights the normal and friction arrows"
+   ]
+  },
+  {
+   "id": "UX08",
+   "from": "partial",
+   "to": "verified",
+   "evidence": "失败的结果卡片显示状态与原因，不显示数字（服务端渲染测试）",
+   "tests": [
+    "test:task2657 renders the state in words and no value"
+   ]
+  },
+  {
+   "id": "EDU12",
+   "from": "partial",
+   "to": "partial",
+   "evidence": "学习路径给出复习建议：依据最近一次作答中未全部答对的维度（不是自适应算法）；记录带内容版本",
+   "tests": [
+    "test:task2657 suggests the weak dimensions of the latest attempt"
+   ],
+   "remaining": "L4 仍需要学生试用与修订记录"
+  },
+  {
+   "id": "UX13",
+   "from": "partial",
+   "to": "partial",
+   "evidence": "26.56 之前的九个模态对话框也有了焦点陷阱（Tab 循环、Escape 关闭、打开时聚焦、关闭后焦点返回）",
+   "tests": [],
+   "remaining": "触屏与窄屏只做了人工检查"
+  }
+ ],
+ "packages": [
+  {
+   "id": "M01",
+   "title": "匀速运动与参考系",
+   "stage": "j",
+   "task": null,
+   "demos": [
+    "standard",
+    "contrast"
+   ],
+   "practice": 0,
+   "discoverable": true,
+   "runnable": true,
+   "explainable": true,
+   "practisable": false,
+   "transferable": false,
+   "trialled": false,
+   "complete": false,
+   "missing": [
+    "标准、边界、对比预设不全",
+    "练习不足四种角色（概念、计算、建模）",
+    "没有迁移题",
+    "没有学生试用记录"
+   ]
+  },
+  {
+   "id": "M02",
+   "title": "匀变速直线运动",
+   "stage": "s",
+   "task": null,
+   "demos": [
+    "standard",
+    "boundary"
+   ],
+   "practice": 1,
+   "discoverable": true,
+   "runnable": true,
+   "explainable": true,
+   "practisable": false,
+   "transferable": false,
+   "trialled": false,
+   "complete": false,
+   "missing": [
+    "标准、边界、对比预设不全",
+    "练习不足四种角色（概念、计算、建模）",
+    "没有迁移题",
+    "没有学生试用记录"
+   ]
+  },
+  {
+   "id": "M03",
+   "title": "自由落体与事件时刻",
+   "stage": "s",
+   "task": null,
+   "demos": [
+    "standard",
+    "boundary",
+    "contrast"
+   ],
+   "practice": 5,
+   "discoverable": true,
+   "runnable": true,
+   "explainable": true,
+   "practisable": true,
+   "transferable": true,
+   "trialled": false,
+   "complete": true,
+   "missing": [
+    "没有学生试用记录"
+   ]
+  },
+  {
+   "id": "M04",
+   "title": "斜抛运动",
+   "stage": "s",
+   "task": "projectile",
+   "demos": [
+    "standard",
+    "boundary",
+    "contrast"
+   ],
+   "practice": 6,
+   "discoverable": true,
+   "runnable": true,
+   "explainable": true,
+   "practisable": true,
+   "transferable": true,
+   "trialled": false,
+   "complete": true,
+   "missing": [
+    "没有学生试用记录"
+   ]
+  },
+  {
+   "id": "M06",
+   "title": "两绳悬挂与静力平衡",
+   "stage": "s",
+   "task": null,
+   "demos": [
+    "standard"
+   ],
+   "practice": 0,
+   "discoverable": true,
+   "runnable": true,
+   "explainable": true,
+   "practisable": false,
+   "transferable": false,
+   "trialled": false,
+   "complete": false,
+   "missing": [
+    "标准、边界、对比预设不全",
+    "练习不足四种角色（概念、计算、建模）",
+    "没有迁移题",
+    "没有学生试用记录"
+   ]
+  },
+  {
+   "id": "M07",
+   "title": "粗糙斜面滑动",
+   "stage": "s",
+   "task": "incline",
+   "demos": [
+    "standard",
+    "boundary",
+    "contrast"
+   ],
+   "practice": 7,
+   "discoverable": true,
+   "runnable": true,
+   "explainable": true,
+   "practisable": true,
+   "transferable": true,
+   "trialled": false,
+   "complete": true,
+   "missing": [
+    "没有学生试用记录"
+   ]
+  },
+  {
+   "id": "M08",
+   "title": "静摩擦阈值与滑动切换",
+   "stage": "s",
+   "task": null,
+   "demos": [
+    "standard",
+    "boundary",
+    "contrast"
+   ],
+   "practice": 4,
+   "discoverable": true,
+   "runnable": true,
+   "explainable": true,
+   "practisable": true,
+   "transferable": true,
+   "trialled": false,
+   "complete": true,
+   "missing": [
+    "没有学生试用记录"
+   ]
+  },
+  {
+   "id": "M11",
+   "title": "阿特伍德机",
+   "stage": "s",
+   "task": null,
+   "demos": [
+    "standard",
+    "boundary"
+   ],
+   "practice": 1,
+   "discoverable": true,
+   "runnable": true,
+   "explainable": true,
+   "practisable": false,
+   "transferable": false,
+   "trialled": false,
+   "complete": false,
+   "missing": [
+    "标准、边界、对比预设不全",
+    "练习不足四种角色（概念、计算、建模）",
+    "没有迁移题",
+    "没有学生试用记录"
+   ]
+  },
+  {
+   "id": "M12",
+   "title": "动滑轮与绳长约束",
+   "stage": "s",
+   "task": null,
+   "demos": [
+    "standard"
+   ],
+   "practice": 0,
+   "discoverable": true,
+   "runnable": true,
+   "explainable": true,
+   "practisable": false,
+   "transferable": false,
+   "trialled": false,
+   "complete": false,
+   "missing": [
+    "标准、边界、对比预设不全",
+    "练习不足四种角色（概念、计算、建模）",
+    "没有迁移题",
+    "没有学生试用记录"
+   ]
+  },
+  {
+   "id": "M13",
+   "title": "板块与相对滑动",
+   "stage": "s",
+   "task": null,
+   "demos": [
+    "standard"
+   ],
+   "practice": 1,
+   "discoverable": true,
+   "runnable": true,
+   "explainable": true,
+   "practisable": false,
+   "transferable": false,
+   "trialled": false,
+   "complete": false,
+   "missing": [
+    "标准、边界、对比预设不全",
+    "练习不足四种角色（概念、计算、建模）",
+    "没有迁移题",
+    "没有学生试用记录"
+   ]
+  },
+  {
+   "id": "M14",
+   "title": "传送带与共速事件",
+   "stage": "s",
+   "task": null,
+   "demos": [
+    "standard",
+    "contrast"
+   ],
+   "practice": 1,
+   "discoverable": true,
+   "runnable": true,
+   "explainable": true,
+   "practisable": false,
+   "transferable": false,
+   "trialled": false,
+   "complete": false,
+   "missing": [
+    "标准、边界、对比预设不全",
+    "练习不足四种角色（概念、计算、建模）",
+    "没有迁移题",
+    "没有学生试用记录"
+   ]
+  },
+  {
+   "id": "M16",
+   "title": "弹簧与能量交换",
+   "stage": "s",
+   "task": null,
+   "demos": [
+    "standard",
+    "contrast"
+   ],
+   "practice": 1,
+   "discoverable": true,
+   "runnable": true,
+   "explainable": true,
+   "practisable": false,
+   "transferable": false,
+   "trialled": false,
+   "complete": false,
+   "missing": [
+    "标准、边界、对比预设不全",
+    "练习不足四种角色（概念、计算、建模）",
+    "没有迁移题",
+    "没有学生试用记录"
+   ]
+  },
+  {
+   "id": "M17",
+   "title": "一维弹性碰撞",
+   "stage": "s",
+   "task": "collision",
+   "demos": [
+    "standard",
+    "boundary",
+    "contrast"
+   ],
+   "practice": 6,
+   "discoverable": true,
+   "runnable": true,
+   "explainable": true,
+   "practisable": true,
+   "transferable": true,
+   "trialled": false,
+   "complete": true,
+   "missing": [
+    "没有学生试用记录"
+   ]
+  },
+  {
+   "id": "M18",
+   "title": "完全非弹性碰撞",
+   "stage": "s",
+   "task": null,
+   "demos": [
+    "standard"
+   ],
+   "practice": 2,
+   "discoverable": true,
+   "runnable": true,
+   "explainable": true,
+   "practisable": false,
+   "transferable": false,
+   "trialled": false,
+   "complete": false,
+   "missing": [
+    "标准、边界、对比预设不全",
+    "练习不足四种角色（概念、计算、建模）",
+    "没有迁移题",
+    "没有学生试用记录"
+   ]
+  },
+  {
+   "id": "M21",
+   "title": "杠杆与力矩平衡",
+   "stage": "j",
+   "task": null,
+   "demos": [
+    "standard"
+   ],
+   "practice": 1,
+   "discoverable": true,
+   "runnable": true,
+   "explainable": true,
+   "practisable": false,
+   "transferable": false,
+   "trialled": false,
+   "complete": false,
+   "missing": [
+    "标准、边界、对比预设不全",
+    "练习不足四种角色（概念、计算、建模）",
+    "没有迁移题",
+    "没有学生试用记录"
+   ]
+  },
+  {
+   "id": "M24",
+   "title": "竖直圆周与轻绳",
+   "stage": "s",
+   "task": null,
+   "demos": [
+    "standard",
+    "contrast"
+   ],
+   "practice": 1,
+   "discoverable": true,
+   "runnable": true,
+   "explainable": true,
+   "practisable": false,
+   "transferable": false,
+   "trialled": false,
+   "complete": false,
+   "missing": [
+    "标准、边界、对比预设不全",
+    "练习不足四种角色（概念、计算、建模）",
+    "没有迁移题",
+    "没有学生试用记录"
+   ]
+  },
+  {
+   "id": "W02",
+   "title": "单摆与小角近似",
+   "stage": "s",
+   "task": null,
+   "demos": [
+    "standard",
+    "contrast"
+   ],
+   "practice": 1,
+   "discoverable": true,
+   "runnable": true,
+   "explainable": true,
+   "practisable": false,
+   "transferable": false,
+   "trialled": false,
+   "complete": false,
+   "missing": [
+    "标准、边界、对比预设不全",
+    "练习不足四种角色（概念、计算、建模）",
+    "没有迁移题",
+    "没有学生试用记录"
+   ]
+  },
+  {
+   "id": "E01",
+   "title": "库仑力与叠加",
+   "stage": "s",
+   "task": null,
+   "demos": [
+    "standard",
+    "contrast"
+   ],
+   "practice": 1,
+   "discoverable": true,
+   "runnable": true,
+   "explainable": true,
+   "practisable": false,
+   "transferable": false,
+   "trialled": false,
+   "complete": false,
+   "missing": [
+    "标准、边界、对比预设不全",
+    "练习不足四种角色（概念、计算、建模）",
+    "没有迁移题",
+    "没有学生试用记录"
+   ]
+  },
+  {
+   "id": "E02",
+   "title": "电场线与合场",
+   "stage": "s",
+   "task": "field",
+   "demos": [
+    "standard",
+    "boundary",
+    "contrast"
+   ],
+   "practice": 5,
+   "discoverable": true,
+   "runnable": true,
+   "explainable": true,
+   "practisable": true,
+   "transferable": true,
+   "trialled": false,
+   "complete": true,
+   "missing": [
+    "没有学生试用记录"
+   ]
+  },
+  {
+   "id": "E04",
+   "title": "电势 电势能与功",
+   "stage": "s",
+   "task": null,
+   "demos": [
+    "standard"
+   ],
+   "practice": 0,
+   "discoverable": true,
+   "runnable": true,
+   "explainable": true,
+   "practisable": false,
+   "transferable": false,
+   "trialled": false,
+   "complete": false,
+   "missing": [
+    "标准、边界、对比预设不全",
+    "练习不足四种角色（概念、计算、建模）",
+    "没有迁移题",
+    "没有学生试用记录"
+   ]
+  },
+  {
+   "id": "E06",
+   "title": "电容器与储能",
+   "stage": "s",
+   "task": null,
+   "demos": [
+    "standard"
+   ],
+   "practice": 0,
+   "discoverable": true,
+   "runnable": true,
+   "explainable": true,
+   "practisable": false,
+   "transferable": false,
+   "trialled": false,
+   "complete": false,
+   "missing": [
+    "标准、边界、对比预设不全",
+    "练习不足四种角色（概念、计算、建模）",
+    "没有迁移题",
+    "没有学生试用记录"
+   ]
+  },
+  {
+   "id": "E09",
+   "title": "串并联电路",
+   "stage": "j",
+   "task": "circuit",
+   "demos": [
+    "standard",
+    "contrast",
+    "boundary"
+   ],
+   "practice": 5,
+   "discoverable": true,
+   "runnable": true,
+   "explainable": true,
+   "practisable": true,
+   "transferable": true,
+   "trialled": false,
+   "complete": true,
+   "missing": [
+    "没有学生试用记录"
+   ]
+  },
+  {
+   "id": "O01",
+   "title": "平面镜与反射",
+   "stage": "j",
+   "task": null,
+   "demos": [
+    "standard"
+   ],
+   "practice": 0,
+   "discoverable": true,
+   "runnable": true,
+   "explainable": true,
+   "practisable": false,
+   "transferable": false,
+   "trialled": false,
+   "complete": false,
+   "missing": [
+    "标准、边界、对比预设不全",
+    "练习不足四种角色（概念、计算、建模）",
+    "没有迁移题",
+    "没有学生试用记录"
+   ]
+  },
+  {
+   "id": "O04",
+   "title": "薄透镜成像",
+   "stage": "j",
+   "task": "lens",
+   "demos": [
+    "standard",
+    "boundary",
+    "contrast"
+   ],
+   "practice": 5,
+   "discoverable": true,
+   "runnable": true,
+   "explainable": true,
+   "practisable": true,
+   "transferable": true,
+   "trialled": false,
+   "complete": true,
+   "missing": [
+    "没有学生试用记录"
+   ]
+  }
+ ]
+}

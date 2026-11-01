@@ -16,6 +16,9 @@ import { newScene, openScene, saveScene } from '../files'
 import { MOD } from '../shortcuts'
 import Icon from './Icon.vue'
 import { vSlideIndicator } from '../slideIndicator'
+import TriCheck from './TriCheck.vue'
+import { WORK_MODES, resetWorkMode, setWorkMode, work } from '../workMode'
+import { circularTransition } from '../viewTransition'
 
 const PAGES: Array<{ id: Page; label: string; icon: string; key: string }> = [
   { id: 'studio', label: tl('工作台'), icon: 'studio', key: 'Alt+1' },
@@ -50,7 +53,9 @@ const TOGGLE_GROUPS: Array<{ title: string; items: ToggleDef[] }> = [
     { key: 'velocity', label: tl('速度'), tip: tl('显示速度矢量') },
     { key: 'acceleration', label: tl('加速度'), tip: tl('显示加速度矢量') },
     { key: 'forces', label: tl('受力'), tip: tl('显示所选物体受力（运行后）') },
-    { key: 'forcesAll', label: tl('同时显示所有物体的受力') }
+    { key: 'forcesAll', label: tl('同时显示所有物体的受力') },
+    // 26.57 (D119, T06)
+    { key: 'contactPoints', label: tl('各接触点分别画出（N1、N2…）'), tip: tl('默认把同一接触面的支持力合成一个箭头（受力只计一次）；打开后分别画出每个接触点') }
   ] },
   { title: tl('轨迹与标注'), items: [
     { key: 'trajectory', label: tl('轨迹'), tip: tl('显示质心轨迹') },
@@ -133,9 +138,13 @@ function vtArea() {
   showToast(tl('在速度曲线上按住 Shift 拖动，选出时间段即可求面积（位移）'))
 }
 
-function toggleTheme() {
-  settings.themeMode = state.theme === 'dark' ? 'light' : 'dark'
+function toggleTheme(e?: MouseEvent) {
+  // 26.57 (D124): the new theme grows from the button (immediate with reduced motion)
+  circularTransition(() => { settings.themeMode = state.theme === 'dark' ? 'light' : 'dark' }, e && e.detail > 0 ? { x: e.clientX, y: e.clientY } : undefined)
 }
+/** Parent switch of a group of overlays (26.57, D120: tri-state, visibility only). */
+function setGroup(keys: string[], on: boolean) { for (const k of keys) (state.display as unknown as Record<string, boolean>)[k] = on }
+function modeClick(id: (typeof WORK_MODES)[number]['id'], e: MouseEvent) { setWorkMode(id, e.detail > 0 ? { x: e.clientX, y: e.clientY } : undefined) }
 </script>
 
 <template>
@@ -160,6 +169,12 @@ function toggleTheme() {
 
     <nav v-slide-indicator class="segmented page-switch" :aria-label="tl('页面')">
       <button v-for="p in PAGES" :key="p.id" :class="{ on: state.page === p.id }" :aria-current="state.page === p.id ? 'page' : undefined" :title="`${p.label}${paren(p.key)}`" @click="state.page = p.id"><Icon :name="p.icon" :size="15" /><span class="lbl page-lbl">{{ p.label }}</span></button>
+    </nav>
+
+    <!-- 26.57 (D118): work modes of the studio — presets of panels and overlays over the same scene -->
+    <nav v-show="state.page === 'studio'" class="segmented work-modes" role="radiogroup" :aria-label="tl('工作方式')">
+      <button v-for="m in WORK_MODES" :key="m.id" role="radio" :aria-checked="work.mode === m.id" :class="{ on: work.mode === m.id }" :title="tl(m.tip)" @click="modeClick(m.id, $event)"><Icon :name="m.icon" :size="14" /><span class="lbl">{{ tl(m.label) }}</span></button>
+      <button v-if="work.mode" class="mode-reset" :title="tl('恢复这个工作方式的默认面板与显示')" :aria-label="tl('恢复默认')" @click="resetWorkMode">↺</button>
     </nav>
 
     <div class="group-btns">
@@ -201,7 +216,7 @@ function toggleTheme() {
           <button v-for="p in PRESETS" :key="p.id" class="preset" :class="{ on: presetOn(p.id) }" :title="p.tip" @click="applyPreset(p.id)"><Icon :name="p.icon" :size="16" /><span>{{ p.label }}</span></button>
         </div>
         <template v-for="g in TOGGLE_GROUPS" :key="g.title">
-          <div class="menu-title">{{ g.title }}</div>
+          <TriCheck :label="g.title" :children="g.items.map(t => ({ key: t.key, on: state.display[t.key], disabled: t.key === 'forcesAll' && !state.display.forces }))" @set="setGroup" />
           <label v-for="t in g.items" :key="t.key" class="menu-check" role="menuitemcheckbox" :aria-checked="state.display[t.key]" :title="t.tip">
             <input v-model="state.display[t.key]" type="checkbox" class="switch" :disabled="t.key === 'forcesAll' && !state.display.forces" /><span>{{ t.label }}</span>
           </label>
@@ -222,7 +237,7 @@ function toggleTheme() {
       </div>
     </div>
 
-    <button class="btn icon ghost" :title="state.theme === 'dark' ? tl('浅色外观') : tl('深色外观')" @click="toggleTheme"><Icon :name="state.theme === 'dark' ? 'sun' : 'moon'" /></button>
+    <button class="btn icon ghost" :title="state.theme === 'dark' ? tl('浅色外观') : tl('深色外观')" @click="toggleTheme($event)"><Icon :name="state.theme === 'dark' ? 'sun' : 'moon'" /></button>
     <button class="btn icon ghost" :title="tl('关于与快捷键')" @click="state.showAbout = true"><Icon name="info" /></button>
   </header>
 </template>
@@ -238,6 +253,10 @@ function toggleTheme() {
 .dot { color: var(--warning); font-size: 10px; flex: 0 0 auto; visibility: hidden; }
 .dot.on { visibility: visible; }
 .page-switch { flex: 0 0 auto; }
+.work-modes { flex: 0 0 auto; }
+.work-modes button { padding: 0 9px; }
+.mode-reset { font-size: 13px; padding: 0 6px !important; }
+.fit-2 .work-modes .lbl { display: none; }
 .group-btns { display: flex; gap: 2px; flex: 0 0 auto; }
 .run { flex: 0 0 auto; min-width: 122px; }
 .run .btn { width: 100%; justify-content: center; position: relative; overflow: hidden; white-space: nowrap; }

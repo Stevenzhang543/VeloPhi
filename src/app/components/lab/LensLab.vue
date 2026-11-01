@@ -8,7 +8,7 @@ import { computed, watch } from 'vue'
 import { tl } from '../../../i18n'
 import { fmtQ } from '../../settings'
 import { opticsImage } from '../../../engine/labs'
-import { labState } from '../../lab/state'
+import { labState, labTaskRequest } from '../../lab/state'
 import { useLabCanvas } from '../../lab/canvas'
 import { FONT } from '../../../render/style'
 import NumField from '../NumField.vue'
@@ -22,6 +22,16 @@ const KINDS: Array<{ id: Kind; label: string }> = [
   { id: 'convex', label: tl('凸透镜') }, { id: 'concave', label: tl('凹透镜') }, { id: 'concaveMirror', label: tl('凹面镜') }, { id: 'convexMirror', label: tl('凸面镜') }
 ]
 const S = labState('lens', () => ({ kind: 'convex' as Kind, f: 0.1, u: 0.3, h: 0.03, rays: true }))
+// 26.57 (D116): a task opens the bench with its lens, object distance and height
+watch(() => labTaskRequest.seq, () => {
+  const p = labTaskRequest.payload
+  if (labTaskRequest.lab !== 'lens' || !p) return
+  labTaskRequest.payload = null
+  S.kind = (p.f as number) < 0 ? 'concave' : 'convex'
+  S.f = Math.abs(p.f as number)
+  S.u = p.u as number
+  if (typeof p.h === 'number') S.h = p.h
+}, { immediate: true, flush: 'post' })
 const mirror = computed(() => S.kind === 'concaveMirror' || S.kind === 'convexMirror')
 const fSigned = computed(() => (S.kind === 'convex' || S.kind === 'concaveMirror' ? S.f : -S.f))
 const img = computed(() => { try { return opticsImage(mirror.value ? 'mirror' : 'lens', fSigned.value, S.u, S.h) } catch { return null } })

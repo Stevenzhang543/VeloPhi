@@ -6,6 +6,7 @@
  *
  * Mounted by App.vue while `state.showModels` is true; `state.modelId` picks the model.
  */
+import { PACKAGES, packageOf } from '../../../content/packages'
 import { computed, onMounted, ref } from 'vue'
 import { dialogKeys } from '../../focusTrap'
 import { tl } from '../../../i18n'
@@ -22,12 +23,15 @@ const domain = ref('')
 const stage = ref<'' | Stage>('')
 const level = ref<'' | `${Level}`>('')
 const status = ref<'' | Status>('')
+/** 26.57 (D122): only the families with a teaching package; a search also finds a package by its goal words (T26). */
+const pkgOnly = ref(false)
 const norm = (s: string) => s.toLowerCase().replace(/\s+/g, '')
 const list = computed(() => {
   const w = norm(q.value)
   return MODELS.filter(m =>
     (!domain.value || m.id[0] === domain.value) && (!stage.value || m.stages.includes(stage.value)) && (!level.value || String(m.level) === level.value) && (!status.value || m.status === status.value) &&
-    (!w || norm(`${m.id} ${m.title.zh} ${m.title.en} ${m.title.de} ${T3(m.point)}`).includes(w)))
+    (!pkgOnly.value || !!packageOf(m.id)) &&
+    (!w || norm(`${m.id} ${m.title.zh} ${m.title.en} ${m.title.de} ${T3(m.point)} ${(packageOf(m.id)?.goals ?? []).join(' ')}`).includes(w)))
 })
 const counts = computed(() => {
   const c = { 0: 0, 1: 0, 2: 0, 3: 0 } as Record<Level, number>
@@ -60,10 +64,11 @@ function onKey(e: KeyboardEvent) {
             <select v-model="stage" :aria-label="tl('学段')"><option value="">{{ tl('全部学段') }}</option><option v-for="(t, s) in STAGE_TEXT" :key="s" :value="s">{{ t }}</option></select>
             <select v-model="level" :aria-label="tl('成熟度')"><option value="">{{ tl('全部成熟度') }}</option><option v-for="(t, l) in LEVEL_TEXT" :key="l" :value="String(l)">{{ t }}</option></select>
             <select v-model="status" :aria-label="tl('状态')"><option value="">{{ tl('全部状态') }}</option><option v-for="(t, s) in STATUS_TEXT" :key="s" :value="s">{{ t }}</option></select>
+            <label class="tiny pk-only"><input v-model="pkgOnly" type="checkbox" /> {{ tl('只看有教学包的（{0}）', [PACKAGES.length]) }}</label>
           </div>
           <div class="list" role="listbox" :aria-label="tl('模型')" @keydown="onKey">
             <button v-for="m in list" :id="`mdl-${m.id}`" :key="m.id" class="row" :class="{ on: m.id === current }" role="option" :aria-selected="m.id === current" @click="pick(m.id)">
-              <span class="mono id">{{ m.id }}</span><span class="name">{{ T3(m.title) }}</span><span class="tiny lv" :class="`lv${m.level}`">L{{ m.level }}</span>
+              <span class="mono id">{{ m.id }}</span><span class="name">{{ T3(m.title) }}</span><span v-if="packageOf(m.id)" class="tiny pk" :title="tl('有教学包')">{{ tl('包') }}</span><span class="tiny lv" :class="`lv${m.level}`">L{{ m.level }}</span>
             </button>
             <p v-if="!list.length" class="small muted">{{ tl('没有符合条件的模型。') }}</p>
           </div>
@@ -82,6 +87,8 @@ function onKey(e: KeyboardEvent) {
 aside { display: flex; flex-direction: column; gap: 6px; min-height: 0; }
 .search { width: 100%; }
 .filters { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.pk-only { grid-column: 1 / -1; display: inline-flex; gap: 6px; align-items: center; }
+.pk { color: var(--accent); border: 1px solid currentColor; border-radius: 5px; padding: 0 4px; margin-right: 4px; }
 .list { overflow: auto; flex: 1; min-height: 0; }
 .row { display: flex; align-items: center; gap: 8px; width: 100%; border: 0; background: transparent; border-radius: 7px; padding: 4px 6px; cursor: pointer; text-align: left; color: var(--text); font: inherit; }
 .row:hover { background: var(--hover); }

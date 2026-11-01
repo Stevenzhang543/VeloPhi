@@ -30,3 +30,32 @@ export function dialogKeys(e: KeyboardEvent, root: HTMLElement | null, close?: (
   if (e.shiftKey && (!inside || active === first)) { e.preventDefault(); last.focus() }
   else if (!e.shiftKey && (!inside || active === last)) { e.preventDefault(); first.focus() }
 }
+
+/**
+ * `v-dialog="close"` on a modal dialog's root (26.57, known issue of 26.56: the older dialogs had no trap): Tab stays
+ * inside, Escape calls `close` (when given), the dialog takes focus when it opens (unless something inside already
+ * has it) and gives it back to where it came from when it closes.
+ */
+type DialogEl = HTMLElement & { __dlg?: { onKey: (e: KeyboardEvent) => void; back: HTMLElement | null; close?: () => void } }
+export const vDialog = {
+  mounted(el: DialogEl, binding: { value?: () => void }) {
+    const back = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const st = { back, close: binding.value, onKey: (e: KeyboardEvent) => dialogKeys(e, el, st.close) }
+    el.__dlg = st
+    el.setAttribute('aria-modal', 'true')
+    el.addEventListener('keydown', st.onKey)
+    if (!el.contains(document.activeElement)) {
+      const first = focusables(el)[0]
+      if (first) first.focus({ preventScroll: true })
+      else { if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '-1'); el.focus({ preventScroll: true }) }
+    }
+  },
+  updated(el: DialogEl, binding: { value?: () => void }) { if (el.__dlg) el.__dlg.close = binding.value },
+  beforeUnmount(el: DialogEl) {
+    const st = el.__dlg
+    if (!st) return
+    el.removeEventListener('keydown', st.onKey)
+    if (st.back && document.contains(st.back)) st.back.focus({ preventScroll: true })
+    delete el.__dlg
+  }
+}

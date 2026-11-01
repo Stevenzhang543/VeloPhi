@@ -34,6 +34,38 @@ pub struct VarValue {
     pub unit: &'static str,
     pub symbol: &'static str,
     pub label: Text,
+    /// Where the value comes from (26.57, D111): the interface no longer infers it from the label text.
+    pub src: Src,
+}
+
+/// Provenance of a variable of a sample (26.57, D111; FOR03).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Src {
+    /// A property of the scene: mass, angle, friction coefficient, field, g of the scene, geometry.
+    Given,
+    /// A physical constant of the scene or the constants set (G, Coulomb k).
+    Constant,
+    /// The state at the start of the phase or just before its event, read from the recording.
+    Phase,
+    /// The evaluation time (t, or the time since the start of the phase).
+    Time,
+    /// A value of the recording at the sample time: the formula card checks consistency within the run.
+    Sim,
+    /// Computed in the core from the variables above (a theoretical acceleration, a numerical integral).
+    Derived,
+}
+
+impl Src {
+    pub fn name(self) -> &'static str {
+        match self {
+            Src::Given => "given",
+            Src::Constant => "constant",
+            Src::Phase => "phase",
+            Src::Time => "time",
+            Src::Sim => "sim",
+            Src::Derived => "derived",
+        }
+    }
 }
 
 /// A simulated measurement (SI); None when the recording does not provide it.
@@ -95,7 +127,7 @@ impl Sample {
     pub fn to_json(&self) -> Value {
         let mut vars = Map::new();
         for (k, v) in &self.vars {
-            vars.insert((*k).into(), json!({ "value": jnum(v.value), "unit": v.unit, "symbol": v.symbol, "label": v.label.to_json() }));
+            vars.insert((*k).into(), json!({ "value": jnum(v.value), "unit": v.unit, "symbol": v.symbol, "label": v.label.to_json(), "src": v.src.name() }));
         }
         let mut measures = Map::new();
         for (k, m) in &self.measures {
@@ -172,7 +204,27 @@ impl Situation {
 }
 
 pub fn var(value: f64, unit: &'static str, symbol: &'static str, label: Text) -> VarValue {
-    VarValue { value, unit, symbol, label }
+    VarValue { value, unit, symbol, label, src: Src::Given }
+}
+/// A value read from the recording at the sample time (26.57, D111).
+pub fn var_sim(value: f64, unit: &'static str, symbol: &'static str, label: Text) -> VarValue {
+    VarValue { value, unit, symbol, label, src: Src::Sim }
+}
+/// The state at the start of the phase (or before its event), from the recording.
+pub fn var_phase(value: f64, unit: &'static str, symbol: &'static str, label: Text) -> VarValue {
+    VarValue { value, unit, symbol, label, src: Src::Phase }
+}
+/// The evaluation time.
+pub fn var_time(value: f64, unit: &'static str, symbol: &'static str, label: Text) -> VarValue {
+    VarValue { value, unit, symbol, label, src: Src::Time }
+}
+/// A value computed in the core from the other variables.
+pub fn var_derived(value: f64, unit: &'static str, symbol: &'static str, label: Text) -> VarValue {
+    VarValue { value, unit, symbol, label, src: Src::Derived }
+}
+/// A physical constant.
+pub fn var_const(value: f64, unit: &'static str, symbol: &'static str, label: Text) -> VarValue {
+    VarValue { value, unit, symbol, label, src: Src::Constant }
 }
 pub fn meas(value: Option<f64>, unit: &'static str, label: Text) -> Measure {
     Measure { value, unit, label, note: None }

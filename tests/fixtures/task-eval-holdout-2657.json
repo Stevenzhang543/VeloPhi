@@ -1,0 +1,1411 @@
+{
+ "version": 1,
+ "cases": [
+  {
+   "cat": "complete",
+   "domain": "incline",
+   "text": "在倾角 30°、动摩擦因数 0.2、静摩擦因数 0.25 的斜面上，物块从静止释放，g = 9.8 m/s²，物块下滑 1 m 时速度是多大？",
+   "givens": {
+    "incline.theta": 0.5235987755982988,
+    "contact.muS": 0.25,
+    "contact.muK": 0.2,
+    "gravity.g": 9.8,
+    "blockA.v0": 0
+   },
+   "targets": [
+    "speedAtS@1"
+   ],
+   "options": {},
+   "clarify": [],
+   "solve": null,
+   "split": "holdout",
+   "id": "incline-comp-15"
+  },
+  {
+   "cat": "complete",
+   "domain": "incline",
+   "text": "质量 5 kg 的物体以 6 m/s 的速度冲上倾角 30° 的斜面，物体与斜面间的动摩擦因数为 0.3，最大静摩擦因数为 0.35，g = 10 m/s²。求物体沿斜面上滑的加速度。",
+   "givens": {
+    "blockA.mass": 5,
+    "incline.theta": 0.5235987755982988,
+    "contact.muS": 0.35,
+    "contact.muK": 0.3,
+    "gravity.g": 10,
+    "blockA.v0": -6
+   },
+   "targets": [
+    "a"
+   ],
+   "options": {},
+   "clarify": [],
+   "solve": null,
+   "split": "holdout",
+   "id": "incline-comp-16"
+  },
+  {
+   "cat": "complete",
+   "domain": "incline",
+   "text": "如图，物块从倾角 30° 的斜面上由静止下滑，下滑 2 m 时速度为多少？已知 μs = 0.25，μk = 0.2，g = 9.8 m/s²，斜面固定。",
+   "givens": {
+    "incline.theta": 0.5235987755982988,
+    "contact.muS": 0.25,
+    "contact.muK": 0.2,
+    "gravity.g": 9.8,
+    "blockA.v0": 0
+   },
+   "targets": [
+    "speedAtS@2"
+   ],
+   "options": {},
+   "clarify": [],
+   "solve": null,
+   "split": "holdout",
+   "id": "incline-comp-17"
+  },
+  {
+   "cat": "complete",
+   "domain": "incline",
+   "text": "质量为 1 kg 的物块静止于倾角 15° 的斜面上，μs = 0.4，μk = 0.3。g = 9.8 m/s²。物块受到的静摩擦力是多大？",
+   "givens": {
+    "blockA.mass": 1,
+    "incline.theta": 0.2617993877991494,
+    "contact.muS": 0.4,
+    "contact.muK": 0.3,
+    "gravity.g": 9.8,
+    "blockA.v0": 0
+   },
+   "targets": [
+    "f"
+   ],
+   "options": {},
+   "clarify": [],
+   "solve": null,
+   "split": "holdout",
+   "id": "incline-comp-18"
+  },
+  {
+   "cat": "complete",
+   "domain": "incline",
+   "text": "倾角 30° 的斜面，物块由静止释放，静摩擦因数 0.25，动摩擦因数 0.2，g = 9.8 m/s²，求物块到达沿斜面 2 m 处所需的时间。",
+   "givens": {
+    "incline.theta": 0.5235987755982988,
+    "contact.muS": 0.25,
+    "contact.muK": 0.2,
+    "gravity.g": 9.8,
+    "blockA.v0": 0
+   },
+   "targets": [
+    "timeAtS@2"
+   ],
+   "options": {},
+   "clarify": [],
+   "solve": null,
+   "split": "holdout",
+   "id": "incline-comp-19"
+  },
+  {
+   "cat": "complete",
+   "domain": "incline",
+   "text": "一个 2 kg 的物块从倾角为 45° 的斜面上静止滑下，μs = 0.5，μk = 0.4，g 取 9.8 m/s²，求滑下 1 m 的过程中摩擦力对物块做的功。",
+   "givens": {
+    "blockA.mass": 2,
+    "incline.theta": 0.7853981633974483,
+    "contact.muS": 0.5,
+    "contact.muK": 0.4,
+    "gravity.g": 9.8,
+    "blockA.v0": 0
+   },
+   "targets": [
+    "workAtS@1"
+   ],
+   "options": {},
+   "clarify": [],
+   "solve": null,
+   "split": "holdout",
+   "id": "incline-comp-20"
+  },
+  {
+   "cat": "ambiguous",
+   "domain": "incline",
+   "text": "质量 1 kg 的物块从倾角 37° 的斜面上由静止下滑，摩擦因数 0.5，求物块下滑 2 m 时的速率。",
+   "givens": {
+    "blockA.mass": 1,
+    "incline.theta": 0.6457718232379019,
+    "blockA.v0": 0
+   },
+   "targets": [
+    "speedAtS@2"
+   ],
+   "options": {},
+   "clarify": [
+    "frictionKind"
+   ],
+   "solve": null,
+   "split": "holdout",
+   "id": "incline-ambi-08"
+  },
+  {
+   "cat": "ambiguous",
+   "domain": "incline",
+   "text": "物块以 3 m/s 的速度沿倾角 30° 的斜面上滑，μk = 0.2，g = 9.8 m/s²，求物块上滑的最大距离。",
+   "givens": {
+    "incline.theta": 0.5235987755982988,
+    "contact.muK": 0.2,
+    "gravity.g": 9.8,
+    "blockA.v0": -3
+   },
+   "targets": [
+    "stopS"
+   ],
+   "options": {},
+   "clarify": [
+    "frictionKind"
+   ],
+   "solve": null,
+   "split": "holdout",
+   "id": "incline-ambi-09"
+  },
+  {
+   "cat": "ambiguous",
+   "domain": "incline",
+   "text": "倾角 30° 的斜面，μs = 0.25，μk = 0.2，物块从静止释放，求物块的位移。",
+   "givens": {
+    "incline.theta": 0.5235987755982988,
+    "contact.muS": 0.25,
+    "contact.muK": 0.2,
+    "blockA.v0": 0
+   },
+   "targets": [],
+   "options": {},
+   "clarify": [
+    "chooseEvaluation"
+   ],
+   "solve": null,
+   "split": "holdout",
+   "id": "incline-ambi-10"
+  },
+  {
+   "cat": "conflict",
+   "domain": "incline",
+   "text": "质量 2 kg 的物块静止在倾角 20° 的斜面上，μs = 0.5，μk = 0.4，g = 9.8 m/s²，求物块沿斜面下滑 1 m 时的速度。",
+   "givens": {
+    "blockA.mass": 2,
+    "incline.theta": 0.3490658503988659,
+    "contact.muS": 0.5,
+    "contact.muK": 0.4,
+    "gravity.g": 9.8,
+    "blockA.v0": 0
+   },
+   "targets": [
+    "speedAtS@1"
+   ],
+   "options": {},
+   "clarify": [],
+   "solve": "noSolution",
+   "split": "holdout",
+   "id": "incline-conf-04"
+  },
+  {
+   "cat": "conflict",
+   "domain": "incline",
+   "text": "物块由静止释放，斜面倾角 30°，静摩擦因数 0.25，动摩擦因数为 0.2，最大静摩擦因数为 0.3，求加速度。",
+   "givens": {},
+   "targets": [
+    "a"
+   ],
+   "options": {},
+   "clarify": [
+    "conflict"
+   ],
+   "solve": null,
+   "split": "holdout",
+   "id": "incline-conf-05"
+  },
+  {
+   "cat": "complete",
+   "domain": "projectile",
+   "text": "运动员将铅球以 12 m/s 的速度、与水平成 37° 推出，出手点离地 1.6 m，g = 9.8 m/s²，求铅球在空中运动的时间。",
+   "givens": {
+    "ball.v0": 12,
+    "ball.alpha": 0.6457718232379019,
+    "ball.h0": 1.6,
+    "gravity.g": 9.8
+   },
+   "targets": [
+    "T"
+   ],
+   "options": {},
+   "clarify": [],
+   "solve": null,
+   "split": "holdout",
+   "id": "projectile-comp-15"
+  },
+  {
+   "cat": "complete",
+   "domain": "projectile",
+   "text": "以 20 m/s 的初速度、30° 仰角抛出小球，g = 9.8 m/s²，小球两次经过离抛出点高 3 m 的位置，求第二次经过的时刻。",
+   "givens": {
+    "ball.v0": 20,
+    "ball.alpha": 0.5235987755982988,
+    "gravity.g": 9.8
+   },
+   "targets": [
+    "timeAtY@3:falling"
+   ],
+   "options": {},
+   "clarify": [],
+   "solve": null,
+   "split": "holdout",
+   "id": "projectile-comp-16"
+  },
+  {
+   "cat": "complete",
+   "domain": "projectile",
+   "text": "小球从 10 m 高处以 5 m/s 的速度斜向上 30° 抛出，g = 9.8 m/s²，求小球落地时的速率。",
+   "givens": {
+    "ball.v0": 5,
+    "ball.alpha": 0.5235987755982988,
+    "ball.h0": 10,
+    "gravity.g": 9.8
+   },
+   "targets": [
+    "speedLand"
+   ],
+   "options": {},
+   "clarify": [],
+   "solve": null,
+   "split": "holdout",
+   "id": "projectile-comp-17"
+  },
+  {
+   "cat": "complete",
+   "domain": "projectile",
+   "text": "从地面以 16 m/s 的速度和 45° 的抛射角抛出一物体，g = 9.8 m/s²，求它的水平射程。",
+   "givens": {
+    "ball.v0": 16,
+    "ball.alpha": 0.7853981633974483,
+    "ball.h0": 0,
+    "gravity.g": 9.8
+   },
+   "targets": [
+    "R"
+   ],
+   "options": {},
+   "clarify": [],
+   "solve": null,
+   "split": "holdout",
+   "id": "projectile-comp-18"
+  },
+  {
+   "cat": "complete",
+   "domain": "projectile",
+   "text": "将一个小球以 6 m/s 的速度从 1.25 m 高的桌面边缘水平推出，g = 10 m/s²，求小球落地点离桌边的水平距离。",
+   "givens": {
+    "ball.v0": 6,
+    "ball.alpha": 0,
+    "ball.h0": 1.25,
+    "gravity.g": 10
+   },
+   "targets": [
+    "R"
+   ],
+   "options": {},
+   "clarify": [],
+   "solve": null,
+   "split": "holdout",
+   "id": "projectile-comp-19"
+  },
+  {
+   "cat": "complete",
+   "domain": "projectile",
+   "text": "斜抛一个物体，初速度 25 m/s，仰角 53°，g 取 10 m/s²，求物体的飞行时间与最大高度。",
+   "givens": {
+    "ball.v0": 25,
+    "ball.alpha": 0.9250245035569946,
+    "gravity.g": 10
+   },
+   "targets": [
+    "T",
+    "H"
+   ],
+   "options": {},
+   "clarify": [],
+   "solve": null,
+   "split": "holdout",
+   "id": "projectile-comp-20"
+  },
+  {
+   "cat": "ambiguous",
+   "domain": "projectile",
+   "text": "以 20 m/s、仰角 30° 抛出一个小球，求 t 时刻的竖直速度。",
+   "givens": {
+    "ball.v0": 20,
+    "ball.alpha": 0.5235987755982988
+   },
+   "targets": [],
+   "options": {},
+   "clarify": [
+    "chooseEvaluation"
+   ],
+   "solve": null,
+   "split": "holdout",
+   "id": "projectile-ambi-08"
+  },
+  {
+   "cat": "ambiguous",
+   "domain": "projectile",
+   "text": "小球被抛出后落到地面，初速度 12 m/s，求射程。",
+   "givens": {
+    "ball.v0": 12
+   },
+   "targets": [
+    "R"
+   ],
+   "options": {},
+   "clarify": [
+    "missingGiven"
+   ],
+   "solve": null,
+   "split": "holdout",
+   "id": "projectile-ambi-09"
+  },
+  {
+   "cat": "ambiguous",
+   "domain": "projectile",
+   "text": "一个物体做平抛运动，抛出点高 20 m，求物体落地时的速度大小。",
+   "givens": {
+    "ball.alpha": 0,
+    "ball.h0": 20
+   },
+   "targets": [
+    "speedLand"
+   ],
+   "options": {},
+   "clarify": [
+    "missingGiven"
+   ],
+   "solve": null,
+   "split": "holdout",
+   "id": "projectile-ambi-10"
+  },
+  {
+   "cat": "conflict",
+   "domain": "projectile",
+   "text": "以 10 m/s 的速度、30° 仰角从地面抛出小球，g = 9.8 m/s²，求小球第一次到达比抛出点高 10 m 处的时刻。",
+   "givens": {
+    "ball.v0": 10,
+    "ball.alpha": 0.5235987755982988,
+    "ball.h0": 0,
+    "gravity.g": 9.8
+   },
+   "targets": [
+    "timeAtY@10:first"
+   ],
+   "options": {},
+   "clarify": [],
+   "solve": "noSolution",
+   "split": "holdout",
+   "id": "projectile-conf-04"
+  },
+  {
+   "cat": "conflict",
+   "domain": "projectile",
+   "text": "将小球以 20 m/s 的速度沿仰角 120° 抛出，求射程。",
+   "givens": {},
+   "targets": [
+    "R"
+   ],
+   "options": {},
+   "clarify": [
+    "invalid"
+   ],
+   "solve": null,
+   "split": "holdout",
+   "id": "projectile-conf-05"
+  },
+  {
+   "cat": "complete",
+   "domain": "collision",
+   "text": "两辆质量分别为 1000 kg 和 1500 kg 的汽车，前者以 20 m/s 的速度追尾以 10 m/s 同向行驶的后者，碰后两车连在一起，求碰撞过程损失的动能。",
+   "givens": {
+    "A.mass": 1000,
+    "B.mass": 1500,
+    "A.u": 20,
+    "B.u": 10
+   },
+   "targets": [
+    "loss"
+   ],
+   "options": {
+    "kind": "perfectlyInelastic"
+   },
+   "clarify": [],
+   "solve": null,
+   "split": "holdout",
+   "id": "collision-comp-15"
+  },
+  {
+   "cat": "complete",
+   "domain": "collision",
+   "text": "质量 3 kg 的球以 4 m/s 与质量 3 kg、以 2 m/s 相向运动的球发生弹性碰撞，求碰后第一个球的速度。",
+   "givens": {
+    "A.mass": 3,
+    "B.mass": 3,
+    "A.u": 4,
+    "B.u": -2
+   },
+   "targets": [
+    "v1"
+   ],
+   "options": {
+    "kind": "elastic"
+   },
+   "clarify": [],
+   "solve": null,
+   "split": "holdout",
+   "id": "collision-comp-16"
+  },
+  {
+   "cat": "complete",
+   "domain": "collision",
+   "text": "光滑水平面上质量 0.5 kg 的小球 A 以 2 m/s 撞击静止的 1 kg 小球 B，碰撞为弹性正碰，求碰前系统的总动量。",
+   "givens": {
+    "A.mass": 0.5,
+    "B.mass": 1,
+    "A.u": 2,
+    "B.u": 0
+   },
+   "targets": [
+    "p"
+   ],
+   "options": {
+    "kind": "elastic"
+   },
+   "clarify": [],
+   "solve": null,
+   "split": "holdout",
+   "id": "collision-comp-17"
+  },
+  {
+   "cat": "complete",
+   "domain": "collision",
+   "text": "滑块 A 质量 2 kg，以 3 m/s 与静止的滑块 B（质量 1 kg）碰撞，碰后 A、B 粘在一起运动，求碰后的速度。",
+   "givens": {
+    "A.mass": 2,
+    "B.mass": 1,
+    "A.u": 3,
+    "B.u": 0
+   },
+   "targets": [
+    "v1"
+   ],
+   "options": {
+    "kind": "perfectlyInelastic"
+   },
+   "clarify": [],
+   "solve": null,
+   "split": "holdout",
+   "id": "collision-comp-18"
+  },
+  {
+   "cat": "complete",
+   "domain": "collision",
+   "text": "质量 1 kg 的物体 A 以 8 m/s 的速度与质量 1 kg、静止的物体 B 正碰，碰撞的恢复系数为 0.5，求碰后两物体的速度。",
+   "givens": {
+    "A.mass": 1,
+    "B.mass": 1,
+    "A.u": 8,
+    "B.u": 0,
+    "contact.e": 0.5
+   },
+   "targets": [
+    "v1",
+    "v2"
+   ],
+   "options": {
+    "kind": "inelastic"
+   },
+   "clarify": [],
+   "solve": null,
+   "split": "holdout",
+   "id": "collision-comp-19"
+  },
+  {
+   "cat": "complete",
+   "domain": "collision",
+   "text": "质量 2 kg 的冰壶 A 以 1.5 m/s 的速度与静止的同质量冰壶 B 发生弹性正碰，求碰后 A 的速度。",
+   "givens": {
+    "A.mass": 2,
+    "B.mass": 2,
+    "A.u": 1.5,
+    "B.u": 0
+   },
+   "targets": [
+    "v1"
+   ],
+   "options": {
+    "kind": "elastic"
+   },
+   "clarify": [],
+   "solve": null,
+   "split": "holdout",
+   "id": "collision-comp-20"
+  },
+  {
+   "cat": "ambiguous",
+   "domain": "collision",
+   "text": "质量 1 kg 的 A 与质量 3 kg 的 B 发生弹性正碰，求碰后的速度。",
+   "givens": {
+    "A.mass": 1,
+    "B.mass": 3
+   },
+   "targets": [
+    "v1",
+    "v2"
+   ],
+   "options": {
+    "kind": "elastic"
+   },
+   "clarify": [
+    "missingGiven"
+   ],
+   "solve": null,
+   "split": "holdout",
+   "id": "collision-ambi-08"
+  },
+  {
+   "cat": "ambiguous",
+   "domain": "collision",
+   "text": "A 球（1 kg）以 4 m/s 碰撞静止的 B 球（1 kg）。求碰撞中损失的动能。",
+   "givens": {
+    "A.mass": 1,
+    "B.mass": 1,
+    "A.u": 4,
+    "B.u": 0
+   },
+   "targets": [
+    "loss"
+   ],
+   "options": {},
+   "clarify": [
+    "chooseOption"
+   ],
+   "solve": null,
+   "split": "holdout",
+   "id": "collision-ambi-09"
+  },
+  {
+   "cat": "ambiguous",
+   "domain": "collision",
+   "text": "质量为 m 的小球以速度 v 与静止的质量为 2m 的小球发生弹性碰撞，求碰后小球的速度。",
+   "givens": {
+    "B.u": 0
+   },
+   "targets": [
+    "v1"
+   ],
+   "options": {
+    "kind": "elastic"
+   },
+   "clarify": [
+    "missingGiven"
+   ],
+   "solve": null,
+   "split": "holdout",
+   "id": "collision-ambi-10"
+  },
+  {
+   "cat": "conflict",
+   "domain": "collision",
+   "text": "两球正碰，恢复系数为 1.5，m1 = 1 kg，m2 = 2 kg，v1 = 3 m/s，v2 = 0，求碰后两球的速度。",
+   "givens": {},
+   "targets": [
+    "v1",
+    "v2"
+   ],
+   "options": {},
+   "clarify": [
+    "invalid"
+   ],
+   "solve": null,
+   "split": "holdout",
+   "id": "collision-conf-04"
+  },
+  {
+   "cat": "conflict",
+   "domain": "collision",
+   "text": "质量 2 kg 的球 A 以 4 m/s 的速度与静止的球 B 发生完全非弹性碰撞，B 的质量为 3 kg，又知 B 的质量为 1 kg，求共同速度。",
+   "givens": {},
+   "targets": [
+    "v1"
+   ],
+   "options": {},
+   "clarify": [
+    "conflict"
+   ],
+   "solve": null,
+   "split": "holdout",
+   "id": "collision-conf-05"
+  },
+  {
+   "cat": "complete",
+   "domain": "circuit",
+   "text": "两个阻值分别为 30 Ω 和 60 Ω 的电阻并联，接到电压为 12 V 的电源上（不计电源内阻），求干路电流。",
+   "givens": {
+    "source.E": 12,
+    "source.r": 0,
+    "R1.R": 30,
+    "R2.R": 60
+   },
+   "targets": [
+    "I"
+   ],
+   "options": {
+    "connection": "parallel"
+   },
+   "clarify": [],
+   "solve": null,
+   "split": "holdout",
+   "id": "circuit-comp-15"
+  },
+  {
+   "cat": "complete",
+   "domain": "circuit",
+   "text": "电源 E = 6 V，r = 0.2 Ω，与两只均为 1.4 Ω 的电阻串联，求每只电阻两端的电压。",
+   "givens": {
+    "source.E": 6,
+    "source.r": 0.2,
+    "R1.R": 1.4,
+    "R2.R": 1.4
+   },
+   "targets": [
+    "U1",
+    "U2"
+   ],
+   "options": {
+    "connection": "series"
+   },
+   "clarify": [],
+   "solve": null,
+   "split": "holdout",
+   "id": "circuit-comp-16"
+  },
+  {
+   "cat": "complete",
+   "domain": "circuit",
+   "text": "将 R1 = 3 Ω 和 R2 = 6 Ω 并联在电动势 9 V、内阻 1 Ω 的电源上，求通过 R2 的电流和 R2 的功率。",
+   "givens": {
+    "source.E": 9,
+    "source.r": 1,
+    "R1.R": 3,
+    "R2.R": 6
+   },
+   "targets": [
+    "I2",
+    "P2"
+   ],
+   "options": {
+    "connection": "parallel"
+   },
+   "clarify": [],
+   "solve": null,
+   "split": "holdout",
+   "id": "circuit-comp-17"
+  },
+  {
+   "cat": "complete",
+   "domain": "circuit",
+   "text": "一个电阻为 10 Ω 的灯丝与 20 Ω 的电阻串联，接在 15 V 的理想电源上，求灯丝两端的电压。",
+   "givens": {
+    "source.E": 15,
+    "source.r": 0,
+    "R1.R": 10,
+    "R2.R": 20
+   },
+   "targets": [
+    "U1"
+   ],
+   "options": {
+    "connection": "series"
+   },
+   "clarify": [],
+   "solve": null,
+   "split": "holdout",
+   "id": "circuit-comp-18"
+  },
+  {
+   "cat": "complete",
+   "domain": "circuit",
+   "text": "电动势 1.5 V、内阻 0.5 Ω 的干电池与 1 Ω 和 1.5 Ω 的电阻串联，求电路中的电流。",
+   "givens": {
+    "source.E": 1.5,
+    "source.r": 0.5,
+    "R1.R": 1,
+    "R2.R": 1.5
+   },
+   "targets": [
+    "I"
+   ],
+   "options": {
+    "connection": "series"
+   },
+   "clarify": [],
+   "solve": null,
+   "split": "holdout",
+   "id": "circuit-comp-19"
+  },
+  {
+   "cat": "complete",
+   "domain": "circuit",
+   "text": "在电动势为 20 V、内阻为 2 Ω 的电源两端并联接入 R1 = 9 Ω 和 R2 = 18 Ω，求 R1 消耗的功率。",
+   "givens": {
+    "source.E": 20,
+    "source.r": 2,
+    "R1.R": 9,
+    "R2.R": 18
+   },
+   "targets": [
+    "P1"
+   ],
+   "options": {
+    "connection": "parallel"
+   },
+   "clarify": [],
+   "solve": null,
+   "split": "holdout",
+   "id": "circuit-comp-20"
+  },
+  {
+   "cat": "ambiguous",
+   "domain": "circuit",
+   "text": "两个相同的电阻并联在 6 V 的理想电源上，干路电流为多少？",
+   "givens": {
+    "source.E": 6,
+    "source.r": 0
+   },
+   "targets": [
+    "I"
+   ],
+   "options": {
+    "connection": "parallel"
+   },
+   "clarify": [
+    "missingGiven"
+   ],
+   "solve": null,
+   "split": "holdout",
+   "id": "circuit-ambi-08"
+  },
+  {
+   "cat": "ambiguous",
+   "domain": "circuit",
+   "text": "电源与 R1 = 5 Ω、R2 = 10 Ω 串联，电源电动势 15 V，求功率。",
+   "givens": {
+    "source.E": 15,
+    "R1.R": 5,
+    "R2.R": 10
+   },
+   "targets": [],
+   "options": {
+    "connection": "series"
+   },
+   "clarify": [
+    "chooseTarget"
+   ],
+   "solve": null,
+   "split": "holdout",
+   "id": "circuit-ambi-09"
+  },
+  {
+   "cat": "ambiguous",
+   "domain": "circuit",
+   "text": "将电阻 10 Ω 与 15 Ω 串联，求两端电压。",
+   "givens": {
+    "R1.R": 10,
+    "R2.R": 15
+   },
+   "targets": [],
+   "options": {
+    "connection": "series"
+   },
+   "clarify": [
+    "missingGiven"
+   ],
+   "solve": null,
+   "split": "holdout",
+   "id": "circuit-ambi-10"
+  },
+  {
+   "cat": "conflict",
+   "domain": "circuit",
+   "text": "两个电阻 R1 = 6 Ω、R2 = 3 Ω 既串联又并联接在 9 V 电源上，求电流。",
+   "givens": {},
+   "targets": [
+    "I"
+   ],
+   "options": {},
+   "clarify": [
+    "conflict"
+   ],
+   "solve": null,
+   "split": "holdout",
+   "id": "circuit-conf-04"
+  },
+  {
+   "cat": "conflict",
+   "domain": "circuit",
+   "text": "电动势 9 V 的理想电源，内阻 1 Ω，外接 4 Ω 和 4 Ω 串联电阻，求电流。",
+   "givens": {},
+   "targets": [
+    "I"
+   ],
+   "options": {},
+   "clarify": [
+    "conflict"
+   ],
+   "solve": null,
+   "split": "holdout",
+   "id": "circuit-conf-05"
+  },
+  {
+   "cat": "complete",
+   "domain": "lens",
+   "text": "凹透镜焦距 20 cm，物距 20 cm，求像的性质。",
+   "givens": {
+    "lens.f": -0.2,
+    "object.u": 0.2
+   },
+   "targets": [
+    "nature"
+   ],
+   "options": {},
+   "clarify": [],
+   "solve": null,
+   "split": "holdout",
+   "id": "lens-comp-15"
+  },
+  {
+   "cat": "complete",
+   "domain": "lens",
+   "text": "凸透镜的焦距是 6 cm，物体距透镜 9 cm，物高 3 cm，求像距和像高。",
+   "givens": {
+    "lens.f": 0.06,
+    "object.u": 0.09,
+    "object.h": 0.03
+   },
+   "targets": [
+    "v",
+    "hi"
+   ],
+   "options": {},
+   "clarify": [],
+   "solve": null,
+   "split": "holdout",
+   "id": "lens-comp-16"
+  },
+  {
+   "cat": "complete",
+   "domain": "lens",
+   "text": "物体位于凸透镜前 50 cm，透镜焦距 25 cm，求放大率。",
+   "givens": {
+    "lens.f": 0.25,
+    "object.u": 0.5
+   },
+   "targets": [
+    "m"
+   ],
+   "options": {},
+   "clarify": [],
+   "solve": null,
+   "split": "holdout",
+   "id": "lens-comp-17"
+  },
+  {
+   "cat": "complete",
+   "domain": "lens",
+   "text": "已知凸透镜焦距 f = 0.1 m，物距 u = 0.05 m，求像距。",
+   "givens": {
+    "lens.f": 0.1,
+    "object.u": 0.05
+   },
+   "targets": [
+    "v"
+   ],
+   "options": {},
+   "clarify": [],
+   "solve": null,
+   "split": "holdout",
+   "id": "lens-comp-18"
+  },
+  {
+   "cat": "complete",
+   "domain": "lens",
+   "text": "物体放在焦距为 30 cm 的凸透镜前 1 m 处，判断成什么像。",
+   "givens": {
+    "lens.f": 0.3,
+    "object.u": 1
+   },
+   "targets": [
+    "nature"
+   ],
+   "options": {},
+   "clarify": [],
+   "solve": null,
+   "split": "holdout",
+   "id": "lens-comp-19"
+  },
+  {
+   "cat": "complete",
+   "domain": "lens",
+   "text": "用焦距 18 cm 的凸透镜成像，物距 27 cm，物高 2 cm，求像距、放大率和像高。",
+   "givens": {
+    "lens.f": 0.18,
+    "object.u": 0.27,
+    "object.h": 0.02
+   },
+   "targets": [
+    "v",
+    "m",
+    "hi"
+   ],
+   "options": {},
+   "clarify": [],
+   "solve": null,
+   "split": "holdout",
+   "id": "lens-comp-20"
+  },
+  {
+   "cat": "ambiguous",
+   "domain": "lens",
+   "text": "用放大镜看字，求放大率。",
+   "givens": {},
+   "targets": [
+    "m"
+   ],
+   "options": {},
+   "clarify": [
+    "missingGiven"
+   ],
+   "solve": null,
+   "split": "holdout",
+   "id": "lens-ambi-08"
+  },
+  {
+   "cat": "ambiguous",
+   "domain": "lens",
+   "text": "凹透镜成像，物距 30 cm，求像距。",
+   "givens": {
+    "object.u": 0.3
+   },
+   "targets": [
+    "v"
+   ],
+   "options": {},
+   "clarify": [
+    "missingGiven"
+   ],
+   "solve": null,
+   "split": "holdout",
+   "id": "lens-ambi-09"
+  },
+  {
+   "cat": "ambiguous",
+   "domain": "lens",
+   "text": "凸透镜成实像，物距 20 cm，求像距。",
+   "givens": {
+    "object.u": 0.2
+   },
+   "targets": [
+    "v"
+   ],
+   "options": {},
+   "clarify": [
+    "missingGiven"
+   ],
+   "solve": null,
+   "split": "holdout",
+   "id": "lens-ambi-10"
+  },
+  {
+   "cat": "conflict",
+   "domain": "lens",
+   "text": "物体放在焦距 10 cm 的凸透镜前 30 cm 处，测得物距为 40 cm，求像距。",
+   "givens": {},
+   "targets": [
+    "v"
+   ],
+   "options": {},
+   "clarify": [
+    "conflict"
+   ],
+   "solve": null,
+   "split": "holdout",
+   "id": "lens-conf-04"
+  },
+  {
+   "cat": "conflict",
+   "domain": "lens",
+   "text": "凸透镜焦距 0 cm，物距 20 cm，求像距。",
+   "givens": {},
+   "targets": [
+    "v"
+   ],
+   "options": {},
+   "clarify": [
+    "invalid"
+   ],
+   "solve": null,
+   "split": "holdout",
+   "id": "lens-conf-05"
+  },
+  {
+   "cat": "complete",
+   "domain": "field",
+   "text": "一个 −4 μC 的点电荷位于原点，求 (0.2 m, 0) 处的电场强度大小和电势。",
+   "givens": {
+    "q1.q": -4e-06,
+    "q1.x": 0,
+    "q1.y": 0,
+    "P.x": 0.2,
+    "P.y": 0
+   },
+   "targets": [
+    "E",
+    "V"
+   ],
+   "options": {},
+   "clarify": [],
+   "solve": null,
+   "split": "holdout",
+   "id": "field-comp-15"
+  },
+  {
+   "cat": "complete",
+   "domain": "field",
+   "text": "q1 = +1 μC 位于 (0, 0)，q2 = −4 μC 位于 (0.3 m, 0)，求 (−0.1 m, 0) 处的场强大小。",
+   "givens": {
+    "q1.q": 1e-06,
+    "q1.x": 0,
+    "q1.y": 0,
+    "q2.q": -4e-06,
+    "q2.x": 0.3,
+    "q2.y": 0,
+    "P.x": -0.1,
+    "P.y": 0
+   },
+   "targets": [
+    "E"
+   ],
+   "options": {},
+   "clarify": [],
+   "solve": null,
+   "split": "holdout",
+   "id": "field-comp-16"
+  },
+  {
+   "cat": "complete",
+   "domain": "field",
+   "text": "+5 nC 与 +5 nC 的点电荷分别位于 (0, 0) 与 (0.2 m, 0)，求 (0.1 m, 0.1 m) 处的电势。",
+   "givens": {
+    "q1.q": 5e-09,
+    "q1.x": 0,
+    "q1.y": 0,
+    "q2.q": 5e-09,
+    "q2.x": 0.2,
+    "q2.y": 0,
+    "P.x": 0.1,
+    "P.y": 0.1
+   },
+   "targets": [
+    "V"
+   ],
+   "options": {},
+   "clarify": [],
+   "solve": null,
+   "split": "holdout",
+   "id": "field-comp-17"
+  },
+  {
+   "cat": "complete",
+   "domain": "field",
+   "text": "点电荷 +3 μC 位于 (0.1 m, 0.1 m)，求原点处的电场强度大小。",
+   "givens": {
+    "q1.q": 3e-06,
+    "q1.x": 0.1,
+    "q1.y": 0.1,
+    "P.x": 0,
+    "P.y": 0
+   },
+   "targets": [
+    "E"
+   ],
+   "options": {},
+   "clarify": [],
+   "solve": null,
+   "split": "holdout",
+   "id": "field-comp-18"
+  },
+  {
+   "cat": "complete",
+   "domain": "field",
+   "text": "在 (0, 0) 处有 −1 μC 的点电荷，(0.2 m, 0) 处有 −1 μC 的点电荷，+2 nC 的试探电荷放在 (0.1 m, 0.1 m)，求它所受电场力的大小和方向。",
+   "givens": {
+    "q1.q": -1e-06,
+    "q1.x": 0,
+    "q1.y": 0,
+    "q2.q": -1e-06,
+    "q2.x": 0.2,
+    "q2.y": 0,
+    "P.x": 0.1,
+    "P.y": 0.1,
+    "test.q": 2e-09
+   },
+   "targets": [
+    "F",
+    "Fdir"
+   ],
+   "options": {},
+   "clarify": [],
+   "solve": null,
+   "split": "holdout",
+   "id": "field-comp-19"
+  },
+  {
+   "cat": "complete",
+   "domain": "field",
+   "text": "点电荷 +10 nC 位于原点，求 (0, 0.5 m) 处的电场强度大小。",
+   "givens": {
+    "q1.q": 1e-08,
+    "q1.x": 0,
+    "q1.y": 0,
+    "P.x": 0,
+    "P.y": 0.5
+   },
+   "targets": [
+    "E"
+   ],
+   "options": {},
+   "clarify": [],
+   "solve": null,
+   "split": "holdout",
+   "id": "field-comp-20"
+  },
+  {
+   "cat": "ambiguous",
+   "domain": "field",
+   "text": "电荷 +1 μC 和 +2 μC 分别在 (0, 0) 和 (0.3 m, 0)，求 P 点的场强。",
+   "givens": {
+    "q1.q": 1e-06,
+    "q1.x": 0,
+    "q1.y": 0,
+    "q2.q": 2e-06,
+    "q2.x": 0.3,
+    "q2.y": 0
+   },
+   "targets": [
+    "E"
+   ],
+   "options": {},
+   "clarify": [
+    "missingGiven"
+   ],
+   "solve": null,
+   "split": "holdout",
+   "id": "field-ambi-08"
+  },
+  {
+   "cat": "ambiguous",
+   "domain": "field",
+   "text": "试探电荷 −1 nC 放在电场中某点，求受力方向。",
+   "givens": {
+    "test.q": -1e-09
+   },
+   "targets": [
+    "Fdir"
+   ],
+   "options": {},
+   "clarify": [
+    "missingGiven"
+   ],
+   "solve": null,
+   "split": "holdout",
+   "id": "field-ambi-09"
+  },
+  {
+   "cat": "ambiguous",
+   "domain": "field",
+   "text": "原点有 +4 nC 的点电荷，另一个点电荷位于 (0.2 m, 0)，求 (0.1 m, 0) 处的场强。",
+   "givens": {
+    "q1.q": 4e-09,
+    "q1.x": 0,
+    "q1.y": 0,
+    "q2.x": 0.2,
+    "q2.y": 0,
+    "P.x": 0.1,
+    "P.y": 0
+   },
+   "targets": [
+    "E"
+   ],
+   "options": {},
+   "clarify": [
+    "missingGiven"
+   ],
+   "solve": null,
+   "split": "holdout",
+   "id": "field-ambi-10"
+  },
+  {
+   "cat": "conflict",
+   "domain": "field",
+   "text": "−1 nC 的试探电荷放在 +2 μC 点电荷所在的位置（原点），求它受到的电场力。",
+   "givens": {
+    "q1.q": 2e-06,
+    "q1.x": 0,
+    "q1.y": 0,
+    "P.x": 0,
+    "P.y": 0,
+    "test.q": -1e-09
+   },
+   "targets": [
+    "F"
+   ],
+   "options": {},
+   "clarify": [],
+   "solve": "noSolution",
+   "split": "holdout",
+   "id": "field-conf-04"
+  },
+  {
+   "cat": "conflict",
+   "domain": "field",
+   "text": "两个点电荷 +1 μC 位于 (0, 0) 和 −1 μC 位于 (0.2 m, 0)，求 (0.2 m, 0) 处的场强。",
+   "givens": {
+    "q1.q": 1e-06,
+    "q1.x": 0,
+    "q1.y": 0,
+    "q2.q": -1e-06,
+    "q2.x": 0.2,
+    "q2.y": 0,
+    "P.x": 0.2,
+    "P.y": 0
+   },
+   "targets": [
+    "E"
+   ],
+   "options": {},
+   "clarify": [],
+   "solve": "noSolution",
+   "split": "holdout",
+   "id": "field-conf-05"
+  },
+  {
+   "cat": "out",
+   "domain": "out",
+   "text": "氢原子从 n = 3 跃迁到 n = 2，求发出光子的能量。",
+   "givens": {},
+   "targets": [],
+   "options": {},
+   "clarify": [],
+   "solve": null,
+   "split": "holdout",
+   "id": "out-out-22"
+  },
+  {
+   "cat": "out",
+   "domain": "out",
+   "text": "地球质量约 6×10²⁴ kg，半径 6400 km，求第一宇宙速度。",
+   "givens": {},
+   "targets": [],
+   "options": {},
+   "clarify": [],
+   "solve": null,
+   "split": "holdout",
+   "id": "out-out-23"
+  },
+  {
+   "cat": "out",
+   "domain": "out",
+   "text": "质量 0.5 kg 的小球用 0.8 m 长的细绳拴住在竖直面内做圆周运动，求最高点的最小速度。",
+   "givens": {},
+   "targets": [],
+   "options": {},
+   "clarify": [],
+   "solve": null,
+   "split": "holdout",
+   "id": "out-out-24"
+  },
+  {
+   "cat": "out",
+   "domain": "out",
+   "text": "火箭以 3 km/s 的速度喷出气体，每秒喷出 10 kg，求推力。",
+   "givens": {},
+   "targets": [],
+   "options": {},
+   "clarify": [],
+   "solve": null,
+   "split": "holdout",
+   "id": "out-out-25"
+  },
+  {
+   "cat": "out",
+   "domain": "out",
+   "text": "以 0.8c 运动的飞船上的时钟，地面观察者看来走得多慢？",
+   "givens": {},
+   "targets": [],
+   "options": {},
+   "clarify": [],
+   "solve": null,
+   "split": "holdout",
+   "id": "out-out-26"
+  },
+  {
+   "cat": "out",
+   "domain": "out",
+   "text": "将质量 2 kg 的物体沿光滑水平面推动 5 m，推力 10 N 与水平成 37°，求推力做的功。",
+   "givens": {},
+   "targets": [],
+   "options": {},
+   "clarify": [],
+   "solve": null,
+   "split": "holdout",
+   "id": "out-out-27"
+  },
+  {
+   "cat": "out",
+   "domain": "out",
+   "text": "一个物体漂浮在水面上，露出水面的体积是总体积的 1/4，求物体的密度。",
+   "givens": {},
+   "targets": [],
+   "options": {},
+   "clarify": [],
+   "solve": null,
+   "split": "holdout",
+   "id": "out-out-28"
+  },
+  {
+   "cat": "out",
+   "domain": "out",
+   "text": "用 50 N 的力把重 80 N 的物体沿斜面匀速推上 2 m 高、5 m 长的斜面，求机械效率。",
+   "givens": {},
+   "targets": [],
+   "options": {},
+   "clarify": [],
+   "solve": null,
+   "split": "holdout",
+   "id": "out-out-29"
+  },
+  {
+   "cat": "out",
+   "domain": "out",
+   "text": "带电量 +q 的小球在匀强电场 E = 1000 V/m 中由静止释放，求 2 s 后的速度。",
+   "givens": {},
+   "targets": [],
+   "options": {},
+   "clarify": [],
+   "solve": null,
+   "split": "holdout",
+   "id": "out-out-30"
+  }
+ ]
+}

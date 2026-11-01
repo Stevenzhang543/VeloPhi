@@ -15,14 +15,20 @@
   --ui-scale: 1;
   --proj-scale: 1;
   --zoom: calc(var(--ui-scale) * var(--proj-scale));
+  /* 26.57 (D120, manual §4.1–4.2): the default reading density — body 14 px, common controls 32 px; “紧凑” keeps the
+     sizes of 26.56 (.density-compact below) and “课堂投影” scales the default up (projector) */
   --type-display: calc(22px * var(--zoom));
-  --type-title: calc(15px * var(--zoom));
-  --type-body: calc(13px * var(--zoom));
-  --type-small: calc(12px * var(--zoom));
-  --type-tiny: calc(11px * var(--zoom));
+  --type-title: calc(15.5px * var(--zoom));
+  --type-body: calc(14px * var(--zoom));
+  --type-small: calc(12.5px * var(--zoom));
+  --type-tiny: calc(11.5px * var(--zoom));
+  --control-sm: calc(28px * var(--zoom));
+  --tab-h: calc(26px * var(--zoom));
+  --menu-row: calc(32px * var(--zoom));
+  --line-body: 1.5;
   --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 20px; --space-6: 24px;
   --radius-pane: 14px; --radius-group: 10px; --radius-row: 7px; --radius-pill: 999px;
-  --control-h: calc(28px * var(--zoom));
+  --control-h: calc(32px * var(--zoom));
   --left-w: calc(216px * var(--zoom));
   /* Motion tokens (26.52, D57): press, hover/switch, open/dialog; reduced motion shortens them all (fx-calm) */
   --dur-1: 90ms; --dur-2: 160ms; --dur-3: 240ms;
@@ -33,6 +39,7 @@
   --pane: #ffffff;
   --pane-bg: var(--pane);
   --group: #f5f6f8;
+  --group-solid: #f5f6f8;
   --fill: rgba(60, 60, 67, 0.08);
   --fill-strong: rgba(60, 60, 67, 0.14);
   --hover: rgba(60, 60, 67, 0.06);
@@ -75,6 +82,7 @@
   --bg: #0f1012;
   --pane: #1c1c1f;
   --group: #242428;
+  --group-solid: #242428;
   --fill: rgba(235, 235, 245, 0.10);
   --fill-strong: rgba(235, 235, 245, 0.16);
   --hover: rgba(235, 235, 245, 0.07);
@@ -110,6 +118,11 @@
 }
 
 /* Projector: larger type, stronger text and lines, no translucency */
+/* “紧凑” density: the sizes of 26.56 */
+:root.density-compact {
+  --type-title: calc(15px * var(--zoom)); --type-body: calc(13px * var(--zoom)); --type-small: calc(12px * var(--zoom)); --type-tiny: calc(11px * var(--zoom));
+  --control-h: calc(28px * var(--zoom)); --control-sm: calc(26px * var(--zoom)); --tab-h: calc(24px * var(--zoom)); --menu-row: calc(30px * var(--zoom)); --line-body: 1.4;
+}
 :root.projector { --proj-scale: 1.18; --text-2: rgba(0, 0, 0, 0.86); --text-3: rgba(0, 0, 0, 0.68); --separator: rgba(0, 0, 0, 0.26); --fill: rgba(0, 0, 0, 0.09); --fill-strong: rgba(0, 0, 0, 0.16); --bg: #e6e8ec; }
 :root.projector[data-theme="dark"] { --text-2: rgba(255, 255, 255, 0.9); --text-3: rgba(255, 255, 255, 0.72); --separator: rgba(255, 255, 255, 0.26); --fill: rgba(255, 255, 255, 0.14); --fill-strong: rgba(255, 255, 255, 0.22); --bg: #000; }
 :root.projector .pane { box-shadow: 0 0 0 1.5px var(--separator); }
@@ -122,7 +135,7 @@ html, body, #app { margin: 0; height: 100%; }
 body {
   font-family: var(--font-ui);
   font-size: var(--type-body);
-  line-height: 1.4;
+  line-height: var(--line-body);
   color: var(--text);
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
@@ -160,7 +173,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .btn.active { background: var(--accent-soft); color: var(--accent); }
 .btn.icon { width: var(--control-h); padding: 0; justify-content: center; }
 .btn.danger { color: var(--danger); }
-.btn.small { font-size: var(--type-small); height: calc(26px * var(--zoom)); padding: 0 8px; }
+.btn.small { font-size: var(--type-small); height: var(--control-sm); padding: 0 8px; }
 
 .field {
   height: var(--control-h);
@@ -205,13 +218,13 @@ textarea.field { height: auto; padding: 6px 8px; resize: vertical; line-height: 
 .row > .grow { flex: 1; min-width: 0; }
 
 .tabs { display: flex; gap: 2px; padding: 2px; background: var(--fill); border-radius: var(--radius-row); }
-.tabs button { flex: 1 1 0; min-width: 0; padding: 0 4px; height: calc(24px * var(--zoom)); border: 0; background: transparent; border-radius: 6px; cursor: pointer; font-size: var(--type-small); color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: background 140ms ease, color 140ms ease; }
+.tabs button { flex: 1 1 0; min-width: 0; padding: 0 4px; height: var(--tab-h); border: 0; background: transparent; border-radius: 6px; cursor: pointer; font-size: var(--type-small); color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: background 140ms ease, color 140ms ease; }
 .tabs button:hover { color: var(--text); }
 .tabs button.on { background: var(--pane); color: var(--text); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12), 0 0 0 0.5px rgba(0, 0, 0, 0.04); font-weight: 600; }
 
 /* Segmented control (page switcher, theme, quality) */
 .segmented { display: inline-flex; gap: 2px; padding: 2px; background: var(--fill); border-radius: 9px; }
-.segmented button { height: calc(26px * var(--zoom)); padding: 0 12px; border: 0; background: transparent; border-radius: 7px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: var(--type-small); color: var(--text-2); white-space: nowrap; transition: background 160ms ease, color 160ms ease, box-shadow 160ms ease; }
+.segmented button { height: var(--control-sm); padding: 0 12px; border: 0; background: transparent; border-radius: 7px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: var(--type-small); color: var(--text-2); white-space: nowrap; transition: background 160ms ease, color 160ms ease, box-shadow 160ms ease; }
 .segmented button:hover { color: var(--text); }
 .segmented button.on { background: var(--pane); color: var(--text); font-weight: 600; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.14), 0 0 0 0.5px rgba(0, 0, 0, 0.05); }
 :root[data-theme="dark"] .segmented button.on, :root[data-theme="dark"] .tabs button.on { background: #3a3a3f; }
@@ -257,7 +270,7 @@ kbd { font-family: var(--font-mono); font-size: var(--type-tiny); background: va
 
 /* Menus and popovers */
 .menu { position: absolute; z-index: 8000; min-width: 220px; padding: 5px; border-radius: 12px; background: var(--pane); box-shadow: var(--shadow-pop), 0 0 0 0.5px var(--separator); display: flex; flex-direction: column; gap: 1px; animation: pop-in 140ms var(--ease-out); }
-.menu > button, .menu > label { display: flex; align-items: center; gap: 8px; height: calc(30px * var(--zoom)); padding: 0 10px; border: 0; border-radius: 7px; background: transparent; cursor: pointer; text-align: left; font-size: var(--type-body); white-space: nowrap; }
+.menu > button, .menu > label { display: flex; align-items: center; gap: 8px; height: var(--menu-row); padding: 0 10px; border: 0; border-radius: 7px; background: transparent; cursor: pointer; text-align: left; font-size: var(--type-body); white-space: nowrap; }
 .menu > button:hover, .menu > label:hover { background: var(--accent); color: var(--on-accent); }
 .menu > button:hover .muted, .menu > label:hover .muted { color: inherit; opacity: 0.8; }
 .menu > button:disabled { opacity: 0.45; cursor: default; background: transparent; color: inherit; }
@@ -330,6 +343,11 @@ kbd { font-family: var(--font-mono); font-size: var(--type-tiny); background: va
   transition: opacity 420ms ease;
   will-change: transform;
 }
+/* 26.57 (D120, manual §4.1): the reading panels (the right panel, the bottom panel, anything marked .reading) keep a
+   stable opaque ground under formulas and explanations; glass stays on navigation, menus and pop-ups */
+:root.fx-glass .pane.right, :root.fx-glass .pane.bottom, :root.fx-glass .reading { --pane-bg: var(--pane); --group: var(--group-solid); background: var(--pane); }
+:root.fx-glass.fx-high .pane.right, :root.fx-glass.fx-high .pane.bottom, :root.fx-glass.fx-high .reading { -webkit-backdrop-filter: none; backdrop-filter: none; }
+:root.fx-glass .pane.right::before, :root.fx-glass .pane.bottom::before, :root.fx-glass .reading::before, :root.fx-glass .pane.right::after, :root.fx-glass .pane.bottom::after, :root.fx-glass .reading::after { display: none; }
 /* Static sheen along the top edge */
 :root.fx-glass .pane::after, :root.fx-glass .glass::after {
   content: '';
@@ -362,3 +380,6 @@ kbd { font-family: var(--font-mono); font-size: var(--type-tiny); background: va
 
 /* 26.55 (D43): text only for screen readers (live announcements) */
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+/* 26.57 (D124): the circular reveal animates only the clip of the new view (no cross-fade) */
+::view-transition-old(root), ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }

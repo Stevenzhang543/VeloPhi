@@ -790,20 +790,20 @@ pub fn call(op: &str, req: &Value, blob: &mut Blob) -> Option<Value> {
             let hl = nums(req, "halfLives");
             let lam: Vec<f64> = hl.iter().map(|&h| if h > 0.0 && h.is_finite() { std::f64::consts::LN_2 / h } else { 0.0 }).take(8).collect();
             let n0 = nums(req, "n0");
-            let ch = nuclear::chain(&lam, &n0);
+            // 26.57: exp(A·t)·n0 without cancellation (nuclear::chain_at); the closed form stays for its tests
             let samples = num(req, "samples", 301.0).clamp(2.0, 5001.0) as usize;
             let t_end = num(req, "tEnd", 10.0).max(1e-300);
             let ts: Vec<f64> = (0..samples).map(|k| t_end * k as f64 / (samples - 1) as f64).collect();
+            let rows: Vec<Vec<f64>> = ts.iter().map(|&t| nuclear::chain_at(&lam, &n0, t)).collect();
             let mut nn = Vec::with_capacity(lam.len() * samples);
             let mut aa = Vec::with_capacity(lam.len() * samples);
-            for (k, c) in ch.iter().enumerate() {
-                for &t in &ts {
-                    let v = c.at(t);
-                    nn.push(v);
-                    aa.push(lam[k] * v);
+            for k in 0..lam.len() {
+                for r in &rows {
+                    nn.push(r[k]);
+                    aa.push(lam[k] * r[k]);
                 }
             }
-            let at = opt_num(req, "t").map(|t| ch.iter().map(|c| jnum(c.at(t))).collect::<Vec<_>>());
+            let at = opt_num(req, "t").map(|t| nuclear::chain_at(&lam, &n0, t).iter().map(|v| jnum(*v)).collect::<Vec<_>>());
             json!({ "t": blob.f64s(&ts), "N": blob.f64s(&nn), "A": blob.f64s(&aa), "lambda": lam.iter().map(|x| jnum(*x)).collect::<Vec<_>>(), "at": at })
         }
         "binding" => {

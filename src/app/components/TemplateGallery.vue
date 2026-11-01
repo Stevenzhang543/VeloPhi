@@ -3,6 +3,7 @@
  * Classic model templates. Parameters are entered in the display units of the settings (templates take SI,
  * angles in degrees); g starts at the default gravity of the settings.
  */
+import { vDialog } from '../focusTrap'
 import { tl } from '../../i18n'
 import { computed, ref, watch } from 'vue'
 import { state, loadScene } from '../store'
@@ -71,7 +72,7 @@ async function create() {
 
 <template>
   <div class="dialog-backdrop" @mousedown.self="state.showTemplates = false">
-    <div class="dialog">
+    <div v-dialog="() => (state.showTemplates = false)" class="dialog" role="dialog" :aria-label="tl('模板')">
       <div class="dialog-header"><Icon name="template" :size="18" />{{ tl('经典模型模板') }}<span class="spacer" /><button class="btn icon ghost" @click="state.showTemplates = false"><Icon name="close" /></button></div>
       <div class="dialog-body gallery">
         <nav>

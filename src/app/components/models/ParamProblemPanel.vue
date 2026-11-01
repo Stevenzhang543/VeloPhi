@@ -6,7 +6,7 @@
  * by reason. The same seed always gives the same problem. Export as JSON with the run manifest.
  */
 import { computed, reactive, ref, watch } from 'vue'
-import { tl } from '../../../i18n'
+import { tl, colonSep } from '../../../i18n'
 import type { ModelSpec } from '../../../content/models/types'
 import { checkSpec, preview } from '../../../teaching/paramProblem'
 import type { ParamSpec } from '../../../teaching/paramProblem'
@@ -61,8 +61,13 @@ function word(m: string): string {
   if (d) return d[2] === 'below' ? tl('{0} 的下限低于有效域（{1}）', [T3(inputSpec(d[1])?.label) || d[1], d[3]]) : tl('{0} 的上限高于有效域（{1}）', [T3(inputSpec(d[1])?.label) || d[1], d[3]])
   const e = /^(\w+): empty range or step$/.exec(m)
   if (e) return tl('{0} 的区间或步长无效', [T3(inputSpec(e[1])?.label) || e[1]])
+  // 26.57 (known issue of 26.56): every message of checkSpec is worded, none is shown in English
+  const u = /^unknown (output|condition|input) (.*)$/.exec(m)
+  if (u) return tl(u[1] === 'output' ? '模型没有这个输出：{0}' : u[1] === 'condition' ? '模型没有这个条件：{0}' : '模型没有这个输入：{0}', [u[2]])
   return m
 }
+/** Why draws were rejected, in words (the keys of teaching/paramProblem.ts). */
+const REASON_TEXT: Record<string, string> = { model: '模型不存在', domain: '输入超出有效域', condition: '要求的条件不成立', undefined: '所求的量无定义', range: '答案超出设定范围' }
 const issues = computed(() => [...checkSpec(spec.value).map(word), ...(spec.value.ask.length ? [] : [tl('至少选一个所求的量')]), ...(Object.keys(spec.value.vary).length ? [] : [tl('至少抽取一个输入')])])
 const result = ref<ReturnType<typeof preview> | null>(null)
 function run() { if (!issues.value.length) result.value = preview(spec.value, Array.from({ length: Math.max(1, Math.min(50, count.value)) }, (_, k) => seed.value + k)) }
@@ -102,7 +107,7 @@ async function exportSet() {
       </div>
       <ul v-if="issues.length" class="error" role="alert"><li v-for="(m, k) in issues" :key="k">{{ m }}</li></ul>
       <div v-if="result" aria-live="polite">
-        <p>{{ tl('{0} 份可用，{1} 份失败；抽取被拒比例 {2}%。', [result.instances.length, result.failed, (100 * result.rejectionRate).toFixed(0)]) }} <span v-for="(n, k) in result.reasons" :key="k" class="tiny muted">{{ k }}: {{ n }} </span></p>
+        <p>{{ tl('{0} 份可用，{1} 份失败；抽取被拒比例 {2}%。', [result.instances.length, result.failed, (100 * result.rejectionRate).toFixed(0)]) }} <span v-for="(n, k) in result.reasons" :key="k" class="tiny muted">{{ REASON_TEXT[k] ? tl(REASON_TEXT[k]) : k }}{{ colonSep() }}{{ n }} </span></p>
         <table class="inst">
           <thead><tr><th>{{ tl('种子') }}</th><th>{{ tl('题目数据') }}</th><th>{{ tl('答案（核心计算）') }}</th></tr></thead>
           <tbody>

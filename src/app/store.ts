@@ -143,7 +143,7 @@ export interface AppState {
   chart: string[]
   /** Top-level page: the studio (build and analyse), the render & monitor page, or the settings page. */
   page: Page
-  rightTab: 'inspect' | 'formula' | 'watch' | 'predict' | 'settings' | 'problem'
+  rightTab: 'inspect' | 'formula' | 'watch' | 'predict' | 'settings' | 'problem' | 'task'
   bottomTab: 'chart' | 'events'
   /** Effective theme (settings.themeMode resolved against the system appearance); read by the renderer. */
   theme: 'light' | 'dark'
@@ -321,7 +321,11 @@ function normalizeWatch(scene: Scene) {
 }
 
 /** Replace the whole document (new, open, template). */
+/** How many scenes were loaded (a new scene, not an edit or an undo of the same one; the task layer compares it). */
+export const sceneLoads = { n: 0 }
+
 export function loadScene(scene: Scene, name: string | null, path: string | null = null) {
+  sceneLoads.n++
   normalizeWatch(scene)
   state.formulaPick = null
   state.formulaHighlight = null

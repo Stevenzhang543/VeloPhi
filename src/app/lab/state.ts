@@ -127,3 +127,9 @@ export function importLab(text: string, known: (id: string) => boolean, message:
  * circuit lab at a preset). The experiment reacts to `seq`.
  */
 export const labRequest = reactive<{ lab: string; preset: string | null; seq: number }>({ lab: '', preset: null, seq: 0 })
+
+/**
+ * 26.57 (D116): a task opens its experiment with the task's values (a demonstration of the solved problem): the lab
+ * named here reads `payload` once when `seq` changes and clears it.
+ */
+export const labTaskRequest = reactive<{ lab: string; payload: Record<string, unknown> | null; seq: number }>({ lab: '', payload: null, seq: 0 })

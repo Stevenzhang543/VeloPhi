@@ -23,6 +23,8 @@ const props = defineProps<{
   /** Current time as a fraction of the complete run (0 … 1). */
   at: number
   color: string
+  /** What the quantity is (frame, positive direction, magnitude; 26.57, D121). */
+  note?: string
 }>()
 defineEmits<{ (e: 'remove'): void; (e: 'chart'): void }>()
 
@@ -43,11 +45,11 @@ const clipId = `spark-${useId().replace(/[^\w-]/g, "-")}`
 
 <template>
   <div class="tile" :style="{ '--c': color }">
-    <div class="head" :title="`${owner} · ${label}`">
+    <div class="head" :title="`${owner} · ${label}${note ? ` · ${note}` : ''}`">
       <Tex class="sym" :tex="symbol" />
       <span class="name small">{{ label }}</span>
     </div>
-    <div class="owner tiny muted">{{ owner }}</div>
+    <div class="owner tiny muted" :title="note || undefined">{{ owner }}<template v-if="note"> · {{ note }}</template></div>
     <div class="value mono" :title="value === null ? '' : tl('仿真值 {0}', [value])"><span class="num">{{ fmtNum(value === null ? null : tidy(value), unit) }}</span><span class="unit">{{ unitLabel(unit) }}</span></div>
     <svg v-if="spark && spark.d" class="spark" :viewBox="`0 0 ${W} ${H}`" preserveAspectRatio="none" aria-hidden="true">
       <path :d="spark.d" class="ghost" vector-effect="non-scaling-stroke" />

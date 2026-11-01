@@ -63,6 +63,14 @@ watch(() => state.settingsSection, id => {
 function reset() { if (resettable.value) resetSettings(current.value as SettingsSection) }
 
 // ---- General ----
+/** Reading density (26.57, D120): the projector mode is the third density. */
+type Density = 'default' | 'compact' | 'projection'
+const DENSITIES: Array<{ id: Density; label: string }> = [{ id: 'default', label: tl('默认') }, { id: 'compact', label: tl('紧凑') }, { id: 'projection', label: tl('课堂投影') }]
+const densityNow = computed<Density>(() => (settings.projector ? 'projection' : settings.density))
+function setDensity(d: Density) {
+  if (d === 'projection') settings.projector = true
+  else { settings.projector = false; settings.density = d }
+}
 const THEMES: Array<{ id: ThemeMode; label: string; icon: string }> = [
   { id: 'system', label: tl('跟随系统'), icon: 'display' }, { id: 'light', label: tl('浅色'), icon: 'sun' }, { id: 'dark', label: tl('深色'), icon: 'moon' }
 ]
@@ -200,6 +208,11 @@ async function resetAll() { if (await ask(tl('将所有设置恢复为默认值�
             </div>
             <div class="srow"><div class="sl"><b>{{ tl('界面缩放') }}</b><span>{{ tl('文字与控件的大小（不影响画布的物理比例）。') }}</span></div>
               <div class="sc range"><input v-model.number="settings.uiScale" type="range" min="0.85" max="1.4" step="0.05" :aria-label="tl('界面缩放')" /><span class="mono val">{{ Math.round(settings.uiScale * 100) }}%</span></div>
+            </div>
+            <div class="srow"><div class="sl"><b>{{ tl('阅读密度') }}</b><span>{{ tl('默认：正文 14 px、常用按钮 32 px；紧凑：与 26.56 相同的较小尺寸；课堂投影：更大字号与更高对比度（即投影仪模式）。') }}</span></div>
+              <div v-slide-indicator class="segmented" role="radiogroup" :aria-label="tl('阅读密度')">
+                <button v-for="dd in DENSITIES" :key="dd.id" role="radio" :aria-checked="densityNow === dd.id" :class="{ on: densityNow === dd.id }" @click="setDensity(dd.id)">{{ dd.label }}</button>
+              </div>
             </div>
             <div class="srow"><div class="sl"><b>{{ tl('自动重算') }}</b><span>{{ tl('修改场景后自动重新计算。') }}</span></div><input v-model="settings.autoRun" type="checkbox" class="switch" /></div>
           </div>

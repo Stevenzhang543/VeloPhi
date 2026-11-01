@@ -26,6 +26,8 @@ import NumField from '../NumField.vue'
 import Tex from '../Tex.vue'
 import Icon from '../Icon.vue'
 import ParamProblemPanel from './ParamProblemPanel.vue'
+import { PACKAGE_CONTENT_VERSION as PACKAGE_VERSION, packageOf, packageStatus } from '../../../content/packages'
+import { openPackageDemo, openPackageExperiment, openPackagePractice, practiceOf } from '../../learn/packages'
 
 const props = defineProps<{ id: string }>()
 const model = computed<ModelSpec>(() => modelById(props.id)!)
@@ -74,6 +76,13 @@ async function exportRun() {
 const problemTitle = (id: string) => { const p = BUILTIN_PROBLEMS.find(x => x.id === id); return p ? ptext(p.title, activeLang()) : id }
 function openProblem(id: string) { const p = BUILTIN_PROBLEMS.find(x => x.id === id); if (p) { state.showModels = false; void openBuiltin(p) } }
 function go(fn: () => unknown) { state.showModels = false; void fn() }
+
+// 26.57 (D122): the teaching package of this family — its progress in six fields and its three entries
+const pkg = computed(() => packageOf(props.id) ?? null)
+const pkgStatus = computed(() => (pkg.value ? packageStatus(pkg.value) : null))
+const PKG_FIELDS = [['discoverable', '可发现'], ['runnable', '可运行'], ['explainable', '可解释'], ['practisable', '可练习'], ['transferable', '可迁移'], ['trialled', '已试用']] as const
+const ROLE_TEXT: Record<string, string> = { standard: '标准', boundary: '边界', contrast: '对比' }
+const hasPractice = computed(() => !!pkg.value && !!practiceOf(pkg.value))
 </script>
 
 <template>
@@ -90,6 +99,24 @@ function go(fn: () => unknown) { state.showModels = false; void fn() }
       </div>
       <p v-if="model.restricted" class="restricted small" role="note"><Icon name="limit" :size="14" />{{ tl('受限模型：{0}', [T3(model.restricted)]) }}</p>
     </header>
+
+    <section v-if="pkg && pkgStatus" class="block package" :aria-label="tl('教学包')">
+      <div class="row-head"><h4>{{ tl('教学包：{0}', [tl(pkg.title)]) }}</h4><span class="spacer" /><span class="tiny muted">{{ tl('内容版本 {0}', [PACKAGE_VERSION]) }}</span></div>
+      <p class="small">{{ tl(pkg.concept) }}</p>
+      <div class="pkg-status tiny" role="list" :aria-label="tl('教学包进度')">
+        <span v-for="[k, label] in PKG_FIELDS" :key="k" role="listitem" class="chip" :class="pkgStatus[k] ? 'yes' : 'no'">{{ pkgStatus[k] ? '✓' : '○' }} {{ tl(label) }}</span>
+      </div>
+      <div class="links small">
+        <button v-for="d in pkg.demos" :key="d.role + d.label" class="btn" @click="go(() => openPackageDemo(pkg!, d))"><Icon name="play" :size="13" />{{ tl('看演示') }} · {{ tl(ROLE_TEXT[d.role]) }}：{{ tl(d.label) }}</button>
+        <button class="btn" :disabled="!hasPractice" :title="hasPractice ? '' : tl('这个教学包还没有练习')" @click="go(() => openPackagePractice(pkg!))"><Icon name="graduation" :size="13" />{{ tl('做练习') }}</button>
+        <button class="btn ghost" :disabled="!pkg.demos.length" @click="go(() => openPackageExperiment(pkg!))"><Icon name="flask" :size="13" />{{ tl('自由实验') }}</button>
+      </div>
+      <p v-if="pkg.mistakes.length" class="small muted"><b>{{ tl('常见错误：') }}</b>{{ pkg.mistakes.map(m => tl(m)).join(tl('；')) }}</p>
+      <details v-if="pkgStatus.missing.length" class="tiny">
+        <summary>{{ tl('尚缺（{0}）', [pkgStatus.missing.length]) }}</summary>
+        <ul><li v-for="m in pkgStatus.missing" :key="m">{{ tl(m) }}</li></ul>
+      </details>
+    </section>
 
     <section class="block">
       <h4>{{ tl('假设与有效域') }}</h4>
@@ -160,7 +187,10 @@ function go(fn: () => unknown) { state.showModels = false; void fn() }
         <p v-if="!solved.ok" class="error" role="alert">{{ solved.error }}</p>
         <template v-else>
           <p>{{ solved.value.solutions === 'none' ? tl('区间内无解。') : solved.value.solutions === 'one' ? tl('唯一解：') : tl('多解（逐个检查条件）：') }}</p>
-          <ul><li v-for="(r, k) in solved.value.roots" :key="k" class="mono">{{ fmtK(r.value, unknownSpec?.unit ?? '', unknownSpec?.kind) }} <span class="tiny muted">{{ r.conditions.map(c => `${condLabel(c.id)}: ${STATE_TEXT[c.state]}`).join('；') }}</span></li></ul>
+          <ul><li v-for="(r, k) in solved.value.roots" :key="k" class="mono">{{ fmtK(r.value, unknownSpec?.unit ?? '', unknownSpec?.kind) }}
+            <span v-if="r.checked !== undefined" class="tiny" :class="r.checked ? 'ok' : 'error'">{{ r.checked ? tl('代回核对通过') : tl('代回核对未通过') }}<template v-if="r.residual != null">{{ tl('（残差 {0}）', [r.residual.toPrecision(2)]) }}</template></span>
+            <span class="tiny muted">{{ r.conditions.map(c => `${condLabel(c.id)}: ${STATE_TEXT[c.state]}`).join('；') }}</span></li></ul>
+          <p v-if="solved.value.method" class="tiny muted">{{ tl('方法：在区间内取 {0} 个点扫描变号，再二分求根{1}', [solved.value.method.samples, solved.value.method.logScale ? tl('（对数刻度）') : '']) }}</p>
         </template>
       </div>
     </section>
@@ -226,4 +256,9 @@ function go(fn: () => unknown) { state.showModels = false; void fn() }
 .bench { margin: 4px 0; padding-left: 18px; }
 .links { display: flex; flex-wrap: wrap; gap: 6px; }
 .links .btn { display: inline-flex; gap: 5px; align-items: center; }
+.package { background: var(--group); border-radius: var(--radius-group); padding: 8px 10px; border-top: 0; }
+.pkg-status { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0 8px; }
+.pkg-status .yes { color: var(--success, #16a34a); border-color: currentColor; }
+.pkg-status .no { color: var(--text-3); border-style: dashed; }
+.ok { color: var(--success, #16a34a); }
 </style>

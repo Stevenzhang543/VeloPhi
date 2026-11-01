@@ -8,6 +8,7 @@
  * Mounted by App.vue while `state.showSweep` is true; closes itself by setting the flag to false.
  * No props, no emits. The current scene is copied when a sweep starts; editing it meanwhile does not matter.
  */
+import { vDialog } from '../focusTrap'
 import { tl, paren, stripLabel } from '../../i18n'
 import { computed, nextTick, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import uPlot from 'uplot'
@@ -222,7 +223,7 @@ function close() { if (running.value) { cancelFlag = true } state.showSweep = fa
 
 <template>
   <div class="dialog-backdrop" @mousedown.self="!running && close()">
-    <div class="dialog sweep">
+    <div v-dialog="() => { if (!running) close() }" class="dialog sweep" role="dialog" :aria-label="tl('参数扫描')">
       <div class="dialog-header"><Icon name="chart" :size="18" />{{ tl('参数扫描') }}<span class="spacer" /><button class="btn icon ghost" :title="tl('关闭')" @click="close"><Icon name="close" /></button></div>
       <div class="dialog-body">
         <div class="cols2">

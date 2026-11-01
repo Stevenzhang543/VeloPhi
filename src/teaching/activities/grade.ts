@@ -4,6 +4,7 @@
  * dimension by dimension (concept, unit, direction, modelling, calculation, explanation), with the scaled error
  * e = |q − q_ref| / max(|q_ref|, q_scale) of the blueprint (§9.1). Hints are counted, never deducted.
  */
+import { activityRule, compareValues } from '../../task/compare'
 import { evalModel } from '../../engine/models'
 import type { ModelResult, ModelState } from '../../engine/models'
 import { modelById, exampleInputs } from '../../content/models'
@@ -88,10 +89,11 @@ export function gradeNumber(q: NumberQuestion, ev: Evaluation, value: number | n
   const ref = out.value
   const verdicts: Verdicts = { unit: unit === out.unit ? 'correct' : 'wrong' }
   if (value === null || !Number.isFinite(value)) verdicts.calculation = 'wrong'
-  else if (scaledError(value, ref, q.scale) <= q.tol) {
+  else if (compareValues(value, ref, activityRule(q)).pass) {
+    // 26.57 (D117): the shared comparison service with the activity's scaled rule
     verdicts.calculation = 'correct'
     if (q.signed) verdicts.direction = 'correct'
-  } else if (q.signed && scaledError(Math.abs(value), Math.abs(ref), q.scale) <= q.tol && Math.sign(value) !== Math.sign(ref)) {
+  } else if (q.signed && compareValues(Math.abs(value), Math.abs(ref), activityRule(q)).pass && Math.sign(value) !== Math.sign(ref)) {
     // the right size with the wrong sign: a direction error, not a calculation error
     verdicts.calculation = 'correct'
     verdicts.direction = 'wrong'

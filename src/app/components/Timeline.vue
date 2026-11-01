@@ -30,7 +30,8 @@ import { branchDepth, branchHere, branchList, canBranch, deleteBranch, showBranc
 import { shownTime } from '../../units/clock'
 import { ask } from '../../platform/ask'
 
-const props = withDefaults(defineProps<{ active?: boolean }>(), { active: true })
+/** `showTime`: false where the page shows the playing time itself (the monitor's clock, 26.57). */
+const props = withDefaults(defineProps<{ active?: boolean; showTime?: boolean }>(), { active: true, showTime: true })
 
 const rec = computed(() => (state.stale ? null : state.recording))
 const unbounded = computed(() => !!rec.value?.unbounded)
@@ -182,7 +183,7 @@ async function removeBranch() {
     <div class="controls" :class="{ unb: unbounded }">
       <button class="btn icon ghost" :title="tl('回到开始（Home）')" :disabled="!rec" @click="pause(); seekFrame(0)"><Icon name="start" /></button>
       <button class="btn icon ghost" :title="tl('上一帧（←）')" :disabled="!rec" @click="step(-1)"><Icon name="stepb" /></button>
-      <button class="btn icon primary play" :title="state.playing ? tl('暂停（空格）') : tl('播放（空格）')" :disabled="!rec" @click="toggle"><Icon :name="state.playing ? 'pause' : 'play'" /></button>
+      <button class="btn icon primary play" :title="state.playing ? tl('暂停播放（空格）') : tl('播放（空格）')" :aria-label="state.playing ? tl('暂停播放') : tl('播放')" :disabled="!rec" @click="toggle"><Icon :name="state.playing ? 'pause' : 'play'" /></button>
       <button class="btn icon ghost" :title="tl('下一帧（→）')" :disabled="!rec" @click="step(1)"><Icon name="stepf" /></button>
       <button class="btn icon ghost" :title="tl('到结尾（End）')" :disabled="!rec" @click="pause(); seekFrame(lastFrame)"><Icon name="end" /></button>
       <span class="sep" />
@@ -213,12 +214,13 @@ async function removeBranch() {
       <span class="spacer" />
       <span v-if="state.buffering" class="badge warn computing" :title="tl('播放追上了计算，等待新的帧')">{{ tl('缓冲中…') }}</span>
       <template v-if="unbounded">
-        <span v-if="state.computing" class="badge info computing" :title="state.run.paused ? tl('已领先播放位置足够远，计算暂停；播放前进时继续') : tl('持续计算中；可以先播放已算出的部分')">{{ tl('已算到 {0} {1}{2}', [fmtT(tComputed), unitLabel('s'), state.run.paused ? tl(' · 暂停') : '']) }}</span>
-        <button v-if="state.computing" class="btn ghost small stop-btn" :title="tl('停止计算（保留已算出的部分）')" @click="stopRun()">{{ tl('停止') }}</button>
+        <span v-if="state.computing" class="badge info computing" :title="state.run.paused ? tl('已领先播放位置足够远，计算暂停；播放前进时继续') : tl('持续计算中；可以先播放已算出的部分')">{{ tl('已计算至 {0} {1}{2}', [fmtT(tComputed), unitLabel('s'), state.run.paused ? tl(' · 计算暂歇') : '']) }}</span>
+        <button v-if="state.computing" class="btn ghost small stop-btn" :title="tl('停止计算（保留已算出的部分）')" @click="stopRun()">{{ tl('停止计算') }}</button>
         <button class="btn ghost small zoom-btn" :title="zoom === 'all' ? tl('时间轴只显示播放位置附近 60 s') : tl('时间轴显示全部已算出的范围')" @click="zoom = zoom === 'all' ? 'recent' : 'all'">{{ zoom === 'all' ? tl('全程') : tl('近 60 s') }}</button>
       </template>
-      <span v-else-if="state.computing && rec" class="badge info computing" :title="tl('仍在计算；可以先播放已算出的部分')">{{ tl('已算 {0}%', [Math.round(computedFraction * 100)]) }}</span>
-      <span class="mono time">{{ fmtT(tNow) }} / {{ fmtT(unbounded ? tComputed : duration) }} {{ unitLabel('s') }}</span>
+      <span v-else-if="state.computing && rec" class="badge info computing" :title="tl('仍在计算（{0}%）；可以先播放已算出的部分', [Math.round(computedFraction * 100)])">{{ tl('已计算至 {0} {1}', [fmtT(tComputed), unitLabel('s')]) }}</span>
+      <!-- 26.57 (D121, manual §2 图 C): one playing time; how far it is computed is the badge above, not a second clock -->
+      <span v-if="showTime" class="mono time" :title="tl('播放时刻')">t = {{ fmtT(tNow) }}<template v-if="!unbounded"> / {{ fmtT(duration) }}</template> {{ unitLabel('s') }}</span>
       <span class="mono tiny muted frames">{{ tl('帧 {0} / {1}', [rec ? frameNow : 0, rec ? lastFrame : 0]) }}</span>
     </div>
     <div class="track" :class="{ scrub: scrubbing }">

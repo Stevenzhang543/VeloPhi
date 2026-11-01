@@ -7,6 +7,8 @@
 
 export const TEMPLATE_MODELS: Array<[string, string[]]> = [
   ['incline', ['M07', 'M08']],
+  // 26.57: the incline with μs and μk apart, both directions of the initial velocity
+  ['incline-friction', ['M07', 'M08', 'M02']],
   ['board-block', ['M13']],
   ['conveyor', ['M14']],
   ['conveyor-incline', ['M07', 'M14']],

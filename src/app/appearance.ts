@@ -77,6 +77,7 @@ export function initAppearance() {
     toggle('fx-calm', calmMotion())
     toggle('fx-off', settings.effects.quality === 'off')
     toggle('projector', settings.projector)
+    toggle('density-compact', settings.density === 'compact' && !settings.projector)
     const want = fx.glass && !calmMotion() && !sysEnv.hidden
     if (want !== highlightOn) {
       highlightOn = want

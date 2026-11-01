@@ -16,6 +16,7 @@
  * focuses a situation here. (D72) Hovering a card or a known value highlights it on the canvas; a body or force
  * clicked on the canvas filters the cards.
  */
+import { taskUi, onTaskScene } from '../task/taskState'
 import { tl, paren, semiSep } from '../../i18n'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { state, seekTime, problemLocked } from '../store'
@@ -29,6 +30,8 @@ import { shownTime } from '../../units/clock'
 import { levelTag, withinLevel } from '../../formula/levels'
 import type { Solution } from '../../formula/solve'
 import { solveFormula } from '../../formula/solve'
+import { VAR_SOURCE_TEXT, VAR_SOURCE_TIP } from '../../formula/varSource'
+import type { VarSource } from '../../formula/recognize'
 import { locale } from '../../i18n/locale'
 import type { FormulaFilter } from '../../formula/panel'
 import { CATEGORIES, cardHighlight, emptyReasons, forceKindsOf, pinnedFirst, rejectedBy, varHighlight, varRef } from '../../formula/panel'
@@ -50,6 +53,9 @@ const frame = useGated(() => props.active, () => state.panelFrame)
 const search = ref('')
 const searchEl = ref<HTMLInputElement | null>(null)
 const listEl = ref<HTMLElement | null>(null)
+
+/** 26.57 (D111): source of a known value of a card, from the core's explicit field. */
+function srcOf(c: FormulaCard, name: string): VarSource { return c.sample.vars[name]?.src ?? 'given' }
 
 /** Compact worked solution of a card: coloured knowns, substitution and result, steps (D45). */
 function compact(c: FormulaCard, sample: Sample, digits: number): Solution | null {
@@ -170,6 +176,17 @@ const groups = computed<Group[]>(() => {
   for (const e of map.values()) e.cards = [...e.cards.filter(x => x.pinned), ...e.cards.filter(x => !x.pinned)]
   return [...map.values()]
 })
+
+// 26.57 (VP-10, manual §3.3: “选中一个目标后，默认展示直接有关的公式和图线；其他内容收进‘更多分析’”): while a task
+// is shown on its own demonstration, the situations of its kind come first and the others fold under “更多分析”
+const TASK_SITUATIONS: Record<string, string[]> = { incline: ['incline', 'flat'], projectile: ['projectile'], collision: ['collision', 'momentum'] }
+const taskTypes = computed(() => { void state.scene; return taskUi.task && onTaskScene() ? TASK_SITUATIONS[taskUi.task.domain] ?? null : null })
+const taskFocus = ref(true)
+const moreOpen = ref(false)
+const isTaskGroup = (g: Group) => !!g.sit && !!taskTypes.value?.includes(g.sit.type)
+const focusActive = computed(() => fu.group === 'situation' && !filtering.value && taskFocus.value && !!taskTypes.value && groups.value.some(isTaskGroup))
+const hiddenByFocus = computed(() => (focusActive.value ? groups.value.filter(g => !isTaskGroup(g)).length : 0))
+const groupShown = (g: Group) => !focusActive.value || moreOpen.value || isTaskGroup(g)
 
 /** Every card at the frame within the level (for the empty-state reasons). */
 const allCards = computed(() => base.value.flatMap(g => g.cards.filter(c => c.verdict !== 'not-applicable')))
@@ -365,7 +382,12 @@ const forceTitle = (c: FormulaCard) => forceKindsOf(c.formula).map(k => tl(force
         <button class="btn small" @click="clearFilters">{{ tl('清除筛选') }}</button>
       </div>
       <div ref="listEl" class="list" @keydown="onListKey">
-        <section v-for="g in groups" v-show="g.cards.length || !filtering" :key="g.key" class="situation" :class="{ flash: g.sit && state.formulaSituation === g.sit.key, open: groupOpen(g) }" :data-sit="g.key">
+        <div v-if="taskTypes && fu.group === 'situation' && !filtering" class="taskfocus small">
+          <label class="check"><input v-model="taskFocus" type="checkbox" />{{ tl('先看与当前任务有关的公式') }}</label>
+          <span class="spacer" />
+          <button v-if="hiddenByFocus" class="btn ghost small" :aria-expanded="moreOpen" @click="moreOpen = !moreOpen">{{ moreOpen ? tl('收起更多分析') : tl('更多分析（{0} 个情形）', [hiddenByFocus]) }}</button>
+        </div>
+        <section v-for="g in groups" v-show="(g.cards.length || !filtering) && groupShown(g)" :key="g.key" class="situation" :class="{ flash: g.sit && state.formulaSituation === g.sit.key, open: groupOpen(g) }" :data-sit="g.key">
           <div class="shead">
             <button type="button" class="stoggle" :aria-expanded="groupOpen(g)" @click="toggleGroup(g)">
               <Icon name="chevron" :size="12" class="schev" />
@@ -421,7 +443,7 @@ const forceTitle = (c: FormulaCard) => forceKindsOf(c.formula).map(k => tl(force
               <template v-if="sol && !sol.error">
                 <div v-if="sol.known.length" class="knowns small">
                   <span class="muted">{{ tl('已知') }}</span>
-                  <span v-for="k in sol.known" :key="k.name" class="known" :class="{ linked: linked(k.name, c.situation) }" @mouseenter="hoverVar(k.name, c.situation)" @mouseleave="hoverCard(c)"><Tex :tex="`\\textcolor{${k.color}}{${k.symbol} = ${k.display}}`" /></span>
+                  <span v-for="k in sol.known" :key="k.name" class="known" :class="{ linked: linked(k.name, c.situation) }" @mouseenter="hoverVar(k.name, c.situation)" @mouseleave="hoverCard(c)"><Tex :tex="`\\textcolor{${k.color}}{${k.symbol} = ${k.display}}`" /><sup class="vsrc" :class="`s-${srcOf(c, k.name)}`" :title="tl(VAR_SOURCE_TIP[srcOf(c, k.name)])">{{ tl(VAR_SOURCE_TEXT[srcOf(c, k.name)]) }}</sup></span>
                 </div>
                 <div class="subst"><Tex :tex="sol.coloredSubstituted ? `${sol.lhs} = ${sol.coloredSubstituted} = ${sol.resultDisplay}` : `${sol.lhs} = ${sol.resultDisplay}`" /></div>
                 <button v-if="sol.lines.length > 1" class="steps-toggle tiny" :aria-expanded="expanded.has(c.key)" @click="toggleSteps(c.key)">{{ expanded.has(c.key) ? tl('收起计算步骤') : tl('展开计算步骤（{0} 步）', [sol.lines.length]) }}</button>
@@ -484,6 +506,7 @@ const forceTitle = (c: FormulaCard) => forceKindsOf(c.formula).map(k => tl(force
 .chip { border: 1px solid var(--separator); background: none; border-radius: 999px; padding: 1px 9px; font-size: var(--type-small); color: var(--text-2); cursor: pointer; flex: 0 0 auto; }
 .chip.on { border-color: var(--warning); color: var(--text); background: var(--warning-soft); }
 .pickrow { margin-top: 4px; }
+.taskfocus { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 4px 2px; }
 .pick { display: inline-flex; align-items: center; gap: 4px; background: var(--accent-soft); border-radius: 999px; padding: 1px 4px 1px 10px; }
 .pick .x { border: 0; background: none; cursor: pointer; color: var(--text-2); font-size: 1.1em; line-height: 1; padding: 0 4px; }
 .legend { margin: 2px 2px 8px; line-height: 1.45; }
@@ -548,6 +571,10 @@ const forceTitle = (c: FormulaCard) => forceKindsOf(c.formula).map(k => tl(force
 .card.focus { box-shadow: 0 0 0 2px var(--accent); transition: box-shadow 300ms ease; }
 .knowns { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; margin: 2px 0 2px; }
 .known { white-space: nowrap; border-radius: 6px; padding: 0 2px; }
+/* 26.57 (D111): source tag of a known value (given, constant, start of phase, time, simulation, derived) */
+.vsrc { font-size: var(--type-tiny); color: var(--text-3); margin-left: 2px; letter-spacing: 0; }
+.vsrc.s-sim, .vsrc.s-phase { color: var(--warn, #b45309); }
+.vsrc.s-derived { color: var(--accent); }
 .level { background: var(--fill); color: var(--text-2); font-weight: 600; flex: 0 0 auto; }
 .steps-toggle { border: 0; background: none; color: var(--accent); cursor: pointer; padding: 0; margin: 0 0 4px; }
 .steps { display: grid; grid-template-columns: minmax(0, auto) minmax(6em, 1fr); gap: 2px 10px; align-items: center; background: var(--fill); border-radius: 8px; padding: 6px 8px; margin: 2px 0 6px; overflow-x: auto; }

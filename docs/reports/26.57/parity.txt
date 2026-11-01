@@ -1,0 +1,35 @@
+Module checks
+  dmath sin    1000000 inputs identical (TS 56 ms, Rust 19 ms)
+  dmath cos    1000000 inputs identical (TS 57 ms, Rust 19 ms)
+  dmath tan    1000000 inputs identical (TS 87 ms, Rust 24 ms)
+  dmath atan   1000000 inputs identical (TS 35 ms, Rust 11 ms)
+  dmath asin   1000000 inputs identical (TS 41 ms, Rust 15 ms)
+  dmath acos   1000000 inputs identical (TS 43 ms, Rust 15 ms)
+  dmath exp    1000000 inputs identical (TS 39 ms, Rust 11 ms)
+  dmath log    1000000 inputs identical (TS 42 ms, Rust 7 ms)
+  dmath atan2  1000000 inputs identical (TS 58 ms, Rust 21 ms)
+  dmath pow    1000000 inputs identical (TS 72 ms, Rust 26 ms)
+  dmath hypot  1000000 inputs identical (TS 15 ms, Rust 4 ms)
+  expressions 4000 cases identical (1062 valid, 2938 rejected by both)
+Templates (bounded, legacy duration)
+Templates (unbounded, 60 s)
+Golden and special scenes
+Random scenes (120, seed 2650)
+  … 100 random scenes identical
+Random scenes of 26.51 (60, seed 2650)
+Random scenes of 26.52 (60, seed 2650)
+Random multi-point impacts (30, seed 2650)
+Branches (templates and 60 random scenes, seed 2650)
+  … 25 branches identical
+  … 50 branches identical
+  … 75 branches identical
+  … 100 branches identical
+  … 125 branches identical
+
+Summary
+  scenes compared 523, frames compared 1964108, events 31558, checkpoints 3625
+  chunk rebuilds verified: Rust from its own checkpoints 3088, TypeScript from Rust checkpoints 644; worker deltas compared 3395
+  14 original templates (bounded, single run incl. compile): TS 625 ms, Rust 63 ms (×9.9)
+  all scenes: TS 245123 ms, Rust 31075 ms
+  random scenes exercised: 26.51 branch mass ×25; 26.51 branch unchanged ×42; 26.51 branch velocity ×33; 26.51 branch μ ×35; 26.51 cubic spring ×13; 26.51 damper ×14; 26.51 drag ×38; 26.51 end duration ×60; 26.51 gear ×13; 26.51 gravitation ×18; 26.51 motor speed ×6; 26.51 motor torque ×8; 26.51 multi-point frictional impact ×55; 26.51 slider ×19; 26.51 weld ×1; 26.52 central field ×34; 26.52 change limit ×14; 26.52 change motorLock ×12; 26.52 change motorSlip ×4; 26.52 change rollStart ×3; 26.52 change rollStop ×8; 26.52 compound body ×13; 26.52 concave body ×25; 26.52 concave terrain ×13; 26.52 end duration ×60; 26.52 gauss4 ×10; 26.52 rolling resistance in a mode ×21; 26.52 several contact units of one pair ×2; Moreau–Jean fallback or mode ×25; change impact ×109; change reverse ×13; change separate ×40; change slack ×13; change slip ×18; change stick ×51; change switch ×10; change taut ×24; change timestep ×25; change touch ×6; end duration ×144; end error err.stepTooSmall ×1; end stopAt ×5; frictional impact (Stronge) ×72; integrator dopri5 ×136; integrator euler ×2; integrator moreau ×5; integrator rk4 ×7; variable-force switch event ×10; warn.ambiguousMode ×5; warn.initialDeepOverlap ×18; warn.initialOverlapRemoved ×18; warn.muSBelowMuK ×40; warn.multiImpactFriction ×9; warn.multiImpactPlastic ×1; warn.polygonCentred ×27; warn.reducedAccuracy/reason.eventStorm ×20; warn.reducedAccuracy/reason.moreauSelected ×5
+  0 mismatches: bit-identical

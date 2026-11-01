@@ -2,7 +2,7 @@
 /**
  * Global search (26.55, D96; Ctrl+K / ⌘K): one box over the tools, templates, experiments and circuit presets,
  * formulas, handbook topics and concept pages, built-in problems, learning-path units, the pages and (26.56) the
- * model families and teaching activities. Results are
+ * model families and teaching activities; (26.57) goals — the task targets and the teaching packages. Results are
  * grouped by category; ↑ ↓ choose, Enter opens, Esc closes. The index is built once per language when the box
  * opens; a query is a scan of a few hundred short strings (well under the 50 ms of the manual).
  *
@@ -30,10 +30,13 @@ import { MODELS } from '../../content/models'
 import { ACTIVITIES } from '../../teaching/activities'
 import { LEVEL_TEXT } from '../models/labels'
 import Icon from './Icon.vue'
+import { DOMAINS } from '../../task/vocab'
+import { PACKAGES } from '../../content/packages'
+import { openSample } from '../task/taskState'
 
 interface Item { cat: string; icon: string; title: string; detail: string; hay: string; run: () => unknown }
 
-const CATS: Array<[string, string]> = [['page', '页面'], ['tool', '工具'], ['template', '模板'], ['lab', '实验'], ['model', '模型'], ['activity', '活动'], ['formula', '公式'], ['handbook', '手册'], ['problem', '题目'], ['path', '学习路径']]
+const CATS: Array<[string, string]> = [['goal', '目标'], ['page', '页面'], ['tool', '工具'], ['template', '模板'], ['lab', '实验'], ['model', '模型'], ['activity', '活动'], ['formula', '公式'], ['handbook', '手册'], ['problem', '题目'], ['path', '学习路径']]
 const catLabel = (c: string) => tl(CATS.find(x => x[0] === c)?.[1] ?? c)
 
 const norm = (s: string) => s.toLowerCase().replace(/\s+/g, '')
@@ -67,6 +70,11 @@ function buildIndex(): Item[] {
   for (const a of ACTIVITIES) add('activity', 'graduation', T(a.title), a.models.join(' '), `${a.id} ${a.title.zh} ${a.title.en}`, () => openActivity(a.id))
   for (const p of BUILTIN_PROBLEMS) add('problem', 'problem', ptext(p.title, lang), CHAPTERS.find(c => c.id === p.chapter)?.label[lang] ?? p.chapter, p.id, () => openBuiltin(p))
   for (const s of PATHS) for (const u of s.units) add('path', 'graduation', u.title, s.title, `${s.id} ${u.id}`, () => { settings.ui.learnStage = s.id; state.showLearning = true })
+  // 26.57 (D122, T26): search by what is asked — the targets of the six task kinds and the goal words of the teaching
+  // packages (“射程”, “摩擦力”, “第一次到达” …), not only by model or template names
+  add('goal', 'problem', tl('解一道题：粘贴题目文字'), tl('读出已知量、求解目标与条件；缺少的信息会先问你'), 'task solve paste', () => { state.page = 'studio'; state.rightTab = 'task' })
+  for (const d of Object.values(DOMAINS)) for (const t of d.targets) add('goal', 'problem', tl('求{0}', [tl(t.label)]), tl('任务：{0}', [tl(d.label)]), `${d.id} ${t.key} ${t.label} ${d.label} ${t.words.join(' ')} ${t.words.map(w => tl(w)).join(' ')}`, () => { openSample(d.id); state.page = 'studio'; state.rightTab = 'task' })
+  for (const p of PACKAGES) add('goal', 'layers', tl('教学包：{0}', [tl(p.title)]), p.goals.map(g => tl(g)).join(tl('、')), `${p.id} ${p.goals.join(' ')} ${p.concept} ${p.system}`, () => { state.modelId = p.id; state.showModels = true })
   cache = { lang, items }
   return items
 }

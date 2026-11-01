@@ -4,6 +4,7 @@
  * (same renderer and effects as the screen, overlay values in display units). Links to the courseware package
  * and the lab report dialogs.
  */
+import { vDialog } from '../focusTrap'
 import { tl } from '../../i18n'
 import { vSlideIndicator } from '../slideIndicator'
 import { inExportLanguage } from '../exportLang'
@@ -88,7 +89,7 @@ function openReport() { state.showExport = false; state.showReport = true }
 
 <template>
   <div class="dialog-backdrop" @mousedown.self="!busy && (state.showExport = false)">
-    <div class="dialog">
+    <div v-dialog="() => { if (!busy) state.showExport = false }" class="dialog" role="dialog" :aria-label="tl('导出')">
       <div class="dialog-header"><Icon name="export" :size="18" />{{ tl('导出') }}<span class="spacer" /><div v-slide-indicator class="tabs mini"><button :class="{ on: tab === 'csv' }" @click="tab = 'csv'">{{ tl('数据 CSV') }}</button><button :class="{ on: tab === 'video' }" @click="tab = 'video'">{{ tl('视频') }}</button></div><button class="btn icon ghost" :disabled="busy" @click="state.showExport = false"><Icon name="close" /></button></div>
       <div class="dialog-body">
         <div class="more">

@@ -774,9 +774,14 @@ pub fn solve_model(id: &str, inputs: &Map<String, Value>, set: &str, unknown: &s
     let mut roots: Vec<f64> = Vec::new();
     let mut xa = at(0);
     let mut fa = g(xa);
+    // Largest output magnitude met by the scan: the scale of the residual check of a zero target
+    let mut out_scale = if fa.is_finite() { (fa + value).abs() } else { 0.0 };
     for k in 1..=n {
         let xb = at(k);
         let fb = g(xb);
+        if fb.is_finite() {
+            out_scale = out_scale.max((fb + value).abs());
+        }
         if fa == 0.0 {
             roots.push(xa);
         } else if fa.is_finite() && fb.is_finite() && fb != 0.0 && (fa < 0.0) != (fb < 0.0) {
@@ -813,7 +818,12 @@ pub fn solve_model(id: &str, inputs: &Map<String, Value>, set: &str, unknown: &s
         let mut ins = inputs.clone();
         ins.insert(unknown.to_string(), jnum(*r));
         let ev = evaluate_model(id, &ins, set, false)?;
-        list.push(json!({ "value": jnum(*r), "conditions": ev["conditions"], "output": ev["outputs"].as_array().and_then(|a| a.iter().find(|o| o["id"] == target)).cloned() }));
+        let out = ev["outputs"].as_array().and_then(|a| a.iter().find(|o| o["id"] == target)).cloned();
+        // 26.57 (D111): every root is put back into the model; the residual says how well it satisfies the equation
+        let got = out.as_ref().map(|o| if o["value"].is_null() { f64::NAN } else { dnum(&o["value"]) }).unwrap_or(f64::NAN);
+        let residual = got - value;
+        let checked = residual.is_finite() && residual.abs() <= 1e-9 * value.abs().max(got.abs()).max(out_scale).max(1e-300);
+        list.push(json!({ "value": jnum(*r), "conditions": ev["conditions"], "output": out, "residual": jnum(residual), "checked": checked }));
     }
     Ok(json!({
         "model": id,
@@ -822,6 +832,8 @@ pub fn solve_model(id: &str, inputs: &Map<String, Value>, set: &str, unknown: &s
         "solutions": match roots.len() { 0 => "none", 1 => "one", _ => "multiple" },
         "roots": list,
         "range": [jnum(lo), jnum(hi)],
+        // “none” means none found by this scan (sign changes between `samples` points), not a proof
+        "method": { "samples": n, "logScale": log_scale && lo > 0.0 && hi > 0.0, "kind": "scan+bisection" },
     }))
 }
 

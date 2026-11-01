@@ -131,9 +131,9 @@ fn uniform_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()> {
                     let (ax, ay) = (o.sol.acc[3 * bi], o.sol.acc[3 * bi + 1]);
                     Ok(Sample {
                         vars: vec![
-                            ("v", var(v0, "m/s", "v", t!("速度大小"))),
-                            ("t", var(t - t0, "s", "t", t!("经过的时间"))),
-                            ("s", var(dist, "m", "s", t!("通过的路程（仿真）"))),
+                            ("v", var_phase(v0, "m/s", "v", t!("速度大小"))),
+                            ("t", var_time(t - t0, "s", "t", t!("经过的时间"))),
+                            ("s", var_sim(dist, "m", "s", t!("通过的路程（仿真）"))),
                             ("m", var(mass, "kg", "m", t!("质量"))),
                         ],
                         measures: vec![
@@ -238,10 +238,10 @@ fn const_force_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()
                             ("m", var(mass, "kg", "m", t!("质量"))),
                             ("g", var(g, "m/s²", "g", t!("重力加速度"))),
                             ("muK", var(mu_k, "", "\\mu", t!("动摩擦因数"))),
-                            ("v0", var(v0, "m/s", "v_0", t!("本阶段初速度"))),
-                            ("t", var(t - t0, "s", "t", t!("本阶段经过时间"))),
-                            ("s", var(sd, "m", "s", t!("位移（仿真）"))),
-                            ("v", var(v, "m/s", "v", t!("速度（仿真）"))),
+                            ("v0", var_phase(v0, "m/s", "v_0", t!("本阶段初速度"))),
+                            ("t", var_time(t - t0, "s", "t", t!("本阶段经过时间"))),
+                            ("s", var_sim(sd, "m", "s", t!("位移（仿真）"))),
+                            ("v", var_sim(v, "m/s", "v", t!("速度（仿真）"))),
                         ],
                         measures: vec![
                             ("a", meas(Some(ex * o.sol.acc[3 * bi]), "m/s²", t!("沿拉力方向的加速度"))),
@@ -436,7 +436,7 @@ fn circle_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()> {
                     }
                     let per = period.borrow().expect("measured");
                     Ok(Sample {
-                        vars: vec![("r", var(link.length, "m", "r", t!("圆周半径"))), ("v", var(v, "m/s", "v", t!("线速度大小"))), ("m", var(mass, "kg", "m", t!("质量")))],
+                        vars: vec![("r", var(link.length, "m", "r", t!("圆周半径"))), ("v", var_phase(v, "m/s", "v", t!("线速度大小"))), ("m", var(mass, "kg", "m", t!("质量")))],
                         measures: vec![
                             ("omega", meas(Some(w.abs()), "rad/s", t!("角速度大小"))),
                             ("T", meas_note(per, "s", t!("转一周的时间"), if per.is_none() { Some(t!("记录时长不足一周")) } else { None })),
@@ -534,14 +534,14 @@ fn orbit_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()> {
                 let (per, e_meas) = cache.borrow().expect("measured");
                 Ok(Sample {
                     vars: vec![
-                        ("G", var(gc, "N·m²/kg²", "G", t!("引力常量"))),
+                        ("G", var_const(gc, "N·m²/kg²", "G", t!("引力常量"))),
                         ("M", var(mc, "kg", "M", t!("{0}质量", sname.clone()))),
                         ("m", var(mass, "kg", "m", t!("{0}质量", bname.clone()))),
-                        ("r", var(dist, "m", "r", t!("到中心的距离（仿真）"))),
-                        ("r0", var(r0, "m", "r_0", t!("初始距离"))),
-                        ("v0", var(v0, "m/s", "v_0", t!("初速度大小"))),
-                        ("a", var(a, "m", "a", t!("轨道半长轴（由初始条件）"))),
-                        ("L", var(mass * h.abs(), "kg·m²/s", "L", t!("对中心的角动量（由初始条件）"))),
+                        ("r", var_sim(dist, "m", "r", t!("到中心的距离（仿真）"))),
+                        ("r0", var_phase(r0, "m", "r_0", t!("初始距离"))),
+                        ("v0", var_phase(v0, "m/s", "v_0", t!("初速度大小"))),
+                        ("a", var_derived(a, "m", "a", t!("轨道半长轴（由初始条件）"))),
+                        ("L", var_derived(mass * h.abs(), "kg·m²/s", "L", t!("对中心的角动量（由初始条件）"))),
                     ],
                     measures: vec![
                         ("F", meas(Some(gc * mc * mass / (dist * dist)), "N", t!("受到的引力大小"))),
@@ -622,8 +622,8 @@ fn drag_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()> {
                             ("g", var(g, "m/s²", "g", t!("重力加速度"))),
                             ("b", var(bl, "N·s/m", "b", t!("线性阻力系数"))),
                             ("c", var(cq, "N·s²/m²", "c", t!("平方阻力系数"))),
-                            ("t", var(t - t0, "s", "t", t!("下落时间"))),
-                            ("v", var(v, "m/s", "v", t!("下落速度（仿真）"))),
+                            ("t", var_time(t - t0, "s", "t", t!("下落时间"))),
+                            ("v", var_sim(v, "m/s", "v", t!("下落速度（仿真）"))),
                         ],
                         measures: vec![("speed", meas(Some(v), "m/s", t!("下落速度"))), ("F", meas(Some((bl + cq * v.abs()) * v.abs()), "N", t!("空气阻力大小")))],
                         conditions: vec![
@@ -785,9 +785,9 @@ fn spin_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()> {
                         vars: vec![
                             ("M", var(mt, "N·m", "M", t!("马达力矩"))),
                             ("I", var(inertia, "kg·m²", "I", t!("对转轴的转动惯量"))),
-                            ("omega0", var(s0.w, "rad/s", "\\omega_0", t!("初角速度"))),
-                            ("t", var(t - t0, "s", "t", t!("经过的时间"))),
-                            ("theta", var(st.th - s0.th, "rad", "\\theta", t!("转过的角度（仿真）"))),
+                            ("omega0", var_phase(s0.w, "rad/s", "\\omega_0", t!("初角速度"))),
+                            ("t", var_time(t - t0, "s", "t", t!("经过的时间"))),
+                            ("theta", var_sim(st.th - s0.th, "rad", "\\theta", t!("转过的角度（仿真）"))),
                         ],
                         measures: vec![
                             ("beta", meas(Some(o.sol.acc[3 * bi + 2]), "rad/s²", t!("角加速度"))),
@@ -875,8 +875,8 @@ fn gear_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()> {
                     let (wa, wb) = (o.x[3 * n + 3 * ai + 2], o.x[3 * n + 3 * bi + 2]);
                     Ok(Sample {
                         vars: vec![
-                            ("r", var(ratio, "", "r", t!("传动比 r_B / r_A"))),
-                            ("omegaA", var(wa, "rad/s", "\\omega_A", t!("{0}的角速度（仿真）", an.clone()))),
+                            ("r", var_derived(ratio, "", "r", t!("传动比 r_B / r_A"))),
+                            ("omegaA", var_sim(wa, "rad/s", "\\omega_A", t!("{0}的角速度（仿真）", an.clone()))),
                             ("rA", var(ra, "m", "r_A", t!("{0}的半径", an.clone()))),
                             ("IA", var(ia, "kg·m²", "I_A", t!("{0}的转动惯量", an.clone()))),
                             ("IB", var(ib, "kg·m²", "I_B", t!("{0}的转动惯量", bn.clone()))),

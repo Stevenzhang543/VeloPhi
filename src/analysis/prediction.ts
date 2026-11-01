@@ -9,6 +9,7 @@
  *
  * Pure (no DOM, no Vue).
  */
+import { PREDICTION_RULE, compareValues } from '../task/compare'
 import { tl, trDeep, paren, colonSep } from '../i18n'
 import type { Scene } from '../core/scene/types'
 import type { ChangeType, Recording, SimEvent } from '../engine/recording'
@@ -215,6 +216,12 @@ export function gradeOf(rel: number | null): Grade {
   return rel <= PREDICTION_TOLERANCE.ok ? 'ok' : rel <= PREDICTION_TOLERANCE.warn ? 'warn' : 'bad'
 }
 
+/** 26.57 (D117): grade of a prediction through the shared comparison service (same thresholds as gradeOf). */
+export function gradePrediction(pred: number, ref: number | null): Grade {
+  if (ref === null || !Number.isFinite(ref)) return 'none'
+  return compareValues(pred, ref, PREDICTION_RULE).grade
+}
+
 /** A prediction compared with the simulation and the formula. */
 export interface Comparison {
   prediction: Prediction
@@ -235,7 +242,7 @@ export function comparePrediction(rec: Recording, sits: Situation[], p: Predicti
   const relErrorFormula = relativeError(p.value, value.formula)
   return {
     prediction: p, value,
-    absError: value.sim === null ? null : p.value - value.sim, relError, grade: gradeOf(relError),
+    absError: value.sim === null ? null : p.value - value.sim, relError, grade: gradePrediction(p.value, value.sim),
     absErrorFormula: value.formula === null ? null : p.value - value.formula, relErrorFormula
   }
 }

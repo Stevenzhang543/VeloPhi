@@ -6,6 +6,7 @@
  * and the progress of a run still computing. Readouts follow `state.panelFrame`; nothing updates while the
  * page is hidden.
  */
+import { quantityNote } from '../../analysis/quantityNote'
 import { tl, paren } from '../../i18n'
 import { msgText } from '../../i18n/locale'
 import { computed, provide, ref, watchEffect } from 'vue'
@@ -115,7 +116,7 @@ const status = computed(() => {
     <section class="stage">
       <div class="stage-view"><Viewport variant="monitor" /></div>
       <div class="pane transport">
-        <Timeline :active="active" />
+        <Timeline :active="active" :show-time="false" />
         <div class="chart-box"><ChartPanel variant="monitor" :limit="4" :active="active" /></div>
       </div>
     </section>
@@ -129,7 +130,7 @@ const status = computed(() => {
         <span class="badge" :class="status.cls" :title="status.title">{{ status.text }}</span>
       </header>
       <div class="clock">
-        <span class="t mono">t = {{ fmtTime(tNow, rec?.dt ?? state.scene.settings.outputStep) }}</span>
+        <span class="t mono" :title="tl('播放时刻')">t = {{ fmtTime(tNow, rec?.dt ?? state.scene.settings.outputStep) }}</span>
         <span class="tiny muted mono">{{ tl('帧 {0}', [k]) }}</span>
       </div>
       <div v-if="rec && rec.reducedFrom != null" class="reduced tiny">
@@ -137,7 +138,7 @@ const status = computed(() => {
       </div>
       <div v-if="state.computing" class="computing">
         <div class="progress"><i :style="{ transform: `scaleX(${state.progress})` }" /></div>
-        <div class="tiny muted">{{ tl('已计算到 {0}，可先播放已算出的部分。', [fmtQ(state.run.tComputed, 's', 4)]) }}</div>
+        <div class="tiny muted">{{ tl('已计算至 {0}；可先播放已算出的部分。', [fmtQ(state.run.tComputed, 's', 4)]) }}</div>
       </div>
 
       <div class="body">
@@ -150,7 +151,7 @@ const status = computed(() => {
         <div v-if="!rec" class="empty">{{ tl('运行仿真后显示读数。') }}</div>
         <div v-else-if="!watchIds.length" class="empty">{{ tl('还没有监视量。用右上角的“添加”，或在工作台点选物体后加入。') }}</div>
         <div v-else class="tiles">
-          <MetricTile v-for="(id, i) in watchIds" :key="id" :label="quantities.get(id)!.label" :owner="quantities.get(id)!.owner" :symbol="quantities.get(id)!.symbol" :unit="quantities.get(id)!.unit"
+          <MetricTile v-for="(id, i) in watchIds" :key="id" :label="quantities.get(id)!.label" :owner="quantities.get(id)!.owner" :symbol="quantities.get(id)!.symbol" :unit="quantities.get(id)!.unit" :note="tl(quantityNote(quantities.get(id)!))"
             :value="values.get(id) ?? null" :series="series?.get(id) ?? null" :total="series?.total ?? 0" :at="at" :color="COLORS[i % COLORS.length]" @remove="remove(id)" @chart="chart(id)" />
         </div>
 

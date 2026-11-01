@@ -5,6 +5,7 @@
  *
  * Mounted by App.vue while `state.showProblems` is true.
  */
+import { vDialog } from '../focusTrap'
 import { tl, activeLang } from '../../i18n'
 import { computed, ref } from 'vue'
 import { state } from '../store'
@@ -32,7 +33,7 @@ function close() { state.showProblems = false }
 
 <template>
   <div class="dialog-backdrop" @mousedown.self="close">
-    <div class="dialog problems" role="dialog" :aria-label="tl('题目')">
+    <div v-dialog="close" class="dialog problems" role="dialog" :aria-label="tl('题目')">
       <div class="dialog-header"><Icon name="problem" :size="18" />{{ tl('题目') }}<span class="spacer" /><button class="btn icon ghost" :title="tl('关闭')" @click="close"><Icon name="close" /></button></div>
       <div class="dialog-body body">
         <nav>

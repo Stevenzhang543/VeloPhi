@@ -6,6 +6,7 @@
  *
  * Mounted by App.vue while `state.showFbd` is true (and a recording exists).
  */
+import { vDialog } from '../focusTrap'
 import { tl } from '../../i18n'
 import { computed, reactive, ref, watch } from 'vue'
 import { state, showToast, pause, seekContinuous } from '../store'
@@ -72,7 +73,7 @@ function close() { state.showFbd = false }
 
 <template>
   <div class="dialog-backdrop" @mousedown.self="close">
-    <div class="dialog fbd" role="dialog" :aria-label="tl('受力分析图')">
+    <div v-dialog="close" class="dialog fbd" role="dialog" :aria-label="tl('受力分析图')">
       <div class="dialog-header"><Icon name="fbd" :size="18" />{{ tl('受力分析图') }}<span class="spacer" /><button class="btn icon ghost" :title="tl('关闭')" @click="close"><Icon name="close" /></button></div>
       <div v-if="!rec" class="dialog-body"><div class="empty">{{ tl('请先运行仿真（结果需与当前场景一致）。') }}</div></div>
       <div v-else-if="!bodies.length" class="dialog-body"><div class="empty">{{ tl('场景中没有可分析的动态物体。') }}</div></div>

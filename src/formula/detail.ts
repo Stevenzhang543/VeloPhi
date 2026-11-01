@@ -10,6 +10,7 @@
  * Situation texts (situation title, variable, measurement and condition labels) are taken from the situation as
  * they are; `situationText` is the single place that turns them into display text.
  */
+import { VAR_SOURCE_TRI } from './varSource'
 import type { Recording } from '../engine/recording'
 import type { Lang, Tri } from '../i18n/tri'
 import { fillParams, triText } from '../i18n/tri'
@@ -62,6 +63,7 @@ export const FORMULA_TEXT = {
   quantity: T('物理量', 'Quantity', 'Größe'),
   value: T('数值', 'Value', 'Wert'),
   inSi: T('国际单位', 'SI', 'SI'),
+  source: T('来源', 'Source', 'Herkunft'),
   known: T('已知量（来自场景与本阶段初态）：', 'Known values (from the scene and the start of this phase):', 'Gegebene Größen (aus der Szene und dem Anfang dieses Abschnitts):'),
   convert: T('代入前先把各量换算为国际单位，计算全部用国际单位进行。', 'All values are converted to SI units before they are substituted; the calculation is done in SI.', 'Vor dem Einsetzen werden alle Größen in SI-Einheiten umgerechnet; gerechnet wird in SI.'),
   substitute: T('代入数据，由内向外逐步计算（中间结果按 {d} 位有效数字显示，计算保留全部精度）：', 'Substitute the values and evaluate from the inside out (intermediate results shown to {d} significant digits; the calculation keeps full precision):', 'Werte einsetzen und von innen nach außen ausrechnen (Zwischenergebnisse mit {d} geltenden Ziffern angezeigt; gerechnet wird mit voller Genauigkeit):'),
@@ -203,12 +205,16 @@ export function buildFormulaDetail(rec: Recording, situation: Situation, formula
     solution.blocks.push({ kind: 'subhead', text: tr(FORMULA_TEXT.given) })
     const head = [tr(FORMULA_TEXT.symbol), tr(FORMULA_TEXT.quantity), tr(FORMULA_TEXT.value)]
     if (sol.converted) head.push(tr(FORMULA_TEXT.inSi))
+    // 26.57 (D111): where each known value comes from, as the core says
+    head.push(tr(FORMULA_TEXT.source))
     const rows: DetailCell[][] = sol.known.map(k => {
       const row: DetailCell[] = [{ tex: `\\textcolor{${k.color}}{${k.symbol}}` }, { text: st(k.label) }, { tex: `\\textcolor{${k.color}}{${k.display}}` }]
       if (sol.converted) row.push(k.si ? { tex: k.si } : { text: '' })
+      const src = sample.vars[k.name]?.src ?? 'given'
+      row.push({ text: VAR_SOURCE_TRI[src][lang] })
       return row
     })
-    solution.blocks.push({ kind: 'table', head, rows, align: sol.converted ? ['left', 'left', 'right', 'right'] : ['left', 'left', 'right'] })
+    solution.blocks.push({ kind: 'table', head, rows, align: sol.converted ? ['left', 'left', 'right', 'right', 'left'] : ['left', 'left', 'right', 'left'] })
   }
   solution.blocks.push({ kind: 'subhead', text: tr(FORMULA_TEXT.find) })
   solution.blocks.push({ kind: 'text', text: tr(FORMULA_TEXT.findText, { t: d ? tr(d.title) : st(f.title), l: sol.lhs }) })

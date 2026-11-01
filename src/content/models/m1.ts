@@ -86,7 +86,7 @@ export const MODELS_M1: ModelSpec[] = [
     example: { text: T('v0 = 20 m/s，θ = 30°，g = 9.8 m/s²，同高度起落。', 'v0 = 20 m/s, θ = 30°, g = 9.8 m/s², equal launch and landing heights.', 'v0 = 20 m/s, θ = 30°, g = 9,8 m/s², gleiche Abwurf- und Landehöhe.'), answer: T('T = 2.04082 s；R = 35.3480 m；最高点相对起点高 5.10204 m。', 'T = 2.04082 s; R = 35.3480 m; the highest point is 5.10204 m above the start.', 'T = 2,04082 s; R = 35,3480 m; der höchste Punkt liegt 5,10204 m über dem Start.') },
     point: T('分运动独立；射程式要求同高度且无阻力。', 'The component motions are independent; the range formula needs equal heights and no drag.', 'Die Teilbewegungen sind unabhängig; die Wurfweitenformel verlangt gleiche Höhen und keinen Luftwiderstand.'),
     status: 'verified', level: 2, teaching: 1, references: ['analytic'], benchmarks: ['oracle:M04', 'test:acceptance 5 projectile'],
-    links: { situations: ['projectile'], topics: ['motion'] }, review: R2
+    links: { activities: ['act-projectile'], situations: ['projectile'], topics: ['motion'] }, review: R2
   },
   {
     id: 'M05', title: T('追及与分段运动', 'Pursuit and piecewise motion', 'Verfolgung und abschnittsweise Bewegung'),

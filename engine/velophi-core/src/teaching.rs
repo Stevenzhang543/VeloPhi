@@ -382,3 +382,206 @@ pub fn event_values(s: &mut Session, index: usize, after: bool, ids: &[String]) 
     let obs = Observation::new(&sys, &meta, &customs, &x, &mode, loss, Some(t))?;
     Ok(ids.iter().map(|id| obs.value(id)).collect())
 }
+
+// ---- 26.57 (D111, D113): evaluation points of a task ----
+
+/// The value of Σ cᵢ·qᵢ at an arbitrary time t: exact state of the recording (one step from the frame or event
+/// before t, in that mode), observed in the mode of the segment at t.
+fn combo_at(s: &mut Session, terms: &[(String, f64)], t: f64) -> SimResult<(f64, Vec<f64>)> {
+    let x = s.exact_state_at(t)?;
+    let seg = s.segment_at_time(t);
+    let k = s.frame_at(t);
+    let loss = s.impact_loss(k)?;
+    let sys = s.system.clone();
+    let meta = s.meta.clone();
+    let customs = s.customs().to_vec();
+    let mode = s.segments[seg].mode.clone();
+    let obs = Observation::new(&sys, &meta, &customs, &x, &mode, loss, Some(t))?;
+    let vals: Vec<f64> = terms.iter().map(|(id, _)| obs.value(id)).collect();
+    let g = terms.iter().zip(&vals).fold(0.0, |acc, ((_, c), v)| acc + c * v);
+    Ok((g, vals))
+}
+
+/// Most frames one crossing search may scan.
+pub const CROSSING_MAX_FRAMES: u64 = 2_000_000;
+
+/// Times in [t0, t1] where g(t) = Σ cᵢ·qᵢ(t) − level changes sign (a task's condition “s = 2 m”, “y = h”, “v = 0”).
+/// Frames are scanned for a sign change in the wanted direction; a bracket without an event inside is refined by
+/// bisection on the exact state until it is shorter than `tol` (or 200 halvings); a bracket that contains an event
+/// (a state jump) is reported as a crossing at the event when the jump itself goes through the level (`kind`:
+/// "event"), otherwise the continuous part on either side is searched. `complete` is false when the recording ends
+/// before t1, so “no crossing” is not a claim about the rest of the motion (T28).
+pub fn crossing(s: &mut Session, terms: &[(String, f64)], level: f64, t0_in: f64, t1_in: f64, all: bool, direction: i32, tol_in: f64) -> SimResult<Value> {
+    let empty = || json!({ "crossings": [], "complete": false, "scanned": 0, "tEnd": 0.0 });
+    if s.frame_count < 2 || terms.is_empty() {
+        return Ok(empty());
+    }
+    let t_end = (s.frame_count - 1) as f64 * s.dt;
+    let (t0, t1) = if t1_in < t0_in { (t1_in, t0_in) } else { (t0_in, t1_in) };
+    let t0 = js_max(0.0, t0);
+    // The search covers the asked interval, or the whole of a finished bounded recording
+    let complete = t1 <= t_end + 1e-12 * js_max(1.0, t_end) || s.duration.map_or(false, |d| s.t >= d - 1e-9 * js_max(1.0, d));
+    let t1 = js_min(t1, t_end);
+    if t1 <= t0 {
+        return Ok(json!({ "crossings": [], "complete": complete, "scanned": 0, "tEnd": jnum(t_end) }));
+    }
+    let tol = if tol_in > 0.0 { tol_in } else { 1e-12 * js_max(1.0, t1) };
+    let k0 = (t0 / s.dt).ceil() as u64;
+    let k1 = js_min((s.frame_count - 1) as f64, (t1 / s.dt).floor()) as u64;
+    if k1 >= k0 && k1 - k0 > CROSSING_MAX_FRAMES {
+        return Err(crate::message::Message::new("err.internal").text("message", format!("calc crossing: more than {CROSSING_MAX_FRAMES} frames")));
+    }
+    // Sample points: t0 (exact), the frames inside, t1 (exact)
+    let ids: Vec<String> = terms.iter().map(|(id, _)| id.clone()).collect();
+    let mut pts: Vec<(f64, f64)> = Vec::new();
+    let (g0, _) = combo_at(s, terms, t0)?;
+    pts.push((t0, g0 - level));
+    if k1 >= k0 {
+        let (tk, vals) = crate::observe::quantity_series(s, &ids, k0, k1, 1)?;
+        for (j, t) in tk.iter().enumerate() {
+            if *t <= t0 || *t >= t1 {
+                continue;
+            }
+            let g = terms.iter().enumerate().fold(0.0, |acc, (i, (_, c))| acc + c * vals[i][j]);
+            pts.push((*t, g - level));
+        }
+    }
+    let (g1, _) = combo_at(s, terms, t1)?;
+    pts.push((t1, g1 - level));
+    let wants = |a: f64, b: f64| -> bool {
+        // a → b goes through zero in the wanted direction (a zero end point counts once, at its own side)
+        let up = a < 0.0 && b >= 0.0;
+        let down = a > 0.0 && b <= 0.0;
+        match direction {
+            1 => up,
+            -1 => down,
+            _ => up || down,
+        }
+    };
+    let event_times: Vec<(usize, f64)> = s.events.iter().enumerate().map(|(i, e)| (i, e.t)).collect();
+    let mut out: Vec<Value> = Vec::new();
+    // A zero exactly at t0 is a crossing only when nothing before t0 is asked (the start of the interval)
+    if pts[0].1 == 0.0 && direction == 0 {
+        let (_, vals) = combo_at(s, terms, t0)?;
+        out.push(json!({ "t": jnum(t0), "residual": 0.0, "kind": "start", "values": vals.iter().map(|v| jnum(*v)).collect::<Vec<_>>() }));
+        if !all {
+            return Ok(json!({ "crossings": out, "complete": complete, "scanned": pts.len(), "tEnd": jnum(t_end) }));
+        }
+    }
+    for w in 0..pts.len() - 1 {
+        let (ta, ga) = pts[w];
+        let (tb, gb) = pts[w + 1];
+        // Events strictly inside (ta, tb]
+        let inside: Vec<(usize, f64)> = event_times.iter().copied().filter(|(_, te)| *te > ta && *te <= tb).collect();
+        let mut found: Vec<Value> = Vec::new();
+        if inside.is_empty() {
+            if wants(ga, gb) {
+                let (mut lo, mut hi, mut glo) = (ta, tb, ga);
+                let mut n = 0;
+                while hi - lo > tol && n < 200 {
+                    let mid = 0.5 * (lo + hi);
+                    if mid <= lo || mid >= hi {
+                        break;
+                    }
+                    let (gm, _) = combo_at(s, terms, mid)?;
+                    let gm = gm - level;
+                    if (glo < 0.0 && gm >= 0.0) || (glo > 0.0 && gm <= 0.0) {
+                        hi = mid;
+                    } else {
+                        lo = mid;
+                        glo = gm;
+                    }
+                    n += 1;
+                }
+                let (gh, vals) = combo_at(s, terms, hi)?;
+                found.push(json!({ "t": jnum(hi), "residual": jnum(gh - level), "bracket": jnum(hi - lo), "kind": "continuous", "values": vals.iter().map(|v| jnum(*v)).collect::<Vec<_>>() }));
+            }
+        } else {
+            // Split at the events: continuous pieces, and the jumps themselves
+            let mut left = (ta, ga);
+            for (ei, te) in inside {
+                let before = event_values(s, ei, false, &ids)?;
+                let after = event_values(s, ei, true, &ids)?;
+                let gbef = terms.iter().enumerate().fold(0.0, |acc, (i, (_, c))| acc + c * before[i]) - level;
+                let gaft = terms.iter().enumerate().fold(0.0, |acc, (i, (_, c))| acc + c * after[i]) - level;
+                if wants(left.1, gbef) {
+                    // A continuous crossing between the left point and the event: bisection on [left.t, te)
+                    let (mut lo, mut hi, mut glo) = (left.0, te, left.1);
+                    let mut n = 0;
+                    while hi - lo > tol && n < 200 {
+                        let mid = 0.5 * (lo + hi);
+                        if mid <= lo || mid >= hi {
+                            break;
+                        }
+                        let (gm, _) = combo_at(s, terms, mid)?;
+                        let gm = gm - level;
+                        if (glo < 0.0 && gm >= 0.0) || (glo > 0.0 && gm <= 0.0) {
+                            hi = mid;
+                        } else {
+                            lo = mid;
+                            glo = gm;
+                        }
+                        n += 1;
+                    }
+                    let (gh, vals) = combo_at(s, terms, hi)?;
+                    found.push(json!({ "t": jnum(hi), "residual": jnum(gh - level), "bracket": jnum(hi - lo), "kind": "continuous", "values": vals.iter().map(|v| jnum(*v)).collect::<Vec<_>>() }));
+                } else if wants(gbef, gaft) {
+                    found.push(json!({ "t": jnum(te), "residual": jnum(gaft), "kind": "event", "event": ei, "values": after.iter().map(|v| jnum(*v)).collect::<Vec<_>>() }));
+                }
+                left = (te, gaft);
+            }
+            if wants(left.1, gb) && tb > left.0 {
+                let (mut lo, mut hi, mut glo) = (left.0, tb, left.1);
+                let mut n = 0;
+                while hi - lo > tol && n < 200 {
+                    let mid = 0.5 * (lo + hi);
+                    if mid <= lo || mid >= hi {
+                        break;
+                    }
+                    let (gm, _) = combo_at(s, terms, mid)?;
+                    let gm = gm - level;
+                    if (glo < 0.0 && gm >= 0.0) || (glo > 0.0 && gm <= 0.0) {
+                        hi = mid;
+                    } else {
+                        lo = mid;
+                        glo = gm;
+                    }
+                    n += 1;
+                }
+                let (gh, vals) = combo_at(s, terms, hi)?;
+                found.push(json!({ "t": jnum(hi), "residual": jnum(gh - level), "bracket": jnum(hi - lo), "kind": "continuous", "values": vals.iter().map(|v| jnum(*v)).collect::<Vec<_>>() }));
+            }
+        }
+        for f in found {
+            out.push(f);
+            if !all {
+                return Ok(json!({ "crossings": out, "complete": complete, "scanned": pts.len(), "tEnd": jnum(t_end) }));
+            }
+        }
+    }
+    Ok(json!({ "crossings": out, "complete": complete, "scanned": pts.len(), "tEnd": jnum(t_end) }))
+}
+
+/// Largest or smallest finite value of a quantity over frames in [t0, t1] (the whole recording by default) and the
+/// time of the first frame that has it (26.57: the “interval” evaluation point of a task).
+pub fn extreme_in(s: &mut Session, id: &str, max: bool, t0: Option<f64>, t1: Option<f64>) -> SimResult<(f64, f64)> {
+    if s.frame_count == 0 {
+        return Ok((f64::NAN, f64::NAN));
+    }
+    let last = s.frame_count - 1;
+    let k0 = t0.map(|t| js_max(0.0, js_min(last as f64, (t / s.dt).ceil())) as u64).unwrap_or(0);
+    let k1 = t1.map(|t| js_max(0.0, js_min(last as f64, (t / s.dt).floor())) as u64).unwrap_or(last);
+    if k1 < k0 {
+        return Ok((f64::NAN, f64::NAN));
+    }
+    let (tk, values) = crate::observe::quantity_series(s, &[id.to_string()], k0, k1, 1)?;
+    let mut best = if max { f64::NEG_INFINITY } else { f64::INFINITY };
+    let mut at = f64::NAN;
+    for (j, &x) in values[0].iter().enumerate() {
+        if x.is_finite() && ((max && x > best) || (!max && x < best)) {
+            best = x;
+            at = tk[j];
+        }
+    }
+    Ok(if best.is_finite() { (best, at) } else { (f64::NAN, f64::NAN) })
+}

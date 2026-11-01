@@ -36,6 +36,13 @@ export interface AttemptRecord {
   transfer: Record<string, ItemRecord>
   dims: Record<Dimension, { correct: number; total: number }>
   mastery: boolean
+  /**
+   * 26.57 (D125): the version of the teaching content the attempt was made with (questions and answers may change
+   * between releases) and of the program. Records made before 26.57 have none; they are kept and shown as made with
+   * an earlier content version, never re-graded.
+   */
+  contentVersion?: string
+  appVersion?: string
 }
 
 export interface LearningRecords {
@@ -113,4 +120,26 @@ export const MASTERY_RULE = {
   zh: '掌握证据：一次完整作答中，核心题与迁移题在概念、单位、方向、建模、计算、解释各评分维度全部正确（以每题第一次核对为准）；提示次数照记，不扣分。打开页面只记为“已访问”，完成活动记为“已练习”。',
   en: 'Mastery evidence: in one complete attempt every graded dimension (concept, unit, direction, modelling, calculation, explanation) of the core and transfer questions is correct at its first check; hints are recorded, not deducted. Opening a page counts as a visit; finishing an activity counts as practice.',
   de: 'Nachweis der Beherrschung: In einem vollständigen Durchgang sind alle bewerteten Dimensionen (Konzept, Einheit, Richtung, Modellierung, Rechnung, Erklärung) der Kern- und Transferfragen bei der ersten Prüfung richtig; Hinweise werden gezählt, nicht abgezogen. Das Öffnen einer Seite zählt als Besuch, ein abgeschlossenes Lernangebot als Übung.'
+}
+
+/**
+ * Review suggestions from explicit weak points (26.57, EDU12; manual §8.6: “复习推荐先依据明确薄弱点”, no adaptive
+ * algorithm): for every activity whose latest finished attempt has no mastery evidence, the dimensions that were not
+ * all correct, worst first. An activity with mastery evidence is not suggested; one never finished is not either (it
+ * is not a weakness, only not done). Attempts made with an earlier content version are marked so.
+ */
+export function reviewSuggestions(rec: LearningRecords, contentVersion?: string): Array<{ activity: string; weak: Dimension[]; finished: string; olderContent: boolean }> {
+  const latest = new Map<string, AttemptRecord>()
+  for (const a of rec.attempts) if (a.finished) latest.set(a.activity, a)
+  const out: Array<{ activity: string; weak: Dimension[]; finished: string; olderContent: boolean }> = []
+  for (const [activity, a] of latest) {
+    if (rec.attempts.some(x => x.activity === activity && x.finished && x.mastery)) continue
+    const weak = (Object.entries(a.dims) as Array<[Dimension, { correct: number; total: number }]>)
+      .filter(([, d]) => d.total > 0 && d.correct < d.total)
+      .sort((x, y) => x[1].correct / x[1].total - y[1].correct / y[1].total)
+      .map(([k]) => k)
+    if (!weak.length) continue
+    out.push({ activity, weak, finished: a.finished!, olderContent: !!contentVersion && a.contentVersion !== contentVersion })
+  }
+  return out.sort((x, y) => (x.finished < y.finished ? 1 : -1))
 }

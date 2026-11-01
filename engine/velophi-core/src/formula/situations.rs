@@ -171,7 +171,7 @@ fn surface_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()> {
                                 ("theta", var(theta, "rad", "\\theta", t!("倾角"))),
                                 ("muK", var(mat.mu_k, "", "\\mu_k", t!("动摩擦因数"))),
                                 ("muS", var(mat.mu_s, "", "\\mu_s", t!("静摩擦因数"))),
-                                ("omegaSim", var(st.w.abs(), "rad/s", "\\omega", t!("角速度（仿真）"))),
+                                ("omegaSim", var_sim(st.w.abs(), "rad/s", "\\omega", t!("角速度（仿真）"))),
                             ],
                             measures: vec![
                                 ("a", meas(Some(a), "m/s²", t!("沿斜面向下的加速度"))),
@@ -250,10 +250,10 @@ fn surface_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()> {
                         ("g", var(g, "m/s²", "g", t!("重力加速度"))),
                         ("muK", var(mat.mu_k, "", "\\mu_k", t!("动摩擦因数"))),
                         ("muS", var(mat.mu_s, "", "\\mu_s", t!("静摩擦因数"))),
-                        ("v0", var(v0, "m/s", "v_0", t!("本阶段初速度"))),
+                        ("v0", var_phase(v0, "m/s", "v_0", t!("本阶段初速度"))),
                         ("u", var(geo2.u, "m/s", "u", t!("接触面速度"))),
-                        ("t", var(t - t0, "s", "t", t!("本阶段经过时间"))),
-                        ("a", var(a_th, "m/s²", "a", t!("理论加速度"))),
+                        ("t", var_time(t - t0, "s", "t", t!("本阶段经过时间"))),
+                        ("a", var_derived(a_th, "m/s²", "a", t!("理论加速度"))),
                     ];
                     if !flat {
                         vars.push(("theta", var(theta, "rad", "\\theta", t!("倾角"))));
@@ -384,9 +384,9 @@ fn board_block_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()
                                     ("mu1", var(mu1, "", "\\mu_1", t!("{0}与{1}间动摩擦因数", an.clone(), bn.clone()))),
                                     ("mu2", var(mu2, "", "\\mu_2", t!("{0}与{1}间动摩擦因数", bn.clone(), sn.clone()))),
                                     ("g", var(g, "m/s²", "g", t!("重力加速度"))),
-                                    ("v1", var(v1, "m/s", "v_1", t!("{0}初速度", an.clone()))),
-                                    ("v2", var(v2, "m/s", "v_2", t!("{0}初速度", bn.clone()))),
-                                    ("a2", var(a2, "m/s²", "a_2", t!("{0}理论加速度", bn.clone()))),
+                                    ("v1", var_phase(v1, "m/s", "v_1", t!("{0}初速度", an.clone()))),
+                                    ("v2", var_phase(v2, "m/s", "v_2", t!("{0}初速度", bn.clone()))),
+                                    ("a2", var_derived(a2, "m/s²", "a_2", t!("{0}理论加速度", bn.clone()))),
                                 ],
                                 measures: vec![
                                     ("a1", meas(Some(o.sol.acc[3 * ai].abs()), "m/s²", t!("{0}加速度大小", an.clone()))),
@@ -574,11 +574,11 @@ fn impact_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()> {
                         ("m1", var(b1.mass, "kg", "m_1", t!("{0}质量", b1.name.clone()))),
                         ("m2", var(b2.mass, "kg", "m_2", t!("{0}质量", b2.name.clone()))),
                         ("e", var(e, "", "e", t!("恢复系数"))),
-                        ("u1", var(u1, "m/s", "u_1", t!("碰前{0}法向速度", b1.name.clone()))),
-                        ("u2", var(u2, "m/s", "u_2", t!("碰前{0}法向速度", b2.name.clone()))),
-                        ("w1", var(w1, "m/s", "v_{1t}", t!("碰前{0}切向速度", b1.name.clone()))),
-                        ("p0x", var(b1.mass * v1.0 + b2.mass * v2.0, "kg·m/s", "p_x", t!("碰前总动量 x"))),
-                        ("p0y", var(b1.mass * v1.1 + b2.mass * v2.1, "kg·m/s", "p_y", t!("碰前总动量 y"))),
+                        ("u1", var_phase(u1, "m/s", "u_1", t!("碰前{0}法向速度", b1.name.clone()))),
+                        ("u2", var_phase(u2, "m/s", "u_2", t!("碰前{0}法向速度", b2.name.clone()))),
+                        ("w1", var_phase(w1, "m/s", "v_{1t}", t!("碰前{0}切向速度", b1.name.clone()))),
+                        ("p0x", var_derived(b1.mass * v1.0 + b2.mass * v2.0, "kg·m/s", "p_x", t!("碰前总动量 x"))),
+                        ("p0y", var_derived(b1.mass * v1.1 + b2.mass * v2.1, "kg·m/s", "p_y", t!("碰前总动量 y"))),
                     ],
                     measures: vec![
                         ("v1", meas(Some(w1a.0 * n12.0 + w1a.1 * n12.1), "m/s", t!("碰后{0}法向速度", b1.name.clone()))),
@@ -629,9 +629,9 @@ fn impact_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()> {
                         ("m", var(pb.mass, "kg", "m", t!("{0}质量", pb.name.clone()))),
                         ("Ip", var(ip, "kg·m²", "I", t!("{0}对转轴的转动惯量", h.name.clone()))),
                         ("d", var(d, "m", "d", t!("碰撞力作用线到转轴的距离"))),
-                        ("v", var(vp.0 * n_in.0 + vp.1 * n_in.1, "m/s", "v", t!("碰前{0}法向速度", pb.name.clone()))),
+                        ("v", var_phase(vp.0 * n_in.0 + vp.1 * n_in.1, "m/s", "v", t!("碰前{0}法向速度", pb.name.clone()))),
                         ("e", var(p.restitution, "", "e", t!("恢复系数"))),
-                        ("L0", var(lz_about(&sys, &before, pvx, pvy, &ids), "kg·m²/s", "L", t!("碰前对转轴角动量"))),
+                        ("L0", var_derived(lz_about(&sys, &before, pvx, pvy, &ids), "kg·m²/s", "L", t!("碰前对转轴角动量"))),
                     ],
                     measures: vec![
                         ("vAfter", meas(Some(vpa.0 * n_in.0 + vpa.1 * n_in.1), "m/s", t!("碰后{0}法向速度", pb.name.clone()))),
@@ -660,7 +660,7 @@ fn impact_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()> {
             let (vb, va) = (vel(&before, d_b), vel(&after, d_b));
             let s_b = if std::ptr::eq(d_b, ba) { bb } else { ba };
             let sample = Sample {
-                vars: vec![("e", var(p.restitution, "", "e", t!("恢复系数"))), ("u", var(vb.0 * n_out.0 + vb.1 * n_out.1, "m/s", "v_n", t!("碰前法向速度")))],
+                vars: vec![("e", var(p.restitution, "", "e", t!("恢复系数"))), ("u", var_phase(vb.0 * n_out.0 + vb.1 * n_out.1, "m/s", "v_n", t!("碰前法向速度")))],
                 measures: vec![("v", meas(Some(va.0 * n_out.0 + va.1 * n_out.1), "m/s", t!("碰后法向速度")))],
                 conditions: vec![friction_cond.clone()],
             };
@@ -739,16 +739,16 @@ fn projectile_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()>
                     let from_rest = s0.vx == 0.0 && s0.vy == 0.0;
                     Ok(Sample {
                         vars: vec![
-                            ("x0", var(s0.x, "m", "x_0", t!("初始水平位置"))),
-                            ("y0", var(s0.y, "m", "y_0", t!("初始高度"))),
-                            ("vx0", var(s0.vx, "m/s", "v_{0x}", t!("初速度水平分量"))),
-                            ("vy0", var(s0.vy, "m/s", "v_{0y}", t!("初速度竖直分量"))),
+                            ("x0", var_phase(s0.x, "m", "x_0", t!("初始水平位置"))),
+                            ("y0", var_phase(s0.y, "m", "y_0", t!("初始高度"))),
+                            ("vx0", var_phase(s0.vx, "m/s", "v_{0x}", t!("初速度水平分量"))),
+                            ("vy0", var_phase(s0.vy, "m/s", "v_{0y}", t!("初速度竖直分量"))),
                             ("g", var(g, "m/s²", "g", t!("重力加速度"))),
-                            ("t", var(t - t0, "s", "t", t!("飞行时间"))),
-                            ("y1", var(s_end.y, "m", "y_1", t!("落点高度（质心）"))),
+                            ("t", var_time(t - t0, "s", "t", t!("飞行时间"))),
+                            ("y1", var_sim(s_end.y, "m", "y_1", t!("落点高度（质心）"))),
                             ("m", var(mass, "kg", "m", t!("质量"))),
-                            ("y", var(st.y, "m", "y", t!("当前高度（仿真）"))),
-                            ("h", var(s0.y - st.y, "m", "h", t!("下落高度（仿真）"))),
+                            ("y", var_sim(st.y, "m", "y", t!("当前高度（仿真）"))),
+                            ("h", var_sim(s0.y - st.y, "m", "h", t!("下落高度（仿真）"))),
                         ],
                         measures: vec![
                             ("x", meas(Some(st.x), "m", t!("水平位置"))),
@@ -880,7 +880,7 @@ fn pendulum_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()> {
                             ("L", var(l, "m", "L", t!("摆长（到球心）"))),
                             ("m", var(mass, "kg", "m", t!("摆球质量"))),
                             ("g", var(g, "m/s²", "g", t!("重力加速度"))),
-                            ("theta0", var(theta0, "rad", "\\theta_0", t!("振幅（最大摆角）"))),
+                            ("theta0", var_phase(theta0, "rad", "\\theta_0", t!("振幅（最大摆角）"))),
                         ],
                         measures: vec![
                             ("T", meas_note(per, "s", t!("周期（相邻两次同向过最低点）"), if per.is_none() { Some(t!("记录时长不足一个完整周期")) } else { None })),
@@ -995,7 +995,7 @@ fn spring_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()> {
                     }
                     let (per, vmax, amax) = cache.borrow().expect("measured");
                     Ok(Sample {
-                        vars: vec![("k", var(k, "N/m", "k", t!("劲度系数"))), ("m", var(mass, "kg", "m", t!("振子质量"))), ("A", var(amp, "m", "A", t!("振幅")))],
+                        vars: vec![("k", var(k, "N/m", "k", t!("劲度系数"))), ("m", var(mass, "kg", "m", t!("振子质量"))), ("A", var_phase(amp, "m", "A", t!("振幅")))],
                         measures: vec![
                             ("T", meas_note(per, "s", t!("周期"), if per.is_none() { Some(t!("记录时长不足一个完整周期")) } else { None })),
                             ("vmax", meas(vmax, "m/s", t!("过平衡位置的速率"))),
@@ -1076,12 +1076,12 @@ fn rotation_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()> {
                     Ok(Sample {
                         vars: vec![
                             ("m", var(mass, "kg", "m", t!("质量"))),
-                            ("Ip", var(ip, "kg·m²", "I", t!("对转轴的转动惯量 I = I_C + md²"))),
+                            ("Ip", var_derived(ip, "kg·m²", "I", t!("对转轴的转动惯量 I = I_C + md²"))),
                             ("d", var(d, "m", "d", t!("质心到转轴距离"))),
                             ("g", var(g, "m/s²", "g", t!("重力加速度"))),
-                            ("phi", var(phi, "rad", "\\varphi", t!("当前偏角"))),
-                            ("phi0", var(phi0, "rad", "\\varphi_0", t!("初始偏角"))),
-                            ("omega0", var(omega0, "rad/s", "\\omega_0", t!("初始角速度"))),
+                            ("phi", var_sim(phi, "rad", "\\varphi", t!("当前偏角"))),
+                            ("phi0", var_phase(phi0, "rad", "\\varphi_0", t!("初始偏角"))),
+                            ("omega0", var_phase(omega0, "rad/s", "\\omega_0", t!("初始角速度"))),
                             ("L", var(lrod, "m", "L", t!("杆长"))),
                         ],
                         measures: vec![
@@ -1245,7 +1245,7 @@ fn conservation_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<(
             let o = r.observe(t)?;
             let sys = r.sys.clone();
             Ok(Sample {
-                vars: vec![("E0", var(balance0, "J", "E_0", t!("初始总能量")))],
+                vars: vec![("E0", var_phase(balance0, "J", "E_0", t!("初始总能量")))],
                 measures: vec![("balance", meas(Some(ledger_at(&sys, &o.x, o.impact_loss).balance), "J", t!("当前账本合计")))],
                 conditions: vec![],
             })
@@ -1312,7 +1312,7 @@ fn conservation_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<(
                 let sys = r.sys.clone();
                 let q = p_of(&sys, &r.exact(t)?);
                 Ok(Sample {
-                    vars: vec![("p0x", var(p0.0, "kg·m/s", "p_{x0}", t!("初始总动量 x"))), ("p0y", var(p0.1, "kg·m/s", "p_{y0}", t!("初始总动量 y")))],
+                    vars: vec![("p0x", var_phase(p0.0, "kg·m/s", "p_{x0}", t!("初始总动量 x"))), ("p0y", var_phase(p0.1, "kg·m/s", "p_{y0}", t!("初始总动量 y")))],
                     measures: vec![("px", meas(Some(q.0), "kg·m/s", t!("总动量 x"))), ("py", meas(Some(q.1), "kg·m/s", t!("总动量 y")))],
                     conditions: vec![],
                 })
@@ -1434,11 +1434,11 @@ fn vertical_circle_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResul
                     ("L", var(l, "m", "L", if is_rope { t!("绳长") } else { t!("杆长") })),
                     ("m", var(mass, "kg", "m", t!("小球质量"))),
                     ("g", var(g, "m/s²", "g", t!("重力加速度"))),
-                    ("v0", var(v0, "m/s", "v_0", t!("最低点速率（由本段机械能推算）"))),
-                    ("phi0", var(phi0, "rad", "\\varphi_0", t!("本段起点的位置角"))),
+                    ("v0", var_derived(v0, "m/s", "v_0", t!("最低点速率（由本段机械能推算）"))),
+                    ("phi0", var_phase(phi0, "rad", "\\varphi_0", t!("本段起点的位置角"))),
                 ];
                 if let Some(z) = m.2 {
-                    v.push(("phiZ", var(z.1, "rad", "\\varphi", t!("杆力为零处的位置角（仿真）"))));
+                    v.push(("phiZ", var_sim(z.1, "rad", "\\varphi", t!("杆力为零处的位置角（仿真）"))));
                 }
                 v
             };
@@ -1459,7 +1459,7 @@ fn vertical_circle_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResul
                         let crit = (5.0 * g * l).sqrt();
                         let mut vars = common(&m);
                         if let Some(ps) = slack_phi {
-                            vars.push(("phiS", var(ps, "rad", "\\varphi_s", t!("松弛处的位置角（仿真）"))));
+                            vars.push(("phiS", var_sim(ps, "rad", "\\varphi_s", t!("松弛处的位置角（仿真）"))));
                         }
                         Ok(Sample {
                             vars,
@@ -1601,8 +1601,8 @@ fn movable_pulley_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult
                             ("m1", var(bm, "kg", "m_1", t!("{0}质量（绳端）", bn.clone()))),
                             ("m2", var(pm, "kg", "m_2", t!("{0}质量（动滑轮下）", pn.clone()))),
                             ("g", var(g, "m/s²", "g", t!("重力加速度"))),
-                            ("a1sim", var(a1, "m/s²", "a_1", t!("{0}向下的加速度（仿真）", bn.clone()))),
-                            ("a2sim", var(a2, "m/s²", "a_2", t!("{0}向上的加速度（仿真）", pn.clone()))),
+                            ("a1sim", var_sim(a1, "m/s²", "a_1", t!("{0}向下的加速度（仿真）", bn.clone()))),
+                            ("a2sim", var_sim(a2, "m/s²", "a_2", t!("{0}向上的加速度（仿真）", pn.clone()))),
                         ],
                         measures: vec![
                             ("a1", meas(Some(a1), "m/s²", t!("{0}向下的加速度", bn.clone()))),
@@ -1697,7 +1697,7 @@ fn wedge_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()> {
                                 ("m", var(am, "kg", "m", t!("{0}质量", an.clone()))),
                                 ("theta", var(theta, "rad", "\\theta", t!("斜面倾角"))),
                                 ("g", var(g, "m/s²", "g", t!("重力加速度"))),
-                                ("p0x", var(p0, "kg·m/s", "p_{x0}", t!("本阶段开始时的水平总动量"))),
+                                ("p0x", var_phase(p0, "kg·m/s", "p_{x0}", t!("本阶段开始时的水平总动量"))),
                             ],
                             measures: vec![
                                 ("A", meas(Some(aw.abs()), "m/s²", t!("{0}的加速度大小", wn.clone()))),
@@ -1802,9 +1802,9 @@ fn spring_pair_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()
                             ("m1", var(am, "kg", "m_1", t!("{0}质量", an.clone()))),
                             ("m2", var(bm, "kg", "m_2", t!("{0}质量", bn.clone()))),
                             ("k", var(k, "N/m", "k", t!("劲度系数"))),
-                            ("v1", var(v1, "m/s", "v_1", t!("本段开始时{0}的速度（沿弹簧）", an.clone()))),
-                            ("v2", var(v2, "m/s", "v_2", t!("本段开始时{0}的速度（沿弹簧）", bn.clone()))),
-                            ("x0", var(xd0, "m", "x_0", t!("本段开始时弹簧的形变量"))),
+                            ("v1", var_phase(v1, "m/s", "v_1", t!("本段开始时{0}的速度（沿弹簧）", an.clone()))),
+                            ("v2", var_phase(v2, "m/s", "v_2", t!("本段开始时{0}的速度（沿弹簧）", bn.clone()))),
+                            ("x0", var_phase(xd0, "m", "x_0", t!("本段开始时弹簧的形变量"))),
                         ],
                         measures: vec![
                             ("p", meas(Some(am * v_along(&x, ai) + bm * v_along(&x, bi)), "kg·m/s", t!("沿弹簧方向的总动量"))),
@@ -1894,8 +1894,8 @@ fn roll_slip_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()> 
                             ("I", var(inertia, "kg·m²", "I", t!("对质心的转动惯量"))),
                             ("muK", var(mu_k, "", "\\mu_k", t!("动摩擦因数"))),
                             ("g", var(g, "m/s²", "g", t!("重力加速度"))),
-                            ("v0", var(s0.vx, "m/s", "v_0", t!("本段开始时质心速度"))),
-                            ("omega0", var(s0.w, "rad/s", "\\omega_0", t!("本段开始时角速度（逆时针为正）"))),
+                            ("v0", var_phase(s0.vx, "m/s", "v_0", t!("本段开始时质心速度"))),
+                            ("omega0", var_phase(s0.w, "rad/s", "\\omega_0", t!("本段开始时角速度（逆时针为正）"))),
                         ],
                         measures: vec![
                             ("a", meas(Some(o.sol.acc[3 * bi]), "m/s²", t!("质心加速度"))),
@@ -2038,12 +2038,12 @@ fn variable_force_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult
                     let dx = if time_only { integrate(&mut |sv| (t - sv) * fx(sv), t0, t, &breaks, 1e-13) / mass } else { f64::NAN };
                     let mut vars = vec![
                         ("m", var(mass, "kg", "m", t!("质量"))),
-                        ("v0", var(s0.vx, "m/s", "v_0", t!("本段开始时的速度 vₓ"))),
-                        ("x0", var(s0.x, "m", "x_0", t!("本段开始时的位置 x"))),
-                        ("t", var(t, "s", "t", t!("时刻"))),
-                        ("t0", var(t0, "s", "t_0", t!("本段开始时刻"))),
-                        ("J", var(j, "N·s", "I", t!("冲量 ∫Fₓdt（对表达式数值积分）"))),
-                        ("dx", var(dx, "m", "\\Delta x_F", t!("(1/m)∫(t−s)Fₓ(s)ds（对表达式数值积分）"))),
+                        ("v0", var_phase(s0.vx, "m/s", "v_0", t!("本段开始时的速度 vₓ"))),
+                        ("x0", var_phase(s0.x, "m", "x_0", t!("本段开始时的位置 x"))),
+                        ("t", var_time(t, "s", "t", t!("时刻"))),
+                        ("t0", var_phase(t0, "s", "t_0", t!("本段开始时刻"))),
+                        ("J", var_derived(j, "N·s", "I", t!("冲量 ∫Fₓdt（对表达式数值积分）"))),
+                        ("dx", var_derived(dx, "m", "\\Delta x_F", t!("(1/m)∫(t−s)Fₓ(s)ds（对表达式数值积分）"))),
                     ];
                     if let Some((f0, w)) = sw {
                         vars.push(("F0", var(f0, "N", "F_0", t!("力的幅值"))));

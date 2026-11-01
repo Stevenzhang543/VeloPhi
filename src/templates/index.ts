@@ -17,6 +17,8 @@ import { DEG, cos, sin, tan } from '../core/math/dmath'
 import { addBody, addConnector, addGround, addIncline, addPulley, anchor, defaultGravity, emptyScene, onIncline, setDefaultGravity } from '../core/scene/build'
 import type { ForceDef, RodDef, RopeDef, SpringDef, HingeDef, WeldDef, MotorDef, GearDef, CentralDef, SliderDef } from '../core/scene/types'
 import { TEMPLATES_2655 } from './t2655'
+import { TEMPLATES_2657 } from './t2657'
+import type { TemplatePreset } from './t2657'
 
 /** A template parameter: key, label, display unit ('°' for angles), default value and limits. */
 export interface TemplateParam { key: string; label: string; unit: string; value: number; min?: number; max?: number; step?: number }
@@ -28,6 +30,8 @@ export interface TemplateInfo {
   description: string
   params: TemplateParam[]
   build: (p: Record<string, number>) => Scene
+  /** 26.57 (D112): named value sets (gallery chips, teaching packages, task samples). */
+  presets?: TemplatePreset[]
 }
 
 const p = (key: string, label: string, unit: string, value: number, min?: number, max?: number, step?: number): TemplateParam => ({ key, label, unit, value, min, max, step })
@@ -664,7 +668,9 @@ export const TEMPLATES: TemplateInfo[] = trDeep([
   { id: 'incline-efficiency', group: '斜面与摩擦', name: '斜面的机械效率', description: '匀速拉上斜面：η = mgh/(Fs)', params: [p('theta', '倾角 θ', '°', 30, 1, 80), p('m', '质量 m', 'kg', 2, 0.01), p('mu', '动摩擦因数 μ', '', 0.2, 0, 2, 0.01), p('v0', '速度 v', 'm/s', 0.5, 0.01), gp()], build: inclineEfficiency },
   { id: 'wheel-axle', group: '力与平衡', name: '轮轴', description: '轮轴平衡：F·R = G·r，轮半径越大越省力', params: [p('R', '轮半径 R', 'm', 0.3, 0.05, 1), p('r', '轴半径 r', 'm', 0.1, 0.02, 0.8), p('m', '重物质量 m', 'kg', 3, 0.01), p('M', '轮的质量 M', 'kg', 1, 0.01), gp()], build: wheelAxle },
   // 26.55: regions, rail loops, liquids and more classic models
-  ...TEMPLATES_2655
+  ...TEMPLATES_2655,
+  // 26.57: the incline with μs and μk apart (D112)
+  ...TEMPLATES_2657
 ])
 
 /** Templates the TypeScript reference can run (D77): the ones without charges or fields. */

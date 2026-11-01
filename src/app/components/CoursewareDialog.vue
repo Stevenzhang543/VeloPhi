@@ -7,6 +7,7 @@
  * Mounted by App.vue while `state.showCourseware` is true (and a recording exists); closes itself by setting
  * the flag to false. No props, no emits.
  */
+import { vDialog } from '../focusTrap'
 import { tl, listSep, paren, stripLabel, activeLang } from '../../i18n'
 import { exportSituations, inExportLanguage } from '../exportLang'
 import { computed, reactive, ref } from 'vue'
@@ -197,7 +198,7 @@ async function runInner() {
 
 <template>
   <div class="dialog-backdrop" @mousedown.self="close">
-    <div class="dialog courseware">
+    <div v-dialog="close" class="dialog courseware" role="dialog" :aria-label="tl('课件')">
       <div class="dialog-header"><Icon name="template" :size="18" />{{ tl('导出课件包') }}<span class="spacer" /><button class="btn icon ghost" :disabled="busy" :title="tl('关闭')" @click="close"><Icon name="close" /></button></div>
       <div v-if="!rec" class="dialog-body"><div class="empty">{{ tl('请先运行仿真（结果需与当前场景一致）。') }}</div></div>
       <div v-else class="dialog-body">

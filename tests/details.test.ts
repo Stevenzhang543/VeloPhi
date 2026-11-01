@@ -113,10 +113,10 @@ describe('generated solution', () => {
     for (const f of FORMULAS) {
       const vars: Record<string, number> = {}
       const tree = formulaTree(f)
-      const sample = { vars: {} as Record<string, { value: number; unit: string; symbol: string; label: string }>, measures: {}, conditions: [] }
+      const sample = { vars: {} as Record<string, { value: number; unit: string; symbol: string; label: string; src: 'given' }>, measures: {}, conditions: [] }
       let k = 1
       const collect = (n: typeof tree): void => {
-        if (n.type === 'var' && !(n.name in vars)) { vars[n.name] = 0.3 + 0.17 * k++; sample.vars[n.name] = { value: vars[n.name], unit: '', symbol: n.name, label: n.name } }
+        if (n.type === 'var' && !(n.name in vars)) { vars[n.name] = 0.3 + 0.17 * k++; sample.vars[n.name] = { value: vars[n.name], unit: '', symbol: n.name, label: n.name, src: 'given' } }
         if (n.type === 'neg') collect(n.arg)
         if (n.type === 'bin' || n.type === 'cmp') { collect(n.left); collect(n.right) }
         if (n.type === 'call') n.args.forEach(collect)

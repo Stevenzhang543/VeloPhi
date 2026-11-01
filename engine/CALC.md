@@ -43,7 +43,8 @@ segment (reduced-accuracy segments interpolate). Bodies are referred to by id un
 | `series` | `ids[]`, `from?, to?, stride?` — or `frames[]` | `t`, `values[]` (one array per id) |
 | `contactForces` | `frame, on, by` | `Nx, Ny, N, fx, fy, f, vt, inContact, status` |
 | `checkCustom` | `expr` | `ok, unit` or `ok: false, error` |
-| `extreme` | `id, which: 'max'|'min'` | `value` |
+| `extreme` | `id, which: 'max'|'min'`, `t0?, t1?` (26.57: a time window), `withTime?` | `value`; with `withTime`: `t` (time of the extreme, refined between frames) |
+| `crossing` | `terms[] {id, c}`, `level`, `t0?, t1?`, `which: 'first'|'all'`, `direction?: 'up'|'down'`, `tol?` (26.57, D111) | `crossings[] {t, values}` — the times where Σ c·q reaches `level` (refined between frames, in the given direction), `complete` (the recording covers `t1`), `scanned`, `tEnd` |
 | `stateComponent` | `id` | `component` (index into the state, −1 when derived) |
 | `envelope` | `ids[], k0, k1, columns, budget?, rebuild?, level?` | long-chart level of detail (D32): `level, unit, colFirst, colLast (i32), stats {id: {min, max, first, last, state (i32)}}, pending, evicted[], dt` |
 

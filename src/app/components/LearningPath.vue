@@ -17,7 +17,10 @@ import { PATHS, stepKey } from '../learn/paths'
 import type { PathStage, PathStep } from '../learn/paths'
 import { KIND_META, openStep, stepState, stepTitle } from '../learn/actions'
 import { records, unvisit, visit, exportJson, clearAll } from '../learn/records'
-import { MASTERY_RULE } from '../../teaching/records'
+import { MASTERY_RULE, reviewSuggestions } from '../../teaching/records'
+import { PACKAGE_CONTENT_VERSION } from '../../content/packages'
+import { activityById } from '../../teaching/activities'
+import { openActivity } from '../learn/actions'
 import { ask } from '../../platform/ask'
 import { saveFile } from '../../platform/files'
 import Icon from './Icon.vue'
@@ -46,6 +49,11 @@ function toggleVisit(st: PathStep) { const k = stepKey(st); if (stepState(st).vi
 function clearStageVisits() { for (const st of stepsOf(stage.value)) unvisit(stepKey(st)) }
 async function exportRecords() { await saveFile(exportJson(), 'velophi-learning-records.json', [{ name: 'JSON', extensions: ['json'] }]) }
 async function clearRecords() { if (await ask(tl('清除本机的全部学习记录（访问、练习与掌握证据）？此操作不能撤销。'))) clearAll() }
+// 26.57 (EDU12): review from explicit weak points of the latest attempt (no adaptive algorithm)
+const DIM_TEXT: Record<string, string> = { concept: '概念', unit: '单位', direction: '方向', modelling: '建模', calculation: '计算', explanation: '解释' }
+const reviews = computed(() => reviewSuggestions(records, PACKAGE_CONTENT_VERSION).slice(0, 6))
+const actTitle = (id: string) => { const a = activityById(id); return a ? (a.title[activeLang()] ?? a.title.zh) : id }
+function review(id: string) { close(); openActivity(id) }
 const counts = computed(() => ({ visits: Object.keys(records.visited).length, attempts: records.attempts.length, mastery: records.attempts.filter(a => a.mastery).length }))
 </script>
 
@@ -71,6 +79,13 @@ const counts = computed(() => ({ visits: Object.keys(records.visited).length, at
               <button class="link tiny" :aria-expanded="showRule" @click="showRule = !showRule">{{ tl('判定规则') }}</button>
             </div>
             <p v-if="showRule" class="tiny rule">{{ rule }}</p>
+            <div v-if="reviews.length" class="review small" role="region" :aria-label="tl('复习建议')">
+              <b>{{ tl('复习建议') }}</b><span class="tiny muted">{{ tl('（依据最近一次作答中未全部答对的维度）') }}</span>
+              <div v-for="r in reviews" :key="r.activity" class="rv">
+                <button class="link" @click="review(r.activity)">{{ actTitle(r.activity) }}</button>
+                <span class="tiny muted">{{ tl('薄弱：{0}', [r.weak.map(d => tl(DIM_TEXT[d])).join(tl('、'))]) }}<template v-if="r.olderContent">{{ tl('（作答时为较早的内容版本）') }}</template></span>
+              </div>
+            </div>
             <div class="bar" role="progressbar" :aria-label="tl('已访问')" :aria-valuenow="progress(stage).visited" :aria-valuemax="progress(stage).all"><i :style="{ width: `${(100 * progress(stage).visited) / Math.max(1, progress(stage).all)}%` }" /></div>
           </div>
           <div v-for="u in stage.units" :key="u.id" class="unit">
@@ -104,6 +119,8 @@ const counts = computed(() => ({ visits: Object.keys(records.visited).length, at
 
 <style scoped>
 .learn { width: min(1020px, 96vw); }
+.review { background: var(--group); border-radius: 8px; padding: 6px 10px; margin: 6px 0; display: flex; flex-direction: column; gap: 2px; }
+.review .rv { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
 .body { display: grid; grid-template-columns: 200px 1fr; gap: 16px; min-height: 440px; max-height: 68vh; }
 nav { display: flex; flex-direction: column; gap: 2px; overflow: auto; }
 .nav-item { display: flex; align-items: center; gap: 8px; border: 0; background: transparent; border-radius: 8px; padding: 7px 10px; cursor: pointer; text-align: left; color: var(--text); font: inherit; }

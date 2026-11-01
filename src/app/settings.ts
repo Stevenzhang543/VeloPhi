@@ -40,6 +40,11 @@ export interface DisplayOptions {
   fields: boolean
   fieldLines: boolean
   equipotentials: boolean
+  /**
+   * 26.57 (D119, T06): draw the normal force of every contact point (N1, N2 …) instead of their sum at the centre of
+   * pressure. Off by default: the summary force of a contact is what a free-body diagram counts once.
+   */
+  contactPoints: boolean
 }
 
 /** The on/off overlays of DisplayOptions (the numeric fields are their parameters). */
@@ -134,7 +139,7 @@ export interface UiSettings {
   formula: FormulaUi
   /** 26.54 (D86): category page of the tool palette, right panel tab and analysis sub-tab, last display preset. */
   toolTab: string
-  rightTab: 'inspect' | 'formula' | 'watch' | 'predict' | 'settings'
+  rightTab: 'inspect' | 'formula' | 'watch' | 'predict' | 'settings' | 'task'
   analysisTab: 'formula' | 'watch' | 'predict'
   /** Lab page (D76): open experiment and the folded state of its catalogue. */
   lab: string
@@ -172,8 +177,10 @@ export interface AppSettings {
   /** Interface language (D27): 'auto' follows the system. Never stored in scene files. */
   language: 'auto' | 'zh' | 'en' | 'de'
   themeMode: ThemeMode
-  /** Projector mode: larger type, thicker lines, high contrast. */
+  /** Projector mode: larger type, thicker lines, high contrast (the “课堂投影” density). */
   projector: boolean
+  /** Reading density (26.57, D120): 'default' (body 14 px, controls 32 px) or 'compact' (the sizes of 26.56). */
+  density: 'default' | 'compact'
   /** Interface zoom (0.85 … 1.4). */
   uiScale: number
   /** Recompute automatically after each edit. */
@@ -211,13 +218,14 @@ function defaults(): AppSettings {
     language: 'auto',
     themeMode: 'light',
     projector: false,
+    density: 'default',
     uiScale: 1,
     autoRun: true,
     unitPreset: 'si',
     units: defaultChoice(),
     digits: 4,
     decimalSeparator: 'point',
-    display: { velocity: true, acceleration: false, forces: true, forcesAll: false, trajectory: true, labels: true, grid: true, axes: true, names: true, strobe: false, strobeInterval: 0.1, strobeCount: 10, strobeOpacity: 0.55, strobeLabels: false, fields: true, fieldLines: false, equipotentials: false },
+    display: { velocity: true, acceleration: false, forces: true, forcesAll: false, trajectory: true, labels: true, grid: true, axes: true, names: true, strobe: false, strobeInterval: 0.1, strobeCount: 10, strobeOpacity: 0.55, strobeLabels: false, fields: true, fieldLines: false, equipotentials: false, contactPoints: false },
     defaultGravity: 9.8,
     effects: { quality: 'standard', glass: true, ambient: true, motionBlur: true, shutter: 0.5, particles: true, trails: false, trailSeconds: 0.6, respectReducedMotion: true },
     editor: { snap: false, objectSnap: true, snapStep: 0, angleSnap: 0 },
@@ -239,7 +247,7 @@ export const settings = reactive<AppSettings>(defaults())
 
 /** Settings page sections and the keys each one resets. */
 export const SETTINGS_SECTIONS = {
-  general: ['language', 'themeMode', 'uiScale', 'autoRun', 'defaultGravity'],
+  general: ['language', 'themeMode', 'uiScale', 'density', 'autoRun', 'defaultGravity'],
   units: ['unitPreset', 'units', 'digits', 'decimalSeparator'],
   display: ['display', 'projector'],
   effects: ['effects'],
@@ -392,6 +400,7 @@ function sanitize() {
   settings.export.scale = clamp(settings.export.scale, 0.5, 4, d.export.scale)
   settings.export.bitrate = clamp(settings.export.bitrate, 0, 2e8, 0)
   if (!['point', 'auto', 'comma'].includes(settings.decimalSeparator)) settings.decimalSeparator = d.decimalSeparator
+  if (!['default', 'compact'].includes(settings.density)) settings.density = d.density
   if (!['ui', 'zh', 'en', 'de'].includes(settings.export.language)) settings.export.language = d.export.language
   const fb = settings.teaching.fbd
   if (!['actual', 'concurrent'].includes(fb.layout)) fb.layout = d.teaching.fbd.layout

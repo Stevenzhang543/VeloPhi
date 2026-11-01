@@ -16,10 +16,11 @@ import { TEXTS_2653 } from './texts/v2653'
 import { TEXTS_2654 } from './texts/v2654'
 import { TEXTS_2655 } from './texts/v2655'
 import { TEXTS_2656 } from './texts/v2656'
+import { TEXTS_2657 } from './texts/v2657'
 
 /** The hand-written parts (tests check them for unused and duplicate entries). */
 export const TEXT_PARTS: Record<string, Record<string, readonly [string, string]>> = {
-  app: TEXTS_APP, settings: TEXTS_SETTINGS, dialogs: TEXTS_DIALOGS, physics: TEXTS_PHYSICS, formula: TEXTS_FORMULA, templates: TEXTS_TEMPLATES, v2652: TEXTS_2652, v2653: TEXTS_2653, v2654: TEXTS_2654, v2655: TEXTS_2655, v2656: TEXTS_2656
+  app: TEXTS_APP, settings: TEXTS_SETTINGS, dialogs: TEXTS_DIALOGS, physics: TEXTS_PHYSICS, formula: TEXTS_FORMULA, templates: TEXTS_TEMPLATES, v2652: TEXTS_2652, v2653: TEXTS_2653, v2654: TEXTS_2654, v2655: TEXTS_2655, v2656: TEXTS_2656, v2657: TEXTS_2657
 }
 
 /** English and German tables. */

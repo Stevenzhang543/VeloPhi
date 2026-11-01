@@ -62,8 +62,11 @@ export interface SolveResult {
   unknown: string
   target: string
   solutions: 'none' | 'one' | 'multiple'
-  roots: Array<{ value: number; conditions: ModelCondition[]; output: ModelOutput | null }>
+  /** 26.57 (D111): each root put back into the model — the output minus the target, and whether it is within 1e-9. */
+  roots: Array<{ value: number; conditions: ModelCondition[]; output: ModelOutput | null; residual?: number | null; checked?: boolean }>
   range: [number, number]
+  /** How the roots were found (a scan of `samples` points, then bisection). */
+  method?: { samples: number; logScale: boolean; kind: string }
 }
 export function invertModel(model: string, inputs: Record<string, number | null>, unknown: string, target: string, value: number, lo: number, hi: number, opts: { constantsSet?: string; samples?: number; log?: boolean } = {}): SolveResult {
   ensureModels()

@@ -277,12 +277,10 @@ export const TEXTS_2654: Record<string, readonly [string, string]> = {
   '示例': ['Examples', 'Beispiele'],
   '+ 正电荷': ['+ Positive charge', '+ Positive Ladung'],
   '+ 负电荷': ['+ Negative charge', '+ Negative Ladung'],
-  '拖动电荷改变位置；点击空白处测量该点的场强与电势；滚轮缩放': ['Drag charges to move them; click empty space to measure the field and potential there; scroll to zoom', 'Ladungen ziehen zum Verschieben; auf eine freie Stelle klicken, um dort Feldstärke und Potenzial zu messen; Mausrad zum Zoomen'],
   '选中的电荷': ['Selected charge', 'Gewählte Ladung'],
   '测量点': ['Probe point', 'Messpunkt'],
   '场强大小 E': ['Field strength E', 'Feldstärke E'],
   '电势 φ': ['Potential φ', 'Potenzial φ'],
-  '点击画面中的任一点': ['Click any point in the view', 'Einen beliebigen Punkt in der Ansicht anklicken'],
   '点电荷的场强': ['Field of a point charge', 'Feld einer Punktladung'],
   '点电荷的电势': ['Potential of a point charge', 'Potenzial einer Punktladung'],
   '场强是各点电荷的场强与匀强场的矢量和（叠加原理）；电势是标量和，以无穷远（匀强场以原点）为零。电场线从正电荷出发、到负电荷终止，处处与等势线垂直；等势线越密，场强越大。电荷画成半径很小的均匀带电球，球内的场有限。': [

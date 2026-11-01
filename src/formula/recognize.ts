@@ -13,10 +13,17 @@ export type CondStatus = 'ok' | 'approx' | 'fail'
 /** A condition of a situation with its status and an explanation. */
 export interface Condition { id: string; label: string; status: CondStatus; detail: string }
 /**
- * A variable of a sample: SI value, unit, KaTeX symbol and label; `sim` marks a value read from the simulation itself
- * (26.56, FOR06: a formula using it checks consistency within the run, not against an independent solution).
+ * Where a variable of a sample comes from (26.57, D111; FOR03), sent by the core with every variable:
+ * a property of the scene (given), a constant, the state at the start of the phase or before its event (phase), the
+ * evaluation time (time), a value of the recording at the sample time (sim) or a value derived in the core.
  */
-export interface VarValue { value: number; unit: string; symbol: string; label: string; sim?: boolean }
+export type VarSource = 'given' | 'constant' | 'phase' | 'time' | 'sim' | 'derived'
+/**
+ * A variable of a sample: SI value, unit, KaTeX symbol, label and source; `sim` marks a value read from the
+ * simulation itself (26.56, FOR06: a formula using it checks consistency within the run, not against an independent
+ * solution). Since 26.57 both come from the core's explicit `src` field, never from the label text.
+ */
+export interface VarValue { value: number; unit: string; symbol: string; label: string; src: VarSource; sim?: boolean }
 /** A simulated measurement: value (null when there is none), unit, label and an optional note. */
 export interface Measure { value: number | null; unit: string; label: string; note?: string }
 /** Variables, measurements and conditions of a situation at one time. */
@@ -39,13 +46,13 @@ export interface Situation {
 }
 
 type Text = string | Message
-const SIM_MARK = /（仿真）/
+const SOURCES: readonly VarSource[] = ['given', 'constant', 'phase', 'time', 'sim', 'derived']
 const text = (v: Text | null | undefined): string => (v === null || v === undefined ? '' : typeof v === 'string' ? v : msgText(v))
 
 /** Raw forms of the core's JSON. */
 export interface RawCondition { id: string; label: Text; status: CondStatus; detail: Text }
 export interface RawSample {
-  vars: Record<string, { value: number; unit: string; symbol: string; label: Text }>
+  vars: Record<string, { value: number; unit: string; symbol: string; label: Text; src?: string }>
   measures: Record<string, { value: number | null; unit: string; label: Text; note?: Text }>
   conditions: RawCondition[]
 }
@@ -58,9 +65,11 @@ export function conditionOf(c: RawCondition): Condition { return { id: c.id, lab
 export function sampleOf(r: RawSample): Sample {
   const vars: Record<string, VarValue> = {}
   for (const [k, v] of Object.entries(r.vars)) {
-    const o: VarValue = { value: v.value, unit: v.unit, symbol: v.symbol, label: text(v.label) }
-    // the core labels simulated values “（仿真）” in their Chinese source key
-    if (SIM_MARK.test(typeof v.label === 'string' ? v.label : v.label?.key ?? '')) o.sim = true
+    // 26.57 (D111): the provenance is an explicit field of the core; an unknown or missing one is not guessed from
+    // the label but shown as a given value would be, and flagged by the formula tests (every variable has a source)
+    const src = (SOURCES as readonly string[]).includes(v.src ?? '') ? (v.src as VarSource) : 'given'
+    const o: VarValue = { value: v.value, unit: v.unit, symbol: v.symbol, label: text(v.label), src }
+    if (src === 'sim') o.sim = true
     vars[k] = o
   }
   const measures: Record<string, Measure> = {}

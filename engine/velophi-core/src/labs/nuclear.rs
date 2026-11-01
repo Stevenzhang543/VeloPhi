@@ -265,6 +265,88 @@ pub fn chain(lambda: &[f64], n0: &[f64]) -> Vec<ExpPoly> {
     out
 }
 
+/// Amounts of a chain at time t as exp(A·t)·n0 (26.57, known issue of 26.56): A is lower bidiagonal (−λₖ on the
+/// diagonal, λₖ₋₁ below it), a Metzler matrix, so exp(A·τ) = e^{−μτ}·exp((A + μI)·τ) with μ = max λ is a sum of
+/// nonnegative terms, and squaring nonnegative matrices adds nonnegative products. No amount is formed by
+/// cancellation, also for nearly equal half-lives where the closed form divides by λ₂ − λ₁ (the total of a chain
+/// ending in a stable member is then conserved to rounding instead of to about 10⁻¹⁰).
+pub fn chain_at(lambda: &[f64], n0: &[f64], t: f64) -> Vec<f64> {
+    let n = lambda.len();
+    if n == 0 {
+        return Vec::new();
+    }
+    let x0: Vec<f64> = (0..n).map(|k| n0.get(k).copied().unwrap_or(0.0)).collect();
+    if !(t > 0.0) || !t.is_finite() {
+        return x0;
+    }
+    let mu = lambda.iter().fold(0.0f64, |m, &l| if l > m { l } else { m });
+    // B = A + μI ≥ 0 (lower bidiagonal)
+    let mut b = vec![0.0; n * n];
+    for k in 0..n {
+        b[k * n + k] = mu - lambda[k];
+        if k > 0 {
+            b[k * n + k - 1] = lambda[k - 1];
+        }
+    }
+    let norm = (0..n).map(|j| (0..n).map(|i| b[i * n + j]).sum::<f64>()).fold(0.0f64, |m, c| if c > m { c } else { m });
+    // τ = t/2^s with ‖B‖τ ≤ 1/4 (and μτ ≤ 1/4, so e^{−μτ} is not the whole story)
+    let mut s = 0u32;
+    let mut tau = t;
+    while (norm * tau > 0.25 || mu * tau > 0.25) && s < 2000 {
+        tau *= 0.5;
+        s += 1;
+    }
+    // E = Σ (Bτ)^m / m!: nonnegative terms
+    let mut e = vec![0.0; n * n];
+    let mut term = vec![0.0; n * n];
+    for k in 0..n {
+        e[k * n + k] = 1.0;
+        term[k * n + k] = 1.0;
+    }
+    for m in 1..40 {
+        let mut next = vec![0.0; n * n];
+        for i in 0..n {
+            for j in 0..=i {
+                let mut acc = 0.0;
+                for k in j..=i {
+                    acc += term[i * n + k] * b[k * n + j];
+                }
+                next[i * n + j] = acc * tau / m as f64;
+            }
+        }
+        let mut small = true;
+        for i in 0..n * n {
+            e[i] += next[i];
+            if next[i] > 1e-18 * e[i] {
+                small = false;
+            }
+        }
+        term = next;
+        if small {
+            break;
+        }
+    }
+    let f = exp(-mu * tau);
+    for v in e.iter_mut() {
+        *v *= f;
+    }
+    // Square s times: exp(A·2τ) = exp(A·τ)²
+    for _ in 0..s {
+        let mut sq = vec![0.0; n * n];
+        for i in 0..n {
+            for j in 0..=i {
+                let mut acc = 0.0;
+                for k in j..=i {
+                    acc += e[i * n + k] * e[k * n + j];
+                }
+                sq[i * n + j] = acc;
+            }
+        }
+        e = sq;
+    }
+    (0..n).map(|i| (0..=i).fold(0.0, |acc, j| acc + e[i * n + j] * x0[j])).collect()
+}
+
 // ---- Compton scattering ----
 
 /// Compton wavelength of the electron h/(mₑc) (m).
@@ -338,6 +420,33 @@ mod tests {
         let c = chain(&[1e-6, 1.0, 0.0], &[1e9, 0.0, 0.0]);
         let t = 30.0;
         assert!((1.0 * c[1].at(t) / (1e-6 * c[0].at(t)) - 1.0).abs() < 1e-5);
+    }
+
+    #[test]
+    fn chain_without_cancellation() {
+        // nearly equal constants (relative difference 10⁻⁶): the total is conserved to rounding
+        let l1 = std::f64::consts::LN_2;
+        let l2 = l1 * (1.0 + 1e-6);
+        for t in [0.1f64, 1.0, 3.0, 10.0, 60.0] {
+            let n = chain_at(&[l1, l2, 0.0], &[100.0, 0.0, 0.0], t);
+            assert!((n.iter().sum::<f64>() - 100.0).abs() < 1e-13 * 100.0, "t {t}: {:?}", n);
+            // N₁ = N₀e^{−λ₁t}
+            assert!((n[0] - 100.0 * (-l1 * t).exp()).abs() <= 1e-13 * 100.0);
+        }
+        // agrees with the closed form where that is well conditioned
+        let c = chain(&[1.0, 3.0, 0.5, 0.0], &[1000.0, 10.0, 0.0, 0.0]);
+        for t in [0.0f64, 0.2, 1.5, 7.0] {
+            let n = chain_at(&[1.0, 3.0, 0.5, 0.0], &[1000.0, 10.0, 0.0, 0.0], t);
+            for k in 0..4 {
+                assert!((n[k] - c[k].at(t)).abs() < 1e-11 * 1000.0, "t {t} k {k}: {} {}", n[k], c[k].at(t));
+            }
+        }
+        // equal constants (confluent case)
+        for t in [0.3f64, 1.0, 4.0] {
+            let n = chain_at(&[0.5, 0.5, 0.5, 0.0], &[1.0, 0.0, 0.0, 0.0], t);
+            assert!((n[1] - 0.5 * t * (-0.5 * t).exp()).abs() < 1e-15);
+            assert!((n[2] - (0.5 * t).powi(2) / 2.0 * (-0.5 * t).exp()).abs() < 1e-15);
+        }
     }
 
     #[test]

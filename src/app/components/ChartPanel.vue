@@ -24,6 +24,8 @@
  * Phase portrait (26.54, D87): the "相图" mode plots one quantity against another (x–vₓ, θ–ω or any two) instead of
  * the time charts (PhasePlot.vue).
  */
+import { taskUi, onTaskScene } from '../task/taskState'
+import { quantityNote } from '../../analysis/quantityNote'
 import { tl, colonSep, paren } from '../../i18n'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import uPlot from 'uplot'
@@ -122,6 +124,19 @@ const groups = computed(() => {
     list.push(q); m.set(q.unit, list)
   }
   return [...m.entries()].slice(0, props.limit)
+})
+
+/** 26.57 (D121, manual §4.3 item 10): what the plotted components and magnitudes are, frame and positive direction. */
+const axisNotes = computed(() => {
+  const m = new Map<string, string[]>()
+  for (const [, list] of groups.value) for (const q of list) {
+    const n = quantityNote(q)
+    if (!n) continue
+    const l = m.get(n) ?? []
+    l.push(`${q.owner} ${q.label}`)
+    m.set(n, l)
+  }
+  return [...m.entries()].map(([note, who]) => ({ note: tl(note), who: who.join(tl('、')) }))
 })
 
 /** Everything that requires a rebuild (not just new data). */
@@ -408,6 +423,10 @@ watch(longMode, () => { zoom.value = null })
 watch([rec, buildKey, () => state.runId, chartsActive, windowKey, longMode], () => nextTick(schedule))
 onBeforeUnmount(() => { ro?.disconnect(); if (timer) clearTimeout(timer); destroy() })
 
+/** 26.57 (VP-10): the curves of the task's targets, while the task is shown on its own demonstration. */
+const TASK_CHARTS: Record<string, string[]> = { incline: ['custom.s', 'custom.vs', 'custom.as'], projectile: ['ball.y', 'ball.vy', 'ball.x'], collision: ['A.vx', 'B.vx'] }
+const taskCharts = computed(() => { void state.scene; return taskUi.task && onTaskScene() ? (TASK_CHARTS[taskUi.task.domain] ?? []).filter(id => quantities.value.has(id)) : [] })
+function taskPreset() { if (taskCharts.value.length) state.chart = [...taskCharts.value] }
 function preset(kind: 'kin' | 'energy' | 'force') {
   const r = rec.value
   if (!r) return
@@ -455,6 +474,7 @@ function toggleMode() {
       </template>
       <template v-else>
       <span class="small muted">{{ tl('曲线：') }}</span>
+      <button v-if="taskCharts.length" class="btn small active" :title="tl('当前任务所求的量随时间的变化')" @click="taskPreset">{{ tl('任务') }}</button>
       <button class="btn small" :disabled="!rec" @click="preset('kin')">x‑t / v‑t / a‑t</button>
       <button class="btn small" :disabled="!rec" @click="preset('energy')">{{ tl('能量') }}</button>
       <button class="btn small" :disabled="!rec" @click="preset('force')">{{ tl('受力') }}</button>
@@ -475,6 +495,9 @@ function toggleMode() {
       </span>
       <button class="btn small ghost" :title="tl('清除面积')" @click="clearArea">✕</button>
     </div>
+    <div v-if="!locked && rec && mode === 'time' && axisNotes.length" class="axis-notes tiny muted">
+      <span v-for="n in axisNotes" :key="n.note" :title="n.who"><b>{{ n.who }}</b>{{ colonSep() }}{{ n.note }}</span>
+    </div>
     <ProblemLock v-if="locked" />
     <div v-else-if="!rec" class="empty">{{ tl('运行仿真后显示曲线。') }}</div>
     <PhasePlot v-else-if="mode === 'phase'" :x="quantities.get(phaseX) ?? null" :y="quantities.get(phaseY) ?? null" :active="active" />
@@ -493,6 +516,9 @@ function toggleMode() {
 .swatch { width: 10px; height: 3px; border-radius: 2px; display: inline-block; }
 .axis-pick { display: inline-flex; align-items: center; gap: 4px; }
 .axis-pick select { max-width: 180px; height: 24px; }
+.axis-notes { display: flex; gap: 4px 14px; flex-wrap: wrap; padding: 0 2px 4px; }
+.axis-notes span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.axis-notes b { font-weight: 600; color: var(--text-2); }
 .hint { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
 .charts { flex: 1; min-height: 0; display: flex; gap: 8px; overflow-x: auto; overflow-y: hidden; }
 .variant-monitor .charts { gap: 10px; align-content: flex-start; }
