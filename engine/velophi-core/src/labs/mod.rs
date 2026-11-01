@@ -63,7 +63,7 @@ fn sources_of(req: &Value) -> field::FieldSources {
         .map(|a| a.iter().map(|c| field::Charge { x: num(c, "x", 0.0), y: num(c, "y", 0.0), q: num(c, "q", 0.0), r: num(c, "r", 0.0) }).collect())
         .unwrap_or_default();
     let e = req.get("E").cloned().unwrap_or(Value::Null);
-    field::FieldSources { charges, ex: num(&e, "x", 0.0), ey: num(&e, "y", 0.0), k: num(req, "k", 8.9875517923e9) }
+    field::FieldSources { charges, ex: num(&e, "x", 0.0), ey: num(&e, "y", 0.0), k: num(req, "k", 8.9875517862e9) }
 }
 
 fn circuit_elements(req: &Value) -> Vec<circuit::Element> {

@@ -1,7 +1,7 @@
 /**
  * The coverage matrix (26.56): every evidence reference of the model registry and of the requirement statuses
  * resolves to a test that exists, and every status agrees with its evidence (scripts/coverage.mjs --check). The
- * generated matrix in docs/coverage is current: regenerating it gives the same models and statuses.
+ * generated matrix (tests/fixtures/coverage) is current: regenerating it gives the same models and statuses.
  */
 import { describe, expect, it } from 'vitest'
 import { spawnSync } from 'node:child_process'
@@ -15,7 +15,7 @@ describe('coverage2656 matrix', () => {
     expect(r.status).toBe(0)
   })
   it('the generated matrix lists the registry as it is', () => {
-    const doc = JSON.parse(readFileSync('docs/coverage/coverage-26.56.json', 'utf8'))
+    const doc = JSON.parse(readFileSync('tests/fixtures/coverage/coverage-26.56.json', 'utf8'))
     expect(doc.models.map((m: { id: string }) => m.id)).toEqual(MODELS.map(m => m.id))
     for (const m of MODELS) {
       const row = doc.models.find((x: { id: string }) => x.id === m.id)

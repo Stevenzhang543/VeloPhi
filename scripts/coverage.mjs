@@ -5,8 +5,8 @@
  *   node scripts/coverage.mjs [--check]
  *
  * Inputs: src/content/models (the registry, bundled with esbuild), src/teaching/activities, the independent
- * reference values tests/fixtures/oracles2656.json, the requirement statuses docs/coverage/requirements-26.56.json
- * and the baseline docs/coverage/baseline-26.55.json. Every evidence reference must resolve:
+ * reference values tests/fixtures/oracles2656.json, the requirement statuses tests/fixtures/coverage/requirements-26.56.json
+ * and the baseline tests/fixtures/coverage/baseline-26.55.json. Every evidence reference must resolve:
  *
  *   oracle:<model>             at least three independent reference cases of the model in the fixture
  *   test:<file> <title part>   tests/<file>.test.ts exists and contains the title part
@@ -19,7 +19,7 @@
  * in the sense of the 26.56 brief only when it is verified at level 2 or more, has a graded teaching activity
  * (teaching 2), can be used interactively (template or lab and the activity) and exports with a run manifest.
  *
- * Writes docs/coverage/COVERAGE_26_56.md and docs/coverage/coverage-26.56.json; --check only verifies (exit 1 on
+ * Writes docs/coverage/COVERAGE_26_56.md (report, not in the repository) and tests/fixtures/coverage/coverage-26.56.json; --check only verifies (exit 1 on
  * any unresolved reference or inconsistent status).
  */
 import { build } from 'esbuild'
@@ -46,8 +46,8 @@ const { MODELS, linksOf, ACTIVITIES } = await import(pathToFileURL(outfile).href
 rmSync(tmp, { recursive: true, force: true })
 
 const fixture = JSON.parse(readFileSync(join(repo, 'tests/fixtures/oracles2656.json'), 'utf8'))
-const baseline = JSON.parse(readFileSync(join(repo, 'docs/coverage/baseline-26.55.json'), 'utf8'))
-const reqs = JSON.parse(readFileSync(join(repo, 'docs/coverage/requirements-26.56.json'), 'utf8')).requirements
+const baseline = JSON.parse(readFileSync(join(repo, 'tests/fixtures/coverage/baseline-26.55.json'), 'utf8'))
+const reqs = JSON.parse(readFileSync(join(repo, 'tests/fixtures/coverage/requirements-26.56.json'), 'utf8')).requirements
 const version = JSON.parse(readFileSync(join(repo, 'package.json'), 'utf8')).version.replace(/\.0$/, '')
 
 const baseModel = new Map(baseline.models.map(m => [m.id, m]))
@@ -193,7 +193,7 @@ if (checkOnly) {
   process.exit(0)
 }
 
-writeFileSync(join(repo, 'docs/coverage/coverage-26.56.json'), JSON.stringify({ version, generated: 'scripts/coverage.mjs', baseline: { version: baseline.baseline, commit: baseline.commit }, summary, requirements: reqRows, models: rows, activities: ACTIVITIES.map(activityRow) }, null, 1) + '\n')
+writeFileSync(join(repo, 'tests/fixtures/coverage/coverage-26.56.json'), JSON.stringify({ version, generated: 'scripts/coverage.mjs', baseline: { version: baseline.baseline, commit: baseline.commit }, summary, requirements: reqRows, models: rows, activities: ACTIVITIES.map(activityRow) }, null, 1) + '\n')
 
 function activityRow(a) {
   const qs = [...a.diagnostic, a.predict.question, ...a.questions, ...a.transfer.questions]
@@ -211,7 +211,7 @@ const lv = (s, l) => `${STATUS[s] ?? s}${l === undefined ? '' : ` · L${l}`}`
 const TEACH = ['无', '内容', '活动＋证据']
 const md = []
 md.push(`# VeloPhi ${version} 覆盖矩阵（实施后）`, '')
-md.push(`本文件由 \`node scripts/coverage.mjs\` 根据模型注册数据（src/content/models）、活动注册（src/teaching/activities）、独立参照（tests/fixtures/oracles2656.json）和需求状态（docs/coverage/requirements-26.56.json）生成；机器可读版本为 coverage-26.56.json。基线（26.55，提交 ${baseline.commit.slice(0, 7)}）见 COVERAGE_26_56_baseline.md。生成时检查每条证据引用都指向仓库中存在的测试（文件与测试名、Rust \`#[test]\` 函数、预言值用例数），状态与证据不一致时生成失败。`, '')
+md.push(`本文件由 \`node scripts/coverage.mjs\` 根据模型注册数据（src/content/models）、活动注册（src/teaching/activities）、独立参照（tests/fixtures/oracles2656.json）和需求状态（tests/fixtures/coverage/requirements-26.56.json）生成；机器可读版本为 coverage-26.56.json。基线（26.55，提交 ${baseline.commit.slice(0, 7)}）见 COVERAGE_26_56_baseline.md。生成时检查每条证据引用都指向仓库中存在的测试（文件与测试名、Rust \`#[test]\` 函数、预言值用例数），状态与证据不一致时生成失败。`, '')
 md.push('## 1 判定规则', '')
 md.push('- **已验证**：模型计算与独立参照（mpmath 另行实现，至少三组：基准、边界、极限或迁移）一致；成熟度 L2 及以上还必须有仿真或实验对独立参照（手写闭式、另一算法或注册模型的另一代码路径）的自动测试。Rust–TypeScript 逐帧对照（regress）只算移植回归，不算独立证据。')
 md.push('- **部分实现**、**存在但待验证**、**未实现**、**明确暂缓**：同基线定义。')
@@ -252,5 +252,6 @@ for (const a of ACTIVITIES.map(activityRow)) {
 }
 md.push('')
 md.push('## 6 复现', '', '```', 'node scripts/coverage.mjs --check        # 只检查引用与状态', 'node scripts/coverage.mjs                # 重新生成本文件与 coverage-26.56.json', 'python3 scripts/oracles/build.py         # 重新生成独立参照（需要 mpmath）', 'npx vitest run tests/models2656.test.ts  # 注册模型对独立参照', '```', '')
+mkdirSync(join(repo, 'docs/coverage'), { recursive: true })
 writeFileSync(join(repo, 'docs/coverage/COVERAGE_26_56.md'), md.join('\n'))
 console.log(`coverage: wrote docs/coverage/COVERAGE_26_56.md and coverage-26.56.json (${rows.length} models, ${reqRows.length} requirements, complete ${summary.complete.length})`)

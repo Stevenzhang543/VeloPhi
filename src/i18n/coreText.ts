@@ -247,6 +247,7 @@ function sceneText(m: Message, lang: Lang): string | null {
     case 'scene.stopAtUnknown': return t('停止条件的事件类型未知')
     case 'scene.stopAtDelayRange': return t('停止条件的延时应在 [0, {0}] s', [num(p.max)])
     case 'scene.outputStepRange': return t('时间步长应在 (0, 0.1] s')
+    case 'scene.softStepRange': return t('实时多体求解器：子步数应为 1–16 的整数，步频应在 30–2000 Hz')
     case 'scene.tolerancesNotPositive': return t('容差必须大于 0')
     case 'scene.gravitationNotPositive': return t('引力常量 G 必须大于 0')
     case 'abi.noScene': return t('计算请求中没有场景')

@@ -26,6 +26,9 @@ const ExportDialog = defineAsyncComponent(() => import('./components/ExportDialo
 const AboutDialog = defineAsyncComponent(() => import('./components/AboutDialog.vue'))
 const CoursewareDialog = defineAsyncComponent(() => import('./components/CoursewareDialog.vue'))
 const SweepDialog = defineAsyncComponent(() => import('./components/SweepDialog.vue'))
+const SolverCompareDialog = defineAsyncComponent(() => import('./components/SolverCompareDialog.vue'))
+const WelcomeDialog = defineAsyncComponent(() => import('./components/WelcomeDialog.vue'))
+const TourOverlay = defineAsyncComponent(() => import('./components/TourOverlay.vue'))
 const ReportDialog = defineAsyncComponent(() => import('./components/ReportDialog.vue'))
 const FbdDialog = defineAsyncComponent(() => import('./components/FbdDialog.vue'))
 const TapeDialog = defineAsyncComponent(() => import('./components/TapeDialog.vue'))
@@ -68,7 +71,7 @@ const mounted = reactive<Record<Page, boolean>>({ studio: true, lab: state.page 
 const warmed = reactive<Record<Page, boolean>>({ studio: true, lab: false, monitor: false, settings: false })
 watch(() => state.page, p => { mounted[p] = true; logEvent('page.open', { page: p }) })
 // Trial log: which dialogs are used (ids only)
-const DIALOGS = { export: () => state.showExport, courseware: () => state.showCourseware, sweep: () => state.showSweep, report: () => state.showReport, fbd: () => state.showFbd, tape: () => state.showTape, problems: () => state.showProblems, templates: () => state.showTemplates, learning: () => state.showLearning, search: () => state.showPalette } as const
+const DIALOGS = { export: () => state.showExport, courseware: () => state.showCourseware, sweep: () => state.showSweep, solverCompare: () => state.showSolverCompare, report: () => state.showReport, fbd: () => state.showFbd, tape: () => state.showTape, problems: () => state.showProblems, templates: () => state.showTemplates, learning: () => state.showLearning, search: () => state.showPalette } as const
 for (const [dialog, open] of Object.entries(DIALOGS)) watch(open, v => { if (v) logEvent('dialog.open', { dialog }) })
 watch(() => [mounted.lab, mounted.monitor, mounted.settings], () => {
   for (const p of ['lab', 'monitor', 'settings'] as const) {
@@ -91,6 +94,8 @@ function typing(e: KeyboardEvent) {
 const PAGE_KEYS: Record<string, Page> = { Digit1: 'studio', Digit2: 'lab', Digit3: 'monitor', Digit4: 'settings' }
 
 function onKey(e: KeyboardEvent) {
+  // 26.58 (D146): while the tour is shown its own keys (←, →, Enter, Escape) are not shortcuts
+  if (state.tourStep !== null && ['ArrowLeft', 'ArrowRight', 'Enter', 'Escape'].includes(e.key)) return
   const mod = e.ctrlKey || e.metaKey
   if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); saveScene(e.shiftKey); return }
   if (mod && e.key.toLowerCase() === 'o') { e.preventDefault(); openScene(); return }
@@ -138,6 +143,8 @@ onMounted(async () => {
   window.addEventListener('keydown', onKey)
   window.addEventListener('keyup', onKeyUp)
   premount()
+  // 26.58 (D138): the welcome page once, on the first start (not during the release self-check)
+  if (!settings.ui.welcomed && !/[?&]selftest/.test(location.search)) setTimeout(() => { if (!settings.ui.welcomed) state.showWelcome = true }, 900)
   if (!isDesktop) { window.addEventListener('beforeunload', beforeUnload); return }
   // Desktop: ask before closing a window with unsaved changes
   const { getCurrentWindow } = await import('@tauri-apps/api/window')
@@ -250,6 +257,9 @@ watch(() => state.problem, p => { if (!p && state.rightTab === 'problem') state.
     <AboutDialog v-if="state.showAbout" />
     <CoursewareDialog v-if="state.showCourseware && state.recording" />
     <SweepDialog v-if="state.showSweep" />
+    <SolverCompareDialog v-if="state.showSolverCompare" />
+    <WelcomeDialog v-if="state.showWelcome" />
+    <TourOverlay v-if="state.tourStep !== null" />
     <ReportDialog v-if="state.showReport && state.recording" />
     <FbdDialog v-if="state.showFbd && state.recording" />
     <TapeDialog v-if="state.showTape && state.recording" />

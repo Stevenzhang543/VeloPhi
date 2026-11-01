@@ -20,8 +20,13 @@ export const SCENE_VERSION_FIELDS = 6
  * warning and would drop these settings silently; format 7 makes it warn that the file comes from a newer version.
  */
 export const SCENE_VERSION_REGIONS = 7
+/**
+ * Format version of scenes computed with the many-body solver (26.58, D126): 26.57 and older would run such a file
+ * with the exact solver (hundreds of bodies) — format 8 makes them warn that the file comes from a newer version.
+ */
+export const SCENE_VERSION_SOFTSTEP = 8
 /** Engine version written into saved scenes. */
-export const ENGINE_VERSION = '26.57.0'
+export const ENGINE_VERSION = '26.58.0'
 
 /** Shape of a body, in body coordinates (m). */
 export type ShapeDef = PartShapeDef | CompoundShapeDef
@@ -236,9 +241,16 @@ export interface ContactPairDef { a: string; b: string; muS: number; muK: number
  * 'dopri5' (default, event-driven with the accuracy of manual §6), 'rk4' and 'euler' (fixed-step teaching
  * integrators, events still located), 'moreau' (Moreau–Jean time stepping: reduced accuracy, for scenes with
  * very many contacts), 'gauss4' (26.52, D61: two-stage Gauss–Legendre, fixed step, symplectic — the energy of a
- * conservative system stays bounded over long runs).
+ * conservative system stays bounded over long runs), 'softstep' (26.58, D126: the many-body solver — fixed steps with
+ * sub-steps, soft contacts, sleeping islands; approximate, for stacks, piles and granular scenes).
  */
-export type IntegratorKind = 'dopri5' | 'rk4' | 'euler' | 'moreau' | 'gauss4'
+export type IntegratorKind = 'dopri5' | 'rk4' | 'euler' | 'moreau' | 'gauss4' | 'softstep'
+
+/** Settings of the many-body solver (26.58, D130); absent fields take the defaults (4, 120 Hz, sleep on). */
+export interface SoftStepDef { substeps?: number; stepHz?: number; sleep?: boolean }
+
+/** Defaults of the many-body solver settings. */
+export const SOFT_STEP_DEFAULTS: Required<SoftStepDef> = { substeps: 4, stepHz: 120, sleep: true }
 
 /**
  * Kind of state change after which a run may stop (`SceneSettings.stopAt`): a sliding pair reaches common
@@ -306,6 +318,8 @@ export interface SceneSettings {
   regions?: RegionDef[]
   /** Rail loops (26.55, D91); absent: none. */
   railLoops?: RailLoopDef[]
+  /** Many-body solver settings (26.58), used when `integrator` is 'softstep'; absent: defaults. */
+  softStep?: SoftStepDef
 }
 
 /**
@@ -329,13 +343,31 @@ export interface RegionDef {
 /** A rail loop (26.55, D91): `body` slides along rails at `angle` (rad), L apart, closed by R, in a field B (T). */
 export interface RailLoopDef { id: string; name: string; body: string; angle: number; L: number; R: number; B: number }
 
-/** Coulomb constant k = 1/(4πε₀) (N·m²/C²). */
-export const COULOMB_K = 8.9875517923e9
+/**
+ * Coulomb constant k = 1/(4πε₀) (N·m²/C²), CODATA 2022 (26.58, D143: rigid scenes now use the same set as the labs;
+ * 26.54–26.57 wrote the CODATA 2018 value, which files keep — the constant is stored in each scene).
+ */
+export const COULOMB_K = 8.9875517862e9
+/** The CODATA 2018 value written by scenes of 26.54–26.57. */
+export const COULOMB_K_2018 = 8.9875517923e9
 
-/** The scene (or one of its branches) uses charges or fields (26.54), regions or rail loops (26.55): it is written as format 6 or 7 (`sceneVersionOf`) and computed by the Rust core only (D77). */
+/** Constant set of a rigid-body scene for the run manifest (D100, D143): by the Coulomb constant it stores. */
+export function rigidConstantsSet(scene: Scene): 'CODATA2018' | 'CODATA2022' {
+  return scene.settings.coulomb?.k === COULOMB_K_2018 ? 'CODATA2018' : 'CODATA2022'
+}
+
+/**
+ * The scene (or one of its branches) uses charges or fields (26.54), regions or rail loops (26.55), or the many-body
+ * solver (26.58): it is written as format 6, 7 or 8 (`sceneVersionOf`) and computed by the Rust core only (D77, D134).
+ */
 export function usesFields(scene: Scene): boolean {
   const s = scene.settings
-  return !!(s.electric || s.magnetic || s.coulomb || s.regions?.length || s.railLoops?.length || scene.bodies.some(b => !!b.charge) || scene.branches?.some(b => usesFields(b.scene)))
+  return !!(s.electric || s.magnetic || s.coulomb || s.regions?.length || s.railLoops?.length || s.integrator === 'softstep' || scene.bodies.some(b => !!b.charge) || scene.branches?.some(b => usesFields(b.scene)))
+}
+
+/** The scene (or one of its branches) is computed with the many-body solver (26.58). */
+export function usesSoftStep(scene: Scene): boolean {
+  return scene.settings.integrator === 'softstep' || !!scene.branches?.some(b => usesSoftStep(b.scene))
 }
 
 /** The scene (or one of its branches) has field regions, liquids or rail loops (26.55). */
@@ -344,9 +376,9 @@ export function usesRegions(scene: Scene): boolean {
   return !!(s.regions?.length || s.railLoops?.length || scene.branches?.some(b => usesRegions(b.scene)))
 }
 
-/** File format version a scene is written as: 7 with regions or rail loops, 6 with charges or fields, otherwise 5. */
+/** File format version a scene is written as: 8 with the many-body solver, 7 with regions or rail loops, 6 with charges or fields, otherwise 5. */
 export function sceneVersionOf(scene: Scene): number {
-  return usesRegions(scene) ? SCENE_VERSION_REGIONS : usesFields(scene) ? SCENE_VERSION_FIELDS : SCENE_VERSION
+  return usesSoftStep(scene) ? SCENE_VERSION_SOFTSTEP : usesRegions(scene) ? SCENE_VERSION_REGIONS : usesFields(scene) ? SCENE_VERSION_FIELDS : SCENE_VERSION
 }
 
 /** Initial values of the energy ledger (26.51, D52). */

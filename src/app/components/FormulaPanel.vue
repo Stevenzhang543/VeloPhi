@@ -73,6 +73,8 @@ const toggleSteps = (key: string) => toggleIn(expanded, key)
 const showAbove = ref(false)
 
 const reducedFrom = computed(() => (state.stale ? null : state.recording?.reducedFrom ?? null))
+// 26.58 (D146): a run of the many-body solver gets the same reference-only note as a reduced one
+const softRun = computed(() => !state.stale && state.recording?.scene.settings.integrator === 'softstep')
 const reducedNow = computed(() => reducedFrom.value !== null && state.recording !== null && frame.value * state.recording.dt >= reducedFrom.value - 1e-12)
 
 const bodyName = (id: string) => state.scene.bodies.find(b => b.id === id)?.name ?? id
@@ -374,6 +376,10 @@ const forceTitle = (c: FormulaCard) => forceKindsOf(c.formula).map(k => tl(force
       <div v-if="reducedFrom !== null" class="reduced small" :class="{ now: reducedNow }">
         <span class="badge warn">{{ tl('精度降级') }}</span>
         <span>{{ tl('{0} Moreau–Jean 时间步进计算，{1}仿真值精度降低、事件时刻不精确定位，下面的对照仅供参考。', [reducedFrom > 0 ? tl('事件过于密集，自 t = {0} 起改用', [fmtQ(shownTime(reducedFrom), 's', 6)]) : tl('本次使用'), reducedFrom > 0 ? tl('此后的') : '']) }}</span>
+      </div>
+      <div v-else-if="softRun" class="reduced small">
+        <span class="badge info">{{ tl('实时多体') }}</span>
+        <span>{{ tl('实时多体求解器是一阶近似：接触允许毫米级重叠，事件不精确定位，接触力不分解。下面的对照（包括能量账本）仅供参考。') }}</span>
       </div>
       <div v-if="state.computing && !state.situations.length" class="empty">{{ tl('正在计算，完成后识别典型情形并对照公式…') }}</div>
       <div v-else-if="base.length === 0" class="empty">{{ tl('当前时刻没有识别到可匹配的典型情形。') }}</div>

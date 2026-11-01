@@ -1,10 +1,28 @@
+# VeloPhi: the repository holds source code, tests, build and release scripts, README and licence notices only
+# (26.58, D144). Caches, build output, releases, development manuals, reports and release notes stay in the working
+# tree but are not committed.
+
+# Dependencies and build output
 node_modules/
 dist/
-.cache/
+engine/target/
 src-tauri/target/
 src-tauri/gen/
 releases/
-*.log
-.verity-workspace
-engine/target/
+*.tsbuildinfo
+
+# Caches, logs and local state
+.cache/
+.vite/
+/coverage/
 __pycache__/
+*.log
+.DS_Store
+Thumbs.db
+.verity-workspace
+
+# Development manuals, upgrade manuals, reports and release notes (not part of the repository)
+docs/*
+!docs/THIRD_PARTY_NOTICES.md
+*_Upgrade_Manual_*.md
+roadmap.txt

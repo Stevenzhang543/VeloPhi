@@ -11,7 +11,7 @@
 import { tl } from '../i18n'
 import type { ChangeDetail, Recording } from '../engine/recording'
 import { listQuantities, quantitySeries } from '../engine/observe'
-import { ENGINE_VERSION } from '../core/scene/types'
+import { ENGINE_VERSION, rigidConstantsSet } from '../core/scene/types'
 import type { UnitChoice } from '../units/units'
 import { displayLabel, toDisplay } from '../units/units'
 import { fingerprintText } from './fingerprint'
@@ -108,8 +108,8 @@ export function recordingCsv(rec: Recording, opts: CsvOptions): string {
 /** '#' lines of the run manifest: core, scene format, backend and its physics version, constant set, scene hash. */
 export function runManifestLines(rec: Recording): string[] {
   try {
-    // rigid-body scenes keep the Coulomb constant of 26.55 (CODATA 2018) so that their fingerprints stay (D97, D100)
-    const m = manifest('rigid', JSON.stringify(rec.scene), 'CODATA2018')
+    // 26.58 (D143): the set of the Coulomb constant the scene stores (CODATA 2022 for new scenes, 2018 for files of 26.54–26.57)
+    const m = manifest('rigid', JSON.stringify(rec.scene), rigidConstantsSet(rec.scene))
     return [tl('运行清单: 核心 {0}; 场景格式 {1}; 后端 {2}（物理版本 {3}，{4}）; 常数 {6}; 场景 SHA-256 {5}', [m.core, m.sceneFormat, m.backend, m.physicsVersion ?? '—', m.solver ?? '—', m.inputSha256 ?? '—', m.constantsSet])]
   } catch {
     return []

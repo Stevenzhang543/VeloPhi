@@ -4,7 +4,7 @@
 # finish in 10 minutes, the native engine was not used, or any template differs.
 $ErrorActionPreference = 'Stop'
 $Root = (Get-Location).Path
-$Version = '26.57'
+$Version = '26.58'
 $Ev = Join-Path $Root ".cache\evidence-$Version"
 New-Item -ItemType Directory -Force -Path $Ev | Out-Null
 $exe = Join-Path $Root 'src-tauri\target\release\velophi.exe'

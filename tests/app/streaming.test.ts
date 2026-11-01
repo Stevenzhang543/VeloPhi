@@ -6,7 +6,9 @@
  * reference.
  */
 import { describe, expect, it } from 'vitest'
-import { buildTemplate, TEMPLATES } from '../../src/templates'
+import { buildTemplate, exactTemplates } from '../../src/templates'
+/** 26.58: the many-body templates are streamed in tests/softstep2658.test.ts (recognition here runs per delta) */
+const TEMPLATES = exactTemplates()
 import { usesFields } from '../../src/core/scene/types'
 import { SimulationRun, frameState as refState } from '../reference/core/solver/simulation'
 import { cloneScene } from '../../src/core/scene/io'

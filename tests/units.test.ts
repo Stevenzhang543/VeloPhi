@@ -4,7 +4,9 @@
  * dimension in formula/units.ts agrees with that kind. Formulas and recognizers use the scene's gravity.
  */
 import { describe, expect, it } from 'vitest'
-import { TEMPLATES, buildTemplate } from '../src/templates'
+import { buildTemplate, exactTemplates } from '../src/templates'
+/** 26.58 (D134): the TypeScript reference runs every template but the many-body ones */
+const TEMPLATES = exactTemplates()
 import { simulate } from './reference/core/solver/simulation'
 import { listQuantities } from './reference/core/observe/quantities'
 import { FORMULAS } from '../src/formula/library'

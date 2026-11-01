@@ -7,7 +7,9 @@
 import { describe, expect, it } from 'vitest'
 import { FORMULAS } from '../src/formula/library'
 import { CN_ORD, IB_ORD, LEVELS, LEVEL_CHOICES, levelOf, levelOrdinal, nearestLevel, withinLevel } from '../src/formula/levels'
-import { TEMPLATES, buildTemplate } from '../src/templates'
+import { buildTemplate, exactTemplates } from '../src/templates'
+/** 26.58 (D134): the TypeScript reference runs every template but the many-body ones */
+const TEMPLATES = exactTemplates()
 import { simulate } from './reference/core/solver/simulation'
 import { recognize } from './reference/formula/situations'
 import { cardsAt } from './reference/formula/match'

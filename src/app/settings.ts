@@ -45,6 +45,8 @@ export interface DisplayOptions {
    * pressure. Off by default: the summary force of a contact is what a free-body diagram counts once.
    */
   contactPoints: boolean
+  /** 26.58 (D133): contact points and the readout of a many-body scene. */
+  manyBody: boolean
 }
 
 /** The on/off overlays of DisplayOptions (the numeric fields are their parameters). */
@@ -148,6 +150,8 @@ export interface UiSettings {
   /** Learning path (26.55, D96): steps done (PathStep keys) and the stage shown. */
   learnDone: string[]
   learnStage: string
+  /** 26.58 (D138): the welcome page has been seen (it opens once on the first start). */
+  welcomed: boolean
 }
 
 /** View of the formula panel (D70–D71). */
@@ -181,6 +185,8 @@ export interface AppSettings {
   projector: boolean
   /** Reading density (26.57, D120): 'default' (body 14 px, controls 32 px) or 'compact' (the sizes of 26.56). */
   density: 'default' | 'compact'
+  /** Colours (26.58, D139): the standard palette or one that stays apart with colour-vision deficiencies. */
+  palette: 'standard' | 'cvd'
   /** Interface zoom (0.85 … 1.4). */
   uiScale: number
   /** Recompute automatically after each edit. */
@@ -219,13 +225,14 @@ function defaults(): AppSettings {
     themeMode: 'light',
     projector: false,
     density: 'default',
+    palette: 'standard',
     uiScale: 1,
     autoRun: true,
     unitPreset: 'si',
     units: defaultChoice(),
     digits: 4,
     decimalSeparator: 'point',
-    display: { velocity: true, acceleration: false, forces: true, forcesAll: false, trajectory: true, labels: true, grid: true, axes: true, names: true, strobe: false, strobeInterval: 0.1, strobeCount: 10, strobeOpacity: 0.55, strobeLabels: false, fields: true, fieldLines: false, equipotentials: false, contactPoints: false },
+    display: { velocity: true, acceleration: false, forces: true, forcesAll: false, trajectory: true, labels: true, grid: true, axes: true, names: true, strobe: false, strobeInterval: 0.1, strobeCount: 10, strobeOpacity: 0.55, strobeLabels: false, fields: true, fieldLines: false, equipotentials: false, contactPoints: false, manyBody: true },
     defaultGravity: 9.8,
     effects: { quality: 'standard', glass: true, ambient: true, motionBlur: true, shutter: 0.5, particles: true, trails: false, trailSeconds: 0.6, respectReducedMotion: true },
     editor: { snap: false, objectSnap: true, snapStep: 0, angleSnap: 0 },
@@ -233,7 +240,7 @@ function defaults(): AppSettings {
     sim: { worker: true, progressive: true, budgetSeconds: 60, lookAheadSeconds: 20, memoryMB: 512, engine: 'auto' },
     export: { fps: 60, scale: 1, bitrate: 0, csvSeparator: ',', csvDecimal: '.', imageBackground: 'theme', language: 'ui' },
     trialLog: false,
-    ui: { sections: {}, toolRail: false, motion: true, formula: { density: 'compact', group: 'situation', pinned: [], body: '', category: '', verdict: 'all', pinnedOnly: false, timeline: true }, toolTab: 'body', rightTab: 'formula', analysisTab: 'formula', lab: 'circuit', labView: 'topic', learnDone: [], learnStage: 'j' },
+    ui: { sections: {}, toolRail: false, motion: true, formula: { density: 'compact', group: 'situation', pinned: [], body: '', category: '', verdict: 'all', pinnedOnly: false, timeline: true }, toolTab: 'body', rightTab: 'formula', analysisTab: 'formula', lab: 'circuit', labView: 'topic', learnDone: [], learnStage: 'j', welcomed: false },
     teaching: { fbd: { layout: 'actual', body: 'shape', magnitudes: true, decompose: 'none', resultant: false }, tape: { period: 0.02, every: 5 } },
     rev: SETTINGS_REV
   }
@@ -401,6 +408,7 @@ function sanitize() {
   settings.export.bitrate = clamp(settings.export.bitrate, 0, 2e8, 0)
   if (!['point', 'auto', 'comma'].includes(settings.decimalSeparator)) settings.decimalSeparator = d.decimalSeparator
   if (!['default', 'compact'].includes(settings.density)) settings.density = d.density
+  if (!['standard', 'cvd'].includes(settings.palette)) settings.palette = d.palette
   if (!['ui', 'zh', 'en', 'de'].includes(settings.export.language)) settings.export.language = d.export.language
   const fb = settings.teaching.fbd
   if (!['actual', 'concurrent'].includes(fb.layout)) fb.layout = d.teaching.fbd.layout

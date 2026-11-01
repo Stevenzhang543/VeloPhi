@@ -52,6 +52,8 @@ pub struct Checkpoint {
     pub starts: Vec<f64>,
     pub recent_events: Vec<f64>,
     pub toggles: Vec<(f64, Vec<f64>)>,
+    /// State of the many-body solver (26.58, D132), appended only for `softstep` scenes (empty: not written).
+    pub soft: Vec<f64>,
 }
 
 /// Checkpoint code of a unit's rolling state (format 2): 0 none, 1 rest, 2 rolling +, 3 rolling −.
@@ -155,6 +157,7 @@ pub fn encode_checkpoint(cp: &Checkpoint) -> Vec<f64> {
         out.push(times.len() as f64);
         out.extend_from_slice(times);
     }
+    out.extend_from_slice(&cp.soft);
     out[1] = out.len() as f64;
     out
 }
@@ -255,9 +258,8 @@ pub fn decode_checkpoint(d: &[f64]) -> Result<Checkpoint, CheckpointError> {
         let k = r.count()?;
         toggles.push((index, r.take(k)?));
     }
-    if r.o != d.len() {
-        return Err(CheckpointError("checkpoint: length mismatch"));
-    }
+    // 26.58: whatever follows is the many-body solver's state (only `softstep` scenes write it)
+    let soft = d[r.o..].to_vec();
     Ok(Checkpoint {
         chunk: d[3],
         k: d[4],
@@ -280,6 +282,7 @@ pub fn decode_checkpoint(d: &[f64]) -> Result<Checkpoint, CheckpointError> {
         starts,
         recent_events,
         toggles,
+        soft,
     })
 }
 
@@ -325,6 +328,7 @@ mod tests {
             starts: vec![0.0, 1.0],
             recent_events: vec![1.5],
             toggles: vec![(0.0, vec![1.0, 1.5])],
+            soft: Vec::new(),
         };
         let enc = encode_checkpoint(&cp);
         assert_eq!(enc[1], enc.len() as f64);

@@ -12,12 +12,13 @@
  */
 import { tl, trDeep } from '../i18n'
 import type { Scene } from '../core/scene/types'
-import { COULOMB_K, usesFields } from '../core/scene/types'
+import { COULOMB_K, usesFields, usesSoftStep } from '../core/scene/types'
 import { DEG, cos, sin, tan } from '../core/math/dmath'
 import { addBody, addConnector, addGround, addIncline, addPulley, anchor, defaultGravity, emptyScene, onIncline, setDefaultGravity } from '../core/scene/build'
 import type { ForceDef, RodDef, RopeDef, SpringDef, HingeDef, WeldDef, MotorDef, GearDef, CentralDef, SliderDef } from '../core/scene/types'
 import { TEMPLATES_2655 } from './t2655'
 import { TEMPLATES_2657 } from './t2657'
+import { TEMPLATES_2658 } from './t2658'
 import type { TemplatePreset } from './t2657'
 
 /** A template parameter: key, label, display unit ('°' for angles), default value and limits. */
@@ -670,8 +671,17 @@ export const TEMPLATES: TemplateInfo[] = trDeep([
   // 26.55: regions, rail loops, liquids and more classic models
   ...TEMPLATES_2655,
   // 26.57: the incline with μs and μk apart (D112)
-  ...TEMPLATES_2657
+  ...TEMPLATES_2657,
+  // 26.58: many bodies with the many-body solver (D142)
+  ...TEMPLATES_2658
 ])
+
+/**
+ * Templates the TypeScript reference engine can run at all (26.58, D134): every template except the many-body ones —
+ * the reference knows no `softstep` integrator and would compute hundreds of bodies with the event-driven solver.
+ * (Field templates run there too, without their fields, as before; `referenceTemplates` is the stricter list.)
+ */
+export function exactTemplates(): TemplateInfo[] { return TEMPLATES.filter(t => !usesSoftStep(t.build(Object.fromEntries(t.params.map(p => [p.key, p.value]))))) }
 
 /** Templates the TypeScript reference can run (D77): the ones without charges or fields. */
 export function referenceTemplates(): TemplateInfo[] { return TEMPLATES.filter(t => !usesFields(t.build(Object.fromEntries(t.params.map(p => [p.key, p.value]))))) }

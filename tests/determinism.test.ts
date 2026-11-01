@@ -1,7 +1,9 @@
 /** Reproducibility: the same scene gives bit-identical recordings; saving and loading changes nothing. */
 import { describe, expect, it } from 'vitest'
 import { createHash } from 'node:crypto'
-import { TEMPLATES, buildTemplate } from '../src/templates'
+import { buildTemplate, exactTemplates } from '../src/templates'
+/** 26.58 (D134): the TypeScript reference runs every template but the many-body ones */
+const TEMPLATES = exactTemplates()
 import { exactStateAt, frameState, recordingStates, simulate } from './reference/core/solver/simulation'
 import { parseScene, serializeScene } from '../src/core/scene/io'
 import { Sha256 } from './reference/core/record/sha256'

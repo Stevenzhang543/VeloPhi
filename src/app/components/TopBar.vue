@@ -17,6 +17,7 @@ import { MOD } from '../shortcuts'
 import Icon from './Icon.vue'
 import { vSlideIndicator } from '../slideIndicator'
 import TriCheck from './TriCheck.vue'
+import SolverBadge from './SolverBadge.vue'
 import { WORK_MODES, resetWorkMode, setWorkMode, work } from '../workMode'
 import { circularTransition } from '../viewTransition'
 
@@ -61,7 +62,9 @@ const TOGGLE_GROUPS: Array<{ title: string; items: ToggleDef[] }> = [
     { key: 'trajectory', label: tl('轨迹'), tip: tl('显示质心轨迹') },
     { key: 'strobe', label: tl('频闪'), tip: tl('频闪照片：按固定时间间隔叠加物体此前的位置（间隔与张数在设置页“显示”中调整；导出图片与视频时一并绘出）') },
     { key: 'labels', label: tl('关键时刻'), tip: tl('在画面上标注碰撞、共速等时刻') },
-    { key: 'names', label: tl('物体名称') }
+    { key: 'names', label: tl('物体名称') },
+    // 26.58 (D133)
+    { key: 'manyBody', label: tl('多体接触点与读数'), tip: tl('实时多体场景：画出各接触点，并在左下角显示物体数、运动中的物体数与接触点数') }
   ] },
   { title: tl('电场与磁场'), items: [
     { key: 'fields', label: tl('匀强电场与磁场') },
@@ -204,6 +207,7 @@ function modeClick(id: (typeof WORK_MODES)[number]['id'], e: MouseEvent) { setWo
         <Icon name="stop" :size="12" />{{ state.run.unbounded ? tl('停止计算') : tl('计算中 {0}%', [Math.round(state.progress * 100)]) }}
         <i class="run-progress" :style="{ transform: `scaleX(${state.progress})` }" />
       </button>
+      <SolverBadge v-show="state.page === 'studio' || state.page === 'monitor'" class="solver" />
     </div>
 
     <span class="spacer" />
@@ -238,6 +242,7 @@ function modeClick(id: (typeof WORK_MODES)[number]['id'], e: MouseEvent) { setWo
     </div>
 
     <button class="btn icon ghost" :title="state.theme === 'dark' ? tl('浅色外观') : tl('深色外观')" @click="toggleTheme($event)"><Icon :name="state.theme === 'dark' ? 'sun' : 'moon'" /></button>
+    <button class="btn icon ghost" :title="tl('欢迎与导览')" :aria-label="tl('欢迎与导览')" @click="state.showWelcome = true"><Icon name="graduation" /></button>
     <button class="btn icon ghost" :title="tl('关于与快捷键')" @click="state.showAbout = true"><Icon name="info" /></button>
   </header>
 </template>
@@ -258,8 +263,8 @@ function modeClick(id: (typeof WORK_MODES)[number]['id'], e: MouseEvent) { setWo
 .mode-reset { font-size: 13px; padding: 0 6px !important; }
 .fit-2 .work-modes .lbl { display: none; }
 .group-btns { display: flex; gap: 2px; flex: 0 0 auto; }
-.run { flex: 0 0 auto; min-width: 122px; }
-.run .btn { width: 100%; justify-content: center; position: relative; overflow: hidden; white-space: nowrap; }
+.run { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; }
+.run .btn { min-width: 122px; justify-content: center; position: relative; overflow: hidden; white-space: nowrap; }
 .run .computing { background: color-mix(in srgb, var(--accent) 82%, #000); }
 .run-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgba(255, 255, 255, 0.85); transform-origin: left; transition: transform 200ms linear; }
 .menu-anchor { position: relative; flex: 0 0 auto; }
@@ -282,5 +287,6 @@ function modeClick(id: (typeof WORK_MODES)[number]['id'], e: MouseEvent) { setWo
   .topbar { flex-wrap: wrap; row-gap: 4px; overflow: visible; }
   .doc { display: none; }
   .run { min-width: 0; }
+  .solver { display: none; }
 }
 </style>

@@ -5,12 +5,15 @@
  * returns the same numbers bit for bit.
  */
 import { describe, expect, it } from 'vitest'
-import { TEMPLATES, buildTemplate } from '../../src/templates'
+import { buildTemplate, exactTemplates } from '../../src/templates'
 import { simulate } from './core/solver/simulation'
 import { buildEventDetail as legacyDetail } from './legacy/eventDetail'
 import { buildEventDetail } from '../../src/formula/eventDetail'
 import { eventDataRef } from './eventData'
 import { defaultChoice } from '../../src/units/units'
+
+// 26.58: the many-body (softstep) templates have no events and the reference engine has no many-body solver
+const TEMPLATES = exactTemplates()
 
 describe('event detail: presentation from data equals the 26.52 view', () => {
   for (const t of TEMPLATES) {

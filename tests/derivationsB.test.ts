@@ -13,7 +13,9 @@ import type { Tri } from '../src/i18n/tri'
 import { dimension, evaluate, parse, variables } from './reference/formula/expr'
 import { dimEqual, formatDim, unitDim } from '../src/formula/units'
 import type { Dim } from '../src/formula/units'
-import { TEMPLATES, buildTemplate } from '../src/templates'
+import { buildTemplate, exactTemplates } from '../src/templates'
+/** 26.58 (D134): the TypeScript reference runs every template but the many-body ones */
+const TEMPLATES = exactTemplates()
 import { simulate } from './reference/core/solver/simulation'
 import { recognize } from './reference/formula/situations'
 

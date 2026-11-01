@@ -61,6 +61,23 @@ export const DARK: Palette = {
   electric: '#2dd4bf', magnetic: '#fbbf24', positive: '#f87171', negative: '#60a5fa'
 }
 
+/** Base colours, kept to switch back from the colour-vision palette (26.58, D139). */
+const LIGHT_BASE: Palette = { ...LIGHT }
+const DARK_BASE: Palette = { ...DARK }
+/**
+ * Vector and charge colours of the colour-vision-friendly palette (from the Okabe–Ito and Tol sets): chosen by search so
+ * that the seven colours of a free-body diagram stay apart (CIEDE2000 ≥ 13.9 light / 15.4 dark) for normal vision,
+ * protanopia, deuteranopia and tritanopia, with 3:1 contrast on the canvas; every arrow still carries its letter.
+ */
+const CVD_LIGHT: Partial<Palette> = { velocity: '#117733', acceleration: '#0077BB', gravity: '#5D3A9B', normal: '#009988', friction: '#EE3377', tension: '#882255', spring: '#B88A00', applied: '#000000', positive: '#EE3377', negative: '#0077BB', electric: '#009988', magnetic: '#B88A00' }
+const CVD_DARK: Partial<Palette> = { velocity: '#9FD3F5', acceleration: '#FFB000', gravity: '#AA4499', normal: '#648FFF', friction: '#EE7733', tension: '#EEDD88', spring: '#b0b0b0', applied: '#f0f0f0', positive: '#EE7733', negative: '#648FFF', electric: '#9FD3F5', magnetic: '#EEDD88' }
+
+/** Switch the canvas palettes (changed in place: every drawing picks them up). */
+export function setColourVision(on: boolean) {
+  Object.assign(LIGHT, LIGHT_BASE, on ? CVD_LIGHT : {})
+  Object.assign(DARK, DARK_BASE, on ? CVD_DARK : {})
+}
+
 /** What the canvas shows (the overlay toggles). */
 export interface DrawOptions {
   velocity: boolean; acceleration: boolean; forces: boolean; forcesAll: boolean
@@ -116,6 +133,11 @@ export interface DrawInput {
   highlight?: Highlight | null
   /** Region selected in the editor (26.55): highlighted with its resize handles. */
   selectedRegion?: string | null
+  /**
+   * 26.58 (D146): a crowded many-body scene — names, trajectories and velocity arrows only for the selected or
+   * hovered body (a hundred names and paths cover the scene).
+   */
+  crowd?: boolean
 }
 
 /** A 1-2-5 step (m) at least `targetPx` pixels long at this zoom. */
@@ -537,10 +559,13 @@ export function drawScene(ctx: CanvasRenderingContext2D, cam: Camera, input: Dra
   const A = view.anchors
   const pulleyAt = (i: number) => ({ x: view.pulleys[2 * i], y: view.pulleys[2 * i + 1] })
   const hl = input.editing ? null : input.highlight ?? null
+  // 26.58 (D146): in a crowded scene only the selected or hovered body carries its name, path and velocity
+  const inFocus = (id: string) => !input.crowd || id === input.selectedId || id === input.hoverId
 
   // Trajectories
   if (options.trajectory && input.trajectories && input.rec) {
     for (const b of model.dynamic) {
+      if (!inFocus(b.id)) continue
       const tr = input.trajectories.paths.get(b.id)
       if (!tr) continue
       const upto = trajectoryUpTo(input.trajectories, input.frame)
@@ -834,6 +859,7 @@ export function drawScene(ctx: CanvasRenderingContext2D, cam: Camera, input: Dra
   if (options.names && !input.editing) {
     ctx.font = font(12)
     for (const b of model.dynamic) {
+      if (!inFocus(b.id)) continue
       const pose = poses[b.global]
       const [sx] = toScreen(cam, pose.x, pose.y), [, ty] = toScreen(cam, pose.x, bodyTop(b, pose))
       const w = ctx.measureText(b.name).width
@@ -844,7 +870,7 @@ export function drawScene(ctx: CanvasRenderingContext2D, cam: Camera, input: Dra
     const pose = poses[b.global]
     const [sx, sy] = toScreen(cam, pose.x, pose.y)
     const litV = !!hl && hl.velocity.includes(b.id)
-    if (options.velocity || litV) {
+    if ((options.velocity && inFocus(b.id)) || litV) {
       const vx = pose.vx, vy = pose.vy
       ctx.save()
       if (litV) { ctx.shadowColor = P.velocity; ctx.shadowBlur = 12 }
@@ -853,7 +879,7 @@ export function drawScene(ctx: CanvasRenderingContext2D, cam: Camera, input: Dra
       const speed = Math.sqrt(vx * vx + vy * vy)
       if (speed * input.scales.v > 14 && !input.editing) later(sx + vx * input.scales.v + 4, sy - vy * input.scales.v - 4, `v = ${q(speed, 'm/s', input.digits)}`, P.velocity, [sx + vx * input.scales.v, sy - vy * input.scales.v])
     }
-    if (options.acceleration && view.acc) {
+    if (options.acceleration && view.acc && inFocus(b.id)) {
       const ax = view.acc[3 * b.index], ay = view.acc[3 * b.index + 1]
       const am = Math.sqrt(ax * ax + ay * ay)
       // Like forces, very large accelerations are drawn shortened (the label keeps the true value)
@@ -926,6 +952,7 @@ export function drawScene(ctx: CanvasRenderingContext2D, cam: Camera, input: Dra
     ctx.font = font(12)
     ctx.fillStyle = P.text2
     for (const b of model.dynamic) {
+      if (!inFocus(b.id)) continue
       const pose = poses[b.global]
       const top = bodyTop(b, pose)
       const [sx] = toScreen(cam, pose.x, pose.y)

@@ -15,9 +15,16 @@ import Icon from './Icon.vue'
 import Section from './Section.vue'
 import RegionsSection from './RegionsSection.vue'
 import type { IntegratorKind, StopKind } from '../../core/scene/types'
-import { COULOMB_K, MAX_DURATION, STOP_KINDS, finiteDuration } from '../../core/scene/types'
+import { COULOMB_K, MAX_DURATION, SOFT_STEP_DEFAULTS, STOP_KINDS, finiteDuration } from '../../core/scene/types'
+import type { SoftStepDef } from '../../core/scene/types'
+import { MANY_BODIES } from '../solver'
 
 const s = computed(() => state.scene.settings)
+// 26.58 (D130, D135): the many-body solver's settings and the hint for scenes with many moving bodies
+const soft = computed(() => ({ ...SOFT_STEP_DEFAULTS, ...(state.scene.settings.softStep ?? {}) }))
+function setSoft(p: SoftStepDef) { edit(sc => { sc.settings.softStep = { ...(sc.settings.softStep ?? {}), ...p } }) }
+const dynamicCount = computed(() => state.scene.bodies.filter(b => b.kind !== 'static').length)
+const manyBodies = computed(() => dynamicCount.value > MANY_BODIES)
 const gMag = computed(() => Math.hypot(s.value.gravity.x, s.value.gravity.y))
 
 /** Direction of gravity (rad from +x); straight down when g is zero. */
@@ -157,13 +164,30 @@ const reducedFrom = computed(() => rec.value?.reducedFrom ?? null)
             <option value="euler">{{ tl('半隐式欧拉（定步长，教学对比用）') }}</option>
             <option value="gauss4">{{ tl('Gauss–Legendre 四阶辛方法（定步长，长时间保能量）') }}</option>
             <option value="moreau">{{ tl('时间步进（Moreau–Jean，精度降级）') }}</option>
+            <option value="softstep">{{ tl('实时多体（Soft Step，近似）') }}</option>
           </select>
         </div>
+        <div v-if="manyBodies && s.integrator !== 'softstep'" class="hint-note small">
+          <Icon name="layers" :size="14" />
+          <span>{{ tl('场景中有 {0} 个运动物体。精确求解器逐个定位每次接触，物体很多时会很慢；堆叠、颗粒、多米诺这类场景可改用“实时多体”。', [dynamicCount]) }}</span>
+          <button class="btn small" @click="edit(sc => { sc.settings.integrator = 'softstep' })">{{ tl('改用实时多体') }}</button>
+        </div>
+        <template v-if="s.integrator === 'softstep'">
+          <div class="soft-note small">
+            <span class="badge info">{{ tl('近似') }}</span>
+            <span>{{ tl('按 Box2D v3 与 Rapier 公开的“软步进”算法计算：每步若干子步、接触为软约束（允许毫米级重叠）、静止的物体整组休眠。可算几百个物体；位置误差随子步长一阶减小，事件时刻不精确定位，接触力不分解，公式对照仅供参考。用“分析 › 求解器对照”可看它与精确求解器差多少。') }}</span>
+          </div>
+          <div class="row"><label>{{ tl('子步数') }}</label><NumField class="grow" :model-value="soft.substeps" :min="1" :max="16" :step="1" @update:model-value="v => setSoft({ substeps: Math.round(v) })" /></div>
+          <div class="row"><label>{{ tl('步频') }}</label><NumField class="grow" :model-value="soft.stepHz" unit="Hz" :min="30" :max="2000" :step="10" @update:model-value="v => setSoft({ stepHz: v })" /></div>
+          <label class="check small"><input type="checkbox" :checked="soft.sleep" @change="setSoft({ sleep: ($event.target as HTMLInputElement).checked })" />{{ tl('静止物体休眠（全部静止时停止计算）') }}</label>
+          <div class="tiny muted note">{{ tl('子步长 h = 1 / (步频 × 子步数) = {0}。子步越多越准、越慢；课堂上可对比 1 与 8 个子步时长链条的伸长。', [fmtQ(1 / (Math.max(soft.stepHz, 1 / s.outputStep) * soft.substeps), 's', 3)]) }}</div>
+        </template>
         <div v-if="s.integrator === 'gauss4'" class="tiny muted note">{{ tl('隐式辛方法：守恒系统（行星轨道、单摆、弹簧振子）长时间计算时能量只在很小范围内起伏，不会逐渐漂移；有摩擦或阻尼时照常计算，但不再有这一优点。') }}</div>
         <div v-if="s.integrator === 'moreau'" class="reduced-note small">
           <span class="badge warn">{{ tl('精度降级') }}</span>
           <span>{{ tl('按 Δt 逐步推进，碰撞与摩擦在每一步内近似处理；事件时刻不再精确定位，公式对照仅供参考。适合接触很多、事件驱动算不动的场景。') }}</span>
         </div>
+        <div class="row"><button class="btn small" @click="state.showSolverCompare = true"><Icon name="layers" :size="14" />{{ tl('求解器对照…') }}</button><span class="tiny muted grow">{{ tl('精确求解器与实时多体求解器算同一场景，看差多少') }}</span></div>
         <template v-if="s.integrator === 'dopri5'">
           <div class="row"><label>{{ tl('相对容差') }}</label><NumField class="grow" :model-value="s.relTol" :min="1e-14" :max="1e-2" @update:model-value="v => edit(sc => { sc.settings.relTol = v })" /></div>
           <div class="row"><label>{{ tl('绝对容差') }}</label><NumField class="grow" :model-value="s.absTol" :min="1e-16" :max="1e-2" @update:model-value="v => edit(sc => { sc.settings.absTol = v })" /></div>
@@ -186,6 +210,8 @@ const reducedFrom = computed(() => rec.value?.reducedFrom ?? null)
         <span class="badge warn">{{ tl('精度降级') }}</span>
         <span v-if="s.integrator === 'moreau'">{{ tl('整个过程使用 Moreau–Jean 时间步进计算。') }}</span>
         <span v-else>{{ tl('事件过于密集，自 t = {0} 起改用 Moreau–Jean 时间步进；此后的数值精度降级，事件时刻不精确定位，公式对照仅供参考。', [fmtQ(reducedFrom, 's', 6)]) }}</span>
+        <!-- 26.58 (D135): an event storm in the exact solver suggests the many-body solver -->
+        <button v-if="s.integrator !== 'moreau' && s.integrator !== 'softstep'" class="btn small" :title="tl('堆叠、颗粒、多米诺这类场景可改用“实时多体”')" @click="edit(sc => { sc.settings.integrator = 'softstep' })">{{ tl('改用实时多体') }}</button>
       </div>
       <Section id="scene.run" :title="tl('本次计算')" :open="false">
         <template #badge><span v-if="!rec.completed && !(rec.unbounded && state.computing)" class="badge warn">{{ tl('未完成') }}</span><span v-if="rec.unbounded && state.computing" class="badge info">{{ tl('持续计算') }}</span><span v-if="reducedFrom !== null" class="badge warn">{{ tl('精度降级') }}</span></template>
@@ -224,4 +250,8 @@ const reducedFrom = computed(() => rec.value?.reducedFrom ?? null)
 .link-row { margin: 2px 2px 4px; }
 .reduced-note { display: flex; gap: 8px; align-items: flex-start; background: var(--warning-soft); color: var(--text); border-radius: var(--radius-group); padding: 8px 10px; margin: 2px 0 10px; line-height: 1.5; }
 .reduced-note .badge { flex: 0 0 auto; }
+.soft-note, .hint-note { display: flex; gap: 8px; align-items: flex-start; background: var(--accent-soft, var(--panel-2)); color: var(--text); border-radius: var(--radius-group); padding: 8px 10px; margin: 2px 0 10px; line-height: 1.5; }
+.hint-note { flex-wrap: wrap; align-items: center; }
+.hint-note span { flex: 1 1 200px; }
+.soft-note .badge { flex: 0 0 auto; }
 </style>

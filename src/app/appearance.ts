@@ -13,6 +13,8 @@
  * The pointer highlight writes --hx/--hy (pane-local px) on the pane under the pointer, once per animation frame;
  * the highlight itself only moves by transform (no repaint).
  */
+import { setColourVision } from '../render/renderer'
+import { setSeriesColourVision } from '../render/seriesColours'
 import { watchEffect } from 'vue'
 import { state } from './store'
 import { calmMotion, effectiveEffects, effectiveTheme, settings, sysEnv } from './settings'
@@ -78,6 +80,11 @@ export function initAppearance() {
     toggle('fx-off', settings.effects.quality === 'off')
     toggle('projector', settings.projector)
     toggle('density-compact', settings.density === 'compact' && !settings.projector)
+    // 26.58 (D139): colour-vision-friendly palettes of the canvas and the charts
+    const cvd = settings.palette === 'cvd'
+    setColourVision(cvd)
+    setSeriesColourVision(cvd)
+    toggle('palette-cvd', cvd)
     const want = fx.glass && !calmMotion() && !sysEnv.hidden
     if (want !== highlightOn) {
       highlightOn = want

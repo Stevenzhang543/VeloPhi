@@ -210,6 +210,15 @@ pub fn call(s: &mut Session, req: &Value) -> SimResult<(Value, Blob)> {
             let c = obs.contact_forces(&on, &by);
             json!({ "Nx": jnum(c.nx), "Ny": jnum(c.ny), "N": jnum(c.n), "fx": jnum(c.fx), "fy": jnum(c.fy), "f": jnum(c.f), "vt": jnum(c.vt), "inContact": c.in_contact, "status": c.status })
         }
+        "softContacts" => {
+            // 26.58 (D133): contact points of a frame of a many-body run, recomputed from the geometry (no forces)
+            let k = arg_u64(req, "frame").ok_or_else(|| bad(op, "frame"))?;
+            let x = s.state(k)?.to_vec();
+            let sys = s.system.clone();
+            let pts = crate::world::contact_points(&sys, &x);
+            let id = |g: usize| sys.model.bodies[g].id.clone();
+            json!({ "points": pts.iter().map(|p| json!([id(p.0), id(p.1), jnum(p.2), jnum(p.3), jnum(p.4), jnum(p.5), jnum(p.6)])).collect::<Vec<_>>() })
+        }
         "checkCustom" => {
             // Compile a custom-quantity expression against this scene's quantities (the watch panel's live check)
             let expr = req.get("expr").and_then(|v| v.as_str()).unwrap_or("").to_string();

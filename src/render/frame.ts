@@ -48,6 +48,15 @@ export interface FrameInput {
   style?: RenderStyle | null
   /** What a hovered formula refers to (26.53, D72). */
   highlight?: Highlight | null
+  /** 26.58 (D146): crowded scene (default: decided from the recording, see `crowded`). */
+  crowd?: boolean
+}
+
+/** 26.58 (D146): more moving bodies than this in a many-body scene: names, paths and arrows only for the focused one. */
+export const CROWD_BODIES = 12
+/** A many-body (softstep) scene with more than CROWD_BODIES moving bodies. */
+export function crowded(integrator: string | undefined, dynamicBodies: number): boolean {
+  return integrator === 'softstep' && dynamicBodies > CROWD_BODIES
 }
 
 /** Segment containing t: the last one with t0 ≤ t (binary search; segments are sorted). */
@@ -98,7 +107,8 @@ export function renderFrame(ctx: CanvasRenderingContext2D, cam: Camera, input: F
     selectedId: input.selectedId ?? null, hoverId: input.hoverId ?? null, palette: input.palette, scales: input.scales,
     trajectories: input.trajectories, editing: false, pending: null, digits: input.digits,
     units: input.units, style: input.style, annotations: input.annotations ?? null, selectedAnnotation: input.selectedAnnotation ?? null, layers,
-    highlight: hl ?? null
+    highlight: hl ?? null,
+    crowd: input.crowd ?? crowded(rec.scene.settings.integrator, rec.system.model.dynamic.length)
   })
   return view
 }

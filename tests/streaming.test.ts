@@ -5,7 +5,9 @@
  * memory budget behave as documented.
  */
 import { describe, expect, it } from 'vitest'
-import { TEMPLATES, buildTemplate } from '../src/templates'
+import { buildTemplate, exactTemplates } from '../src/templates'
+/** 26.58 (D134): the TypeScript reference runs every template but the many-body ones */
+const TEMPLATES = exactTemplates()
 import type { Recording } from './reference/core/solver/simulation'
 import { SimulationRun, frameImpactLoss, frameSegment, frameState, rebuildChunk, recordingStates, simulate } from './reference/core/solver/simulation'
 import { StreamRecording } from './reference/core/solver/stream'

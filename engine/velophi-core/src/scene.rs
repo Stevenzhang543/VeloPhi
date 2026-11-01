@@ -226,6 +226,22 @@ pub enum IntegratorKind {
     Moreau,
     /// Two-stage Gauss–Legendre (26.52, D61).
     Gauss4,
+    /// Many-body soft-step solver (26.58, D126): fixed steps with sub-steps, soft contacts, sleeping islands.
+    Softstep,
+}
+
+/// Settings of the many-body solver (26.58, D130): sub-steps per step, steps per second (at least), sleep.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct SoftStepDef {
+    pub substeps: usize,
+    pub step_hz: f64,
+    pub sleep: bool,
+}
+
+impl Default for SoftStepDef {
+    fn default() -> Self {
+        SoftStepDef { substeps: 4, step_hz: 120.0, sleep: true }
+    }
 }
 
 /// Kind of state change after which a run may stop.
@@ -307,6 +323,8 @@ pub struct SceneSettings {
     pub regions: Vec<RegionDef>,
     /// Rail loops (26.55, D91): a body moving along rails in a magnetic field, closed by a resistor.
     pub rail_loops: Vec<RailLoopDef>,
+    /// Many-body solver settings (26.58); defaults when absent.
+    pub soft_step: SoftStepDef,
 }
 
 /// Shape of a region: an axis-aligned rectangle (centre, width, height) or a circle.
@@ -501,6 +519,7 @@ pub fn parse_scene_value(raw: &Value) -> PResult<(Scene, Vec<Message>)> {
         Some("euler") => IntegratorKind::Euler,
         Some("moreau") => IntegratorKind::Moreau,
         Some("gauss4") => IntegratorKind::Gauss4,
+        Some("softstep") => IntegratorKind::Softstep,
         _ => IntegratorKind::Dopri5,
     };
     let duration = match st.get("duration") {
@@ -578,6 +597,7 @@ pub fn parse_scene_value(raw: &Value) -> PResult<(Scene, Vec<Message>)> {
         },
         regions: parse_regions(st.get("regions"))?,
         rail_loops: parse_rail_loops(st.get("railLoops"))?,
+        soft_step: parse_soft_step(st.get("softStep"))?,
     };
     let mut bodies = Vec::new();
     if let Some(list) = present(doc.get("bodies")) {
@@ -795,6 +815,25 @@ fn parse_regions(v: Option<&Value>) -> PResult<Vec<RegionDef>> {
 }
 
 /// 26.55 (D91): `settings.railLoops`.
+/// `settings.softStep` (26.58): { substeps 1–16, stepHz 30–2000, sleep }.
+fn parse_soft_step(v: Option<&Value>) -> PResult<SoftStepDef> {
+    let d = SoftStepDef::default();
+    let Some(Value::Object(o)) = v else { return Ok(d) };
+    let substeps = num(o.get("substeps"), "settings.softStep.substeps", Some(d.substeps as f64))?;
+    let step_hz = num(o.get("stepHz"), "settings.softStep.stepHz", Some(d.step_hz))?;
+    if !((1.0..=16.0).contains(&substeps) && substeps.fract() == 0.0) {
+        return Err(Message::new("scene.softStepRange"));
+    }
+    if !(30.0..=2000.0).contains(&step_hz) {
+        return Err(Message::new("scene.softStepRange"));
+    }
+    let sleep = match o.get("sleep") {
+        Some(Value::Bool(b)) => *b,
+        _ => d.sleep,
+    };
+    Ok(SoftStepDef { substeps: substeps as usize, step_hz, sleep })
+}
+
 fn parse_rail_loops(v: Option<&Value>) -> PResult<Vec<RailLoopDef>> {
     let mut out = Vec::new();
     let Some(list) = v.filter(|v| !v.is_null()) else { return Ok(out) };

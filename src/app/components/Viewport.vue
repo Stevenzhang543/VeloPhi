@@ -25,13 +25,15 @@ import type { FrameView } from '../../engine/views'
 import { featurePointsOf, frameView, posesAt, positions } from '../../engine/views'
 import type { EditView } from '../editing'
 import type { AnnotationDef, BodyDef, RegionDef } from '../../core/scene/types'
-import { connectorAnchors } from '../../core/scene/types'
+import { connectorAnchors, usesSoftStep } from '../../core/scene/types'
 import { cloneScene, parseScene, serializeScene } from '../../core/scene/io'
 import type { Camera } from '../../render/renderer'
 import { DARK, LIGHT, computeTrajectories, drawScene, eventLabelAt, forceArrowAt, sceneVectorScales, toScreen, toWorld, vectorScales } from '../../render/renderer'
 import { openEventDetail } from '../details'
 import type { FrameEffects } from '../../render/frame'
-import { DEFAULT_STYLE, PROJECTOR_STYLE, renderFrame } from '../../render/frame'
+import { DEFAULT_STYLE, PROJECTOR_STYLE, crowded, renderFrame } from '../../render/frame'
+import { drawManyBody, histogramOf } from '../../render/manybody'
+import type { ManyBodyText } from '../../render/manybody'
 import type { EditorOverlay, HandleKind } from '../../render/overlay'
 import { drawEditorOverlay, emptyOverlay } from '../../render/overlay'
 import { TEXT_SIZE, annotationPoints, rulerLabel } from '../../render/annotations'
@@ -99,6 +101,10 @@ function editSystem(): EditSystem | null {
 }
 onBeforeUnmount(() => { editCache?.value?.session.free(); editCache = null })
 
+const MANY_TEXT: ManyBodyText = {
+  readout: (n, moving, contacts) => tl('实时多体 · {0} 个物体 · 运动 {1} · 接触点 {2}', [n, moving, contacts]),
+  histogram: (n, rows) => tl('各格计数（柱）与二项分布 B({0}, ½) 的期望（点）· 共 {1} 个小球', [rows, n])
+}
 const trajectories = computed(() => (state.recording ? computeTrajectories(state.recording) : null))
 /**
  * Vector scales: fixed per recording during playback, from the initial state in edit mode (cheap; cached per
@@ -165,20 +171,23 @@ function paint(ctx: CanvasRenderingContext2D) {
       trails: on && e.trails,
       trailSeconds: e.trailSeconds
     }
-    renderFrame(ctx, cam.value, {
+    const drawn = renderFrame(ctx, cam.value, {
       // While a problem is answered, forces, accelerations, trajectories and key moments are not drawn (26.52)
       rec, time: state.time, options: problemLocked() ? { ...display, forces: false, forcesAll: false, acceleration: false, trajectory: false, labels: false, strobe: false } : display, palette, digits: state.digits, scales: currentScales(), trajectories: trajectories.value,
       selectedId: state.selection?.id ?? null, hoverId: hover.value, effects: fx, annotations, selectedAnnotation: editor.annotationId, units, style,
       // 26.53 (D72): what a hovered formula card or known variable refers to
       highlight: state.rightTab === 'formula' && !problemLocked() ? toRaw(state.formulaHighlight) : null
     })
+    // 26.58 (D133, D142): Galton histogram, contact points and the many-body readout
+    drawManyBody(ctx, cam.value, { rec, view: drawn, scene: rec.scene, palette, show: display.manyBody !== false, text: MANY_TEXT })
   } else {
     const es = editSystem()
     if (!es) { ctx.fillStyle = palette.bg; ctx.fillRect(0, 0, cam.value.width, cam.value.height); return }
     drawScene(ctx, cam.value, {
       sys: es.sys, view: es.view, rec: null, frame: 0, time: 0, options: { ...display, forces: false, trajectory: false, acceleration: false },
       selectedId: state.selection?.id ?? null, hoverId: hover.value, palette, scales: currentScales(), trajectories: null,
-      editing: true, pending: pendingDraw, digits: state.digits, units, style, annotations, selectedAnnotation: editor.annotationId, selectedRegion: editor.regionId
+      editing: true, pending: pendingDraw, digits: state.digits, units, style, annotations, selectedAnnotation: editor.annotationId, selectedRegion: editor.regionId,
+      crowd: crowded(state.scene.settings.integrator, es.sys.model.dynamic.length)
     })
   }
   if (studio.value) {
@@ -230,6 +239,26 @@ function fitView() {
   } else {
     for (const b of state.scene.bodies) if (b.kind !== 'static') grow(b.position.x, b.position.y, b.shape.type === 'circle' ? b.shape.radius : b.shape.type === 'box' ? Math.hypot(b.shape.width, b.shape.height) / 2 : 0.3)
   }
+  // 26.58 (D146): a many-body scene is fitted with its container — walls, pegs, funnel — not only the moving bodies
+  const many = usesSoftStep(state.scene)
+  if (many) {
+    for (const b of state.scene.bodies) {
+      // the ground is left out: it reaches further than anything happens on it
+      if (b.kind !== 'static' || b.role === 'ground') continue
+      const sh = b.shape
+      if (sh.type === 'circle') grow(b.position.x, b.position.y, sh.radius)
+      else if (sh.type === 'box') {
+        // the box's own extent (a tall thin wall must not widen the view by its height)
+        const c = Math.abs(Math.cos(b.angle)), sn = Math.abs(Math.sin(b.angle))
+        const hx = (c * sh.width + sn * sh.height) / 2, hy = (sn * sh.width + c * sh.height) / 2
+        grow(b.position.x - hx, b.position.y - hy); grow(b.position.x + hx, b.position.y + hy)
+      }
+      else if (sh.type === 'polygon') {
+        const c = Math.cos(b.angle), sn = Math.sin(b.angle)
+        for (const q of sh.points) grow(b.position.x + c * q.x - sn * q.y, b.position.y + sn * q.x + c * q.y)
+      }
+    }
+  }
   for (const p of state.scene.pulleys) {
     const carrier = p.body && rec && !state.stale ? rec.system.model.byId.get(p.body) : null
     if (carrier && carrier.dynamic) {
@@ -257,8 +286,13 @@ function fitView() {
   minY -= 0.15 * Math.max(0.5, maxY - minY)
   // 26.57: a body that stays (nearly) at rest still shows enough of its support to read the slope and the scale
   const w = Math.max(1.5, maxX - minX), h = Math.max(1, maxY - minY)
-  const ppm = Math.max(10, Math.min(2000, Math.min((cam.value.width * 0.8) / w, (cam.value.height * 0.72) / h)))
-  cam.value = { ...cam.value, cx: (minX + maxX) / 2, cy: (minY + maxY) / 2, ppm }
+  // 26.58 (D146): the Galton histogram is drawn under the board in screen pixels (40–140 px, three bin widths, and
+  // its caption): leave that much room below
+  const hist = many ? histogramOf(state.scene) : null
+  const fit = (reserve: number) => Math.max(10, Math.min(2000, Math.min((cam.value.width * 0.8) / w, (cam.value.height * (hist ? 0.9 : 0.72) - reserve) / h)))
+  let ppm = fit(0), reserve = 0
+  if (hist) for (let k = 0; k < 2; k++) { reserve = Math.max(40, Math.min(140, 3 * hist.binWidth * ppm)) + 44; ppm = fit(reserve) }
+  cam.value = { ...cam.value, cx: (minX + maxX) / 2, cy: (minY + maxY) / 2 - reserve / 2 / ppm, ppm }
   requestDraw()
 }
 
@@ -1303,7 +1337,7 @@ let lastNudge = 0
 let lastNudgeId = ''
 
 function onKeyCapture(e: KeyboardEvent) {
-  if (!studio.value || !visible() || typing(e) || editor.menu || editor.textInput) return
+  if (!studio.value || !visible() || typing(e) || editor.menu || editor.textInput || state.tourStep !== null) return
   const mod = e.ctrlKey || e.metaKey
   const k = e.key
   const lower = k.length === 1 ? k.toLowerCase() : k

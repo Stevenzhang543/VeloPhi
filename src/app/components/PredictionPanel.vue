@@ -19,7 +19,8 @@ import type { QuantityDef } from '../../engine/observe'
 import { listQuantities, sceneQuantities } from '../../engine/observe'
 import { FORMULAS } from '../../formula/library'
 import type { Comparison, Prediction, PredictionTarget } from '../../analysis/prediction'
-import { EVENT_TYPES, GRADE_TEXT, PREDICTION_TOLERANCE, SITUATION_NAMES, comparePrediction, newPredictionId, readPredictions, situationsOfType, targetLabel, targetUnit, writePredictions } from '../../analysis/prediction'
+import { CALIBRATION_TEXT, CONFIDENCES, CONFIDENCE_TEXT, EVENT_TYPES, GRADE_TEXT, PREDICTION_TOLERANCE, SITUATION_NAMES, calibrationOf, comparePrediction, newPredictionId, readPredictions, situationsOfType, targetLabel, targetUnit, writePredictions } from '../../analysis/prediction'
+import type { Confidence } from '../../analysis/prediction'
 import { relErrorText } from '../../export/formulaImage'
 import { timeLabel } from '../../export/timeLabel'
 import { logEvent } from '../trialLog'
@@ -30,7 +31,9 @@ defineProps<{ closable?: boolean }>()
 const emit = defineEmits<{ (e: 'close'): void }>()
 
 const predictions = computed<Prediction[]>(() => readPredictions(state.scene))
-const fresh = computed(() => (!state.stale && !state.computing && state.recording ? state.recording : null))
+// 26.58 (D146): an unbounded run that has paused far enough ahead of playback counts as computed (it stays
+// "computing" until stopped, and the comparison never appeared in the default unbounded mode)
+const fresh = computed(() => (!state.stale && (!state.computing || state.run.paused) && state.recording ? state.recording : null))
 
 // Quantities of the current scene (from the last recording, or compiled from the scene before any run)
 const quantities = computed<QuantityDef[]>(() => {
@@ -52,7 +55,8 @@ const draft = reactive({
   formula: '',
   occurrence: 0,
   value: 0,
-  note: ''
+  note: '',
+  confidence: '' as Confidence | ''
 })
 const dynamicBodies = computed(() => state.scene.bodies.filter(b => b.kind !== 'static'))
 const situationTypes = computed(() => {
@@ -80,9 +84,11 @@ function add() {
   const list = predictions.value
   const p: Prediction = { id: newPredictionId(list), target: JSON.parse(JSON.stringify(draftTarget.value)) as PredictionTarget, value: draft.value }
   if (draft.note.trim()) p.note = draft.note.trim().slice(0, 200)
+  if (draft.confidence) p.confidence = draft.confidence
   edit(s => writePredictions(s, [...list, p]))
   revealed.value = false
   draft.note = ''
+  draft.confidence = ''
   logEvent('prediction.add', { kind: p.target.kind })
 }
 function remove(id: string) {
@@ -149,6 +155,11 @@ const pct = (x: number) => `${Number((x * 100).toPrecision(3))}%`
         </div>
       </template>
       <div class="row"><label>{{ tl('我的预测') }}</label><NumField class="grow" :model-value="draft.value" :unit="labelOf(draftUnit)" :scale="scaleOf(draftUnit)" @update:model-value="v => (draft.value = v)" /></div>
+      <div class="row"><label>{{ tl('把握程度') }}</label>
+        <div class="segmented grow" role="radiogroup" :aria-label="tl('把握程度')">
+          <button v-for="c in CONFIDENCES" :key="c" role="radio" :aria-checked="draft.confidence === c" :class="{ on: draft.confidence === c }" @click="draft.confidence = draft.confidence === c ? '' : c">{{ CONFIDENCE_TEXT[c] }}</button>
+        </div>
+      </div>
       <div class="row"><label>{{ tl('思路（可选）') }}</label><input v-model="draft.note" class="field grow" maxlength="200" :placeholder="tl('如：隔离物块，a₁ = μ₁g')" /></div>
       <div class="row end"><span class="tiny muted grow">{{ targetLabel(draftTarget, ctx) }}</span><button class="btn primary small" :disabled="!canAdd" @click="add"><Icon name="plus" />{{ tl('添加预测') }}</button></div>
     </div>
@@ -178,6 +189,8 @@ const pct = (x: number) => `${Number((x * 100).toPrecision(3))}%`
           <span class="muted">{{ tl('与公式之差') }}</span><span class="mono">{{ errText(comparisons.get(p.id)!.absErrorFormula, comparisons.get(p.id)!.relErrorFormula, comparisons.get(p.id)!.value.unit) }}</span>
         </template>
       </div>
+      <div v-if="p.confidence" class="tiny muted">{{ tl('把握程度：{0}', [CONFIDENCE_TEXT[p.confidence]]) }}</div>
+      <div v-if="showResults && comparisons.get(p.id) && calibrationOf(p.confidence, comparisons.get(p.id)!.grade)" class="tiny calib" :class="calibrationOf(p.confidence, comparisons.get(p.id)!.grade)!">{{ CALIBRATION_TEXT[calibrationOf(p.confidence, comparisons.get(p.id)!.grade)!] }}</div>
       <div v-if="p.note" class="tiny note">{{ tl('思路：{0}', [p.note]) }}</div>
       <div v-if="showResults && comparisons.get(p.id)?.value.simNote" class="tiny muted">{{ comparisons.get(p.id)!.value.simNote }}</div>
       <div v-if="showResults && comparisons.get(p.id)?.value.formulaNote" class="tiny muted">{{ tl('公式：{0}', [comparisons.get(p.id)!.value.formulaNote]) }}</div>
@@ -191,6 +204,9 @@ const pct = (x: number) => `${Number((x * 100).toPrecision(3))}%`
 
 <style scoped>
 .predict { padding: 4px 0 12px; }
+.calib { margin-top: 4px; padding: 3px 8px; border-radius: 6px; background: var(--panel-2); }
+.calib.misconception { background: var(--warning-soft); color: var(--text); font-weight: 600; }
+.calib.solid { color: var(--success, #16a34a); }
 .head { display: flex; align-items: center; margin: 2px 2px 2px; }
 .title { font-weight: 600; font-size: var(--type-title); }
 .intro { margin: 0 2px 6px; line-height: 1.5; }

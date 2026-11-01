@@ -3,6 +3,19 @@
 VeloPhi 26.50 bundles the following open-source components. Each is used unmodified under its own license.
 VeloPhi 26.50 使用了下列开源组件，均未修改，按各自许可证使用。许可证全文见文末（相同文本只列一次）。
 
+## Algorithm references (26.58) / 算法参考
+
+The many-body solver of the Rust core (`engine/velophi-core/src/world`, integrator `softstep`) is VeloPhi's own code, written after the
+algorithms published with the projects below (soft step / TGS-soft sub-stepping, soft constraint coefficients, contact manifolds
+with feature ids, speculative contacts, Poisson-capped restitution, sleeping islands). No source code of these projects is
+included in VeloPhi. They are acknowledged here with their licences.
+Rust 核心的多体求解器（`engine/velophi-core/src/world`，积分器 `softstep`）由 VeloPhi 自行编写，参照下列项目公开的算法；VeloPhi 不包含它们的源代码。
+
+| Project | Copyright | License | Used as |
+|---|---|---|---|
+| Box2D v3 (https://box2d.org, https://github.com/erincatto/box2d) | © 2022–2026 Erin Catto | MIT | Algorithm reference (Solver2D / soft step, manifolds, restitution) |
+| Rapier and Parry (https://rapier.rs) | © Dimforge | Apache-2.0 | Algorithm reference (TGS-soft parameters, cross-platform determinism) |
+
 ## npm packages in the application (51)
 
 | Package | Version | License | License text |

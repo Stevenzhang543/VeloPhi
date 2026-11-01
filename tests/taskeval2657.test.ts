@@ -1,6 +1,6 @@
 /**
  * Task understanding evaluation (26.57, D115; manual §14.2). The holdout file must be the one frozen before the
- * parser was written (docs/coverage/task-eval-2657-freeze.md); the scores of both parts are written to
+ * parser was written (tests/fixtures/coverage/task-eval-2657-freeze.md); the scores of both parts are written to
  * docs/reports/26.57/task-eval.json with numerators, denominators and 95 % intervals, and the error lists. The first
  * blind run is kept in docs/reports/26.57/task-eval-holdout-first-run.json and never overwritten.
  */
@@ -24,7 +24,7 @@ describe('task understanding set (manual §14.2)', () => {
   it('the holdout is the frozen file, and the freeze record names it', () => {
     const h = createHash('sha256').update(readFileSync('tests/fixtures/task-eval-holdout-2657.json')).digest('hex')
     expect(h).toBe(FROZEN)
-    expect(load('docs/coverage/task-eval-2657-freeze.md')).toContain(FROZEN)
+    expect(load('tests/fixtures/coverage/task-eval-2657-freeze.md')).toContain(FROZEN)
   })
 
   it('has the planned composition: 240 cases, 120 complete / 60 ambiguous / 30 conflicting / 30 out of scope, about 70/30', () => {

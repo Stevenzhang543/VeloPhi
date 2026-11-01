@@ -153,6 +153,11 @@ export interface AppState {
   showAbout: boolean
   showCourseware: boolean
   showSweep: boolean
+  /** 26.58 (D136): the solver comparison dialog. */
+  showSolverCompare: boolean
+  /** 26.58 (D138): the welcome page and the step of the tour (null: no tour). */
+  showWelcome: boolean
+  tourStep: number | null
   showReport: boolean
   /** 26.52 teaching tools (D62, D63) and the problem gallery (D40). */
   showFbd: boolean
@@ -237,6 +242,9 @@ export const state = reactive<AppState>({
   showAbout: false,
   showCourseware: false,
   showSweep: false,
+  showSolverCompare: false,
+  showWelcome: false,
+  tourStep: null,
   showReport: false,
   showFbd: false,
   showTape: false,

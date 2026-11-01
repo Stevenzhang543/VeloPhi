@@ -214,6 +214,12 @@ async function resetAll() { if (await ask(tl('将所有设置恢复为默认值�
                 <button v-for="dd in DENSITIES" :key="dd.id" role="radio" :aria-checked="densityNow === dd.id" :class="{ on: densityNow === dd.id }" @click="setDensity(dd.id)">{{ dd.label }}</button>
               </div>
             </div>
+            <div class="srow"><div class="sl"><b>{{ tl('配色') }}</b><span>{{ tl('色觉友好：矢量、电荷与曲线改用 Okabe–Ito 配色，红绿色弱与蓝黄色弱时仍能区分；曲线同时用不同线型区分。') }}</span></div>
+              <div v-slide-indicator class="segmented" role="radiogroup" :aria-label="tl('配色')">
+                <button role="radio" :aria-checked="settings.palette === 'standard'" :class="{ on: settings.palette === 'standard' }" @click="settings.palette = 'standard'">{{ tl('标准') }}</button>
+                <button role="radio" :aria-checked="settings.palette === 'cvd'" :class="{ on: settings.palette === 'cvd' }" @click="settings.palette = 'cvd'">{{ tl('色觉友好') }}</button>
+              </div>
+            </div>
             <div class="srow"><div class="sl"><b>{{ tl('自动重算') }}</b><span>{{ tl('修改场景后自动重新计算。') }}</span></div><input v-model="settings.autoRun" type="checkbox" class="switch" /></div>
           </div>
           <div class="sgroup">

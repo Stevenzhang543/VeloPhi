@@ -62,7 +62,30 @@ export interface Prediction {
   value: number
   /** Optional working or comment. */
   note?: string
+  /**
+   * How sure the student was (26.58, D140): confidence-tagged answers separate a guess from a firm wrong idea —
+   * “sure but off” is shown as a possible misconception. Absent: not given.
+   */
+  confidence?: Confidence
 }
+
+/** Confidence of a prediction. */
+export type Confidence = 'sure' | 'unsure' | 'guess'
+export const CONFIDENCES: readonly Confidence[] = ['sure', 'unsure', 'guess']
+export const CONFIDENCE_TEXT: Record<Confidence, string> = trDeep({ sure: '有把握', unsure: '不太确定', guess: '猜的' })
+
+/**
+ * Reading of a graded prediction with its confidence (D140): a confident prediction that is off is a possible
+ * misconception, a confident correct one is solid, a guess that is off is just a guess.
+ */
+export type Calibration = 'solid' | 'lucky' | 'misconception' | 'gap' | null
+export function calibrationOf(confidence: Confidence | undefined, grade: Grade): Calibration {
+  if (!confidence || grade === 'none') return null
+  const right = grade === 'ok' || grade === 'warn'
+  if (confidence === 'sure') return right ? 'solid' : 'misconception'
+  return right ? 'lucky' : 'gap'
+}
+export const CALIBRATION_TEXT: Record<Exclude<Calibration, null>, string> = trDeep({ solid: '有把握且正确', lucky: '没把握但对了：值得再确认思路', misconception: '有把握却偏差较大：可能是一个误概念，回看思路与受力', gap: '没把握且偏差较大：先补这一部分' })
 
 /** Grade of a prediction against a reference value. */
 export type Grade = 'ok' | 'warn' | 'bad' | 'none'
@@ -92,6 +115,7 @@ export function readPredictions(scene: Scene): Prediction[] {
   if (!Array.isArray(raw)) return []
   return raw.filter((p): p is Prediction => !!p && typeof p === 'object' && typeof (p as Prediction).id === 'string'
     && typeof (p as Prediction).value === 'number' && Number.isFinite((p as Prediction).value) && isTarget((p as Prediction).target))
+    .map(p => (p.confidence === undefined || CONFIDENCES.includes(p.confidence) ? p : { ...p, confidence: undefined }))
 }
 
 /** Store predictions in the scene (use inside `edit()`); an empty list removes the field. */

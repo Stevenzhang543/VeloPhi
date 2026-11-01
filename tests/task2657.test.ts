@@ -8,6 +8,7 @@
  *
  * Every reference value is computed here by hand from the textbook formula, not taken from the code under test.
  */
+import { ENGINE_VERSION } from '../src/core/scene/types'
 import { describe, expect, it } from 'vitest'
 import { createSSRApp, h } from 'vue'
 import { renderToString } from 'vue/server-renderer'
@@ -95,7 +96,7 @@ describe('the six representative tasks (manual §6.6, §14.2)', () => {
       const o = solveTask(t, { hash })
       for (const r of o.results) {
         expect(isCurrent(r, t, hash)).toBe(true)
-        expect(r.engineVersion).toMatch(/^26\.57/)
+        expect(r.engineVersion).toBe(ENGINE_VERSION)
         expect(r.provenance.kind).toBeTruthy()
       }
     }

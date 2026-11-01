@@ -24,6 +24,7 @@
  * Phase portrait (26.54, D87): the "相图" mode plots one quantity against another (x–vₓ, θ–ω or any two) instead of
  * the time charts (PhasePlot.vue).
  */
+import { SERIES_DASH, SERIES_DARK, SERIES_LIGHT, seriesDashes } from '../../render/seriesColours'
 import { taskUi, onTaskScene } from '../task/taskState'
 import { quantityNote } from '../../analysis/quantityNote'
 import { tl, colonSep, paren } from '../../i18n'
@@ -33,12 +34,14 @@ import 'uplot/dist/uPlot.min.css'
 import { state, seekTime, pause, showToast, problemLocked } from '../store'
 import ProblemLock from './ProblemLock.vue'
 import PhasePlot from './PhasePlot.vue'
+import MeasuredDialog from './MeasuredDialog.vue'
+import { readMeasured, rmsDeviation } from '../../analysis/measured'
 import { canonicalQuantityId, listQuantities, quantitiesAtFrames } from '../../engine/observe'
 import type { Recording } from '../../engine/recording'
 import { parentRecording } from '../branches'
 import type { QuantityDef } from '../../engine/observe'
 import { formatSig } from '../../units/units'
-import { fmtQ, fromDisp, toDisp, unitLabel } from '../settings'
+import { fmtQ, fromDisp, settings, toDisp, unitLabel } from '../settings'
 import { RECENT_SPAN, recentWindow, seriesFor, seriesWindow, useGated } from '../live'
 import { chartEnvelope, envelopePlot } from '../../render/chartLod'
 import type { SeriesView } from '../live'
@@ -109,8 +112,9 @@ const locked = computed(() => problemLocked())
 const rec = computed(() => (state.stale || locked.value ? null : state.recording))
 const quantities = computed<Map<string, QuantityDef>>(() => new Map((rec.value ? listQuantities(rec.value) : []).map(q => [q.id, q])))
 
-const COLORS = ['#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed', '#0891b2', '#db2777', '#4b5563']
-const COLORS_DARK = ['#60a5fa', '#f87171', '#4ade80', '#fbbf24', '#a78bfa', '#22d3ee', '#f472b6', '#9ca3af']
+// 26.58 (D139): shared series colours (switched in place to the colour-vision palette) and dash patterns
+const COLORS = SERIES_LIGHT
+const COLORS_DARK = SERIES_DARK
 
 /** Charts grouped by SI unit: quantities with the same unit share one chart. */
 const groups = computed(() => {
@@ -140,7 +144,23 @@ const axisNotes = computed(() => {
 })
 
 /** Everything that requires a rebuild (not just new data). */
-const buildKey = computed(() => JSON.stringify([groups.value.map(([u, l]) => [unitLabel(u), l.map(q => q.id)]), unitLabel('s'), state.theme, state.digits, props.variant, state.branch, overlay.value, !!parentRec.value]))
+// 26.58 (D141): measured series of the scene and their RMS deviation from the simulated curves
+const measured = computed(() => readMeasured(state.scene))
+const showMeasured = ref(false)
+const measuredRows = computed(() => {
+  const r = rec.value
+  if (!r || state.stale || !measured.value.length) return []
+  return measured.value.map(m => {
+    const q = quantities.value.get(m.id)
+    if (!q) return { label: m.label, text: tl('（当前场景中没有这个量）') }
+    try {
+      const got = r.session.call<{ t: Float64Array; values: Float64Array[] }>({ op: 'series', ids: [m.id], from: 0, stride: 1 })
+      const dev = rmsDeviation(m, got.t, got.values[0])
+      return { label: `${m.label} → ${q.owner} ${q.label}`, text: dev ? tl('均方根偏差 {0}（{1} 个点）', [fmtQ(dev.rms, q.unit), dev.n]) : tl('不在已计算的时间内') }
+    } catch { return { label: m.label, text: '' } }
+  })
+})
+const buildKey = computed(() => JSON.stringify([measured.value.length, groups.value.map(([u, l]) => [unitLabel(u), l.map(q => q.id)]), unitLabel('s'), state.theme, settings.palette, state.digits, props.variant, state.branch, overlay.value, !!parentRec.value]))
 
 function cssVar(name: string) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || '#888' }
 
@@ -244,7 +264,7 @@ function build(s: SeriesView) {
       ],
       series: [
         { label: 't', value: (_u, v) => (v == null ? '—' : formatSig(v, 6)) },
-        ...list.map(q => ({ label: `${q.owner} ${q.label}`, stroke: palette[colorIndex++ % palette.length], width: 1.6, value: (_u: uPlot, v: number | null) => (v == null ? '—' : formatSig(v, digits)) })),
+        ...list.map((q, i) => ({ label: `${q.owner} ${q.label}`, stroke: palette[colorIndex++ % palette.length], width: 1.6, ...(seriesDashes && SERIES_DASH[i % SERIES_DASH.length].length ? { dash: SERIES_DASH[i % SERIES_DASH.length] } : {}), value: (_u: uPlot, v: number | null) => (v == null ? '—' : formatSig(v, digits)) })),
         // The parent branch's curves (dashed, same colours)
         ...(parentRec.value ? list.map((q, i) => ({ q, color: palette[(colorIndex - list.length + i) % palette.length] })).filter(x => parentIds.value.has(x.q.id)).map(({ q, color }) => ({ label: `${q.owner} ${q.label}${tl('（父分支）')}`, stroke: color, width: 1.2, dash: [6, 4], spanGaps: true, alpha: 0.75, value: (_u: uPlot, v: number | null) => (v == null ? '—' : formatSig(v, digits)) })) : [])
       ],
@@ -310,6 +330,24 @@ function build(s: SeriesView) {
             ctx.beginPath(); ctx.moveTo(ex, u.bbox.top); ctx.lineTo(ex, u.bbox.top + u.bbox.height); ctx.stroke()
           }
           ctx.restore()
+          // 26.58 (D141): measured points over the curve of the same quantity (same colour, filled circles)
+          const fvm = toDisp(1, unit)
+          for (const m of measured.value) {
+            const k = ids.indexOf(m.id)
+            if (k < 0) continue
+            ctx.save()
+            ctx.fillStyle = colors[k]
+            ctx.strokeStyle = cssVar('--bg') || '#fff'
+            ctx.lineWidth = devicePixelRatio
+            const rr = 2.6 * devicePixelRatio
+            for (let i = 0; i < m.t.length; i++) {
+              const xv = (m.t[i] + o) * ft
+              if (xv < xmin || xv > xmax) continue
+              const px = u.valToPos(xv, 'x', true), py = u.valToPos(m.v[i] * fvm, 'y', true)
+              ctx.beginPath(); ctx.arc(px, py, rr, 0, 2 * Math.PI); ctx.fill(); ctx.stroke()
+            }
+            ctx.restore()
+          }
           // uPlot lays out the plot area on its first draw: place the time cursor once it is known
           queueMicrotask(placeCursor)
         }]
@@ -479,6 +517,7 @@ function toggleMode() {
       <button class="btn small" :disabled="!rec" @click="preset('energy')">{{ tl('能量') }}</button>
       <button class="btn small" :disabled="!rec" @click="preset('force')">{{ tl('受力') }}</button>
       <button class="btn small ghost" :disabled="!state.chart.length" @click="state.chart = []">{{ tl('清空') }}</button>
+      <button class="btn small" :disabled="!rec" :title="tl('把实验测得的数据（CSV）叠加到曲线上比较')" @click="showMeasured = true">{{ tl('实测数据…') }}</button>
       <button v-if="state.branch !== null" class="btn small" :class="{ active: overlay }" :aria-pressed="overlay" :title="tl('在曲线中用虚线叠加父分支的同一物理量')" @click="overlay = !overlay">{{ tl('叠加父分支') }}</button>
       <button v-if="rec?.unbounded" class="btn small" :title="longMode === 'recent' ? tl('显示全程（每个像素列的最小/最大包络）') : tl('只显示播放位置附近的 {0} s（逐帧）', [RECENT_SPAN])" @click="longMode = longMode === 'recent' ? 'all' : 'recent'">{{ longMode === 'recent' ? tl('最近 {0} s', [RECENT_SPAN]) : tl('全程') }}</button>
       <button v-if="zoom" class="btn small" :title="tl('双击曲线也可恢复')" @click="zoom = null; schedule()">{{ `${toDisp(zoom.t0 + origin, 's').toPrecision(4)}–${toDisp(zoom.t1 + origin, 's').toPrecision(4)} ${unitLabel('s')}` }} ✕</button>
@@ -498,6 +537,10 @@ function toggleMode() {
     <div v-if="!locked && rec && mode === 'time' && axisNotes.length" class="axis-notes tiny muted">
       <span v-for="n in axisNotes" :key="n.note" :title="n.who"><b>{{ n.who }}</b>{{ colonSep() }}{{ n.note }}</span>
     </div>
+    <div v-if="!locked && mode === 'time' && measuredRows.length" class="axis-notes tiny muted measured-notes">
+      <span v-for="(m, i) in measuredRows" :key="i"><b>{{ tl('实测') }}</b> {{ m.label }}{{ colonSep() }}{{ m.text }}</span>
+    </div>
+    <MeasuredDialog v-if="showMeasured" @close="showMeasured = false" />
     <ProblemLock v-if="locked" />
     <div v-else-if="!rec" class="empty">{{ tl('运行仿真后显示曲线。') }}</div>
     <PhasePlot v-else-if="mode === 'phase'" :x="quantities.get(phaseX) ?? null" :y="quantities.get(phaseY) ?? null" :active="active" />

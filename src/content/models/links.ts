@@ -9,6 +9,12 @@ export const TEMPLATE_MODELS: Array<[string, string[]]> = [
   ['incline', ['M07', 'M08']],
   // 26.57: the incline with μs and μk apart, both directions of the initial velocity
   ['incline-friction', ['M07', 'M08', 'M02']],
+  // 26.58 (D142): many-body templates — static friction and torque in a stack, impacts and statistics of many bodies,
+  // toppling rotation, rolling and friction in a granular pile
+  ['pyramid', ['M08', 'M21']],
+  ['galton', ['M19', 'X07']],
+  ['dominoes', ['M20', 'M21']],
+  ['ball-pour', ['M22', 'M08', 'X07']],
   ['board-block', ['M13']],
   ['conveyor', ['M14']],
   ['conveyor-incline', ['M07', 'M14']],

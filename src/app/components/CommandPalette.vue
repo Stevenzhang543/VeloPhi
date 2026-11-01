@@ -57,6 +57,9 @@ function buildIndex(): Item[] {
   add('page', 'settings', tl('设置'), tl('单位、外观、学习手册'), 'settings 4', go('settings'))
   add('page', 'book', tl('学习手册'), tl('原理、公式推导与例题'), 'handbook', () => openHandbook(null))
   add('page', 'graduation', tl('学习路径'), tl('按课程标准顺序的模板、实验、题目与手册'), 'path learn', () => { state.showLearning = true })
+  // 26.58 (D136, D138): the solver comparison and the welcome page with its tour
+  add('page', 'layers', tl('求解器对照'), tl('精确求解器与实时多体求解器算同一场景，看差多少'), 'solver compare softstep exact', () => { state.page = 'studio'; state.showSolverCompare = true })
+  add('page', 'info', tl('欢迎与导览'), tl('三个入口与 60 秒导览'), 'welcome tour onboarding', () => { state.showWelcome = true })
   for (const t of ALL_TOOLS) add('tool', t.icon, t.label, t.tip, `${t.key ?? ''} ${t.tool}`, () => { state.page = 'studio'; pickTool(t.tool) })
   for (const t of TEMPLATES) add('template', 'template', t.name, t.description, `${t.group} ${t.id}`, () => openTemplate(t.id))
   for (const l of LABS) add('lab', l.icon, l.title, l.summary, l.id, () => openLab(l.id))

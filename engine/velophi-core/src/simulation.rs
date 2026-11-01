@@ -24,6 +24,7 @@ use crate::project::{project, resolve_initial_overlap, ProjectScratch, Projectio
 use crate::record::{chain_digest, chunk_summary, frames_per_chunk, hash_events, FrameChunk, CHAIN_START};
 use crate::scene::{IntegratorKind, Scene, StopKind};
 use crate::sha256::{to_hex, Sha256};
+use crate::world::{soft_step, SoftRun, SoftState};
 
 /// A time interval with one mode.
 #[derive(Clone, Debug)]
@@ -308,6 +309,10 @@ pub struct SimulationRun {
     stages: Stages,
     proj_scratch: ProjectScratch,
     margin: Margin,
+    /// The many-body solver of a `softstep` scene (26.58, D126); None for the other integrators.
+    pub soft: Option<Box<SoftRun>>,
+    /// Encoded many-body solver state for the next checkpoint (D132).
+    soft_cp: Vec<f64>,
 }
 
 /// Approximate rest (26.51): speeds and accelerations at most this.
@@ -585,6 +590,34 @@ impl SimulationRun {
         run.chunk_events.insert(0, 0);
         let sys = run.system.clone();
         run.impact_loss = sys.model.settings.start_ledger.as_ref().map(|l| l.impact_loss).unwrap_or(0.0);
+        if run.integrator == IntegratorKind::Softstep {
+            // 26.58 (D126): no mode determination and no projection; soft contacts separate initial overlaps
+            let x = initial_state(&sys);
+            run.mode = state_mode(&sys, &x, STICK_SPEED);
+            run.segments.push(Segment {
+                index: 0,
+                t0: 0.0,
+                t1: run.t_end,
+                mode: run.mode.clone(),
+                x0: x.clone(),
+                label: describe_mode(&sys, &run.mode),
+                impact_loss: run.impact_loss,
+                // time stepping: no continuous solution between frames (exact states interpolate, D133)
+                reduced: true,
+            });
+            run.x = x;
+            let x0 = run.x.clone();
+            run.record(0, &x0);
+            run.k1 = vec![0.0; run.size];
+            run.h = run.dt;
+            run.soft = Some(Box::new(SoftRun::new(&sys)));
+            if run.k_max == Some(0) {
+                run.finished = true;
+                run.stop_reason = Some(StopReason::Duration);
+                run.finish();
+            }
+            return Ok(run);
+        }
         let mut x = initial_state(&sys);
         let overlap = resolve_initial_overlap(&sys, &x, 0.05);
         if overlap.removed > 0.0 {
@@ -722,6 +755,8 @@ impl SimulationRun {
             stages: Stages::default(),
             proj_scratch: ProjectScratch::default(),
             margin: Margin::default(),
+            soft: None,
+            soft_cp: Vec::new(),
             system,
         }
     }
@@ -851,6 +886,68 @@ impl SimulationRun {
                     reduced: true,
                 });
             }
+            self.k += 1;
+            let xr = std::mem::take(&mut self.x);
+            self.record(self.k, &xr);
+            self.x = xr;
+        }
+    }
+
+    /// Many-body solver steps (26.58, D127): `steps_per_frame` soft steps per output interval, frames on the grid.
+    fn soft_loop(&mut self) -> SimResult<Advance> {
+        let mut soft = self.soft.take().expect("many-body solver");
+        let r = self.soft_loop_with(&mut soft);
+        self.soft = Some(soft);
+        r
+    }
+
+    fn soft_loop_with(&mut self, soft: &mut SoftRun) -> SimResult<Advance> {
+        let sys = self.system.clone();
+        let dt = self.dt;
+        let m = soft.params.steps_per_frame(dt);
+        loop {
+            if self.k == self.cp_frame {
+                self.soft_cp = soft.state.encode();
+                self.checkpoint()?;
+            }
+            if let Some(r) = self.end_check() {
+                return Ok(r);
+            }
+            if self.k as f64 >= self.pause_frame {
+                return Ok(Advance::Paused);
+            }
+            if self.budget == 0 {
+                return Ok(Advance::Budget);
+            }
+            self.budget -= 1;
+            let t_next = (self.k + 1) as f64 * dt;
+            let t0 = self.t;
+            let mut x = std::mem::take(&mut self.x);
+            for i in 1..=m {
+                let t1 = if i == m { t_next } else { t0 + (t_next - t0) * i as f64 / m as f64 };
+                let info = match soft_step(&sys, &mut x, t1 - self.t, soft) {
+                    Ok(info) => info,
+                    Err(e) => {
+                        self.x = x;
+                        return Err(e);
+                    }
+                };
+                if !finite_state(&x, 6 * sys.n) {
+                    self.x = x;
+                    self.fail(Message::new("err.stateNotFinite").num("t", self.t), StopReason::Error);
+                    return Ok(Advance::Finished);
+                }
+                self.impact_loss += info.loss;
+                self.t = t1;
+                if let Some(slot) = sys.time_slot {
+                    x[slot] = t1;
+                }
+                self.stats.steps += 1;
+                if info.all_asleep && self.rest_allowed && self.pending_stop.is_none() {
+                    self.pending_stop = Some(StopReason::Rest);
+                }
+            }
+            self.x = x;
             self.k += 1;
             let xr = std::mem::take(&mut self.x);
             self.record(self.k, &xr);
@@ -1007,7 +1104,13 @@ impl SimulationRun {
         }
         self.pause_frame = until_frame;
         self.budget = budget;
-        let r = if self.reduced_from.is_some() { self.reduced_loop() } else { self.event_loop() };
+        let r = if self.soft.is_some() {
+            self.soft_loop()
+        } else if self.reduced_from.is_some() {
+            self.reduced_loop()
+        } else {
+            self.event_loop()
+        };
         let status = match r {
             Ok(s) => s,
             Err(e) => {
@@ -1337,6 +1440,7 @@ impl SimulationRun {
             starts: if reduced { Vec::new() } else { self.fns.iter().map(|f| f.start).collect() },
             recent_events: if reduced { Vec::new() } else { self.recent_events.iter().copied().collect() },
             toggles: if reduced { Vec::new() } else { self.toggles.iter().map(|(&i, t)| (i as f64, t.clone())).collect() },
+            soft: if self.integrator == IntegratorKind::Softstep { self.soft_cp.clone() } else { Vec::new() },
         }
     }
 
@@ -1405,7 +1509,17 @@ impl SimulationRun {
         self.chunk_steps = cp.stats.steps as u64;
         self.cp_frame = self.k;
         self.first_chunk = c;
-        if cp.reduced_from.is_none() {
+        if self.integrator != IntegratorKind::Softstep && !cp.soft.is_empty() {
+            return Err(internal("checkpoint: length mismatch"));
+        }
+        if self.integrator == IntegratorKind::Softstep {
+            let state = SoftState::decode(&cp.soft).ok_or_else(|| internal("checkpoint: many-body solver state is malformed"))?;
+            let mut soft = SoftRun::new(&sys);
+            soft.restore(state);
+            self.soft = Some(Box::new(soft));
+            self.h = cp.h;
+            self.k1 = vec![0.0; self.size];
+        } else if cp.reduced_from.is_none() {
             self.h = cp.h;
             self.k1 = cp.k1.clone();
             self.last_event_t = cp.last_event_t;

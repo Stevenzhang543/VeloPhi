@@ -270,7 +270,8 @@ pub struct System {
 /// Build the system: contact pairs, state layout, and the lengths given as "initial".
 pub fn build_system(model: Model) -> System {
     let mut pairs = Vec::new();
-    let nb = model.bodies.len();
+    // 26.58 (D133): the many-body solver finds its pairs each step; no pairs, no per-pair ledger slots
+    let nb = if model.settings.integrator == crate::scene::IntegratorKind::Softstep { 0 } else { model.bodies.len() };
     for i in 0..nb {
         for j in i + 1..nb {
             let (xd, yd) = (model.bodies[i].dynamic, model.bodies[j].dynamic);

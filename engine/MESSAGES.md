@@ -72,6 +72,7 @@ reach the user only if the two loaders ever disagree; they are rendered as key a
 | `scene.gravitationNotPositive` | — (26.51) |
 | `scene.dragNegative` | body (26.51) |
 | `scene.rollingRange` | body (26.52; a pair: "a–b") |
+| `scene.softStepRange` | — (26.58: `settings.softStep` substeps 1–16, stepHz 30–2000) |
 | `scene.motorMaxTorque` | connector (26.52) |
 | `scene.sliderLimits` | connector (26.52) |
 | `scene.sliderLimitRestitution` | connector (26.52) |

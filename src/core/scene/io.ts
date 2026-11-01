@@ -4,8 +4,8 @@
  * versions are migrated step by step; unknown fields of newer files are kept in `extra`.
  */
 import { tl } from '../../i18n'
-import type { AnnotationDef, BodyDef, BranchDef, ConnectorDef, PartShapeDef, RailLoopDef, RegionDef, Scene, StartLedgerDef, StopAtDef, StopKind } from './types'
-import { ENGINE_VERSION, LEGACY_SCENE_FORMATS, MAX_DURATION, SCENE_FORMAT, SCENE_VERSION, SCENE_VERSION_REGIONS, STOP_KINDS, sceneVersionOf } from './types'
+import type { AnnotationDef, BodyDef, BranchDef, ConnectorDef, PartShapeDef, RailLoopDef, RegionDef, Scene, SoftStepDef, StartLedgerDef, StopAtDef, StopKind } from './types'
+import { ENGINE_VERSION, LEGACY_SCENE_FORMATS, MAX_DURATION, SCENE_FORMAT, SCENE_VERSION, SCENE_VERSION_SOFTSTEP, STOP_KINDS, sceneVersionOf } from './types'
 import { emptyScene } from './build'
 import { checkForceExpr, polygonIsSimple } from '../../engine/calc'
 
@@ -117,6 +117,15 @@ function parseRailLoop(o: Record<string, unknown>, path: string): RailLoopDef {
   return { id: str(o.id, `${path}.id`), name: str(o.name, `${path}.name`, tl('导轨回路')), body: str(o.body, `${path}.body`), angle: num(o.angle, `${path}.angle`, 0), L: Math.abs(num(o.L, `${path}.L`, 0.5)), R: Math.abs(num(o.R, `${path}.R`, 1)), B: num(o.B, `${path}.B`, 1) }
 }
 
+/** `settings.softStep` (26.58): only the known fields, numbers and a flag. */
+function parseSoftStep(o: Record<string, unknown>): SoftStepDef {
+  return {
+    ...(o.substeps !== undefined ? { substeps: num(o.substeps, 'settings.softStep.substeps') } : {}),
+    ...(o.stepHz !== undefined ? { stepHz: num(o.stepHz, 'settings.softStep.stepHz') } : {}),
+    ...(typeof o.sleep === 'boolean' ? { sleep: o.sleep } : {})
+  }
+}
+
 /** Parse, migrate and validate scene file text; `warnings` are user-facing messages. */
 export function parseScene(text: string): { scene: Scene; warnings: string[] } {
   let raw: unknown
@@ -126,7 +135,7 @@ export function parseScene(text: string): { scene: Scene; warnings: string[] } {
   if (doc.format !== SCENE_FORMAT && !LEGACY_SCENE_FORMATS.includes(String(doc.format))) throw new SceneFileError(tl('不是 VeloPhi 场景文件（format 字段不符）'))
   const warnings: string[] = []
   let version = num(doc.version, 'version')
-  if (version > SCENE_VERSION_REGIONS) warnings.push(tl('文件来自更新的版本（格式 {0}），未知字段已保留但可能不生效', [version]))
+  if (version > SCENE_VERSION_SOFTSTEP) warnings.push(tl('文件来自更新的版本（格式 {0}），未知字段已保留但可能不生效', [version]))
   // Formats 6 (26.54) and 7 (26.55) only add optional fields to format 5
   while (version < SCENE_VERSION) {
     const m = MIGRATIONS[version]
@@ -141,7 +150,7 @@ export function parseScene(text: string): { scene: Scene; warnings: string[] } {
     settings: {
       gravity: vec(st.gravity, 'settings.gravity', base.settings.gravity),
       outputStep: num(st.outputStep, 'settings.outputStep', base.settings.outputStep),
-      integrator: (['dopri5', 'rk4', 'euler', 'moreau', 'gauss4'].includes(st.integrator as string) ? st.integrator : 'dopri5') as Scene['settings']['integrator'],
+      integrator: (['dopri5', 'rk4', 'euler', 'moreau', 'gauss4', 'softstep'].includes(st.integrator as string) ? st.integrator : 'dopri5') as Scene['settings']['integrator'],
       relTol: num(st.relTol, 'settings.relTol', base.settings.relTol),
       absTol: num(st.absTol, 'settings.absTol', base.settings.absTol),
       duration: st.duration === null || st.duration === undefined ? null : num(st.duration, 'settings.duration'),
@@ -157,7 +166,9 @@ export function parseScene(text: string): { scene: Scene; warnings: string[] } {
       ...(st.coulomb && typeof st.coulomb === 'object' ? { coulomb: { k: num((st.coulomb as Record<string, unknown>).k, 'settings.coulomb.k') } } : {}),
       // 26.55 (D90–D92): bounded field regions, liquids and rail loops
       ...(Array.isArray(st.regions) && st.regions.length ? { regions: (st.regions as Array<Record<string, unknown>>).map((r, i) => parseRegion(r, `settings.regions[${i}]`)) } : {}),
-      ...(Array.isArray(st.railLoops) && st.railLoops.length ? { railLoops: (st.railLoops as Array<Record<string, unknown>>).map((r, i) => parseRailLoop(r, `settings.railLoops[${i}]`)) } : {})
+      ...(Array.isArray(st.railLoops) && st.railLoops.length ? { railLoops: (st.railLoops as Array<Record<string, unknown>>).map((r, i) => parseRailLoop(r, `settings.railLoops[${i}]`)) } : {}),
+      // 26.58 (D130): many-body solver settings
+      ...(st.softStep && typeof st.softStep === 'object' ? { softStep: parseSoftStep(st.softStep as Record<string, unknown>) } : {})
     },
     bodies: ((doc.bodies ?? []) as unknown[]).map((b, i) => parseBody(b as Record<string, unknown>, `bodies[${i}]`)),
     pulleys: ((doc.pulleys ?? []) as Array<Record<string, unknown>>).map((p, i) => ({ id: str(p.id, `pulleys[${i}].id`), name: str(p.name, `pulleys[${i}].name`, tl('滑轮')), position: vec(p.position, `pulleys[${i}].position`), radius: num(p.radius, `pulleys[${i}].radius`, 0), ...(typeof p.body === 'string' ? { body: p.body } : {}) })),
@@ -329,6 +340,10 @@ export function validateScene(scene: Scene) {
   }
   const s = scene.settings
   if (!(s.outputStep > 0 && s.outputStep <= 0.1)) throw new SceneFileError(tl('时间步长应在 (0, 0.1] s'))
+  if (s.softStep) {
+    const q = s.softStep
+    if ((q.substeps !== undefined && !(Number.isInteger(q.substeps) && q.substeps >= 1 && q.substeps <= 16)) || (q.stepHz !== undefined && !(q.stepHz >= 30 && q.stepHz <= 2000))) throw new SceneFileError(tl('实时多体求解器：子步数应为 1–16 的整数，步频应在 30–2000 Hz'))
+  }
   if (s.duration !== null && !(s.duration > 0 && s.duration <= MAX_DURATION)) throw new SceneFileError(tl('仿真时长应在 (0, {0}] s，或不限时长', [MAX_DURATION]))
   if (!(s.legacyDuration > 0 && s.legacyDuration <= MAX_DURATION)) throw new SceneFileError(tl('有限计算时长应在 (0, {0}] s', [MAX_DURATION]))
   if (s.stopAt) {

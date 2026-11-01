@@ -40,3 +40,4 @@ pub mod simulation;
 pub mod teaching;
 pub mod transport;
 pub mod views;
+pub mod world;

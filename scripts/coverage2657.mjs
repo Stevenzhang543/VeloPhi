@@ -4,7 +4,7 @@
  *
  *   node scripts/coverage2657.mjs [--check]
  *
- * Inputs: docs/coverage/requirements-26.57.json and the package registry (src/content/packages, bundled with
+ * Inputs: tests/fixtures/coverage/requirements-26.57.json and the package registry (src/content/packages, bundled with
  * esbuild; its progress fields are computed from the content that exists, never claimed). Every evidence reference
  * must resolve:
  *
@@ -13,7 +13,7 @@
  *
  * A status “verified” needs at least one test; “hand” means checked by hand in the Windows release build (the hand
  * check report) and may list tests; “partial” and “deferred” say what is missing. Writes docs/coverage/COVERAGE_26_57.md
- * and docs/coverage/coverage-26.57.json; --check only verifies (exit 1 on any unresolved reference or inconsistency).
+ * (report) and tests/fixtures/coverage/coverage-26.57.json; --check only verifies (exit 1 on any unresolved reference or inconsistency).
  */
 import { build } from 'esbuild'
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
@@ -34,7 +34,7 @@ await build({ entryPoints: [entry], bundle: true, platform: 'node', format: 'esm
 const { PACKAGES, packageStatus, PACKAGE_CONTENT_VERSION } = await import(pathToFileURL(outfile).href)
 rmSync(tmp, { recursive: true, force: true })
 
-const req = JSON.parse(readFileSync(join(repo, 'docs/coverage/requirements-26.57.json'), 'utf8'))
+const req = JSON.parse(readFileSync(join(repo, 'tests/fixtures/coverage/requirements-26.57.json'), 'utf8'))
 const problems = []
 const cache = new Map()
 const read = p => { if (!cache.has(p)) cache.set(p, existsSync(p) ? readFileSync(p, 'utf8') : null); return cache.get(p) }
@@ -77,11 +77,11 @@ const summary = {
 }
 if (checkOnly) { console.log(`coverage2657: all references resolve (${req.vp.length} VP, ${req.cases.length} cases, ${req.updates.length} updates, ${pk.length} packages)`); process.exit(0) }
 
-writeFileSync(join(repo, 'docs/coverage/coverage-26.57.json'), JSON.stringify({ version: req.version, generated: 'scripts/coverage2657.mjs', contentVersion: PACKAGE_CONTENT_VERSION, summary, vp: req.vp, cases: req.cases, updates: req.updates, packages: pk }, null, 1) + '\n')
+writeFileSync(join(repo, 'tests/fixtures/coverage/coverage-26.57.json'), JSON.stringify({ version: req.version, generated: 'scripts/coverage2657.mjs', contentVersion: PACKAGE_CONTENT_VERSION, summary, vp: req.vp, cases: req.cases, updates: req.updates, packages: pk }, null, 1) + '\n')
 const ST = { verified: '已验证（自动测试）', hand: '人工检查（Windows 发布版）', partial: '部分实现', deferred: '明确暂缓' }
 const esc = s => String(s ?? '').replace(/\|/g, '\\|')
 const md = ['# VeloPhi 26.57 覆盖记录', '']
-md.push('本文件由 `node scripts/coverage2657.mjs` 根据 `docs/coverage/requirements-26.57.json` 与教学包注册数据（src/content/packages）生成；机器可读版本为 coverage-26.57.json。生成时检查每条证据引用都指向仓库中存在的测试（文件与测试名、Rust `#[test]` 函数），“已验证”必须至少有一条测试。26.56 的模型族与需求矩阵见 COVERAGE_26_56.md（本版未改模型注册的状态与成熟度）。', '')
+md.push('本文件由 `node scripts/coverage2657.mjs` 根据 `tests/fixtures/coverage/requirements-26.57.json` 与教学包注册数据（src/content/packages）生成；机器可读版本为 coverage-26.57.json。生成时检查每条证据引用都指向仓库中存在的测试（文件与测试名、Rust `#[test]` 函数），“已验证”必须至少有一条测试。26.56 的模型族与需求矩阵见 COVERAGE_26_56.md（本版未改模型注册的状态与成熟度）。', '')
 md.push('## 1 总览', '')
 md.push('| 项 | 已验证 | 人工检查 | 部分 | 暂缓 |', '| --- | --- | --- | --- | --- |')
 md.push(`| 任务书 VP-01–VP-18 | ${summary.vp.verified} | ${summary.vp.hand} | ${summary.vp.partial} | ${summary.vp.deferred} |`)
@@ -99,5 +99,6 @@ md.push('| 包 | 名称 | 学段 | 演示预设 | 练习 | 可发现 | 可运行
 const yn = b => (b ? '✓' : '—')
 for (const p of pk) md.push(`| ${p.id} | ${esc(p.title)} | ${p.stage} | ${p.demos.join('、')} | ${p.practice} | ${yn(p.discoverable)} | ${yn(p.runnable)} | ${yn(p.explainable)} | ${yn(p.practisable)} | ${yn(p.transferable)} | ${yn(p.trialled)} | ${p.task ?? '—'} | ${esc(p.missing.join('；'))} |`)
 md.push('', '## 6 复现', '', '```', 'node scripts/coverage2657.mjs --check   # 只检查引用与状态', 'node scripts/coverage2657.mjs           # 重新生成本文件与 coverage-26.57.json', 'npx vitest run tests/task2657.test.ts tests/taskeval2657.test.ts', '```', '')
+mkdirSync(join(repo, 'docs/coverage'), { recursive: true })
 writeFileSync(join(repo, 'docs/coverage/COVERAGE_26_57.md'), md.join('\n'))
 console.log(`coverage2657: wrote docs/coverage/COVERAGE_26_57.md and coverage-26.57.json (packages complete ${summary.packages.complete}/${summary.packages.total})`)

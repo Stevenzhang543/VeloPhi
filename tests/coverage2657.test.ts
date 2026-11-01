@@ -15,7 +15,7 @@ describe('coverage2657 record', () => {
     expect(r.status).toBe(0)
   })
   it('the generated record lists the packages as the registry computes them', () => {
-    const doc = JSON.parse(readFileSync('docs/coverage/coverage-26.57.json', 'utf8'))
+    const doc = JSON.parse(readFileSync('tests/fixtures/coverage/coverage-26.57.json', 'utf8'))
     expect(doc.packages.map((p: { id: string }) => p.id)).toEqual(PACKAGES.map(p => p.id))
     for (const p of PACKAGES) expect(doc.packages.find((x: { id: string }) => x.id === p.id).complete, p.id).toBe(packageStatus(p).complete)
   })

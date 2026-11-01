@@ -42,6 +42,7 @@ segment (reduced-accuracy segments interpolate). Bodies are referred to by id un
 | `evaluate` | `ids[]` and one of `frame`, `t`, `event` (+ `side: 'before'|'after'`) | `values` |
 | `series` | `ids[]`, `from?, to?, stride?` — or `frames[]` | `t`, `values[]` (one array per id) |
 | `contactForces` | `frame, on, by` | `Nx, Ny, N, fx, fy, f, vt, inContact, status` |
+| `softContacts` | `frame` | `points[]` of a many-body (`softstep`) run, recomputed from the geometry: `[bodyA id, bodyB id, x, y, nx, ny, separation]` (26.58, D133; no forces) |
 | `checkCustom` | `expr` | `ok, unit` or `ok: false, error` |
 | `extreme` | `id, which: 'max'|'min'`, `t0?, t1?` (26.57: a time window), `withTime?` | `value`; with `withTime`: `t` (time of the extreme, refined between frames) |
 | `crossing` | `terms[] {id, c}`, `level`, `t0?, t1?`, `which: 'first'|'all'`, `direction?: 'up'|'down'`, `tol?` (26.57, D111) | `crossings[] {t, values}` — the times where Σ c·q reaches `level` (refined between frames, in the given direction), `complete` (the recording covers `t1`), `scanned`, `tEnd` |
