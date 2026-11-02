@@ -183,14 +183,14 @@ async function removeBranch() {
     <div class="controls" :class="{ unb: unbounded }">
       <button class="btn icon ghost" :title="tl('回到开始（Home）')" :disabled="!rec" @click="pause(); seekFrame(0)"><Icon name="start" /></button>
       <button class="btn icon ghost" :title="tl('上一帧（←）')" :disabled="!rec" @click="step(-1)"><Icon name="stepb" /></button>
-      <button class="btn icon primary play" :title="state.playing ? tl('暂停播放（空格）') : tl('播放（空格）')" :aria-label="state.playing ? tl('暂停播放') : tl('播放')" :disabled="!rec" @click="toggle"><Icon :name="state.playing ? 'pause' : 'play'" /></button>
+      <button class="btn icon primary play" data-ui="play" :title="state.playing ? tl('暂停播放（空格）') : tl('播放（空格）')" :aria-label="state.playing ? tl('暂停播放') : tl('播放')" :disabled="!rec" @click="toggle"><Icon :name="state.playing ? 'pause' : 'play'" /></button>
       <button class="btn icon ghost" :title="tl('下一帧（→）')" :disabled="!rec" @click="step(1)"><Icon name="stepf" /></button>
       <button class="btn icon ghost" :title="tl('到结尾（End）')" :disabled="!rec" @click="pause(); seekFrame(lastFrame)"><Icon name="end" /></button>
       <span class="sep" />
       <button class="btn ghost small" :title="tl('上一个事件')" :disabled="!markers.length" @click="jumpEvent(-1)">◀<span class="ev-lbl"> {{ tl('事件') }}</span></button>
-      <button class="btn ghost small" :title="tl('下一个事件（跳到事件后的第一帧）')" :disabled="!markers.length" @click="jumpEvent(1)"><span class="ev-lbl">{{ tl('事件') }} </span>▶</button>
+      <button class="btn ghost small" data-ui="next-event" :title="tl('下一个事件（跳到事件后的第一帧）')" :disabled="!markers.length" @click="jumpEvent(1)"><span class="ev-lbl">{{ tl('事件') }} </span>▶</button>
       <span class="sep" />
-      <select v-model.number="state.speed" class="field speed" :title="tl('播放速度（仿真时间 / 真实时间）')">
+      <select v-model.number="state.speed" data-ui="speed" class="field speed" :title="tl('播放速度（仿真时间 / 真实时间）')">
         <option :value="0.05">0.05×</option>
         <option :value="0.1">0.1×</option>
         <option :value="0.25">0.25×</option>
@@ -201,7 +201,7 @@ async function removeBranch() {
       </select>
       <button class="btn icon ghost" :class="{ active: state.loop }" :title="tl('循环播放')" :aria-pressed="state.loop" @click="state.loop = !state.loop"><Icon name="loop" /></button>
       <span class="sep" />
-      <button class="btn ghost small branch-btn" :disabled="!branchable" :title="tl('从当前时刻建立分支：之后修改物体、连接件或参数，从此刻继续计算；原记录保留，可切换和在曲线中叠加对照（先暂停）')" @click="branchHere()"><Icon name="branch" :size="15" /><span class="br-lbl"> {{ tl('从此刻分支') }}</span></button>
+      <button class="btn ghost small branch-btn" data-ui="branch" :disabled="!branchable" :title="tl('从当前时刻建立分支：之后修改物体、连接件或参数，从此刻继续计算；原记录保留，可切换和在曲线中叠加对照（先暂停）')" @click="branchHere()"><Icon name="branch" :size="15" /><span class="br-lbl"> {{ tl('从此刻分支') }}</span></button>
       <template v-if="branches.length">
         <select v-model="branchValue" class="field branch-sel" :title="tl('切换主线与分支')">
           <option v-for="o in branchOptions" :key="o.id" :value="o.id">{{ o.label }}</option>
@@ -255,16 +255,17 @@ async function removeBranch() {
 @container (max-width: 560px) { .computing, .sep, .stop-btn { display: none; } .speed { width: 62px; } }
 .time { font-size: var(--type-body); font-weight: 600; margin: 0 8px; white-space: nowrap; }
 .frames { white-space: nowrap; }
-.track { position: relative; height: 22px; margin-top: 2px; }
-.rail, .computed, .played { position: absolute; left: 7px; right: 7px; top: 9px; height: 4px; border-radius: 999px; pointer-events: none; transform-origin: left; }
+.track { position: relative; height: 24px; margin-top: 2px; }
+.rail, .computed, .played { position: absolute; left: 7px; right: 7px; top: 10px; height: 4px; border-radius: 999px; pointer-events: none; transform-origin: left; }
 .rail { background: var(--fill-strong); }
 .computed { background: var(--accent-soft); transition: transform 200ms linear; }
 .played { background: color-mix(in srgb, var(--accent) 70%, transparent); }
-.track input { width: 100%; margin: 0; position: absolute; top: 4px; height: 14px; -webkit-appearance: none; appearance: none; background: transparent; cursor: pointer; }
+/* 26.59 (D160): the slider's hit area is the whole 24 px row; the thumb stays 14 px */
+.track input { width: 100%; margin: 0; position: absolute; top: 0; height: 24px; -webkit-appearance: none; appearance: none; background: transparent; cursor: pointer; }
 .track input:disabled { cursor: default; }
-.track input::-webkit-slider-runnable-track { height: 14px; background: transparent; }
+.track input::-webkit-slider-runnable-track { height: 24px; background: transparent; }
 .track input::-webkit-slider-thumb {
-  -webkit-appearance: none; appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--accent); border: 0;
+  -webkit-appearance: none; appearance: none; width: 14px; height: 14px; margin-top: 5px; border-radius: 50%; background: var(--accent); border: 0;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 0 0 2.5px var(--pane); transition: transform var(--dur-2) var(--ease-spring);
 }
 .track input::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: var(--accent); border: 0; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 0 0 2.5px var(--pane); }
@@ -276,4 +277,9 @@ async function removeBranch() {
 /* A situation with nothing to compare at all: an outline only */
 .fnow { position: absolute; top: 0; bottom: 0; width: 1.5px; margin-left: -0.75px; background: var(--accent); pointer-events: none; opacity: 0.8; }
 @container (max-width: 560px) { .ftl-btn { display: none; } }
+/* 26.59 (D176): phones — the transport row wraps; frame stepping, branches and the frame counter give way */
+@media (max-width: 600px) {
+  .controls { flex-wrap: wrap; row-gap: 4px; }
+  .controls .sep, .controls .frames, .controls .branch-btn, .controls .branch-sel, .controls .ftl-btn { display: none; }
+}
 </style>

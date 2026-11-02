@@ -1,0 +1,102 @@
+/**
+ * Categories of the built-in problems (26.59, D171): besides the chapter (on the problem), the model types, the level
+ * and the school stage. Kept apart from the problem texts so the 26.52 problem data stays as it was.
+ */
+/** Model types of the problem categories (26.59, D171): the shared vocabulary of the bank, the AI reader and Copilot. */
+export const CATEGORY_TYPES = ['连接体', '板块', '传送带', '斜面', '临界', '追及相遇', '弹簧', '圆周', '天体', '碰撞', '动量守恒', '能量守恒', '图像', '带电粒子', '复合场', '电磁感应', '浮力', '阻力', '转动', '振动', '统计', '电路', '光学', '热学', '近代物理', '静力平衡', '抛体', '匀变速']
+
+export type Level = 'basic' | 'advanced' | 'hard'
+export type Stage = 'junior' | 'senior' | 'university'
+export interface ProblemMeta { types: string[]; level: Level; stage: Stage }
+
+const m = (types: string[], level: Level = 'basic', stage: Stage = 'senior'): ProblemMeta => ({ types, level, stage })
+
+export const META: Record<string, ProblemMeta> = {
+  // 26.52
+  'k-free-fall': m(['匀变速', '抛体'], 'basic', 'junior'),
+  'k-pull': m(['匀变速']),
+  'k-incline': m(['斜面', '匀变速']),
+  'f-incline-rest': m(['斜面', '静力平衡', '临界']),
+  'f-lever': m(['静力平衡', '转动'], 'basic', 'junior'),
+  'f-table-rest': m(['连接体', '静力平衡', '临界'], 'advanced'),
+  'n-atwood': m(['连接体']),
+  'n-table': m(['连接体']),
+  'n-board': m(['板块'], 'hard'),
+  'n-conveyor': m(['传送带'], 'advanced'),
+  'n-wedge': m(['动量守恒', '斜面'], 'hard', 'university'),
+  'n-drag': m(['阻力'], 'advanced', 'university'),
+  'p-oblique': m(['抛体']),
+  'p-horizontal': m(['抛体']),
+  'p-from-height': m(['抛体'], 'advanced'),
+  'c-uniform': m(['圆周']),
+  'c-rod': m(['圆周', '临界'], 'advanced'),
+  'c-rope': m(['圆周', '临界'], 'advanced'),
+  'g-circle': m(['天体']),
+  'g-ellipse': m(['天体'], 'advanced', 'university'),
+  'e-pendulum': m(['能量守恒', '圆周']),
+  'e-work': m(['能量守恒']),
+  'e-rod': m(['能量守恒', '转动'], 'advanced', 'university'),
+  'm-elastic': m(['碰撞', '动量守恒']),
+  'm-inelastic': m(['碰撞', '动量守恒']),
+  'm-spring': m(['弹簧', '动量守恒'], 'advanced'),
+  'o-spring': m(['振动', '弹簧']),
+  'o-pendulum': m(['振动']),
+  'r-rolling': m(['转动', '斜面'], 'advanced', 'university'),
+  'r-slip': m(['转动'], 'hard', 'university'),
+  // 26.59
+  'k-pursuit': m(['追及相遇', '匀变速']),
+  'k-slope-up': m(['斜面', '匀变速'], 'advanced'),
+  'f-two-ropes': m(['静力平衡']),
+  'f-wheel-axle': m(['静力平衡', '转动'], 'basic', 'junior'),
+  'f-incline-stick': m(['斜面', '静力平衡', '临界']),
+  'n-incline-pulley': m(['连接体', '斜面'], 'advanced'),
+  'n-movable-pulley': m(['连接体'], 'advanced'),
+  'n-elevator': m(['连接体', '弹簧']),
+  'n-conveyor-incline': m(['传送带', '斜面', '临界'], 'hard'),
+  'n-variable-force': m(['图像'], 'advanced', 'university'),
+  'n-pull-angle': m(['匀变速']),
+  'p-top-speed': m(['抛体']),
+  'p-throw-down': m(['抛体', '能量守恒'], 'advanced'),
+  'p-slope': m(['抛体', '斜面'], 'advanced'),
+  'e-efficiency': m(['斜面', '能量守恒'], 'basic', 'junior'),
+  'e-slider-stop': m(['能量守恒', '碰撞']),
+  'e-bounce-loss': m(['碰撞', '能量守恒']),
+  'e-slope-heat': m(['斜面', '能量守恒'], 'advanced'),
+  'g-binary': m(['天体', '圆周'], 'advanced'),
+  'g-kepler': m(['天体']),
+  'g-cosmic': m(['天体']),
+  'm-three-balls': m(['碰撞', '动量守恒']),
+  'm-pendulums': m(['碰撞', '动量守恒', '能量守恒'], 'advanced'),
+  'm-oblique': m(['碰撞', '动量守恒'], 'hard', 'university'),
+  'm-bounce': m(['碰撞']),
+  'o-vertical-spring': m(['振动', '弹簧']),
+  'o-physical': m(['振动', '转动'], 'advanced', 'university'),
+  'o-resonance': m(['振动', '弹簧', '阻力'], 'advanced', 'university'),
+  'r-motor-disc': m(['转动'], 'basic', 'university'),
+  'r-gears': m(['转动'], 'advanced', 'university'),
+  'r-rolling-resistance': m(['转动', '阻力'], 'hard', 'university'),
+  'r-ball-rod': m(['转动', '碰撞'], 'hard', 'university'),
+  'es-coulomb': m(['带电粒子']),
+  'es-deflection': m(['带电粒子', '抛体'], 'advanced'),
+  'es-oscilloscope': m(['带电粒子', '复合场'], 'advanced'),
+  'es-charged-pendulum': m(['带电粒子', '圆周', '临界'], 'hard'),
+  'es-oil-drop': m(['带电粒子', '阻力']),
+  'mg-circle': m(['带电粒子', '圆周']),
+  'mg-selector': m(['带电粒子', '复合场']),
+  'mg-spectrometer': m(['带电粒子', '复合场'], 'advanced'),
+  'mg-bounded': m(['带电粒子', '圆周', '临界'], 'advanced'),
+  'mg-round': m(['带电粒子', '圆周'], 'hard'),
+  'mg-combo': m(['带电粒子', '复合场'], 'hard'),
+  'in-rail-force': m(['电磁感应'], 'advanced'),
+  'in-rail-coast': m(['电磁感应', '能量守恒'], 'advanced'),
+  'in-rail-fall': m(['电磁感应']),
+  'fl-floating': m(['浮力'], 'basic', 'junior'),
+  'fl-sinking': m(['浮力', '匀变速']),
+  'fl-weigh': m(['浮力', '弹簧'], 'basic', 'junior'),
+  'fl-boat': m(['浮力'], 'basic', 'junior'),
+  'fl-rising': m(['浮力']),
+  'fl-densities': m(['浮力'], 'basic', 'junior')
+}
+
+export const LEVEL_LABEL: Record<Level, string> = { basic: '基础', advanced: '提高', hard: '压轴' }
+export const STAGE_LABEL: Record<Stage, string> = { junior: '初中', senior: '高中', university: '大学' }

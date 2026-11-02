@@ -33,7 +33,13 @@ const props = defineProps<{ id: string }>()
 const model = computed<ModelSpec>(() => modelById(props.id)!)
 const inputs = reactive<Record<string, number>>({})
 const constantsSet = ref('CODATA2022')
-function resetInputs() { for (const k of Object.keys(inputs)) delete inputs[k]; Object.assign(inputs, exampleInputs(model.value)) }
+function resetInputs() {
+  for (const k of Object.keys(inputs)) delete inputs[k]
+  Object.assign(inputs, exampleInputs(model.value))
+  // 26.59 (D163): values read from a problem by the AI or set by Copilot
+  const preset = state.modelPreset
+  if (preset && preset.id === model.value.id) Object.assign(inputs, preset.inputs)
+}
 watch(() => props.id, resetInputs, { immediate: true })
 
 const run = computed(() => tryEval(props.id, { ...inputs }, constantsSet.value))

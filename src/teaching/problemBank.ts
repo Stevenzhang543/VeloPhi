@@ -1,5 +1,6 @@
 /**
- * 26.52 built-in problems (D40 revised): 30 problems in textbook chapter order, each a template with parameters
+ * 26.52 built-in problems (D40 revised): 30 problems in textbook chapter order (81 since 26.59, D171: the rest in
+ * problemBank2659.ts), each a template with parameters
  * plus a stem and questions. The stem names the parameters as `{key}` placeholders filled from the scene, and the
  * answers are read from the simulation, so "another set of numbers" (random parameters in each problem's `vary`
  * ranges) gives a new problem with correct answers. Texts are trilingual inline.
@@ -9,6 +10,7 @@
 import type { Tri } from '../i18n/tri'
 import { buildTemplate } from '../templates'
 import type { ChapterId, ChoiceQuestion, NumericQuestion, Problem, ProblemQuestion, ProblemTarget } from './problems'
+import { PROBLEMS_2659 } from './problemBank2659'
 
 /** A built-in problem: a template with parameters, its texts and questions. */
 export interface BuiltinProblem {
@@ -396,7 +398,9 @@ export const BUILTIN_PROBLEMS: BuiltinProblem[] = [
       num('v', T('开始纯滚动时质心的速度是多少？', 'What is the speed of its centre when it starts rolling?', 'Wie schnell ist der Mittelpunkt, wenn das Rollen beginnt?'), formula('roll-slip', 'rs.v'),
         { explain: T('v = ⅔v₀。', 'v = ⅔v₀.', 'v = ⅔v₀.') })
     ]
-  }
+  },
+  // 26.59 (D171): 51 more problems, four new chapters
+  ...PROBLEMS_2659
 ]
 
 /** Id of each built-in problem (problem ids are stable across versions). */

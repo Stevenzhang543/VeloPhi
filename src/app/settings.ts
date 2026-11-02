@@ -72,6 +72,8 @@ export interface EffectSettings {
   trailSeconds: number
   /** Follow the OS "reduce motion" setting. */
   respectReducedMotion: boolean
+  /** 26.59 (D159): solid surfaces instead of glass; 'system' follows prefers-reduced-transparency. */
+  reduceTransparency: 'system' | 'on' | 'off'
 }
 
 /** Editor preferences. */
@@ -176,6 +178,42 @@ export interface TeachingSettings {
   tape: { period: number; every: number }
 }
 
+/** A provider of the user's own key (26.59, D148). */
+export interface AiProvider {
+  /** Base URL: OpenAI-compatible `…/v1`-style root (the path `/chat/completions` is added), or Anthropic's root. */
+  baseUrl: string
+  model: string
+  /** The model accepts images (problem photos). */
+  vision: boolean
+}
+
+/** AI features (26.59, D147–D154, D167–D172). The user's own keys are kept apart (ai/keys.ts). */
+export interface AiSettings {
+  /** 'official': the maintainer's AI after signing in; 'openai' / 'anthropic': the user's own key. */
+  connection: 'official' | 'openai' | 'anthropic'
+  openai: AiProvider
+  anthropic: AiProvider
+  /** Desktop: HTTP proxy for the user's own provider ('' = the system proxy). */
+  proxy: string
+  /** The problem import bar above the canvas (D172). */
+  importBar: boolean
+  /** The Copilot button and panel (D167). */
+  copilot: boolean
+  /** 'act': Copilot changes the app directly (each change can be undone); 'ask': it asks first. */
+  copilotMode: 'act' | 'ask'
+  /** Learning mode (D169): hints first, the values only after the student's own answer. */
+  learningMode: boolean
+  /** Send a summary of the current scene and results with Copilot questions (D154). */
+  shareScene: boolean
+  /** Answers of AI-read problems are shown at once (teacher) or folded until revealed (student). */
+  revealAnswers: boolean
+  /** 26.59 fix: "深度思考" for Copilot (DeepSeek thinking mode; slower, more tokens). */
+  thinking: boolean
+  /** 26.59 fix (D183): the Copilot dock is open, and its width (px). */
+  dockOpen: boolean
+  dockWidth: number
+}
+
 /** All preferences. */
 export interface AppSettings {
   /** Interface language (D27): 'auto' follows the system. Never stored in scene files. */
@@ -214,6 +252,8 @@ export interface AppSettings {
   /** Layout: folded sections, tool rail, animations (26.52). */
   ui: UiSettings
   teaching: TeachingSettings
+  /** AI connection and features (26.59). */
+  ai: AiSettings
   /** Version of the stored settings (for one-time migrations), e.g. 2651 for 26.51. */
   rev: number
 }
@@ -234,7 +274,7 @@ function defaults(): AppSettings {
     decimalSeparator: 'point',
     display: { velocity: true, acceleration: false, forces: true, forcesAll: false, trajectory: true, labels: true, grid: true, axes: true, names: true, strobe: false, strobeInterval: 0.1, strobeCount: 10, strobeOpacity: 0.55, strobeLabels: false, fields: true, fieldLines: false, equipotentials: false, contactPoints: false, manyBody: true },
     defaultGravity: 9.8,
-    effects: { quality: 'standard', glass: true, ambient: true, motionBlur: true, shutter: 0.5, particles: true, trails: false, trailSeconds: 0.6, respectReducedMotion: true },
+    effects: { quality: 'standard', glass: true, ambient: true, motionBlur: true, shutter: 0.5, particles: true, trails: false, trailSeconds: 0.6, respectReducedMotion: true, reduceTransparency: 'system' },
     editor: { snap: false, objectSnap: true, snapStep: 0, angleSnap: 0 },
     knowledge: { curriculum: 'auto', level: 2 },
     sim: { worker: true, progressive: true, budgetSeconds: 60, lookAheadSeconds: 20, memoryMB: 512, engine: 'auto' },
@@ -242,12 +282,27 @@ function defaults(): AppSettings {
     trialLog: false,
     ui: { sections: {}, toolRail: false, motion: true, formula: { density: 'compact', group: 'situation', pinned: [], body: '', category: '', verdict: 'all', pinnedOnly: false, timeline: true }, toolTab: 'body', rightTab: 'formula', analysisTab: 'formula', lab: 'circuit', labView: 'topic', learnDone: [], learnStage: 'j', welcomed: false },
     teaching: { fbd: { layout: 'actual', body: 'shape', magnitudes: true, decompose: 'none', resultant: false }, tape: { period: 0.02, every: 5 } },
+    ai: {
+      connection: 'official',
+      openai: { baseUrl: 'https://api.openai.com/v1', model: 'gpt-4o-mini', vision: true },
+      anthropic: { baseUrl: 'https://api.anthropic.com', model: 'claude-sonnet-4-5', vision: true },
+      proxy: '',
+      importBar: true,
+      copilot: true,
+      copilotMode: 'act',
+      learningMode: false,
+      shareScene: true,
+      revealAnswers: true,
+      thinking: false,
+      dockOpen: true,
+      dockWidth: 380
+    },
     rev: SETTINGS_REV
   }
 }
 
 /** Current settings revision. */
-const SETTINGS_REV = 2652
+const SETTINGS_REV = 2659
 
 /** The live, reactive preferences (saved automatically). */
 export const settings = reactive<AppSettings>(defaults())
@@ -262,7 +317,8 @@ export const SETTINGS_SECTIONS = {
   knowledge: ['knowledge'],
   sim: ['sim'],
   export: ['export'],
-  privacy: ['trialLog']
+  privacy: ['trialLog'],
+  ai: ['ai']
 } satisfies Record<string, Array<keyof AppSettings>>
 
 /** A section of the settings page. */
@@ -326,15 +382,18 @@ export function texQ(v: number | null, siUnit: string, digits: number = settings
 
 const mq = (q: string) => (typeof matchMedia === 'function' ? matchMedia(q) : null)
 const reducedMotionQuery = mq('(prefers-reduced-motion: reduce)')
+const reducedTransparencyQuery = mq('(prefers-reduced-transparency: reduce)')
 const darkQuery = mq('(prefers-color-scheme: dark)')
 
 /** Live operating-system state the appearance depends on. */
 export const sysEnv = reactive({
   reducedMotion: !!reducedMotionQuery?.matches,
+  reducedTransparency: !!reducedTransparencyQuery?.matches,
   prefersDark: !!darkQuery?.matches,
   hidden: typeof document !== 'undefined' ? document.hidden : false
 })
 reducedMotionQuery?.addEventListener?.('change', e => { sysEnv.reducedMotion = e.matches })
+reducedTransparencyQuery?.addEventListener?.('change', e => { sysEnv.reducedTransparency = e.matches })
 darkQuery?.addEventListener?.('change', e => { sysEnv.prefersDark = e.matches })
 if (typeof document !== 'undefined') document.addEventListener('visibilitychange', () => { sysEnv.hidden = document.hidden })
 
@@ -347,6 +406,12 @@ export function effectiveTheme(): 'light' | 'dark' {
 /** True when animations should stay still (OS preference honoured). */
 export function calmMotion(): boolean { return !settings.ui.motion || (settings.effects.respectReducedMotion && sysEnv.reducedMotion) }
 
+/** 26.59 (D159): glass surfaces become solid (the setting, or the system preference in 'system' mode). */
+export function solidSurfaces(): boolean {
+  const r = settings.effects.reduceTransparency
+  return r === 'on' || (r === 'system' && sysEnv.reducedTransparency)
+}
+
 /** Effective effect switches after the quality level and the OS motion preference. */
 export function effectiveEffects(): EffectSettings {
   const e = settings.effects
@@ -354,7 +419,7 @@ export function effectiveEffects(): EffectSettings {
   const calm = calmMotion()
   return {
     ...e,
-    glass: !off && e.glass && !settings.projector,
+    glass: !off && e.glass && !settings.projector && !solidSurfaces(),
     ambient: !off && e.ambient && !settings.projector,
     motionBlur: !off && !calm && e.motionBlur,
     particles: !off && !calm && e.particles,
@@ -410,6 +475,17 @@ function sanitize() {
   if (!['default', 'compact'].includes(settings.density)) settings.density = d.density
   if (!['standard', 'cvd'].includes(settings.palette)) settings.palette = d.palette
   if (!['ui', 'zh', 'en', 'de'].includes(settings.export.language)) settings.export.language = d.export.language
+  if (!['system', 'on', 'off'].includes(settings.effects.reduceTransparency)) settings.effects.reduceTransparency = d.effects.reduceTransparency
+  const ai = settings.ai
+  if (!['official', 'openai', 'anthropic'].includes(ai.connection)) ai.connection = d.ai.connection
+  if (!['act', 'ask'].includes(ai.copilotMode)) ai.copilotMode = d.ai.copilotMode
+  for (const k of ['openai', 'anthropic'] as const) {
+    const pr = ai[k]
+    if (typeof pr.baseUrl !== 'string' || !/^https?:\/\//.test(pr.baseUrl)) pr.baseUrl = d.ai[k].baseUrl
+    pr.baseUrl = pr.baseUrl.trim().replace(/\/+$/, '')
+    if (typeof pr.model !== 'string' || !pr.model.trim()) pr.model = d.ai[k].model
+  }
+  if (typeof ai.proxy !== 'string') ai.proxy = ''
   const fb = settings.teaching.fbd
   if (!['actual', 'concurrent'].includes(fb.layout)) fb.layout = d.teaching.fbd.layout
   if (!['shape', 'particle'].includes(fb.body)) fb.body = d.teaching.fbd.body

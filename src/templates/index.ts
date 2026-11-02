@@ -19,6 +19,7 @@ import type { ForceDef, RodDef, RopeDef, SpringDef, HingeDef, WeldDef, MotorDef,
 import { TEMPLATES_2655 } from './t2655'
 import { TEMPLATES_2657 } from './t2657'
 import { TEMPLATES_2658 } from './t2658'
+import { TEMPLATES_2659 } from './t2659'
 import type { TemplatePreset } from './t2657'
 
 /** A template parameter: key, label, display unit ('°' for angles), default value and limits. */
@@ -673,7 +674,9 @@ export const TEMPLATES: TemplateInfo[] = trDeep([
   // 26.57: the incline with μs and μk apart (D112)
   ...TEMPLATES_2657,
   // 26.58: many bodies with the many-body solver (D142)
-  ...TEMPLATES_2658
+  ...TEMPLATES_2658,
+  // 26.59 fix: a ball thrown horizontally lands on the incline (D185)
+  ...TEMPLATES_2659
 ])
 
 /**

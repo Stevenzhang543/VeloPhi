@@ -86,7 +86,6 @@ export const TEXTS_SETTINGS: Record<string, readonly [string, string]> = {
   '效果质量': ['Effect quality', 'Effektqualität'],
   '“关闭”停用下面全部效果；“高”使背景连续流动、模糊更细腻。': ['“Off” disables all effects below; “High” animates the background continuously and smooths the blur.', '„Aus“ schaltet alle Effekte unten ab; „Hoch“ bewegt den Hintergrund fortlaufend und glättet die Unschärfe.'],
   '玻璃质感': ['Glass panels', 'Glaseffekt'],
-  '半透明面板（背景模糊与饱和），指针经过时有柔和高光。': ['Translucent panels (blurred, saturated background) with a soft highlight under the pointer.', 'Durchscheinende Bereiche (unscharfer, gesättigter Hintergrund) mit weichem Glanz unter dem Mauszeiger.'],
   '动态背景': ['Animated background', 'Bewegter Hintergrund'],
   '面板后柔和流动的色彩；窗口不可见时自动暂停。': ['Softly flowing colours behind the panels; pauses while the window is hidden.', 'Sanft fließende Farben hinter den Bereichen; pausiert, wenn das Fenster verborgen ist.'],
   '运动模糊': ['Motion blur', 'Bewegungsunschärfe'],

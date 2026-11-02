@@ -513,9 +513,9 @@ function toggleMode() {
       <template v-else>
       <span class="small muted">{{ tl('曲线：') }}</span>
       <button v-if="taskCharts.length" class="btn small active" :title="tl('当前任务所求的量随时间的变化')" @click="taskPreset">{{ tl('任务') }}</button>
-      <button class="btn small" :disabled="!rec" @click="preset('kin')">x‑t / v‑t / a‑t</button>
-      <button class="btn small" :disabled="!rec" @click="preset('energy')">{{ tl('能量') }}</button>
-      <button class="btn small" :disabled="!rec" @click="preset('force')">{{ tl('受力') }}</button>
+      <button class="btn small" data-ui="chart-kin" :disabled="!rec" @click="preset('kin')">x‑t / v‑t / a‑t</button>
+      <button class="btn small" data-ui="chart-energy" :disabled="!rec" @click="preset('energy')">{{ tl('能量') }}</button>
+      <button class="btn small" data-ui="chart-force" :disabled="!rec" @click="preset('force')">{{ tl('受力') }}</button>
       <button class="btn small ghost" :disabled="!state.chart.length" @click="state.chart = []">{{ tl('清空') }}</button>
       <button class="btn small" :disabled="!rec" :title="tl('把实验测得的数据（CSV）叠加到曲线上比较')" @click="showMeasured = true">{{ tl('实测数据…') }}</button>
       <button v-if="state.branch !== null" class="btn small" :class="{ active: overlay }" :aria-pressed="overlay" :title="tl('在曲线中用虚线叠加父分支的同一物理量')" @click="overlay = !overlay">{{ tl('叠加父分支') }}</button>

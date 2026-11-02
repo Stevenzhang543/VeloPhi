@@ -1,12 +1,15 @@
 <script setup lang="ts">
 /**
- * Welcome page (26.58, D138): shown once on the first start (and from Help / Ctrl+K). Three ways in — teach a
- * lesson, practise as a student, experiment freely — and the 60-second tour. Teachers named setup, time and
+ * Welcome page (26.58, D138): shown once on the first start (and from Help / Ctrl+K). Four ways in — teach a
+ * lesson, practise as a student, paste a problem for the AI to read (26.59, D172), experiment freely — and the
+ * 60-second tour. Playback pauses while it is open (26.59, UX3). Teachers named setup, time and
  * training as their main obstacles (docs/DEV_MANUAL_26_58.md §1): each card leads straight to ready content.
  */
+import { onMounted } from 'vue'
 import { vDialog } from '../focusTrap'
 import { tl } from '../../i18n'
-import { state } from '../store'
+import { state, pause } from '../store'
+import { setCopilotOpen } from '../layout'
 import { settings } from '../settings'
 import { openTemplate } from '../learn/actions'
 import { newScene } from '../files'
@@ -32,6 +35,16 @@ async function explore(kind: 'blank' | 'many') {
   if (kind === 'blank') await newScene()
   else await openTemplate('galton')
 }
+/** Paste a problem: the import bar above the canvas, focused (it is switched on if it was off). */
+function paste() {
+  done()
+  state.page = 'studio'
+  // 26.59 fix (D182): problems are pasted into the Copilot box ("识别题目")
+  settings.ai.copilot = true
+  setCopilotOpen(true)
+  setTimeout(() => window.dispatchEvent(new CustomEvent('velophi:focus-import')), 120)
+}
+onMounted(() => { if (state.playing) pause() })
 function tour() {
   done()
   state.page = 'studio'
@@ -61,6 +74,11 @@ function tour() {
             <b>{{ tl('学生练习') }}</b>
             <span>{{ tl('按课程顺序的学习路径：先预测、再观察、最后解释；题目答案由仿真给出。') }}</span>
           </button>
+          <button class="card" @click="paste">
+            <Icon name="wand" :size="22" />
+            <b>{{ tl('粘贴一道题') }}</b>
+            <span>{{ tl('粘贴题目文字或截图，AI 读题、分类并建好场景，答案由引擎计算。需要登录或填写自己的 API key。') }}</span>
+          </button>
           <div class="card two">
             <Icon name="flask" :size="22" />
             <b>{{ tl('自由实验') }}</b>
@@ -87,7 +105,7 @@ function tour() {
 .hero .logo { width: 56px; height: 56px; flex: 0 0 auto; }
 .hero h2 { margin: 0 0 4px; font-size: 22px; }
 .hero p { margin: 0; line-height: 1.55; }
-.cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
 .card { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; text-align: left; padding: 14px; border-radius: var(--radius-group); border: 1px solid var(--border); background: var(--panel); color: var(--text); font: inherit; line-height: 1.5; cursor: pointer; }
 .card.two { cursor: default; }
 button.card:hover, button.card:focus-visible { border-color: var(--accent); background: var(--accent-soft); }

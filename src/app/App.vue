@@ -50,13 +50,19 @@ import CanvasPins from './components/task/CanvasPins.vue'
 const SettingsPage = defineAsyncComponent(() => import('./components/SettingsPage.vue'))
 const LabPage = defineAsyncComponent(() => import('./components/lab/LabPage.vue'))
 import DetailPanel from './components/DetailPanel.vue'
+// 26.59 (D167, D172): the problem import bar and Copilot
+import Spotlight from './components/ai/Spotlight.vue'
+// 26.59 fix (D183): Copilot is a dock at the right edge, next to the pages
+const CopilotDock = defineAsyncComponent(() => import('./components/ai/CopilotDock.vue'))
 import { isDesktop } from '../platform/files'
 import { PAGE_ACTIVE } from './live'
 import { settings } from './settings'
 import { vSlideIndicator } from './slideIndicator'
 import Icon from './components/Icon.vue'
 import { logEvent } from './trialLog'
-import { drawerOpen, narrow, railOn } from './layout'
+import { drawerOpen, narrow, railOn, setCopilotOpen } from './layout'
+// The dock starts as it was left (closed on narrow windows, where it covers the page)
+state.showCopilot = settings.ai.dockOpen && !narrow.value
 
 const bottomHeight = ref(290)
 const rightWidth = ref(380)
@@ -104,6 +110,8 @@ function onKey(e: KeyboardEvent) {
   if (mod && e.key === ',') { e.preventDefault(); state.page = 'settings'; return }
   // 26.55 (D96): global search, also from inside a text field
   if (mod && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'k') { e.preventDefault(); state.showPalette = !state.showPalette; return }
+  // 26.59 (D167): Copilot
+  if (mod && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'i' && settings.ai.copilot) { e.preventDefault(); setCopilotOpen(!state.showCopilot); return }
   if (e.altKey && !mod && PAGE_KEYS[e.code]) { e.preventDefault(); state.page = PAGE_KEYS[e.code]; return }
   if (typing(e)) return
   if (mod && e.key.toLowerCase() === 'z' && !e.shiftKey) { e.preventDefault(); undo(); return }
@@ -206,6 +214,7 @@ watch(() => state.problem, p => { if (!p && state.rightTab === 'problem') state.
   <div class="ambient" aria-hidden="true"><i /><i /><i /><i /></div>
   <div :key="locale.lang" class="app" :style="{ '--bottom-h': `${bottomHeight}px`, '--right-w': `${rightWidth}px` }">
     <TopBar class="top" />
+    <div class="workspace">
     <div class="pages">
         <div class="page page-studio" :class="[pageClass('studio'), { rail: railOn, narrow, 'drawer-open': drawerOpen }]" :inert="!studioOn">
           <aside class="left"><LeftPanel /></aside>
@@ -215,7 +224,7 @@ watch(() => state.problem, p => { if (!p && state.rightTab === 'problem') state.
             <section class="pane bottom">
               <Timeline :active="studioOn" />
               <div class="bottom-tabs">
-                <div v-slide-indicator class="tabs"><button :class="{ on: state.bottomTab === 'chart' }" @click="state.bottomTab = 'chart'">{{ tl('曲线') }}</button><button :class="{ on: state.bottomTab === 'events' }" @click="state.bottomTab = 'events'">{{ tl('事件') }}</button></div>
+                <div v-slide-indicator class="tabs"><button data-ui="bottom-chart" :class="{ on: state.bottomTab === 'chart' }" @click="state.bottomTab = 'chart'">{{ tl('曲线') }}</button><button data-ui="bottom-events" :class="{ on: state.bottomTab === 'events' }" @click="state.bottomTab = 'events'">{{ tl('事件') }}</button></div>
               </div>
               <div class="bottom-body">
                 <ChartPanel :class="tabClass(state.bottomTab === 'chart')" :inert="state.bottomTab !== 'chart'" :active="studioOn && state.bottomTab === 'chart'" />
@@ -229,11 +238,11 @@ watch(() => state.problem, p => { if (!p && state.rightTab === 'problem') state.
           <aside class="pane right">
             <div class="right-head">
               <div v-slide-indicator class="tabs" :class="{ four: true, five: !!state.problem }" role="tablist">
-                <button v-for="t in RIGHT_TABS" :key="t.id" role="tab" :aria-selected="topTab === t.id" :class="{ on: topTab === t.id }" @click="openTop(t.id)">{{ t.label }}</button>
+                <button v-for="t in RIGHT_TABS" :key="t.id" :data-ui="`tab-${t.id}`" role="tab" :aria-selected="topTab === t.id" :class="{ on: topTab === t.id }" @click="openTop(t.id)">{{ t.label }}</button>
               </div>
               <!-- Second level of the analysis tab (D86) -->
               <div v-if="topTab === 'analysis'" class="subtabs" role="tablist" :aria-label="tl('分析')">
-                <button v-for="t in ANALYSIS_TABS" :key="t.id" role="tab" :aria-selected="state.rightTab === t.id" :class="{ on: state.rightTab === t.id }" @click="state.rightTab = t.id">{{ t.label }}</button>
+                <button v-for="t in ANALYSIS_TABS" :key="t.id" :data-ui="`sub-${t.id}`" role="tab" :aria-selected="state.rightTab === t.id" :class="{ on: state.rightTab === t.id }" @click="state.rightTab = t.id">{{ t.label }}</button>
               </div>
             </div>
             <div class="tab-stack">
@@ -252,6 +261,8 @@ watch(() => state.problem, p => { if (!p && state.rightTab === 'problem') state.
         <SettingsPage v-if="mounted.settings" class="page" :class="pageClass('settings')" :inert="state.page !== 'settings'" :active="state.page === 'settings'" />
         <DetailPanel />
     </div>
+    <CopilotDock v-if="settings.ai.copilot" />
+    </div>
     <TemplateGallery v-if="state.showTemplates" />
     <ExportDialog v-if="state.showExport && state.recording" />
     <AboutDialog v-if="state.showAbout" />
@@ -268,7 +279,11 @@ watch(() => state.problem, p => { if (!p && state.rightTab === 'problem') state.
     <CommandPalette v-if="state.showPalette" />
     <ModelCatalog v-if="state.showModels" />
     <ActivityRunner v-if="state.activity" :key="state.activity" />
-    <div v-if="state.toast" class="toast" :class="{ error: state.toast.error }" role="status">{{ state.toast.text }}</div>
+    <Spotlight />
+    <!-- 26.59 (D157): two live regions that always exist (polite status, assertive alert), so every message is announced -->
+    <div class="sr-only" role="status" aria-live="polite">{{ state.toast && !state.toast.error ? state.toast.text : '' }}</div>
+    <div class="sr-only" role="alert">{{ state.toast?.error ? state.toast.text : '' }}</div>
+    <div v-if="state.toast" class="toast" :class="{ error: state.toast.error }">{{ state.toast.text }}<button v-if="state.toast.error" type="button" class="toast-x" :aria-label="tl('关闭')" @click="state.toast = null">×</button></div>
   </div>
 </template>
 
@@ -282,7 +297,8 @@ watch(() => state.problem, p => { if (!p && state.rightTab === 'problem') state.
   padding: 0 8px 8px;
 }
 .top { flex: 0 0 auto; }
-.pages { flex: 1; min-height: 0; display: grid; position: relative; }
+.workspace { flex: 1; min-height: 0; display: flex; }
+.pages { flex: 1; min-width: 0; min-height: 0; display: grid; position: relative; }
 .page { grid-area: 1 / 1; min-width: 0; min-height: 0; }
 .page-studio {
   display: grid;
@@ -315,11 +331,14 @@ watch(() => state.problem, p => { if (!p && state.rightTab === 'problem') state.
 .subtabs button.on { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
 .tab-stack { flex: 1; min-height: 0; position: relative; }
 .tab-panel { position: absolute; inset: 0; overflow: auto; padding: 4px 12px 12px; }
-/* 26.55 (D96): narrow windows — the right panel becomes a drawer over the canvas; phones stack the bottom pane */
+/* 26.55 (D96): narrow windows — the right panel becomes a drawer over the canvas; phones stack the bottom pane.
+   26.59 fix: the closed drawer is clipped, so it does not widen the page (a wider page made phones zoom out and the
+   full-screen Copilot wider than the screen). */
 .drawer-btn { display: none; }
-.page-studio.narrow { grid-template-columns: var(--left-w) 1fr; grid-template-areas: 'left center'; position: relative; }
+.page-studio.narrow { grid-template-columns: var(--left-w) 1fr; grid-template-areas: 'left center'; position: relative; overflow: clip; }
 .page-studio.narrow .split-v { display: none; }
-.page-studio.narrow .drawer-btn { display: inline-flex; position: absolute; top: 10px; right: 12px; z-index: 6; gap: 4px; box-shadow: var(--shadow); }
+/* 26.59: bottom right of the canvas */
+.page-studio.narrow .drawer-btn { display: inline-flex; position: absolute; bottom: 12px; right: 14px; z-index: 6; gap: 4px; box-shadow: var(--shadow); }
 .page-studio.narrow .right { grid-area: auto; background: var(--pane); position: absolute; top: 0; right: 0; bottom: 0; width: min(var(--right-w), 92vw); z-index: 5; transform: translateX(105%); transition: transform 0.2s ease; box-shadow: -8px 0 24px rgba(0, 0, 0, 0.18); }
 .page-studio.narrow.drawer-open .right { transform: none; }
 .page-studio.narrow.drawer-open .drawer-btn { top: auto; bottom: 12px; right: 14px; }

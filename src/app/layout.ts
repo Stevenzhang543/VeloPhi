@@ -5,6 +5,7 @@
  */
 import { computed, ref } from 'vue'
 import { settings } from './settings'
+import { state } from './store'
 
 const mq = (q: string) => (typeof window !== 'undefined' && window.matchMedia ? window.matchMedia(q) : null)
 const narrowQ = mq('(max-width: 1100px)')
@@ -21,3 +22,12 @@ phoneQ?.addEventListener?.('change', e => { phone.value = e.matches })
 export const railOn = computed(() => settings.ui.toolRail || narrow.value)
 /** The right panel drawer of a narrow window is open. */
 export const drawerOpen = ref(false)
+
+/**
+ * Open or collapse the Copilot dock (26.59 fix, D183). Wide windows remember it; on narrow windows the dock is an
+ * overlay that starts closed.
+ */
+export function setCopilotOpen(open: boolean) {
+  state.showCopilot = open
+  if (!narrow.value) settings.ai.dockOpen = open
+}

@@ -1,9 +1,9 @@
-# Packages a finished build into releases\v26.58 (no rebuild). Run from the repository root.
-# Never deletes: an existing releases\v26.58 is moved aside to .cache\superseded-<time> first.
+# Packages a finished build into releases\v26.59 (no rebuild). Run from the repository root.
+# Never deletes: an existing releases\v26.59 is moved aside to .cache\superseded-<time> first.
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
-$Version = '26.58'
-$Full = '26.58.0'
+$Version = '26.59'
+$Full = '26.59.0'
 $Root = (Get-Location).Path
 $Out = Join-Path $Root "releases\v$Version"
 $Ev = Join-Path $Root ".cache\evidence-$Version"
@@ -18,7 +18,14 @@ foreach ($f in @($exe, $setup, (Join-Path $Root 'dist\index.html'))) { if (-not 
 if (Test-Path $Out) {
   $aside = Join-Path $Root (".cache\superseded-" + (Get-Date -Format 'yyyyMMdd-HHmmss'))
   New-Item -ItemType Directory -Force -Path $aside | Out-Null
-  Move-Item -Path $Out -Destination $aside
+  # A VeloPhi just closed (WebView2 helpers) or a virus scan can hold files for a few seconds: retry
+  for ($try = 1; ; $try++) {
+    try { Move-Item -Path $Out -Destination $aside -ErrorAction Stop; break }
+    catch {
+      if ($try -ge 20) { Fail "cannot move the previous $Out aside (a file in it is in use; close VeloPhi and Explorer windows showing it): $($_.Exception.Message)" }
+      Start-Sleep -Seconds 3
+    }
+  }
   Write-Host "previous release folder moved to $aside"
 }
 New-Item -ItemType Directory -Force -Path $Out | Out-Null
@@ -30,11 +37,30 @@ New-Item -ItemType Directory -Force -Path $Ev | Out-Null
 Copy-Item $exe (Join-Path $Out "VeloPhi-v$Version-windows-x64-portable.exe")
 Copy-Item $setup (Join-Path $Out "VeloPhi-v$Version-windows-x64-setup.exe")
 
+# Android APK (26.59, D176): built by scripts\android\build-apk.ps1 into .cache\android-26.59
+$android = Join-Path $Root ".cache\android-$Version"
+$apk = Join-Path $android "VeloPhi-v$Version-android.apk"
+if (-not (Test-Path $apk)) { Fail "missing $apk (run scripts\android\build-apk.cmd)" }
+Copy-Item $apk (Join-Path $Out "VeloPhi-v$Version-android.apk")
+Copy-Item (Join-Path $android 'apk-signature.txt') $Ev -ErrorAction SilentlyContinue
+$alog = Get-ChildItem (Join-Path $Root '.cache') -Filter "android-$Version*.log" -File -ErrorAction SilentlyContinue |
+  Where-Object { $_.Name -notmatch '-try' } | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+if ($alog) { Copy-Item $alog.FullName (Join-Path $Ev "android-$Version.log") }
+
 # Web package: the built front end + hosting notes
 $web = Join-Path $Stage 'web'
 New-Item -ItemType Directory -Force -Path $web | Out-Null
 Copy-Item -Recurse (Join-Path $Root 'dist\*') $web
 Copy-Item (Join-Path $Root 'docs\WEB_HOSTING.md') (Join-Path $web 'HOSTING.md')
+# 26.59: release metadata and per-file checksums, checked by the website's velophi-site.sh publish-online
+$meta = [ordered]@{ product = 'VeloPhi'; version = $Full; builtAt = (Get-Date).ToUniversalTime().ToString('s') + 'Z'; hosting = [ordered]@{ crossOriginIsolationRequired = $false; base = './' } }
+[IO.File]::WriteAllText((Join-Path $web 'release-metadata.json'), ($meta | ConvertTo-Json -Depth 4), (New-Object Text.UTF8Encoding $false))
+$webRoot = (Resolve-Path $web).Path
+$sums = Get-ChildItem $web -Recurse -File | Where-Object { $_.Name -ne 'SHA256SUMS.txt' } | ForEach-Object {
+  $rel = $_.FullName.Substring($webRoot.Length).TrimStart('\').Replace('\', '/')
+  "$((Get-FileHash -Algorithm SHA256 $_.FullName).Hash.ToLower())  $rel"
+} | Sort-Object { $_.Substring(66) }
+[IO.File]::WriteAllText((Join-Path $web 'SHA256SUMS.txt'), (($sums -join "`n") + "`n"), (New-Object Text.UTF8Encoding $false))
 Compress-Archive -Path (Join-Path $web '*') -DestinationPath (Join-Path $Out "VeloPhi-v$Version-web.zip") -CompressionLevel Optimal
 
 # Source package: the working tree without generated or local folders
@@ -84,7 +110,7 @@ Set-Content -Encoding ASCII -Path (Join-Path $Out 'SHA256SUMS.txt') -Value $line
 $expected = @(
   'README.md', 'RELEASE_NOTES.md', 'SHA256SUMS.txt', 'THIRD_PARTY_NOTICES.md',
   "VeloPhi-v$Version-release-evidence.zip", "VeloPhi-v$Version-source.zip", "VeloPhi-v$Version-web.zip",
-  "VeloPhi-v$Version-windows-x64-portable.exe", "VeloPhi-v$Version-windows-x64-setup.exe"
+  "VeloPhi-v$Version-windows-x64-portable.exe", "VeloPhi-v$Version-windows-x64-setup.exe", "VeloPhi-v$Version-android.apk"
 ) | Sort-Object
 $actual = Get-ChildItem $Out -File | ForEach-Object Name | Sort-Object
 if (Compare-Object $expected $actual) { Fail ("file set differs: " + ((Compare-Object $expected $actual | ForEach-Object { $_.SideIndicator + $_.InputObject }) -join ', ')) }

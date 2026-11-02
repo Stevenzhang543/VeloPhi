@@ -24,6 +24,8 @@ import { taskUi, readText, newManualTask, openSample, suggestFromCurrentScene, a
 import { openDemo, openPractice, transferTask } from '../../task/demo'
 import { docks, resetDocks, undoDock, dock, snapState } from '../../task/dock'
 import { openTextFile, saveFile } from '../../../platform/files'
+import { aiImport, cancelImport, importProblem, STAGE_TEXT as AI_STAGE } from '../../../ai/import/pipeline'
+import { aiReady } from '../../../ai/client'
 import NumField from '../NumField.vue'
 import StackCards from '../StackCards.vue'
 import ResultCard from './ResultCard.vue'
@@ -56,6 +58,17 @@ async function analyse() {
   busyRead.value = false
 }
 const manualDomain = ref<TaskDomain>('incline')
+// 26.59 (D162): AI reading from the task page. A task-type problem becomes a task here; other problems open as a
+// problem, template or model like from the import bar. The rule reader stays for offline use.
+const aiOk = computed(() => aiReady().ok)
+const aiError = ref('')
+async function aiRead() {
+  if (!taskUi.draft.trim()) return
+  aiError.value = ''
+  const o = await importProblem(taskUi.draft, {})
+  if (!o.ok && o.code !== 'aborted') aiError.value = o.error
+}
+function setupAi() { state.page = 'settings'; state.settingsSection = 'ai' }
 
 // ---- known values ----
 interface Row { ref: string; label: string; unit: string; given?: Given; conflict: boolean; note?: string }
@@ -224,7 +237,15 @@ onBeforeUnmount(() => window.removeEventListener('pointermove', onMove))
     <StackCards :title="tl('题目')" :open="!task" :summary="task?.stem?.text ? tl('已读取') : ''">
       <textarea v-model="taskUi.draft" class="field stem-input" rows="4" :aria-label="tl('粘贴或输入题目')" :placeholder="tl('粘贴一道题：例如“2 kg 的物块在固定 30° 斜面上从静止释放，μs = 0.25，μk = 0.2，求沿斜面移动 2 m 时的速率。”')" />
       <div class="row-btns">
-        <button class="btn primary small" :aria-busy="busyRead" :disabled="!taskUi.draft.trim() || busyRead" @click="analyse">{{ busyRead ? tl('正在读取…') : tl('分析题目') }}</button>
+        <template v-if="aiOk">
+          <button class="btn primary small" :aria-busy="aiImport.busy" :disabled="!taskUi.draft.trim() || aiImport.busy" data-ui="task-ai-read" @click="aiRead">{{ aiImport.busy ? tl(AI_STAGE[aiImport.stage ?? 'reading']) + '…' : tl('AI 读题') }}</button>
+          <button v-if="aiImport.busy" class="btn small" @click="cancelImport()">{{ tl('取消') }}</button>
+          <button class="btn small" :aria-busy="busyRead" :disabled="!taskUi.draft.trim() || busyRead" :title="tl('不联网：规则读题，只支持六类题型')" @click="analyse">{{ tl('离线规则读题') }}</button>
+        </template>
+        <template v-else>
+          <button class="btn primary small" :aria-busy="busyRead" :disabled="!taskUi.draft.trim() || busyRead" @click="analyse">{{ busyRead ? tl('正在读取…') : tl('分析题目') }}</button>
+          <button class="btn small ghost" :title="tl('登录或填写 API key 后，AI 可以读任意说法的题目')" @click="setupAi">{{ tl('启用 AI 读题') }}</button>
+        </template>
         <button class="btn small" :title="tl('只识别场景里的情形，并列出可求的量；不会替你决定求什么')" @click="change(suggestFromCurrentScene)">{{ tl('从当前场景') }}</button>
         <select class="field small" :aria-label="tl('示例题')" value="" @change="e => { const d = (e.target as HTMLSelectElement).value as TaskDomain; if (d) change(() => openSample(d)); (e.target as HTMLSelectElement).value = '' }">
           <option value="">{{ tl('示例题…') }}</option>
@@ -236,6 +257,7 @@ onBeforeUnmount(() => window.removeEventListener('pointermove', onMove))
         <select v-model="manualDomain" class="field small" :aria-label="tl('题型')"><option v-for="d in SAMPLE_DOMAINS" :key="d" :value="d">{{ DOMAIN_TEXT(d) }}</option></select>
         <button class="btn small" @click="change(() => newManualTask(manualDomain))">{{ tl('新建') }}</button>
       </div>
+      <p v-if="aiError" class="small warn-text" role="alert">{{ aiError }}</p>
       <p v-if="taskUi.parse?.scope === 'out'" class="small warn-text">{{ tl(taskUi.parse.reason ?? '', (taskUi.parse.reasonParams ?? []).map(x => tl(x))) }}。{{ tl('可以改用“手动填写”。') }}</p>
       <p v-if="taskUi.parse?.candidates && taskUi.parse.candidates.length > 1" class="tiny muted">{{ tl('题型也可能是：{0}', [taskUi.parse.candidates.slice(1).map(DOMAIN_TEXT).join('、')]) }}</p>
     </StackCards>
@@ -314,6 +336,8 @@ onBeforeUnmount(() => window.removeEventListener('pointermove', onMove))
         <button v-if="!taskUi.busy" class="btn primary" :disabled="!!why" :title="why || tl('由计算核心求解，并用另一种方法核对')" @click="solve">{{ taskUi.state === 'stale' ? tl('重新求解') : tl('求解') }}</button>
         <button v-else class="btn primary" aria-busy="true" @click="cancelSolve">{{ tl('求解中… 取消') }}</button>
         <span v-if="why" class="tiny muted">{{ why }}</span>
+        <!-- 26.59 (UX5): the demo right next to the results, no scrolling to "接下来" -->
+        <button v-if="taskUi.outcome && !taskUi.busy" class="btn small" data-ui="task-demo" @click="openDemo(task)">{{ tl('看演示') }}</button>
       </div>
 
       <!-- pinned results: drop a card here (or use its ⋯ menu) -->
@@ -359,6 +383,8 @@ onBeforeUnmount(() => window.removeEventListener('pointermove', onMove))
 <style scoped>
 .task-panel { position: relative; display: flex; flex-direction: column; gap: 8px; padding-bottom: 16px; }
 .tstatus { position: sticky; top: -4px; z-index: 3; display: flex; align-items: center; gap: 6px; padding: 6px 0; background: var(--pane); }
+/* 26.59 (UX4): anything scrolled into view (focus, find, a click from Copilot) stops below the sticky status row */
+:deep(input), :deep(textarea), :deep(select), :deep(button) { scroll-margin-top: 56px; }
 .ttitle { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .stem-input { width: 100%; min-height: 72px; }
 .row-btns { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; }

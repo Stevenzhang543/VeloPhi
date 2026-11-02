@@ -180,6 +180,10 @@ export interface AppState {
   activity: string | null
   showModels: boolean
   modelId: string | null
+  /** 26.59 (D163): input values for the model shown (AI reading or Copilot); null: its worked example. */
+  modelPreset: { id: string; inputs: Record<string, number> } | null
+  /** 26.59 (D167): the Copilot panel is open. */
+  showCopilot: boolean
   /** Formula card to bring into view in the formula panel (opened from the handbook). */
   formulaFocus: string | null
   /** Situation to bring into view in the formula panel (clicked on the formula timeline, D71). */
@@ -260,6 +264,8 @@ export const state = reactive<AppState>({
   activity: null,
   showModels: false,
   modelId: null,
+  modelPreset: null,
+  showCopilot: false,
   branch: null,
   mainScene: null,
   formulaFocus: null,
@@ -599,7 +605,8 @@ export function currentTime(): number {
 export function showToast(text: string, error = false) {
   state.toast = { text, error }
   const current = state.toast
-  setTimeout(() => { if (state.toast === current) state.toast = null }, error ? 6000 : 2600)
+  // 26.59 (D157): errors stay longer and can be closed; both are announced by the live regions in App.vue
+  setTimeout(() => { if (state.toast === current) state.toast = null }, error ? 12000 : 2600)
 }
 
 // ---- Playback ----

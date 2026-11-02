@@ -9,6 +9,7 @@ import { vSlideIndicator } from '../slideIndicator'
 import { computed, ref, watch } from 'vue'
 import { state, edit } from '../store'
 import NumField from './NumField.vue'
+import TemplateParams from './TemplateParams.vue'
 import Icon from './Icon.vue'
 import Section from './Section.vue'
 import type { BodyDef, CentralDef, ConnectorDef, ForceDef, PulleyDef, Scene, SliderDef } from '../../core/scene/types'
@@ -241,6 +242,7 @@ function setPulleyBody(bodyId: string) {
 
 <template>
   <div class="inspector">
+    <TemplateParams />
     <div v-if="!state.selection" class="empty">
       {{ tl('在画布上选择一个物体或连接件以编辑其参数。') }}<br />{{ tl('未选择时可在“场景”页修改重力、时间步长与精度。') }}
     </div>

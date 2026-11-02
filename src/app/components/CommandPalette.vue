@@ -8,6 +8,7 @@
  *
  * Mounted by App.vue while `state.showPalette` is true.
  */
+import { foldSearch } from '../searchText'
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { tl, activeLang } from '../../i18n'
 import { state } from '../store'
@@ -39,7 +40,8 @@ interface Item { cat: string; icon: string; title: string; detail: string; hay: 
 const CATS: Array<[string, string]> = [['goal', '目标'], ['page', '页面'], ['tool', '工具'], ['template', '模板'], ['lab', '实验'], ['model', '模型'], ['activity', '活动'], ['formula', '公式'], ['handbook', '手册'], ['problem', '题目'], ['path', '学习路径']]
 const catLabel = (c: string) => tl(CATS.find(x => x[0] === c)?.[1] ?? c)
 
-const norm = (s: string) => s.toLowerCase().replace(/\s+/g, '')
+// 26.59 (UX12): full/half width and every dash folded the same way
+const norm = (s: string) => foldSearch(s)
 /** Strip KaTeX commands and braces from a formula for searching (\\dfrac{mv}{qB} → mv qB). */
 const plainTex = (s: string) => s.replace(/\\[a-zA-Z]+/g, ' ').replace(/[{}^_\\]/g, ' ')
 

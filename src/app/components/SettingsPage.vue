@@ -9,7 +9,7 @@ import { vSlideIndicator } from '../slideIndicator'
 import { computed, provide, ref, watch } from 'vue'
 import { applyLookAhead, applyMemoryBudget, state } from '../store'
 import type { DisplayToggle } from '../settings'
-import { applyUnitPreset, effectiveCurriculum, effectiveEffects, fmtQ, resetSettings, settings, sysEnv, texQ, unitLabel } from '../settings'
+import { applyUnitPreset, effectiveCurriculum, effectiveEffects, fmtQ, resetSettings, settings, solidSurfaces, sysEnv, texQ, unitLabel } from '../settings'
 import { LEVEL_CHOICES, nearestLevel, withinLevel } from '../../formula/levels'
 import { FORMULAS } from '../../formula/library'
 import { clearTrialLog, exportTrialLog, logEvent, trialLogSize } from '../trialLog'
@@ -26,6 +26,7 @@ import HandbookView from './HandbookView.vue'
 import { PAGE_ACTIVE } from '../live'
 import { isDesktop } from '../../platform/files'
 import { ask } from '../../platform/ask'
+import AiSettings from './ai/AiSettings.vue'
 
 const props = withDefaults(defineProps<{ active?: boolean }>(), { active: true })
 provide(PAGE_ACTIVE, computed(() => props.active))
@@ -33,6 +34,7 @@ provide(PAGE_ACTIVE, computed(() => props.active))
 type SectionId = SettingsSection | 'handbook' | 'keys' | 'about'
 const SECTIONS: Array<{ id: SectionId; label: string; icon: string; desc: string }> = [
   { id: 'general', label: tl('通用'), icon: 'settings', desc: tl('外观、界面缩放、自动重算与新场景的默认值。') },
+  { id: 'ai', label: tl('账号与 AI'), icon: 'chat', desc: tl('登录 whitelists.top 使用官方 AI，或填写自己的 API key；AI 读题与 Copilot 的选项。') },
   { id: 'units', label: tl('单位与数值'), icon: 'ruler', desc: tl('所有面板、曲线、公式代入、导出都按这里的单位显示；内部计算始终使用国际单位。') },
   { id: 'display', label: tl('显示'), icon: 'display', desc: tl('画布上默认叠加的内容，以及适合教室投影的投影仪模式。') },
   { id: 'effects', label: tl('视觉效果'), icon: 'sparkle', desc: tl('玻璃质感、动态背景、运动模糊、粒子与拖尾。配置较低的电脑或投影时可降低或关闭。') },
@@ -47,7 +49,7 @@ const SECTIONS: Array<{ id: SectionId; label: string; icon: string; desc: string
 ]
 /** Navigation groups (26.52, D56): everyday settings, teaching, system. */
 const NAV_GROUPS: Array<{ title: string; ids: SectionId[] }> = [
-  { title: tl('常用'), ids: ['general', 'units', 'display', 'effects', 'editor'] },
+  { title: tl('常用'), ids: ['general', 'ai', 'units', 'display', 'effects', 'editor'] },
   { title: tl('教学'), ids: ['knowledge', 'handbook'] },
   { title: tl('系统'), ids: ['sim', 'export', 'keys', 'privacy', 'about'] }
 ]
@@ -135,6 +137,9 @@ const OVERLAYS: Array<{ key: DisplayToggle; label: string; hint: string }> = [
 // ---- Effects ----
 const QUALITIES: Array<{ id: EffectQuality; label: string }> = [{ id: 'off', label: tl('关闭') }, { id: 'standard', label: tl('标准') }, { id: 'high', label: tl('高') }]
 const fxOff = computed(() => settings.effects.quality === 'off')
+// 26.59 (D159): reduce transparency — follow the system, always, never
+const solid = computed(() => solidSurfaces())
+const RT_OPTIONS: Array<{ v: 'system' | 'on' | 'off'; label: string }> = [{ v: 'system', label: '跟随系统' }, { v: 'on', label: '开启' }, { v: 'off', label: '关闭' }]
 const eff = computed(() => effectiveEffects())
 const shutterDeg = computed(() => Math.round(settings.effects.shutter * 360))
 
@@ -230,6 +235,11 @@ async function resetAll() { if (await ask(tl('将所有设置恢复为默认值�
           </div>
         </template>
 
+        <!-- ---- Account and AI (26.59) ---- -->
+        <template v-else-if="current === 'ai'">
+          <AiSettings />
+        </template>
+
         <!-- ---- Units and numbers ---- -->
         <template v-else-if="current === 'units'">
           <div class="sgroup">
@@ -297,7 +307,12 @@ async function resetAll() { if (await ask(tl('将所有设置恢复为默认值�
             </div>
           </div>
           <div class="sgroup" :class="{ dim: fxOff }">
-            <div class="srow"><div class="sl"><b>{{ tl('玻璃质感') }}</b><span>{{ tl('半透明面板（背景模糊与饱和），指针经过时有柔和高光。') }}</span></div><input v-model="settings.effects.glass" type="checkbox" class="switch" :disabled="fxOff" /></div>
+            <div class="srow"><div class="sl"><b>{{ tl('玻璃质感') }}</b><span>{{ tl('菜单、对话框、导入栏与 Copilot 等浮层半透明（背景模糊）；内容面板始终为实色，便于阅读。') }}</span></div><input v-model="settings.effects.glass" type="checkbox" class="switch" :disabled="fxOff || solid" :title="solid ? tl('“减少透明度”开启时不使用玻璃') : undefined" /></div>
+            <div class="srow"><div class="sl"><b>{{ tl('减少透明度') }}</b><span>{{ tl('所有浮层改为实色。“跟随系统”时按系统的“减少透明度”设置（当前{0}）。', [sysEnv.reducedTransparency ? tl('已开启') : tl('未开启')]) }}</span></div>
+              <div class="segmented" role="radiogroup" :aria-label="tl('减少透明度')">
+                <button v-for="o in RT_OPTIONS" :key="o.v" type="button" role="radio" :aria-checked="settings.effects.reduceTransparency === o.v" :class="{ on: settings.effects.reduceTransparency === o.v }" @click="settings.effects.reduceTransparency = o.v">{{ tl(o.label) }}</button>
+              </div>
+            </div>
             <div class="srow"><div class="sl"><b>{{ tl('动态背景') }}</b><span>{{ tl('面板后柔和流动的色彩；窗口不可见时自动暂停。') }}</span></div><input v-model="settings.effects.ambient" type="checkbox" class="switch" :disabled="fxOff" /></div>
           </div>
           <div class="sgroup" :class="{ dim: fxOff }">

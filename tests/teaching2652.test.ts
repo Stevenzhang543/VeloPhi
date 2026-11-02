@@ -149,11 +149,12 @@ describe('area under a curve', () => {
 
 describe('problems', () => {
   it('has 30 built-in problems in ten chapters, each with answers from the simulation', () => {
-    expect(BUILTIN_PROBLEMS.length).toBe(30)
-    expect(new Set(BUILTIN_PROBLEMS.map(p => p.id)).size).toBe(30)
-    expect(new Set(BUILTIN_PROBLEMS.map(p => p.chapter)).size).toBe(10)
+    // 26.59 (D171) added 51 more after these (tests/teaching/problems2659.test.ts)
+    const BANK = BUILTIN_PROBLEMS.slice(0, 30)
+    expect(new Set(BANK.map(p => p.id)).size).toBe(30)
+    expect(new Set(BANK.map(p => p.chapter)).size).toBe(10)
     const report: string[] = []
-    for (const spec of BUILTIN_PROBLEMS) {
+    for (const spec of BANK) {
       const prob = builtinProblem(spec)
       const rec = simulate(prob.scene)
       expect(rec.error, spec.id).toBeNull()

@@ -437,7 +437,8 @@ function slopeUp(v: Record<string, number>): Scene {
   const th = v.theta * DEG, base = 4
   addIncline(s, { id: 'incline', angle: th, base, material: { muS: v.mu, muK: v.mu } })
   const w = 0.3, h = 0.2
-  const pl = onIncline(th, base, base / cos(th) - 0.3, w, h)
+  // 26.59: 5 cm up from the foot, so the block does not start on the corner between incline and ground (it chattered there)
+  const pl = onIncline(th, base, base / cos(th) - w - 0.05, w, h)
   const up = { x: -cos(th), y: sin(th) }
   addBody(s, { id: 'block', name: tl('物块'), role: 'block', shape: { type: 'box', width: w, height: h }, position: pl.position, angle: pl.angle, velocity: { x: v.v0 * up.x, y: v.v0 * up.y }, mass: v.m, material: { muS: v.mu, muK: v.mu } })
   addGround(s, { id: 'ground', top: 0, left: base, right: base + 3, material: { muS: v.mu, muK: v.mu } })

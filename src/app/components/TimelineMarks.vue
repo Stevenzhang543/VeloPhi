@@ -22,6 +22,8 @@ const emit = defineEmits<{ marker: [m: EventMark]; branch: [id: string] }>()
 <style scoped>
 .markers { position: absolute; left: 7px; right: 7px; top: 0; height: 100%; pointer-events: none; }
 .marker { position: absolute; top: 0; width: 8px; height: 8px; margin-left: -4px; border-radius: 2px; transform: rotate(45deg); background: var(--warning); border: 0; padding: 0; cursor: pointer; pointer-events: auto; }
+/* 26.59 (D160): a 24 × 24 transparent hit area around the 8 px mark (the event list offers the same jumps) */
+.marker::after { content: ''; position: absolute; inset: -8px; }
 .marker:hover { transform: rotate(45deg) scale(1.35); }
 .marker.branch { width: 4px; height: 18px; margin-left: -2px; top: 2px; border-radius: 2px; transform: none; background: var(--accent); }
 .marker.branch:hover { transform: scaleX(1.6); }

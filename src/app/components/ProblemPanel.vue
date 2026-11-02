@@ -10,7 +10,7 @@
  */
 import { tl, activeLang } from '../../i18n'
 import { computed, watch } from 'vue'
-import { state } from '../store'
+import { state, showToast } from '../store'
 import { fmtQ, toDisp, unitLabel } from '../settings'
 import type { ChoiceQuestion, NumericQuestion, ProblemQuestion, ProblemTarget, QuestionKey } from '../../teaching/problems'
 import { CHAPTERS, isCorrect, answerError, problemParams, ptext, questionKey } from '../../teaching/problems'
@@ -21,10 +21,24 @@ import { FORMULAS } from '../../formula/library'
 import { EVENT_TYPES, SITUATION_NAMES } from '../../analysis/prediction'
 import { relErrorText } from '../../export/formulaImage'
 import { anotherSet, exitProblem, exportProblem, retry, reveal } from '../problemMode'
+import { saveMyProblem, myProblems } from '../../teaching/myProblems'
 import NumField from './NumField.vue'
 import Icon from './Icon.vue'
 
 const s = computed(() => state.problem)
+// 26.59 (D162 step 6): a problem the AI read carries its reading in the scene (route, categories, givens with the
+// words they came from, assumptions); shown here so a teacher can check it, and the problem can go to "我的题目".
+interface AiMeta { route?: string; category?: { chapter?: string; types?: string[]; level?: string; stage?: string }; summary?: string; givens?: Array<{ name: string; symbol?: string; value: number; unit: string; raw?: string }>; assumptions?: string[]; solution?: string[]; connection?: string }
+const ai = computed(() => (state.scene.extra as { ai?: AiMeta } | undefined)?.ai ?? null)
+const LEVEL_TEXT: Record<string, string> = { basic: '基础', advanced: '提高', hard: '压轴' }
+const saved = computed(() => !!s.value && myProblems.list.some(m => m.id === s.value!.problem.id))
+function saveMine() {
+  const p = s.value?.problem
+  if (!p) return
+  const c = ai.value?.category ?? {}
+  saveMyProblem({ ...p, scene: JSON.parse(JSON.stringify(state.scene)) }, { types: c.types, level: c.level, stage: c.stage, route: ai.value?.route })
+  showToast(tl('已保存到“我的题目”'))
+}
 const lang = computed(() => activeLang())
 const params = computed(() => (s.value ? problemParams({ ...s.value.problem, scene: state.scene }) : {}))
 const text = (t: Parameters<typeof ptext>[0]) => ptext(t, lang.value, params.value)
@@ -46,6 +60,17 @@ const keys = computed(() => {
   return m
 })
 const unitOf = (q: ProblemQuestion) => keys.value.get(q.id)?.unit ?? ''
+// 26.59 fix (D189): the AI's solution path, with {1}, {2} … filled in from the engine's answers once revealed
+const steps = computed(() => {
+  const list = ai.value?.solution ?? []
+  const qs = s.value?.problem.questions ?? []
+  return list.map(st => st.replace(/\{(\d{1,2})\}/g, (_, n: string) => {
+    const q = qs[Number(n) - 1]
+    if (!q || !showResults.value) return '?'
+    const k = keys.value.get(q.id)
+    return q.type === 'numeric' ? fmtQ(k?.value ?? null, unitOf(q)) : k?.value !== null && k?.value !== undefined ? LETTERS[k.value as number] : '—'
+  }))
+})
 const scaleOf = (si: string) => (si ? toDisp(1, si) : 1)
 const labelOf = (si: string) => (si ? unitLabel(si) : '')
 const showResults = computed(() => !!s.value && (s.value.revealed || s.value.editing))
@@ -147,6 +172,19 @@ const tolPct = (q: NumericQuestion) => Math.round((q.tolerance ?? 0.02) * 1000) 
     <template v-else>
       <h2 class="title">{{ text(s.problem.title) }}</h2>
       <p class="stem">{{ text(s.problem.stem) }}</p>
+      <details v-if="ai" class="ai-read">
+        <summary>
+          <Icon name="wand" :size="12" />{{ tl('AI 读题') }}
+          <span v-for="t in ai.category?.types ?? []" :key="t" class="chip">{{ tl(t) }}</span>
+          <span v-if="ai.category?.level" class="chip">{{ tl(LEVEL_TEXT[ai.category.level] ?? ai.category.level) }}</span>
+        </summary>
+        <dl v-if="ai.givens?.length" class="givens">
+          <template v-for="(g, i) in ai.givens" :key="i"><dt>{{ g.name }}<i v-if="g.symbol"> {{ g.symbol }}</i></dt><dd>{{ g.value }} {{ g.unit }}<span v-if="g.raw" class="muted"> “{{ g.raw }}”</span></dd></template>
+        </dl>
+        <ul v-if="ai.assumptions?.length" class="assume"><li v-for="(a, i) in ai.assumptions" :key="i">{{ a }}</li></ul>
+        <p class="tiny muted">{{ tl('AI 只负责读题与建模；答案由引擎计算。') }}<span v-if="ai.connection"> · {{ ai.connection }}</span></p>
+        <button class="btn small" :disabled="saved" @click="saveMine">{{ saved ? tl('已在我的题目中') : tl('保存到我的题目') }}</button>
+      </details>
     </template>
 
     <div v-if="!s.editing && !s.revealed" class="tiny muted lock"><Icon name="info" :size="12" />{{ tl('作答期间画面停在 t = 0，曲线、公式对照与读数暂时隐藏；可以查看物体的参数。') }}</div>
@@ -231,6 +269,12 @@ const tolPct = (q: NumericQuestion) => Math.round((q.tolerance ?? 0.02) * 1000) 
       </template>
     </article>
 
+    <section v-if="steps.length && !s.editing" class="ai-steps">
+      <h3>{{ tl('解题思路') }}</h3>
+      <ol><li v-for="(st, i) in steps" :key="i">{{ st }}</li></ol>
+      <p v-if="!showResults" class="tiny muted">{{ tl('揭晓答案后显示数值') }}</p>
+    </section>
+
     <div v-if="s.editing" class="add-row">
       <button class="btn small" @click="addNumeric"><Icon name="plus" :size="12" />{{ tl('数值题') }}</button>
       <button class="btn small" @click="addChoice"><Icon name="plus" :size="12" />{{ tl('选择题') }}</button>
@@ -256,11 +300,21 @@ const tolPct = (q: NumericQuestion) => Math.round((q.tolerance ?? 0.02) * 1000) 
 </template>
 
 <style scoped>
+.ai-steps { margin: 12px 0 4px; padding: 10px 12px; border-radius: var(--radius-group, 12px); background: var(--fill); }
+.ai-steps h3 { margin: 0 0 6px; font-size: var(--type-small); color: var(--text-2); }
+.ai-steps ol { margin: 0; padding-left: 20px; display: grid; gap: 4px; line-height: 1.55; font-size: var(--type-small); }
 .problem { padding: 4px 0 14px; display: flex; flex-direction: column; gap: 8px; }
 .head { display: flex; align-items: center; gap: 4px; }
 .chip { font-size: var(--type-tiny); font-weight: 600; color: var(--accent); background: var(--accent-soft); border-radius: var(--radius-pill); padding: 2px 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; max-width: 46%; }
 .title { font-size: 16px; font-weight: 650; margin: 2px 2px 0; }
 .stem { margin: 0 2px; line-height: 1.65; font-size: 13.5px; }
+.ai-read { margin: 0 2px; padding: 6px 8px; border-radius: var(--radius-group); background: var(--fill); font-size: var(--type-small); display: grid; gap: 6px; }
+.ai-read summary { cursor: pointer; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; color: var(--text-2); min-height: 24px; }
+.ai-read .chip { padding: 1px 7px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-size: var(--type-tiny); }
+.ai-read .givens { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; margin: 0; }
+.ai-read dt { color: var(--text-2); }
+.ai-read dd { margin: 0; font-family: var(--font-mono); }
+.ai-read .assume { margin: 0; padding-left: 18px; color: var(--text-2); }
 .lock { display: flex; gap: 6px; align-items: flex-start; line-height: 1.5; padding: 6px 8px; border-radius: 8px; background: var(--fill); }
 .q { background: var(--group); border-radius: var(--radius-group); padding: 9px 10px; border-left: 3px solid transparent; display: flex; flex-direction: column; gap: 6px; transition: border-color 200ms ease; }
 .q.ok { border-left-color: var(--success); }

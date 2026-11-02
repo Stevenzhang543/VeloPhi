@@ -21,8 +21,15 @@ import { loadCore } from '../engine/core'
 import { initHost } from '../engine/host'
 import { ensureLibrary } from '../formula/match'
 import { initRecords } from './learn/records'
+import { loadAccount, refreshAccount } from '../ai/account'
+import { loadMyProblems } from '../teaching/myProblems'
 
 loadSettings()
+// 26.59 (D151, D166): the account token and "my problems" from this computer; the account is checked in the
+// background (offline: nothing happens, the AI features say why when used)
+loadAccount()
+loadMyProblems()
+setTimeout(() => { void refreshAccount() }, 1500)
 // 26.56 (D103): learning records after the settings (the 26.55 list of opened steps migrates to visits once)
 initRecords()
 initAppearance()

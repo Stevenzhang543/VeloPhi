@@ -1,0 +1,19 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "identifier": "app.velophi.physics",
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "VeloΦ 26.59",
+        "visible": true,
+        "backgroundColor": "#0d0f14"
+      }
+    ]
+  },
+  "bundle": {
+    "android": {
+      "minSdkVersion": 26
+    }
+  }
+}

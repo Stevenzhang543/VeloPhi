@@ -39,7 +39,7 @@ function frame() {
   const e = pending
   pending = null
   if (!e || !highlightOn) return
-  const target = e.target instanceof Element ? (e.target.closest('.pane, .glass') as HTMLElement | null) : null
+  const target = e.target instanceof Element ? (e.target.closest('.glass') as HTMLElement | null) : null
   if (target !== lit) unlight()
   if (!target) return
   const r = target.getBoundingClientRect()

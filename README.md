@@ -1,4 +1,4 @@
-# VeloΦ (VeloPhi) 26.58
+# VeloΦ (VeloPhi) 26.59
 
 **English** · [简体中文](README.zh-CN.md) · [Deutsch](README.de.md)
 
@@ -9,45 +9,49 @@ VeloΦ is a 2D physics simulation and teaching engine for students, teachers and
 ![The studio: an incline with friction, forces drawn on the canvas, formulas compared with the simulation](assets/readme/studio.jpg)
 
 - **Repository:** <https://github.com/Stevenzhang543/VeloPhi>
-- **Downloads:** <https://github.com/Stevenzhang543/VeloPhi/releases> (Windows portable / installer, web build)
+- **Downloads:** <https://github.com/Stevenzhang543/VeloPhi/releases> (Windows portable / installer, Android APK, web build)
 - **Languages:** 简体中文 · English · Deutsch (Settings › General › Language; follows the system by default)
 
 ## Highlights
 
 - **An exact solver for teaching.** Event-driven integration (Dormand–Prince 5(4) with error control, or symplectic Gauss–Legendre); contact, friction, impacts and rope states change at events located to about 10⁻¹² s; constraint forces are solved exactly from the acceleration equations; an energy ledger closes to 10⁻⁸.
-- **A many-body solver (new in 26.58).** Stacks, piles, dominoes and Galton boards with hundreds of bodies, computed with a soft-step solver re-implemented after the algorithms published with Box2D v3 and Rapier — and a **solver comparison** that shows how far it is from the exact solver.
+- **AI problem reading and Copilot (new in 26.59).** Paste a problem or attach a photo: the AI reads it, classifies it, chooses a model and sets the parameters, and the scene is ready to run; Copilot answers questions and can operate the app for you. The division of labour is strict: the AI *reads* and *acts*, the engine computes every numerical answer.
+- **A many-body solver.** Stacks, piles, dominoes and Galton boards with hundreds of bodies, computed with a soft-step solver re-implemented after the algorithms published with Box2D v3 and Rapier — and a **solver comparison** that shows how far it is from the exact solver.
 - **Formulas that are checked, not asserted.** About 180 model families with conditions in four states, independent references and step-by-step derivations; formulas are graded by curriculum level (Chinese curriculum or IB).
 - **Labs.** DC and AC circuits, electric and magnetic fields, lenses and ray optics, wave optics, waves and sound, 1D quantum mechanics, gases and heat engines, radioactive decay and nuclear reactions, special relativity.
 - **Teaching tools.** Predictions with confidence, tasks from pasted problem text, teaching packages, learning activities, free-body diagrams, ticker tapes, problem sets, reports and courseware export.
 - **Reproducible.** Deterministic maths: the same scene gives the same SHA-256 fingerprint in the desktop app, in the browser and in Node; checkpoints rebuild evicted frames bit for bit.
-- **Open and offline.** One portable `.exe` or a static web build; no account, no server, no plug-ins.
+- **Open and offline.** One portable `.exe`, an APK or a static web build; simulation and teaching need no account, server or plug-in. The AI features work with your own API key (OpenAI-compatible or Anthropic format), or with the official AI after signing in with a whitelists.top account.
 
-## What is new in 26.58
+## What is new in 26.59
 
 | Area | Change |
 | --- | --- |
-| Engine | New integrator **Real-time many-body (Soft Step)**: sort-and-sweep broad phase, contact manifolds with feature ids and warm starting, sub-stepping with soft contacts and joints, speculative contacts against tunnelling, Poisson-capped restitution, rolling resistance, conveyor belts, sleeping islands; deterministic and checkpointed (native = WebAssembly, bit for bit). 78 boxes: **16 ms** for 3 s instead of 7.4 s with Moreau–Jean. |
-| Templates | *Pyramid of boxes*, *Galton board* (with the bin histogram and the binomial expectation under the board), *Dominoes*, *Balls poured into a box* — a new gallery group “Many bodies and statistics”. |
-| Analysis | **Solver comparison**: the exact and the many-body solver on the same scene, largest position and energy differences with their sources. A badge next to *Recompute* always shows which solver is in use. |
-| Teaching | **Welcome page and 60-second tour**; **confidence** on predictions (“sure but far off” is flagged as a possible misconception); **measured data import** (CSV) laid over the curves with the RMS deviation. |
-| Accessibility | **Colour-vision-friendly palette** for vectors, charges and curves (Okabe–Ito for curves, Paul Tol and IBM colour-blind-safe colours for vectors; checked under simulated protanopia, deuteranopia and tritanopia); curves also differ by line style. |
-| Physics | Rigid-body scenes use the CODATA 2022 Coulomb constant (files keep the value they store). |
+| AI problem reading | **Read problem** in the Copilot bar, the *Task* tab and the problem gallery read problems given as text, a picture, or both. The AI recognises the problem type and picks one of five routes — a built-in example, a simulation template, one of the six task domains, an analytic model, or, when no template fits, a **generated scene** — and fills in the numbers from the text. The app checks every id, parameter range and unit (and lets the AI repair its answer at most twice), then renders the scene; every answer is read from the simulation. Pictures are first transcribed to text, which you can correct and read again. A template is chosen only when its structure holds every object of the problem; otherwise the AI builds a scene (also with movable pulleys) or an **equation model** that the app solves and checks for contradictions. Every reading comes back with the answers computed by the app and a short **solution path**. |
+| Copilot | Docked on the right of the window (Ctrl+I opens or collapses it). Answers questions and operates the app: opens examples, loads templates, changes parameters, shows force arrows and reads every force on a body (normal force, friction, tension are computed by the engine), adds forces, builds scenes, plays, switches pages and curves, reads results, or **points** at a control with a spotlight so you can click it yourself. Every change can be undone from the chat, “Ask me first” confirms each step, and **learning mode** gives hints first and reveals answers only after the student has answered. With DeepSeek, *Deep thinking* can be switched on next to the input. |
+| Account and official AI | Optional: sign in with a whitelists.top account (approve this device in the browser, or enter user name and password) to use the official AI with a daily allowance. Without signing in, enter your own key — OpenAI-compatible (OpenAI, DeepSeek, Qwen, local models …) or Anthropic; keys stay on your computer. |
+| Problems | From 30 to **82**, with four new chapters: electrostatics, magnetic fields and charged particles, electromagnetic induction, pressure and buoyancy. Filter by chapter, type (28), level and stage, and search titles, texts and tags; problems read by the AI can be kept in *My problems*. |
+| Look and feel | Glass only for the top bar, floating layers and Copilot; content panels are solid. A slim top bar: File · pages · Templates · Problems · Teaching · View · undo/redo · search · Recompute with its Compute menu · Help · Copilot. Consistent corner radii and motion, *Reduce transparency*, hit areas of at least 24 px (44 px on touch screens), a **Problem parameters** card at the top of *Properties* that changes everything in one place, and a phone layout. |
+| Android | The first **APK** (Android 8.0 or later, arm64 and armv7). |
+
+![AI problem reading: paste a problem, click Recognize, and the scene, its parameters and the questions are in place](assets/readme/ai-import.jpg)
 
 ## Download and run
 
 | File | What it is |
 | --- | --- |
-| `VeloPhi-v26.58-windows-x64-portable.exe` | Portable desktop app: double-click, nothing is installed. |
-| `VeloPhi-v26.58-windows-x64-setup.exe` | Installer for the same app (start menu entry, uninstaller). |
-| `VeloPhi-v26.58-web.zip` | Static web build: unzip and serve the folder with any static web server (it needs WebAssembly, so it does not run from `file://`), e.g. `npx serve dist` or `python -m http.server`. |
-| `VeloPhi-v26.58-source.zip` | Source code of this release. |
-| `VeloPhi-v26.58-release-evidence.zip` | Logs and test reports of the release build. |
+| `VeloPhi-v26.59-windows-x64-portable.exe` | Portable desktop app: double-click, nothing is installed. |
+| `VeloPhi-v26.59-windows-x64-setup.exe` | Installer for the same app (start menu entry, uninstaller). |
+| `VeloPhi-v26.59-android.apk` | Android app (Android 8.0 or later): open it on the phone and install it (allow the browser or file manager to install unknown apps). |
+| `VeloPhi-v26.59-web.zip` | Static web build: unzip and serve the folder with any static web server (it needs WebAssembly, so it does not run from `file://`), e.g. `npx serve dist` or `python -m http.server`. |
+| `VeloPhi-v26.59-source.zip` | Source code of this release. |
+| `VeloPhi-v26.59-release-evidence.zip` | Logs and test reports of the release build. |
 
-Requirements: Windows 10 or 11 (x64) with Microsoft Edge WebView2 (already part of current Windows), or any current desktop browser for the web build. Check a download against `SHA256SUMS.txt`: `certutil -hashfile <file> SHA256`.
+Requirements: Windows 10 or 11 (x64) with Microsoft Edge WebView2 (already part of current Windows), Android 8.0 or later with the system WebView for the APK, or any current desktop browser for the web build. Check a download against `SHA256SUMS.txt`: `certutil -hashfile <file> SHA256`.
 
 ## Ten-minute tutorial
 
-1. **First start.** The welcome page offers three ways in: *Teach a lesson* (projection mode and the template gallery), *Practise* (the learning path) and *Experiment* (an empty scene or the many-body sandbox). *60-second tour* lights up the five parts of the studio one by one. You can come back later through the cap icon in the top bar or Ctrl+K → “Welcome and tour”.
+1. **First start.** The welcome page offers four ways in: *Teach a lesson* (projection mode and the template gallery), *Practise* (the learning path), *Paste a problem* (AI problem reading) and *Experiment* (an empty scene or the many-body sandbox). *60-second tour* lights up the five parts of the studio one by one. You can come back later through the cap icon in the top bar or Ctrl+K → “Welcome and tour”.
 
    ![Welcome page with three ways in](assets/readme/welcome.jpg)
 
@@ -55,20 +59,24 @@ Requirements: Windows 10 or 11 (x64) with Microsoft Edge WebView2 (already part 
 3. **Read the physics.** The right panel *Analysis › Formula* lists the situations of the run; each formula shows the theoretical value, the simulated value and the error. Hover a formula to see the bodies, forces and angles it refers to on the canvas. *Monitor* reads every quantity of the selected body at this moment; *Details* opens derivations and worked solutions.
 4. **Build your own scene.** Pick a tool on the left (block, ball, incline, rope, spring, hinge, motor …), click on the canvas to place it, drag to size it. Editing is continuous and snaps only near other bodies (hold Alt to switch snapping off). Every change recomputes automatically.
 5. **Predict first.** *Analysis › Predict* lets students write down a value and how sure they are before the run; after the run each prediction is compared with the simulation and the formula. A confident prediction that is far off is marked as a possible misconception.
-6. **Solve a problem.** Paste a problem text into the *Task* tab: the givens, the targets and the conditions are read out, missing information is asked for, and the result card states the body, the frame of reference, the time, the conditions and independent checks. *Watch the demonstration* opens a matching scene.
-7. **Labs.** The *Lab* page (Alt+2) has circuits that run in time, field lines, lenses, spectra, decay, quantum wells and more, each with readouts and substituted formulas.
-8. **Many bodies.** Open *Many bodies and statistics › Galton board*: 120 balls fall through ten rows of pegs; under the board the counts per bin are drawn with the binomial expectation. Any scene can switch to *Real-time many-body* in *Scene › Calculation* (sub-steps, step rate, sleeping). *Solver comparison…* runs the exact and the many-body solver side by side.
+6. **Let the AI read a problem.** In *Settings › Account and AI*, sign in with a whitelists.top account or enter your own endpoint, model and key. Paste a problem into the Copilot box on the right (or attach a photo with the picture button) and click **Read problem** (Ctrl+Enter): the scene, its parameters and the questions are set up, and the *Problems* tab shows the answers read from the simulation. The result line in the chat expands to show how the AI understood the problem (type, givens, assumptions), and you can keep asking about it. Without AI, the offline rule-based reader in the *Task* tab still handles six problem domains.
+
+   ![The problem gallery: 82 problems, filtered by chapter, type, level and stage](assets/readme/problems.jpg)
+
+7. **Ask Copilot.** Copilot sits on the right (Ctrl+I collapses or opens it). Ask “why is the acceleration smaller than without friction?”, say “set the angle to 40° and play”, or “show me how to open the v‑t graph” (it highlights the control so you can click it yourself). Every step it took is listed in its answer and can be undone.
+8. **Labs.** The *Lab* page (Alt+2) has circuits that run in time, field lines, lenses, spectra, decay, quantum wells and more, each with readouts and substituted formulas.
+9. **Many bodies.** Open *Many bodies and statistics › Galton board*: 120 balls fall through ten rows of pegs; under the board the counts per bin are drawn with the binomial expectation. Any scene can switch to *Real-time many-body* in *Scene › Calculation* (sub-steps, step rate, sleeping). *Solver comparison…* runs the exact and the many-body solver side by side.
 
    ![Galton board: counts per bin and the binomial distribution](assets/readme/galton.jpg)
 
    ![Solver comparison: exact versus many-body](assets/readme/compare.jpg)
 
-9. **Compare with your own measurements.** In the chart panel, *Measured data…* reads a CSV file (`t (s), x (cm)` …), lets you map each column to a quantity and its unit, and draws the points over the simulated curve with the RMS deviation.
-10. **Share results.** *Export* exports CSV (with a run manifest), video, a lab report (HTML/PDF) and courseware (video, screenshots, formula cards, derivations, optional PPTX).
+10. **Compare with your own measurements.** In the chart panel, *Measured data…* reads a CSV file (`t (s), x (cm)` …), lets you map each column to a quantity and its unit, and draws the points over the simulated curve with the RMS deviation.
+11. **Share results.** *Export* exports CSV (with a run manifest), video, a lab report (HTML/PDF) and courseware (video, screenshots, formula cards, derivations, optional PPTX).
 
 ![The lab page: a DC circuit with readouts](assets/readme/lab.jpg)
 
-**Shortcuts:** Space play/pause · ←/→ frame (Shift ×10) · Ctrl+Z / Ctrl+Y undo/redo · Ctrl+S save · Ctrl+O open · Ctrl+Enter recompute · Alt+1/2/3/4 studio / lab / monitor / settings · Ctrl+K search everything. The full list is under *Settings › Shortcuts*.
+**Shortcuts:** Space play/pause · ←/→ frame (Shift ×10) · Ctrl+Z / Ctrl+Y undo/redo · Ctrl+S save · Ctrl+O open · Ctrl+Enter recompute · Alt+1/2/3/4 studio / lab / monitor / settings · Ctrl+K search everything · Ctrl+I Copilot. The full list is under *Settings › Shortcuts*.
 
 ## Physics and solvers
 
@@ -83,7 +91,7 @@ Everything is computed in a Rust core: natively in the desktop app and as WebAss
 
 ## Build from source
 
-Requirements: Node.js 20+, Rust 1.90+ (with the `wasm32-unknown-unknown` target for the web core), and for the desktop app the Tauri prerequisites on Windows (WebView2, MSVC build tools).
+Requirements: Node.js 20+, Rust 1.90+ (with the `wasm32-unknown-unknown` target for the web core), and for the desktop app the Tauri prerequisites on Windows (WebView2, MSVC build tools). The Android toolchain is installed by `scripts/android/setup-android.ps1` into `%LOCALAPPDATA%\VeloPhi-Android` (no administrator rights); Tauri needs Windows *Developer Mode* to build for Android. The signing key is created in `%USERPROFILE%\.velophi-android` — back it up: later versions must be signed with the same key to install over earlier ones.
 
 ```bash
 npm ci
@@ -94,7 +102,8 @@ npm run build                # type check + web build → dist/
 scripts\build-engine.cmd     # Rust core → src\engine\velophi_core.wasm (Windows)
 node scripts/build-napi.mjs  # Rust core as a Node-API module for the tests (no wasm32 target needed)
 npx tauri build              # Windows desktop app
-scripts\release.cmd          # full release on Windows: engine tests, WebAssembly, tests, Tauri, self-check, packaging
+scripts\android\build-apk.cmd # Android APK: installs JDK, Android SDK / NDK and the Rust targets on first use and creates the signing key
+scripts\release.cmd          # full release on Windows: engine tests, WebAssembly, tests, Tauri, self-check, APK, packaging
 ```
 
 Engine checks: `cargo test --release --workspace` in `engine/`, `node scripts/parity.mjs` (TypeScript reference vs native Rust, frames, events and checkpoints bit for bit), `node scripts/calc-parity.mjs` (every calculation operation), `node scripts/check-browser-hashes.cjs --worker` (fingerprints in Chromium).
@@ -106,11 +115,12 @@ Engine checks: `cargo test --release --workspace` in `engine/`, `node scripts/pa
 | `engine/velophi-core` | Rust core: scene model, exact solver, many-body solver (`src/world`), events, observations, formulas, labs, sessions |
 | `engine/velophi-wasm`, `velophi-native`, `velophi-cli`, `velophi-napi` | WebAssembly interface, native desktop engine, command-line runner, Node-API test module |
 | `src/app` | Vue 3 interface (pages, panels, dialogs, editor) |
+| `src/ai` | AI connections (official / OpenAI-compatible / Anthropic), account, problem-reading pipeline (`import/`) and Copilot (`copilot/`) |
 | `src/render` | Canvas rendering (bodies, forces, fields, histograms, effects) |
 | `src/templates`, `src/content`, `src/teaching`, `src/task` | Templates, model registry and teaching packages, activities and problems, the task layer |
 | `src/i18n` | Interface texts in three languages |
-| `src-tauri` | Desktop shell (Tauri 2) |
-| `tests`, `scripts` | Automated tests (with the TypeScript reference engine) and build / check scripts |
+| `src-tauri` | Desktop and Android shell (Tauri 2); native network requests (`src/net.rs`) |
+| `tests`, `scripts` | Automated tests (with the TypeScript reference engine) and build / check scripts (`scripts/android`: Android toolchain and APK) |
 
 Development manuals, reports and release notes are kept outside the repository; each release contains its release notes.
 

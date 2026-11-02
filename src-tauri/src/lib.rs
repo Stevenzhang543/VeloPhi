@@ -8,6 +8,8 @@
 //! is maximised and shown only when the page has loaded, so no white or small window appears first. A timer
 //! shows it anyway after a few seconds should the page never report.
 
+mod net;
+
 use std::sync::Arc;
 use std::time::Duration;
 use tauri::ipc::{Channel, InvokeResponseBody, Response};
@@ -63,11 +65,31 @@ fn selftest_report(app: tauri::AppHandle, path: String, report: String, ok: bool
     Ok(())
 }
 
+/// An HTTP request of the AI features and the app sign-in (26.59, D149): no CORS, system proxy, https only.
+#[tauri::command]
+async fn net_request(request: net::NetRequest) -> Result<net::NetResponse, String> {
+    net::request(request).await
+}
+
+/// Open an https page (the sign-in approval page) in the default browser (26.59, D150).
+#[tauri::command]
+fn open_external(app: tauri::AppHandle, url: String) -> Result<(), String> {
+    #[cfg(any(target_os = "android", target_os = "ios"))]
+    return net::open_in_browser_mobile(&app, &url);
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    {
+        let _ = app;
+        net::open_in_browser(&url)
+    }
+}
+
 /// Maximise and show a hidden window (once; later calls do nothing).
 fn reveal<R: tauri::Runtime>(window: &tauri::WebviewWindow<R>) {
     if window.is_visible().unwrap_or(true) {
         return;
     }
+    // Phones have no window to maximise (the Android window is always full screen)
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
     let _ = window.maximize();
     let _ = window.show();
     let _ = window.set_focus();
@@ -114,17 +136,19 @@ fn migrate_old_profile() {
 #[cfg(not(windows))]
 fn migrate_old_profile() {}
 
-/// Start the desktop app: register the dialog and file-system plugins and run the Tauri event loop.
+/// Start the app (desktop, and the Android app since 26.59): register the plugins and run the Tauri event loop.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     migrate_old_profile();
     let engine = Arc::new(velophi_native::Engine::new());
     let on_close = Arc::clone(&engine);
-    tauri::Builder::default()
-        .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_fs::init())
+    let builder = tauri::Builder::default().plugin(tauri_plugin_dialog::init()).plugin(tauri_plugin_fs::init());
+    // Android (26.59, D176): links to the sign-in page open in the phone's browser
+    #[cfg(any(target_os = "android", target_os = "ios"))]
+    let builder = builder.plugin(tauri_plugin_opener::init());
+    builder
         .manage(NativeEngine(engine))
-        .invoke_handler(tauri::generate_handler![selftest_target, selftest_report, engine_info, engine_run_start, engine_run_control, engine_rebuild])
+        .invoke_handler(tauri::generate_handler![selftest_target, selftest_report, engine_info, engine_run_start, engine_run_control, engine_rebuild, net_request, open_external])
         .on_window_event(move |_window, event| {
             // Runs of a closed window stop at once (their channel is gone too)
             if let tauri::WindowEvent::Destroyed = event {

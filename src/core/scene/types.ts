@@ -26,7 +26,7 @@ export const SCENE_VERSION_REGIONS = 7
  */
 export const SCENE_VERSION_SOFTSTEP = 8
 /** Engine version written into saved scenes. */
-export const ENGINE_VERSION = '26.58.0'
+export const ENGINE_VERSION = '26.59.0'
 
 /** Shape of a body, in body coordinates (m). */
 export type ShapeDef = PartShapeDef | CompoundShapeDef

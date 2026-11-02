@@ -90,7 +90,9 @@ export const TEMPLATE_MODELS: Array<[string, string[]]> = [
   ['double-pendulum', ['W06']],
   ['coupled-oscillators', ['W05']],
   ['binary-star', ['M26']],
-  ['kepler', ['M26']]
+  ['kepler', ['M26']],
+  // 26.59 fix (D185): a horizontal throw landing on an incline
+  ['projectile-slope', ['M04']]
 ]
 
 export const LAB_MODELS: Array<[string, string[]]> = [

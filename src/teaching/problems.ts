@@ -80,7 +80,12 @@ export const CHAPTERS = [
   { id: 'energy', label: { zh: '机械能', en: 'Mechanical energy', de: 'Mechanische Energie' } },
   { id: 'momentum', label: { zh: '动量', en: 'Momentum', de: 'Impuls' } },
   { id: 'oscillation', label: { zh: '振动', en: 'Oscillations', de: 'Schwingungen' } },
-  { id: 'rotation', label: { zh: '转动', en: 'Rotation', de: 'Drehbewegung' } }
+  { id: 'rotation', label: { zh: '转动', en: 'Rotation', de: 'Drehbewegung' } },
+  // 26.59 (D171)
+  { id: 'electrostatics', label: { zh: '静电场', en: 'Electrostatics', de: 'Elektrostatik' } },
+  { id: 'magnetism', label: { zh: '磁场与带电粒子', en: 'Magnetic fields and charged particles', de: 'Magnetfelder und geladene Teilchen' } },
+  { id: 'induction', label: { zh: '电磁感应', en: 'Electromagnetic induction', de: 'Elektromagnetische Induktion' } },
+  { id: 'fluids', label: { zh: '压强与浮力', en: 'Pressure and buoyancy', de: 'Druck und Auftrieb' } }
 ] as const satisfies ReadonlyArray<{ id: string; label: Tri }>
 
 export type ChapterId = typeof CHAPTERS[number]['id']

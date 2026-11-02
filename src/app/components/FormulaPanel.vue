@@ -563,7 +563,8 @@ const forceTitle = (c: FormulaCard) => forceKindsOf(c.formula).map(k => tl(force
 .cvals { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.2; white-space: nowrap; }
 .cerr { white-space: nowrap; color: var(--text-2); }
 .cerr.bad { color: var(--danger); }
-.star { border: 0; background: none; cursor: pointer; color: var(--text-3, var(--text-2)); font-size: 1em; padding: 0 2px; line-height: 1; }
+.star { border: 0; background: none; cursor: pointer; color: var(--text-3, var(--text-2)); font-size: 1em; padding: 0; line-height: 1; min-width: 24px; min-height: 24px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; }
+.star:hover { background: var(--hover); }
 .star.on { color: var(--warning); }
 @container (max-width: 380px) { .ctex { display: none; } .crow { grid-template-columns: auto minmax(5em, 1fr) auto auto auto; } }
 .card { background: var(--group); border-radius: var(--radius-group); padding: 8px 10px; margin-bottom: 8px; border-left: 3px solid transparent; outline: none; }

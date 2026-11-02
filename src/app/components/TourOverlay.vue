@@ -70,7 +70,7 @@ const noteStyle = computed(() => {
 
 <style scoped>
 .tour { position: fixed; inset: 0; z-index: 900; }
-.hole { position: fixed; border-radius: 10px; box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55); outline: 2px solid var(--accent); transition: all 220ms ease; pointer-events: none; }
+.hole { position: fixed; border-radius: 10px; box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55); outline: 2px solid var(--accent); transition: left var(--dur-enter) var(--ease-out), top var(--dur-enter) var(--ease-out), width var(--dur-enter) var(--ease-out), height var(--dur-enter) var(--ease-out); pointer-events: none; }
 .note { position: fixed; width: 340px; background: var(--pane, var(--panel)); color: var(--text); border-radius: 12px; box-shadow: var(--shadow); padding: 12px 14px; line-height: 1.55; }
 .note b { display: block; margin-bottom: 4px; }
 .note p { margin: 0 0 10px; color: var(--text-2); }

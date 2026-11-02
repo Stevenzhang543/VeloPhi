@@ -1,6 +1,6 @@
 [package]
 name = "velophi"
-version = "26.58.0"
+version = "26.59.0"
 description = "VeloPhi: physics simulation and teaching engine with verifiable results"
 authors = ["VeloPhi maintainers"]
 edition = "2021"
@@ -22,6 +22,19 @@ serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }
 # The physics core, run natively (26.53, D68)
 velophi-native = { path = "../engine/velophi-native" }
+
+# Network requests of the AI features and the app sign-in (26.59, D149): native TLS (SChannel on Windows) and the
+# system proxy; no browser CORS rules.
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+reqwest = { version = "0.13", default-features = false, features = ["native-tls", "system-proxy", "http2", "charset"] }
+
+# Android (26.59, D176): the same requests with rustls (ring) and the Mozilla root certificates, so no OpenSSL has
+# to be built for the phone; links open through the opener plugin.
+[target.'cfg(any(target_os = "android", target_os = "ios"))'.dependencies]
+reqwest = { version = "0.13", default-features = false, features = ["rustls-no-provider", "http2", "charset"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
+webpki-roots = "1"
+tauri-plugin-opener = "=2.5.3"
 
 # Independent of any surrounding workspace.
 [workspace]

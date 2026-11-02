@@ -1,7 +1,6 @@
 /** Interface texts added in 26.52 (VeloPhi): Chinese source → [English, German]. */
 export const TEXTS_2652: Record<string, readonly [string, string]> = {
   '面向物理专业学生与教师的力学仿真与教学引擎': ['A mechanics simulation and teaching engine for physics students and teachers', 'Eine Simulations- und Lehrumgebung für Mechanik für Physikstudierende und Lehrkräfte'],
-  '新建、打开、保存场景': ['New, open and save scenes', 'Szenen neu anlegen, öffnen und speichern'],
   '打开…': ['Open…', 'Öffnen…'],
   '另存为…': ['Save as…', 'Speichern unter…'],
   '常用': ['Common', 'Häufig'],
@@ -84,7 +83,6 @@ export const TEXTS_2652: Record<string, readonly [string, string]> = {
   '拖出一条直线，把矩形或多边形切成几块': ['Drag a line to cut rectangles or polygons into pieces', 'Eine Linie ziehen, um Rechtecke oder Vielecke zu zerschneiden'],
   '组合': ['Combine', 'Verbinden'],
   '依次点击几个物体，组合成一个复合体（一个刚体）': ['Click several bodies in turn to combine them into one compound (one rigid body)', 'Mehrere Körper nacheinander anklicken, um sie zu einem zusammengesetzten Körper (einem starren Körper) zu verbinden'],
-  '搜索题目…': ['Search problems…', 'Aufgaben suchen…'],
   '搜索题目': ['Search problems', 'Aufgaben suchen'],
   '全部': ['All', 'Alle'],
   '导入题目包…': ['Import a problem file…', 'Aufgabendatei importieren…'],
