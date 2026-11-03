@@ -124,6 +124,13 @@ pub fn submerged(model: &Model, g: usize, p: &Pose, l: &LiquidModel) -> (f64, f6
                         let pts: Vec<(f64, f64)> = verts.iter().map(world).collect();
                         add(poly_rect(&pts, l), poly_area(&pts).0);
                     }
+                    // 26.59 fix 3: an arc as thin convex quadrilaterals (1.5° each)
+                    ShapePiece::Arc { center, r_in, r_out, start, sweep } => {
+                        for q in crate::model::arc_quads(*center, *r_in, *r_out, *start, *sweep, std::f64::consts::PI / 120.0) {
+                            let pts: Vec<(f64, f64)> = q.iter().map(world).collect();
+                            add(poly_rect(&pts, l), poly_area(&pts).0);
+                        }
+                    }
                 }
             }
         }

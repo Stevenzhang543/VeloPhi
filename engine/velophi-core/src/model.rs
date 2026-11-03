@@ -23,12 +23,42 @@ pub enum ShapeModel {
     Complex(ComplexShape),
 }
 
-/// A point feature of a complex shape: a circle part's centre or a convex vertex (with the normals of its faces).
+/// The directions an arc surface covers (26.59 fix 3, D193): unit vector of the middle direction and half the sweep
+/// (rad), in body coordinates. A full ring has no span.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ArcSpan {
+    pub mid: Vec2,
+    pub half: f64,
+}
+
+impl ArcSpan {
+    /// The span from `start` counter-clockwise over `sweep` (rad); None for a full ring.
+    pub fn of(start: f64, sweep: f64) -> Option<ArcSpan> {
+        if sweep >= 2.0 * std::f64::consts::PI - 1e-12 {
+            return None;
+        }
+        let m = start + 0.5 * sweep;
+        Some(ArcSpan { mid: Vec2 { x: cos(m), y: sin(m) }, half: 0.5 * sweep })
+    }
+}
+
+/// A point feature of a complex shape: a circle part's centre or a convex vertex (with the normals of its faces);
+/// since 26.59 fix 3 also the centre of an arc's convex outer side (radius = outer radius, with its span).
 #[derive(Clone, Copy, Debug)]
 pub struct ShapePoint {
     pub local: Vec2,
     pub radius: f64,
     pub cone: Option<(Vec2, Vec2)>,
+    pub piece: usize,
+    pub span: Option<ArcSpan>,
+}
+
+/// The concave inner side of an arc (26.59 fix 3, D193): a circle of `radius` about `center`, touched from inside.
+#[derive(Clone, Copy, Debug)]
+pub struct ShapeHollow {
+    pub center: Vec2,
+    pub radius: f64,
+    pub span: Option<ArcSpan>,
     pub piece: usize,
 }
 
@@ -47,6 +77,8 @@ pub struct ShapeFace {
 pub enum ShapePiece {
     Circle { center: Vec2, radius: f64 },
     Polygon { verts: Vec<Vec2>, normals: Vec<Vec2> },
+    /// Annular sector (26.59 fix 3, D193): between `r_in` and `r_out` about `center`, from `start` over `sweep`.
+    Arc { center: Vec2, r_in: f64, r_out: f64, start: f64, sweep: f64 },
 }
 
 /// Compiled concave polygon or compound shape (see model.ts).
@@ -56,6 +88,8 @@ pub struct ComplexShape {
     pub faces: Vec<ShapeFace>,
     pub pieces: Vec<ShapePiece>,
     pub outline: Vec<ShapePiece>,
+    /// Concave circular sides (arcs, 26.59 fix 3).
+    pub hollows: Vec<ShapeHollow>,
 }
 
 /// A body compiled for the solver.
@@ -447,6 +481,10 @@ pub fn shape_inertia(shape: &ShapeDef, mass: f64) -> f64 {
         ShapeDef::Circle { radius } => 0.5 * mass * radius * radius,
         ShapeDef::Box { width, height } => mass * (width * width + height * height) / 12.0,
         ShapeDef::Compound { parts } => compound_mass(parts, mass).2,
+        ShapeDef::Arc { radius, thickness, sweep, .. } => {
+            let (_, d, unit) = arc_mass(*radius, radius + thickness, *sweep);
+            mass * (unit - d * d)
+        }
         ShapeDef::Polygon { points } => {
             let c = polygon_centroid(points);
             let pts: Vec<Vec2> = points.iter().map(|p| sub(*p, c)).collect();
@@ -538,6 +576,13 @@ pub fn compound_mass(parts: &[ShapePart], mass: f64) -> (f64, Vec2, f64) {
         .iter()
         .map(|p| match &p.shape {
             ShapeDef::Circle { radius } => (std::f64::consts::PI * radius * radius, p.position, 0.5 * radius * radius),
+            ShapeDef::Arc { radius, thickness, start, sweep, center } => {
+                let (area, d, unit) = arc_mass(*radius, radius + thickness, *sweep);
+                let m = start + 0.5 * sweep;
+                let local = Vec2 { x: center.x + d * cos(m), y: center.y + d * sin(m) };
+                let (c, sn) = (cos(p.angle), sin(p.angle));
+                (area, Vec2 { x: p.position.x + c * local.x - sn * local.y, y: p.position.y + sn * local.x + c * local.y }, unit - d * d)
+            }
             _ => {
                 let verts = part_polygon(p);
                 let unit = shape_inertia(&ShapeDef::Polygon { points: verts.clone() }, 1.0);
@@ -685,7 +730,7 @@ fn add_polygon_part(out: &mut ComplexShape, verts: Vec<Vec2>) {
     }
     for i in 0..m {
         if convex_corner(&verts, i) {
-            out.points.push(ShapePoint { local: verts[i], radius: 0.0, cone: Some((normals[(i + m - 1) % m], normals[i])), piece: piece_of_vertex(i) });
+            out.points.push(ShapePoint { local: verts[i], radius: 0.0, cone: Some((normals[(i + m - 1) % m], normals[i])), piece: piece_of_vertex(i), span: None });
         }
     }
     out.outline.push(ShapePiece::Polygon { verts, normals });
@@ -702,7 +747,7 @@ fn complex_shape(polygon: Option<Vec<Vec2>>, parts: &[ShapePart], shift: Vec2) -
         if let ShapeDef::Circle { radius } = &part.shape {
             let center = Vec2 { x: part.position.x - shift.x, y: part.position.y - shift.y };
             let piece = out.pieces.len();
-            out.points.push(ShapePoint { local: center, radius: *radius, cone: None, piece });
+            out.points.push(ShapePoint { local: center, radius: *radius, cone: None, piece, span: None });
             out.pieces.push(ShapePiece::Circle { center, radius: *radius });
             out.outline.push(ShapePiece::Circle { center, radius: *radius });
         } else {
@@ -722,6 +767,11 @@ fn complex_centroid(shape: &ComplexShape) -> Vec2 {
         let (a, c) = match p {
             ShapePiece::Circle { center, radius } => (std::f64::consts::PI * radius * radius, *center),
             ShapePiece::Polygon { verts, .. } => (polygon_area(verts), polygon_centroid(verts)),
+            ShapePiece::Arc { center, r_in, r_out, start, sweep } => {
+                let (area, d, _) = arc_mass(*r_in, *r_out, *sweep);
+                let m = start + 0.5 * sweep;
+                (area, Vec2 { x: center.x + d * cos(m), y: center.y + d * sin(m) })
+            }
         };
         area += a;
         cx += a * c.x;
@@ -734,11 +784,75 @@ fn complex_centroid(shape: &ComplexShape) -> Vec2 {
     }
 }
 
+/// Area, distance of the area centroid from the centre (along the middle direction) and polar moment of inertia per
+/// unit mass about the centre of an annular sector (26.59 fix 3, D193).
+pub fn arc_mass(r_in: f64, r_out: f64, sweep: f64) -> (f64, f64, f64) {
+    let a = 0.5 * sweep;
+    let area = a * (r_out * r_out - r_in * r_in);
+    let d = if a > 0.0 && r_out > r_in { 2.0 / 3.0 * (r_out * r_out * r_out - r_in * r_in * r_in) / (r_out * r_out - r_in * r_in) * sin(a) / a } else { 0.0 };
+    (area, d, 0.5 * (r_in * r_in + r_out * r_out))
+}
+
+/// Convex quadrilaterals that approximate an annular sector (counter-clockwise), one per `step` radians at most:
+/// for the soft-step world, liquids and drawings that need polygons.
+pub fn arc_quads(center: Vec2, r_in: f64, r_out: f64, start: f64, sweep: f64, step: f64) -> Vec<Vec<Vec2>> {
+    let n = js_max(1.0, (sweep / step).ceil()) as usize;
+    let at = |k: usize, r: f64| {
+        let t = start + sweep * k as f64 / n as f64;
+        Vec2 { x: center.x + r * cos(t), y: center.y + r * sin(t) }
+    };
+    (0..n).map(|k| vec![at(k, r_in), at(k, r_out), at(k + 1, r_out), at(k + 1, r_in)]).collect()
+}
+
+/// Compile an arc (26.59 fix 3, D193): one annular-sector piece; its convex outer side is a round point feature with
+/// a span, its concave inner side a hollow; an open arc also has two end faces and four corners (convex, 90°).
+fn arc_shape(c: Vec2, r_in: f64, r_out: f64, start: f64, sweep: f64) -> ComplexShape {
+    let mut out = ComplexShape::default();
+    let span = ArcSpan::of(start, sweep);
+    out.pieces.push(ShapePiece::Arc { center: c, r_in, r_out, start, sweep });
+    out.outline.push(ShapePiece::Arc { center: c, r_in, r_out, start, sweep });
+    out.points.push(ShapePoint { local: c, radius: r_out, cone: None, piece: 0, span });
+    out.hollows.push(ShapeHollow { center: c, radius: r_in, span, piece: 0 });
+    if span.is_none() {
+        return out;
+    }
+    let u0 = Vec2 { x: cos(start), y: sin(start) };
+    let u1 = Vec2 { x: cos(start + sweep), y: sin(start + sweep) };
+    let at = |u: Vec2, r: f64| Vec2 { x: c.x + r * u.x, y: c.y + r * u.y };
+    let neg = |u: Vec2| Vec2 { x: -u.x, y: -u.y };
+    // Outward normals of the end faces: clockwise of u0 at the start, counter-clockwise of u1 at the end
+    let n0 = Vec2 { x: u0.y, y: -u0.x };
+    let n1 = Vec2 { x: -u1.y, y: u1.x };
+    let t = r_out - r_in;
+    out.faces.push(ShapeFace { e0: at(u0, r_in), e1: at(u0, r_out), normal: n0, len: t, piece: 0 });
+    out.faces.push(ShapeFace { e0: at(u1, r_out), e1: at(u1, r_in), normal: n1, len: t, piece: 0 });
+    // Corners in counter-clockwise order of the boundary, each with the normals of its two sides
+    out.points.push(ShapePoint { local: at(u0, r_in), radius: 0.0, cone: Some((neg(u0), n0)), piece: 0, span: None });
+    out.points.push(ShapePoint { local: at(u0, r_out), radius: 0.0, cone: Some((n0, u0)), piece: 0, span: None });
+    out.points.push(ShapePoint { local: at(u1, r_out), radius: 0.0, cone: Some((u1, n1)), piece: 0, span: None });
+    out.points.push(ShapePoint { local: at(u1, r_in), radius: 0.0, cone: Some((n1, neg(u1))), piece: 0, span: None });
+    out
+}
+
 fn compile_shape(shape: &ShapeDef, dynamic: bool, warnings: &mut Vec<Message>, name: &str) -> ShapeModel {
     let mut verts = match shape {
         ShapeDef::Circle { radius } => return ShapeModel::Circle { radius: *radius },
         ShapeDef::Box { width, height } => box_polygon(*width, *height),
         ShapeDef::Polygon { points } => points.clone(),
+        ShapeDef::Arc { radius, thickness, start, sweep, center } => {
+            // 26.59 fix 3 (D193): a dynamic arc turns about its centre of mass, so that must be the body origin
+            let mut c = *center;
+            if dynamic {
+                let (_, d, _) = arc_mass(*radius, radius + thickness, *sweep);
+                let m = start + 0.5 * sweep;
+                let g = Vec2 { x: c.x + d * cos(m), y: c.y + d * sin(m) };
+                if g.x.abs() > 1e-9 || g.y.abs() > 1e-9 {
+                    warnings.push(Message::new("warn.arcCentred").text("body", name));
+                    c = sub(c, g);
+                }
+            }
+            return ShapeModel::Complex(arc_shape(c, *radius, radius + thickness, *start, *sweep));
+        }
         ShapeDef::Compound { parts } => {
             // 26.52 (D35): parts about the area centroid of the whole for a dynamic body
             let mut shift = Vec2::default();
@@ -808,6 +922,7 @@ fn bound_radius(shape: &ShapeModel) -> f64 {
                             r = js_max(r, length(*v));
                         }
                     }
+                    ShapePiece::Arc { center, r_out, .. } => r = js_max(r, length(*center) + r_out),
                 }
             }
             r

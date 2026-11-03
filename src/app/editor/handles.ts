@@ -16,6 +16,8 @@ import {
   rotate, signedArea, toLocalPt, toWorldPt, worldVerts, writePolygon
 } from './geometry'
 import { roundTo } from './snap'
+import { arcCenterWorld, placeArc } from '../../core/scene/arc'
+import type { ArcShapeDef } from '../../core/scene/types'
 
 /** Which handle; corners and edges carry the side signs (sx, sy) in body coordinates. */
 export type HandleId =
@@ -41,6 +43,13 @@ export function bodyHandles(def: BodyDef, ppm: number): Handle[] {
   if (def.shape.type === 'circle') {
     const r = rotate({ x: def.shape.radius, y: 0 }, 0)
     out.push({ id: { kind: 'radius' }, at: { x: def.position.x + r.x, y: def.position.y + r.y } })
+    return out
+  }
+  // 26.59 fix 3 (D193): an arc has a radius handle on its inner side (middle of the arc) and a rotation handle
+  if (def.shape.type === 'arc') {
+    const s = def.shape, c = arcCenterWorld(def as BodyDef & { shape: ArcShapeDef }), m = s.start + s.sweep / 2 + def.angle
+    out.push({ id: { kind: 'radius' }, at: { x: c.x + s.radius * Math.cos(m), y: c.y + s.radius * Math.sin(m) } })
+    out.push({ id: { kind: 'rotate' }, at: { x: c.x, y: c.y + s.radius + s.thickness + ROTATE_PX / ppm } })
     return out
   }
   if (def.shape.type === 'box') {
@@ -76,6 +85,7 @@ function rotateHandleAt(def: BodyDef, ppm: number): Pt { return polygonTop(def, 
 /** Point the rotation stem starts from (top middle of the shape). */
 export function rotateStemFrom(def: BodyDef, ppm: number): Pt {
   if (def.shape.type === 'box') return toWorldPt(def, { x: 0, y: def.shape.height / 2 })
+  if (def.shape.type === 'arc') { const c = arcCenterWorld(def as BodyDef & { shape: ArcShapeDef }); return { x: c.x, y: c.y + def.shape.radius + def.shape.thickness } }
   return polygonTop(def, ppm, 0)
 }
 
@@ -201,6 +211,18 @@ export function applyHandleDrag(scene: Scene, d: HandleDrag, p: Pt, o: DragOptio
     const k = r / orig.shape.radius
     if (d.att) remapAttachments(d.att, q => ({ x: q.x * k, y: q.y * k }))
     fb.labels.push({ at: { x: orig.position.x + r, y: orig.position.y }, text: `r = ${o.fmtLen(r)}` })
+    return fb
+  }
+  if (h.kind === 'radius' && orig.shape.type === 'arc') {
+    // 26.59 fix 3: the inner radius about the arc's (fixed) centre
+    const c = arcCenterWorld(orig as BodyDef & { shape: ArcShapeDef })
+    let r = Math.hypot(p.x - c.x, p.y - c.y)
+    if (o.snap) r = roundTo(r, o.step)
+    r = clean(Math.max(MIN_SIZE, r))
+    def.shape = { ...orig.shape, radius: r }
+    def.position = { ...orig.position }
+    placeArc(def)
+    fb.labels.push({ at: { x: c.x + r, y: c.y }, text: `R = ${o.fmtLen(r)}` })
     return fb
   }
   if ((h.kind === 'corner' || h.kind === 'edge') && orig.shape.type === 'box') return resizeBox(def, orig, d, h, p, o, fb)

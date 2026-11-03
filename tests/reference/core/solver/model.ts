@@ -211,6 +211,7 @@ export function shapeInertia(shape: ShapeDef, mass: number): number {
   if (shape.type === 'circle') return 0.5 * mass * shape.radius * shape.radius
   if (shape.type === 'box') return mass * (shape.width * shape.width + shape.height * shape.height) / 12
   if (shape.type === 'compound') return compoundMass(shape, mass).inertia
+  if (shape.type === 'arc') throw new Error('arc shapes are computed by the Rust core only (26.59 fix 3)')
   const c = polygonCentroid(shape.points)
   const pts = shape.points.map(p => sub(p, c))
   let num = 0, den = 0
@@ -418,6 +419,7 @@ function compileShape(shape: ShapeDef, dynamic: boolean, warnings: Message[], na
     }
     return complexShape(null, shape, shift)
   }
+  if (shape.type === 'arc') throw new Error('arc shapes are computed by the Rust core only (26.59 fix 3)')
   let verts = shape.type === 'box' ? boxPolygon(shape.width, shape.height) : shape.points.map(p => ({ x: p.x, y: p.y }))
   if (polygonArea(verts) < 0) verts = verts.slice().reverse()
   if (dynamic && shape.type === 'polygon') {

@@ -49,6 +49,15 @@ export function answersOf(o: ImportSuccess): AnswerLine[] | null {
     })
   }
   if (!loadedProblem(o)) return null
+  return problemAnswers(state.problem!.problem.id)
+}
+
+/**
+ * The answers of the open problem `id` from its simulation (26.59 fix 3, D198: also the simulation Copilot's
+ * scenes): null while another problem is open or the run is still being computed.
+ */
+export function problemAnswers(id: string): AnswerLine[] | null {
+  if (state.problem?.problem.id !== id) return null
   const rec = !state.stale && state.recording && state.recording.completed !== false && !state.computing ? state.recording : null
   if (!rec) return null
   // Read only once the run is complete (events late in the run are not known before)
@@ -77,6 +86,17 @@ export async function waitForAnswers(o: ImportSuccess, ms = 15000): Promise<Answ
     const a = answersOf(o)
     if (a) return a
     if (Date.now() - t0 > ms) return null
+    await new Promise(r => setTimeout(r, 250))
+  }
+}
+
+/** Wait (up to `ms`) for the answers of the open problem `id`. */
+export async function waitForProblemAnswers(id: string, ms = 15000): Promise<AnswerLine[] | null> {
+  const t0 = Date.now()
+  for (;;) {
+    const a = problemAnswers(id)
+    if (a) return a
+    if (Date.now() - t0 >= ms) return null
     await new Promise(r => setTimeout(r, 250))
   }
 }

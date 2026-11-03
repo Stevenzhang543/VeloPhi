@@ -9,15 +9,19 @@
 #    version must be signed with the same key, or phones refuse the update.
 # 3. Generates the Android project (src-tauri\gen\android, not committed) when missing, copies the launcher icons and
 #    adds the signing configuration to app\build.gradle.kts (it reads the key file from the home folder).
+#    26.59 fix 3 (D192): copies VeloPhi's own Android code (src-tauri\mobile\android: renderer recovery, the adb
+#    devtools switch) over the template and declares RecoverActivity in AndroidManifest.xml.
 # 4. tauri android build --apk (arm64 + armv7 in one universal APK), checks the signature with apksigner and copies
 #    the APK to .cache\android-26.59\ for package-release.ps1, with the certificate fingerprint as evidence.
-param([string[]]$Targets = @('aarch64', 'armv7'))
+#    -Test builds for the MuMu emulator (-Targets x86_64) go to .cache\android-test\ instead and leave the release
+#    APK alone.
+param([string[]]$Targets = @('aarch64', 'armv7'), [switch]$Test)
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $Version = '26.59'
 $Repo = (Get-Location).Path
 if (-not (Test-Path (Join-Path $Repo 'src-tauri\tauri.conf.json'))) { throw 'run this from the repository root' }
-$Out = Join-Path $Repo ".cache\android-$Version"
+$Out = Join-Path $Repo $(if ($Test) { '.cache\android-test' } else { ".cache\android-$Version" })
 New-Item -ItemType Directory -Force -Path $Out | Out-Null
 
 function Invoke-Native([scriptblock]$Block) {
@@ -109,6 +113,22 @@ if ($add.Count) {
 }
 $res = Join-Path $Gen 'app\src\main\res'
 Copy-Item -Recurse -Force (Join-Path $Repo 'src-tauri\icons\android\res\*') $res
+# VeloPhi's own Android code over the template (D192)
+$Kt = Join-Path $Gen 'app\src\main\java\app\velophi\physics'
+if (-not (Test-Path (Join-Path $Kt 'MainActivity.kt'))) { throw "unexpected layout of $Gen (no MainActivity.kt)" }
+Copy-Item -Force (Join-Path $Repo 'src-tauri\mobile\android\*.kt') $Kt
+$Manifest = Join-Path $Gen 'app\src\main\AndroidManifest.xml'
+$m = [IO.File]::ReadAllText($Manifest)
+if ($m -notmatch 'RecoverActivity') {
+  $rec = '        <activity android:name=".RecoverActivity" android:process=":recover" android:exported="false" android:excludeFromRecents="true" android:noHistory="true" android:theme="@android:style/Theme.Translucent.NoTitleBar" />' + "`n"
+  $k = $m.IndexOf('        <provider')
+  if ($k -lt 0) { $k = $m.IndexOf('    </application>') }
+  if ($k -lt 0) { throw "unexpected layout of $Manifest; declare RecoverActivity by hand" }
+  $m = $m.Substring(0, $k) + $rec + $m.Substring($k)
+  [IO.File]::WriteAllText($Manifest, $m, (New-Object Text.UTF8Encoding $false))
+  Write-Host '  RecoverActivity declared in AndroidManifest.xml'
+}
+Write-Host "  Android code: $((Get-ChildItem (Join-Path $Repo 'src-tauri\mobile\android\*.kt')).Name -join ', ')"
 $g = Get-Content -Raw -Encoding UTF8 $Gradle
 # In build.gradle.kts the name "java" is Gradle's java extension, so java.util.* / java.io.* cannot be written out:
 # use the imported Properties and Project.file (also repairs a file patched by the first 26.59 script).
@@ -165,10 +185,11 @@ $apksigner = Join-Path $env:VELOPHI_BUILD_TOOLS 'apksigner.bat'
 $certs = Invoke-Native { & $apksigner verify --verbose --print-certs $apk.FullName 2>&1 | ForEach-Object { "$_" } }
 if ($LASTEXITCODE -ne 0) { $certs | Write-Host; throw 'apksigner verify failed' }
 $certs | Set-Content -Encoding UTF8 (Join-Path $Out 'apk-signature.txt')
-$dest = Join-Path $Out "VeloPhi-v$Version-android.apk"
+$name = $(if ($Test) { "VeloPhi-v$Version-test-$($Targets -join '-').apk" } else { "VeloPhi-v$Version-android.apk" })
+$dest = Join-Path $Out $name
 Copy-Item -Force $apk.FullName $dest
 $hash = (Get-FileHash -Algorithm SHA256 $dest).Hash.ToLower()
-"$hash  VeloPhi-v$Version-android.apk" | Set-Content -Encoding ASCII (Join-Path $Out 'apk.sha256')
+"$hash  $name" | Set-Content -Encoding ASCII (Join-Path $Out 'apk.sha256')
 Write-Host "  $($apk.FullName)"
 Write-Host "  -> $dest ($([math]::Round((Get-Item $dest).Length / 1MB, 1)) MB, sha256 $hash)"
 ($certs | Select-String 'SHA-256 digest') | ForEach-Object { Write-Host "  certificate $($_.Line.Trim())" }

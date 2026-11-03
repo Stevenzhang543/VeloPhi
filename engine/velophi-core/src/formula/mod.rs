@@ -653,7 +653,7 @@ pub fn unit_geometry(sys: &System, x: &[f64], u: &UnitMode, id: &str) -> Geometr
     }
     let belt = match f.b {
         FeatureB::Face(_) => model.bodies[f.b_body()].belt_speed,
-        FeatureB::Point(..) => 0.0,
+        FeatureB::Point(..) | FeatureB::Hollow(_) => 0.0,
     };
     let (svx, svy) = (-belt * k.tx, -belt * k.ty);
     Geometry { nx, ny, theta, dx, dy, belt, u: svx * dx + svy * dy, ref_sign: sign, k }

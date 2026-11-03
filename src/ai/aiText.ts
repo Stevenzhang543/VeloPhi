@@ -24,3 +24,6 @@ export const typedWithPhoto = (text: string) => (text ? `\n\n用户同时输入�
 
 /** Repair hint of a generated scene: the quantities it can read. */
 export const readableList = (ids: string[]) => `这个场景可读的量：${ids.join(', ')}`
+
+/** 26.59 fix 3: asked of a model that thinks although asked not to (the official server before 20261102-r2). */
+export const BREVITY = '\n\n（请直接作答：不要长时间思考，思考不超过 200 字，然后完整地输出要求的内容。）'

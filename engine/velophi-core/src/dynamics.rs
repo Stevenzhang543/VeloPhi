@@ -910,7 +910,7 @@ pub fn electric_energy(model: &Model, poses: &[Pose]) -> f64 {
 pub fn belt_of(model: &Model, f: &ContactFeature) -> f64 {
     match &f.b {
         FeatureB::Face(face) => model.bodies[face.body].belt_speed,
-        FeatureB::Point(..) => 0.0,
+        FeatureB::Point(..) | FeatureB::Hollow(_) => 0.0,
     }
 }
 
@@ -920,7 +920,8 @@ pub fn roll_radius(model: &Model, f: &ContactFeature) -> f64 {
     let ra = f.a.radius;
     let rb = match &f.b {
         FeatureB::Point(p, _) => p.radius,
-        FeatureB::Face(_) => 0.0,
+        // The concave side never rolls: the rolling body is A
+        FeatureB::Face(_) | FeatureB::Hollow(_) => 0.0,
     };
     let r = if ra > 0.0 && rb > 0.0 {
         js_min(ra, rb)

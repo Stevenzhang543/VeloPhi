@@ -5,7 +5,7 @@
  */
 import { tl } from '../../i18n'
 import type { AnnotationDef, BodyDef, BranchDef, ConnectorDef, PartShapeDef, RailLoopDef, RegionDef, Scene, SoftStepDef, StartLedgerDef, StopAtDef, StopKind } from './types'
-import { ENGINE_VERSION, LEGACY_SCENE_FORMATS, MAX_DURATION, SCENE_FORMAT, SCENE_VERSION, SCENE_VERSION_SOFTSTEP, STOP_KINDS, sceneVersionOf } from './types'
+import { ENGINE_VERSION, LEGACY_SCENE_FORMATS, MAX_DURATION, SCENE_FORMAT, SCENE_VERSION, SCENE_VERSION_ARCS, STOP_KINDS, sceneVersionOf } from './types'
 import { emptyScene } from './build'
 import { checkForceExpr, polygonIsSimple } from '../../engine/calc'
 
@@ -135,7 +135,7 @@ export function parseScene(text: string): { scene: Scene; warnings: string[] } {
   if (doc.format !== SCENE_FORMAT && !LEGACY_SCENE_FORMATS.includes(String(doc.format))) throw new SceneFileError(tl('不是 VeloPhi 场景文件（format 字段不符）'))
   const warnings: string[] = []
   let version = num(doc.version, 'version')
-  if (version > SCENE_VERSION_SOFTSTEP) warnings.push(tl('文件来自更新的版本（格式 {0}），未知字段已保留但可能不生效', [version]))
+  if (version > SCENE_VERSION_ARCS) warnings.push(tl('文件来自更新的版本（格式 {0}），未知字段已保留但可能不生效', [version]))
   // Formats 6 (26.54) and 7 (26.55) only add optional fields to format 5
   while (version < SCENE_VERSION) {
     const m = MIGRATIONS[version]
@@ -254,6 +254,13 @@ function parseBody(b: Record<string, unknown>, path: string): BodyDef {
         return { shape: parsePartShape(p.shape as Record<string, unknown>, `${pp}.shape`), position: vec(p.position, `${pp}.position`, { x: 0, y: 0 }), angle: num(p.angle, `${pp}.angle`, 0) }
       })
     }
+  } else if (shape.type === 'arc') {
+    // 26.59 fix 3 (D193): arc track
+    s = {
+      type: 'arc', radius: num(shape.radius, `${path}.shape.radius`), thickness: num(shape.thickness, `${path}.shape.thickness`),
+      start: num(shape.start, `${path}.shape.start`, 0), sweep: num(shape.sweep, `${path}.shape.sweep`),
+      ...(shape.center !== undefined && shape.center !== null ? { center: vec(shape.center, `${path}.shape.center`) } : {})
+    }
   } else s = parsePartShape(shape, `${path}.shape`)
   const mat = (b.material ?? {}) as Record<string, unknown>
   const kind = (['particle', 'rigid', 'static'].includes(b.kind as string) ? b.kind : 'rigid') as BodyDef['kind']
@@ -283,6 +290,9 @@ export function validateScene(scene: Scene) {
     if (b.shape.type === 'polygon' && b.shape.points.length < 3) throw new SceneFileError(tl('{0}：多边形至少需要 3 个顶点', [b.name]))
     // 26.52 (D35): concave polygons are allowed, self-intersecting ones are not; compound parts are checked one by one
     if (b.shape.type === 'polygon' && !polygonIsSimple(b.shape.points)) throw new SceneFileError(tl('{0}：多边形的边不能相交，面积不能为零', [b.name]))
+    if (b.shape.type === 'arc' && !(b.shape.radius > 0 && b.shape.thickness > 0 && b.shape.sweep > 0 && b.shape.sweep <= 2 * Math.PI + 1e-12)) {
+      throw new SceneFileError(tl('{0}：圆弧的半径和厚度须大于 0，圆心角须在 0…360° 之间', [b.name]))
+    }
     if (b.shape.type === 'compound') {
       if (b.shape.parts.length === 0) throw new SceneFileError(tl('{0}：复合体至少需要一个部分', [b.name]))
       for (const p of b.shape.parts) {

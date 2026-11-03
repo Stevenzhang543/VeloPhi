@@ -24,7 +24,8 @@ describe('26.55 file versions', () => {
 
   it('a newer format still warns', () => {
     const doc = JSON.parse(serializeScene(buildTemplate('projectile')))
-    doc.version = 9
+    // 26.59 fix 3: format 9 (arc tracks) is current, 10 is newer
+    doc.version = 10
     expect(parseScene(JSON.stringify(doc)).warnings.length).toBe(1)
   })
 

@@ -158,10 +158,11 @@ describe('the pipeline with a scripted AI', () => {
     const o = await readProblem('斜面题')
     expect(o.ok).toBe(true)
     expect(o.ok && o.calls).toBe(3)
-    scripted([{ route: 'template', id: 'incline', summary: 's' }, { template: { params: { x: 1 } } }, { template: { params: { y: 1 } } }, { template: { params: { z: 1 } } }])
+    // 26.59 fix 3 (D196): after two failed repairs the problem is built from scratch once (one call, one repair)
+    scripted([{ route: 'template', id: 'incline', summary: 's' }, { template: { params: { x: 1 } } }, { template: { params: { y: 1 } } }, { template: { params: { z: 1 } } }, { equations: {} }, { equations: {} }])
     const f = await readProblem('斜面题')
     expect(f.ok).toBe(false)
-    if (!f.ok) { expect(f.code).toBe('invalid'); expect(f.calls).toBe(4) }
+    if (!f.ok) { expect(f.code).toBe('invalid'); expect(f.calls).toBe(6) }
   })
 
   it('task route: the task solver answers and checks', async () => {

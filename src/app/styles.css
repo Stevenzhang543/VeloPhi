@@ -430,3 +430,5 @@ kbd { font-family: var(--font-mono); font-size: var(--type-tiny); background: va
 .btn:disabled:active { transform: none; }
 .toast-x { margin-left: 10px; border: 0; background: transparent; color: inherit; font: inherit; font-size: 16px; line-height: 1; cursor: pointer; min-width: 24px; min-height: 24px; border-radius: 6px; }
 .toast-x:hover { background: rgba(255, 255, 255, 0.16); }
+.toast-act { margin-left: 10px; border: 1px solid currentColor; background: transparent; color: inherit; font: inherit; font-weight: 600; cursor: pointer; min-height: 26px; padding: 0 10px; border-radius: 8px; }
+.toast-act:hover { background: rgba(127, 127, 127, 0.18); }

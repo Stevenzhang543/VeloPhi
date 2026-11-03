@@ -9,6 +9,7 @@ import { locale, tl } from '../i18n'
 import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, provide, reactive, ref, watch } from 'vue'
 import { state, undo, redo, runSimulation, play, pause, seekFrame, edit } from './store'
 import type { Page } from './store'
+import { overlapPrompt } from './overlapGate'
 import { deleteObject } from './editing'
 import { openScene, saveScene, newScene } from './files'
 import TopBar from './components/TopBar.vue'
@@ -32,6 +33,7 @@ const TourOverlay = defineAsyncComponent(() => import('./components/TourOverlay.
 const ReportDialog = defineAsyncComponent(() => import('./components/ReportDialog.vue'))
 const FbdDialog = defineAsyncComponent(() => import('./components/FbdDialog.vue'))
 const TapeDialog = defineAsyncComponent(() => import('./components/TapeDialog.vue'))
+const OverlapDialog = defineAsyncComponent(() => import('./components/OverlapDialog.vue'))
 const ProblemGallery = defineAsyncComponent(() => import('./components/ProblemGallery.vue'))
 // 26.55 (D96): learning path and global search
 const LearningPath = defineAsyncComponent(() => import('./components/LearningPath.vue'))
@@ -266,6 +268,7 @@ watch(() => state.problem, p => { if (!p && state.rightTab === 'problem') state.
     <TemplateGallery v-if="state.showTemplates" />
     <ExportDialog v-if="state.showExport && state.recording" />
     <AboutDialog v-if="state.showAbout" />
+    <OverlapDialog v-if="overlapPrompt.open" />
     <CoursewareDialog v-if="state.showCourseware && state.recording" />
     <SweepDialog v-if="state.showSweep" />
     <SolverCompareDialog v-if="state.showSolverCompare" />
@@ -283,7 +286,7 @@ watch(() => state.problem, p => { if (!p && state.rightTab === 'problem') state.
     <!-- 26.59 (D157): two live regions that always exist (polite status, assertive alert), so every message is announced -->
     <div class="sr-only" role="status" aria-live="polite">{{ state.toast && !state.toast.error ? state.toast.text : '' }}</div>
     <div class="sr-only" role="alert">{{ state.toast?.error ? state.toast.text : '' }}</div>
-    <div v-if="state.toast" class="toast" :class="{ error: state.toast.error }">{{ state.toast.text }}<button v-if="state.toast.error" type="button" class="toast-x" :aria-label="tl('关闭')" @click="state.toast = null">×</button></div>
+    <div v-if="state.toast" class="toast" :class="{ error: state.toast.error }">{{ state.toast.text }}<button v-if="state.toast.action" type="button" class="toast-act" @click="() => { const a = state.toast?.action; state.toast = null; a?.run() }">{{ state.toast.action.label }}</button><button v-if="state.toast.error || state.toast.action" type="button" class="toast-x" :aria-label="tl('关闭')" @click="state.toast = null">×</button></div>
   </div>
 </template>
 

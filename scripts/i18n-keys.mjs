@@ -26,8 +26,8 @@ const sfc = require(join(repo, 'node_modules/@vue/compiler-sfc'))
 
 const CJK = /[\u4e00-\u9fff]/
 const SKIP_CALLEES = new Set(['T', 'tri', 'st', 'pick', 'msg'])
-/** 26.59: modules whose Chinese text goes to the AI (prompts, catalogue, JSON protocol), not to the interface. */
-const AI_TEXT_FILES = new Set(['src/ai/import/prompts.ts', 'src/ai/import/catalog.ts', 'src/ai/copilot/prompt.ts', 'src/ai/aiText.ts'])
+/** 26.59: modules whose Chinese text goes to the AI (prompts, catalogue, JSON protocol), not to the interface (fix 3: the two Copilots' prompts). */
+const AI_TEXT_FILES = new Set(['src/ai/import/prompts.ts', 'src/ai/import/catalog.ts', 'src/ai/copilot/prompt.ts', 'src/ai/aiText.ts', 'src/ai/copilot/simPrompt.ts', 'src/ai/copilot/solvePrompt.ts'])
 
 function walkFiles(dir, out = []) {
   for (const name of readdirSync(dir)) {

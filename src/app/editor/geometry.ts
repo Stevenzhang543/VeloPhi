@@ -135,7 +135,7 @@ export function toLocalPt(def: BodyDef, w: Pt): Pt {
  * dynamic polygons relative to the centre of mass. Empty for circles.
  */
 export function localVerts(def: BodyDef): Pt[] {
-  if (def.shape.type === 'circle' || def.shape.type === 'compound') return []
+  if (def.shape.type === 'circle' || def.shape.type === 'compound' || def.shape.type === 'arc') return []
   if (def.shape.type === 'box') {
     const w = def.shape.width / 2, h = def.shape.height / 2
     return [{ x: -w, y: -h }, { x: w, y: -h }, { x: w, y: h }, { x: -w, y: h }]
@@ -181,7 +181,7 @@ export function bodyBounds(def: BodyDef): { minX: number; minY: number; maxX: nu
   }
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
   const grow = (x: number, y: number, r = 0) => { minX = Math.min(minX, x - r); maxX = Math.max(maxX, x + r); minY = Math.min(minY, y - r); maxY = Math.max(maxY, y + r) }
-  if (def.shape.type === 'compound') {
+  if (def.shape.type === 'compound' || def.shape.type === 'arc') {
     for (const part of outlineWorld(def)) { if (part.kind === 'circle') grow(part.c.x, part.c.y, part.r); else for (const p of part.pts) grow(p.x, p.y) }
     return { minX, minY, maxX, maxY }
   }

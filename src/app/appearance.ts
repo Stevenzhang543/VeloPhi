@@ -13,6 +13,7 @@
  * The pointer highlight writes --hx/--hy (pane-local px) on the pane under the pointer, once per animation frame;
  * the highlight itself only moves by transform (no repaint).
  */
+import { compatFlags } from './compat'
 import { setColourVision } from '../render/renderer'
 import { setSeriesColourVision } from '../render/seriesColours'
 import { watchEffect } from 'vue'
@@ -56,6 +57,9 @@ function onPointerMove(e: PointerEvent) {
 
 function onPointerLeave() { unlight() }
 
+/** The Android diagnosis switch "noglass" (26.59 fix 3, compat.ts). */
+function compatNoGlass(): boolean { return compatFlags().includes('noglass') }
+
 /** Start the appearance driver (once, before mounting). */
 export function initAppearance() {
   watchEffect(() => {
@@ -71,8 +75,10 @@ export function initAppearance() {
     const fx = effectiveEffects()
     // The background also rests during playback at standard quality: the canvas gets the whole frame budget
     const still = calmMotion() || sysEnv.hidden || (state.playing && settings.effects.quality !== 'high')
-    toggle('fx-glass', fx.glass)
-    toggle('fx-ambient', fx.ambient)
+    // 26.59 fix 3: the Android diagnosis switch "noglass" (compat.ts) keeps both off
+    const noGlass = compatNoGlass()
+    toggle('fx-glass', fx.glass && !noGlass)
+    toggle('fx-ambient', fx.ambient && !noGlass)
     toggle('fx-high', settings.effects.quality === 'high')
     toggle('fx-smooth', fx.ambient && settings.effects.quality === 'high')
     toggle('fx-still', still)

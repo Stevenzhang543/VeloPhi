@@ -112,7 +112,17 @@ export async function readProblem(text: string, opts: ImportOptions = {}): Promi
    */
   const ask = async (messages: ChatMessage[], maxTokens: number, purpose: string, think = false) => {
     calls++
-    const r = await chat({ messages, response_format: { type: 'json_object' }, temperature: 0.1, max_tokens: think ? Math.max(maxTokens, 24000) : maxTokens, reasoning: think ? 'on' : 'off', purpose }, { signal: opts.signal })
+    const req = { messages, response_format: { type: 'json_object' as const }, temperature: 0.1, max_tokens: think ? Math.max(maxTokens, 24000) : maxTokens, reasoning: (think ? 'on' : 'off') as 'on' | 'off', purpose }
+    let r
+    try {
+      r = await chat(req, { signal: opts.signal })
+    } catch (e) {
+      // 26.59 fix 3 (D196): a dropped connection, a busy or failing service, or an unreadable reply is asked once more
+      if (!(e instanceof AiError) || !transient(e) || opts.signal?.aborted) throw e
+      await new Promise(res => setTimeout(res, e.code === 'busy' ? 4000 : 1500))
+      calls++
+      r = await chat({ ...req, purpose: `${purpose} (retry)` }, { signal: opts.signal })
+    }
     tokens += r.usage?.total_tokens ?? 0
     const content = typeof r.message.content === 'string' ? r.message.content : ''
     lastRaw = content
@@ -146,8 +156,14 @@ export async function readProblem(text: string, opts: ImportOptions = {}): Promi
       a1 = await ask(m1, 3000, `import: read, repair ${round + 1}`, canThink && round === 1)
       r1 = checkRoute(a1.json)
     }
+    // 26.59 fix 3 (D196): a reading that names no usable template is not a failure — build the problem from scratch
+    // (a scene for a motion, equations for statics and the rest) with what the AI did read
+    if (!r1.ok && isObj(a1.json)) {
+      const fb = checkRoute({ ...a1.json, route: fallbackRoute(a1.json.process), id: null })
+      if (fb.ok) r1 = fb
+    }
     if (!r1.ok) return { ok: false, text, error: tl('AI 没有给出可用的读题结果'), code: 'invalid', errors: r1.errors, calls, raw: lastRaw.slice(0, 1500) }
-    const first = r1.value
+    let first = r1.value
     if (first.route === 'unsupported') return { ok: false, text, error: first.reason || tl('引擎暂时无法表达这道题'), code: 'unsupported', first, calls }
     // 2. choose parameters and questions for the route
     stage('choosing')
@@ -189,6 +205,24 @@ export async function readProblem(text: string, opts: ImportOptions = {}): Promi
       const r3 = checkAligned(a3.json)
       if (r3.ok) { a2 = a3; r2 = r3 }
     }
+    // 26.59 fix 3 (D196): a template, task or model the AI could not fill in after two repairs — build it from
+    // scratch instead (one call and one repair), so the problem still loads
+    if (!r2.ok && first.route !== 'scene' && first.route !== 'equations') {
+      const route = fallbackRoute(first.process)
+      const second: RouteAnswer = { ...first, route, id: null, alternatives: [], reason: `${first.reason}（${tl('改为自行建模')}）` }
+      stage('choosing')
+      const m3: ChatMessage[] = [{ role: 'system', content: buildSystem(route) }, { role: 'user', content: buildUser(full, second, opts.hint) }]
+      const check3 = (json: unknown) => { angleNotes = alignAngles(json, full); return checkBuild(route, null, json) }
+      let a3 = await ask(m3, 8000, `import: ${route} (fallback)`)
+      let r3 = check3(a3.json)
+      if (!r3.ok) {
+        stage('repairing')
+        m3.push({ role: 'assistant', content: a3.content || '(empty)' }, { role: 'user', content: a3.json === null ? unreadable(a3) : repairUser(r3.errors) })
+        a3 = await ask(m3, 8000, `import: ${route} (fallback), repair`, canThink)
+        r3 = check3(a3.json)
+      }
+      if (r3.ok) { first = second; a2 = a3; r2 = r3 }
+    }
     if (!r2.ok) return { ok: false, text, error: a2.json === null ? (a2.truncated ? tl('AI 的回答太长被截断，没有得到完整的结果') : tl('AI 没有按要求输出结果（已重试 2 次）')) : tl('AI 的输出没有通过校验（已修正 2 次）'), code: 'invalid', first, errors: r2.errors, calls, raw: lastRaw.slice(0, 1500) }
     const ex = extrasOf(a2.json)
     for (const n of angleNotes) if (!ex.assumptions.includes(n)) ex.assumptions.push(n)
@@ -200,6 +234,18 @@ export async function readProblem(text: string, opts: ImportOptions = {}): Promi
     if (e instanceof AiError) return { ok: false, text, error: e.message, code: e.code, calls }
     return { ok: false, text, error: (e as Error).message, calls }
   }
+}
+
+/** Errors worth one more try: the connection, a busy or failing service, an unreadable reply (26.59 fix 3, D196). */
+function transient(e: AiError): boolean {
+  return e.code === 'network' || e.code === 'busy' || e.code === 'invalid_response' || (e.code === 'server' && !!e.detail)
+}
+
+const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v)
+
+/** The from-scratch route for a process: a simulated scene for a motion, an equation model otherwise. */
+function fallbackRoute(process: unknown): 'scene' | 'equations' {
+  return process === 'motion' || process === 'field' ? 'scene' : 'equations'
 }
 
 /** The verdict of an equation model in words. */

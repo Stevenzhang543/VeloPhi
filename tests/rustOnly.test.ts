@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { TEMPLATES, buildTemplate, referenceTemplates } from '../src/templates'
-import { usesFields, usesRegions, usesSoftStep } from '../src/core/scene/types'
+import { usesArcs, usesFields, usesRegions, usesSoftStep } from '../src/core/scene/types'
 import { serializeScene } from '../src/core/scene/io'
 import { simulate as rustSimulate } from '../src/engine/recording'
 import { simulate } from './reference/core/solver/simulation'
@@ -17,13 +17,15 @@ const FIELD_TEMPLATES = ['charge-deflection', 'cyclotron', 'velocity-selector', 
   'rail-force', 'rail-coast', 'rail-fall', 'floating-block', 'sinking-ball', 'rising-block', 'weigh-in-water', 'densities', 'loaded-boat', 'ball-into-water']
 /** 26.58 (D134): the many-body templates are Rust-only too (the reference has no `softstep` integrator). */
 const MANY_BODY_TEMPLATES = ['pyramid', 'galton', 'dominoes', 'ball-pour']
+/** 26.59 fix 3 (D193): arc tracks are Rust-only shapes too (format 9). */
+const ARC_TEMPLATES = ['arc-slide', 'vertical-loop', 'hump-bridge', 'groove-momentum', 'hoop-disc']
 
 describe('scenes with charges or fields', () => {
   it('are exactly the field templates, and the reference comparisons skip them', () => {
     const fields = TEMPLATES.filter(t => usesFields(buildTemplate(t.id))).map(t => t.id)
-    expect(fields).toEqual([...FIELD_TEMPLATES, ...MANY_BODY_TEMPLATES])
+    expect(fields).toEqual([...FIELD_TEMPLATES, ...MANY_BODY_TEMPLATES, ...ARC_TEMPLATES])
     const ref = referenceTemplates().map(t => t.id)
-    expect(ref).toEqual(TEMPLATES.map(t => t.id).filter(id => !FIELD_TEMPLATES.includes(id) && !MANY_BODY_TEMPLATES.includes(id)))
+    expect(ref).toEqual(TEMPLATES.map(t => t.id).filter(id => !FIELD_TEMPLATES.includes(id) && !MANY_BODY_TEMPLATES.includes(id) && !ARC_TEMPLATES.includes(id)))
   })
 
   it('differ from what the reference computes (it ignores the electric and magnetic forces)', () => {
@@ -34,11 +36,11 @@ describe('scenes with charges or fields', () => {
     }
   })
 
-  it('are written as format 6 (7 with regions, liquids or rail loops, 8 with the many-body solver); other scenes stay format 5', () => {
+  it('are written as format 6 (7 with regions, liquids or rail loops, 8 with the many-body solver, 9 with arc tracks); other scenes stay format 5', () => {
     for (const t of TEMPLATES) {
       const scene = buildTemplate(t.id)
       const version = JSON.parse(serializeScene(scene)).version
-      expect(version, t.id).toBe(usesSoftStep(scene) ? 8 : usesRegions(scene) ? 7 : usesFields(scene) ? 6 : 5)
+      expect(version, t.id).toBe(usesArcs(scene) ? 9 : usesSoftStep(scene) ? 8 : usesRegions(scene) ? 7 : usesFields(scene) ? 6 : 5)
     }
   })
 

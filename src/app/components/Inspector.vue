@@ -19,6 +19,8 @@ import { FORCE_EXPR_HELP } from '../../core/scene/forceHelp'
 import { canonicalQuantityId } from '../../engine/observe'
 import { deleteObject, duplicateBody } from '../editing'
 import { explodeCompound } from '../editor/shapeOps'
+import { placeArc } from '../../core/scene/arc'
+import { MATERIALS, materialPreset } from '../editor/presets'
 import { fmtQ } from '../settings'
 
 const body = computed<BodyDef | null>(() => (state.selection?.kind === 'body' ? state.scene.bodies.find(b => b.id === state.selection!.id) ?? null : null))
@@ -136,6 +138,21 @@ function changeKind(kind: BodyDef['kind']) {
     if (kind === 'static') { b.velocity = { x: 0, y: 0 }; b.angularVelocity = 0 }
     if (kind !== 'static' && !(b.mass > 0)) b.mass = 1
     if (kind === 'particle') b.angularVelocity = 0
+    // 26.59 fix 3: an arc turns about its centre of mass when it moves; it stays where it is
+    placeArc(b)
+  })
+}
+/** Apply a material preset (26.59 fix 3, D194); rolling resistance stays as it is. */
+function usePreset(id: string) {
+  const m = MATERIALS.find(x => x.id === id)
+  if (m) setBody(b => { b.material = { ...b.material, muS: m.m.muS, muK: m.m.muK, restitution: m.m.restitution } })
+}
+/** Change one dimension of an arc (26.59 fix 3); a moving arc keeps its centre of mass at the body origin. */
+function setArc(key: 'radius' | 'thickness' | 'start' | 'sweep', v: number) {
+  setBody(b => {
+    if (b.shape.type !== 'arc') return
+    b.shape[key] = key === 'sweep' ? Math.min(v, 2 * Math.PI) : v
+    placeArc(b)
   })
 }
 function changeShape(type: 'circle' | 'box') {
@@ -259,13 +276,21 @@ function setPulleyBody(bodyId: string) {
           </select>
         </div>
         <div class="row"><label>{{ tl('形状') }}</label>
-          <select class="field grow" :value="body.shape.type" :disabled="body.shape.type === 'polygon' || body.shape.type === 'compound'" @change="changeShape(($event.target as HTMLSelectElement).value as 'circle' | 'box')">
+          <select class="field grow" :value="body.shape.type" :disabled="body.shape.type === 'polygon' || body.shape.type === 'compound' || body.shape.type === 'arc'" @change="changeShape(($event.target as HTMLSelectElement).value as 'circle' | 'box')">
             <option value="circle">{{ tl('圆') }}</option>
             <option value="box">{{ tl('矩形') }}</option>
             <option v-if="body.shape.type === 'polygon'" value="polygon">{{ tl('多边形') }}</option>
             <option v-if="body.shape.type === 'compound'" value="compound">{{ tl('复合体') }}</option>
+            <option v-if="body.shape.type === 'arc'" value="arc">{{ tl('圆弧') }}</option>
           </select>
         </div>
+        <template v-if="body.shape.type === 'arc'">
+          <div class="row"><label>{{ tl('内半径 R') }}</label><NumField class="grow" :model-value="body.shape.radius" unit="m" :min="1e-3" @update:model-value="v => setArc('radius', v)" /></div>
+          <div class="row"><label>{{ tl('厚度') }}</label><NumField class="grow" :model-value="body.shape.thickness" unit="m" :min="1e-3" @update:model-value="v => setArc('thickness', v)" /></div>
+          <div class="row"><label>{{ tl('起始角') }}</label><NumField class="grow" :model-value="body.shape.start" unit="rad" @update:model-value="v => setArc('start', v)" /></div>
+          <div class="row"><label>{{ tl('圆心角') }}</label><NumField class="grow" :model-value="body.shape.sweep" unit="rad" :min="1e-3" :max="2 * Math.PI" @update:model-value="v => setArc('sweep', v)" /></div>
+          <div class="tiny muted note">{{ tl('圆弧的内侧（凹面）和外侧（凸面）都是精确的圆，由物理核心精确计算接触：小球在圆弧槽、竖直圆轨道或拱形桥上的运动与教材结果一致。从起始角开始逆时针转过圆心角（0° 指向右，90° 指向上）。') }}</div>
+        </template>
         <template v-if="body.shape.type === 'compound'">
           <div class="row"><label>{{ tl('组成部分') }}</label><span class="grow small"><b>{{ body.shape.parts.length }}</b> {{ tl('个') }}<span class="muted">{{ tl('（圆 {0}、矩形 {1}、多边形 {2}）', [body.shape.parts.filter(p => p.shape.type === 'circle').length, body.shape.parts.filter(p => p.shape.type === 'box').length, body.shape.parts.filter(p => p.shape.type === 'polygon').length]) }}</span></span></div>
           <div class="tiny muted note">{{ tl('复合体是一个刚体：各部分密度相同，质量按面积分配，质心与转动惯量由各部分合成（平行轴定理）；部分之间不碰撞。') }}</div>
@@ -346,6 +371,12 @@ function setPulleyBody(bodyId: string) {
 
       <Section id="inspect.material" :title="tl('材料')">
         <div class="group">
+          <div class="row" :title="tl('常见材料的典型值；两物体接触时取各自系数中较小的值')"><label>{{ tl('预设') }}</label>
+            <select class="field grow" :value="materialPreset(body.material)" @change="usePreset(($event.target as HTMLSelectElement).value)">
+              <option value="">{{ tl('自定义') }}</option>
+              <option v-for="m in MATERIALS" :key="m.id" :value="m.id">{{ tl(m.label) }}</option>
+            </select>
+          </div>
           <div class="row"><label>{{ tl('静摩擦因数 μs') }}</label><NumField class="grow" :model-value="body.material.muS" :min="0" :step="0.05" @update:model-value="v => setBody(b => { b.material.muS = v })" /></div>
           <div class="row"><label>{{ tl('动摩擦因数 μk') }}</label><NumField class="grow" :model-value="body.material.muK" :min="0" :step="0.05" @update:model-value="v => setBody(b => { b.material.muK = v })" /></div>
           <div class="row"><label>{{ tl('恢复系数 e') }}</label><NumField class="grow" :model-value="body.material.restitution" :min="0" :max="1" :step="0.05" @update:model-value="v => setBody(b => { b.material.restitution = v })" /></div>

@@ -92,7 +92,13 @@ export const TEMPLATE_MODELS: Array<[string, string[]]> = [
   ['binary-star', ['M26']],
   ['kepler', ['M26']],
   // 26.59 fix (D185): a horizontal throw landing on an incline
-  ['projectile-slope', ['M04']]
+  ['projectile-slope', ['M04']],
+  // 26.59 fix 3 (D195): arc tracks
+  ['arc-slide', ['M09', 'M24']],
+  ['vertical-loop', ['M24', 'M09']],
+  ['hump-bridge', ['M24', 'M04']],
+  ['groove-momentum', ['M15', 'M09']],
+  ['hoop-disc', ['M22', 'M20']]
 ]
 
 export const LAB_MODELS: Array<[string, string[]]> = [

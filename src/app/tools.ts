@@ -44,13 +44,26 @@ export const T: Record<string, ToolDef> = trDeep({
   ruler: { tool: 'measure-ruler', icon: 'ruler', label: '尺子', tip: '拖动测量长度和与水平面的夹角，吸附到顶点和质心（M）', key: 'M' },
   angle: { tool: 'measure-angle', icon: 'protractor', label: '量角器', tip: '依次点击角的顶点和两边上的点（A）', key: 'A' },
   text: { tool: 'annotate-text', icon: 'text', label: '文字', tip: '点击放置文字标注，双击已有文字可修改（T）', key: 'T' },
-  arrow: { tool: 'annotate-arrow', icon: 'arrow', label: '箭头', tip: '拖动画出标注箭头（L）', key: 'L' }
+  arrow: { tool: 'annotate-arrow', icon: 'arrow', label: '箭头', tip: '拖动画出标注箭头（L）', key: 'L' },
+  // 26.59 fix 3 (D194): ready-made parts; arc tracks are exact circles in the physics core
+  arcQuarter: { tool: 'add-arc-quarter', icon: 'arcQuarter', label: '1/4 圆弧', tip: '固定的光滑四分之一圆弧轨道（半径 1 m）：单击放在地面上，底端与地面相切' },
+  arcHalf: { tool: 'add-arc-half', icon: 'arcHalf', label: '半圆槽', tip: '固定的光滑半圆槽（半径 1 m）：单击放置，槽底在单击处' },
+  arcLoop: { tool: 'add-arc-loop', icon: 'arcLoop', label: '圆轨道', tip: '固定的光滑圆环轨道（半径 1 m）：把小球放在环内侧，研究竖直面内的圆周运动' },
+  arcHump: { tool: 'add-arc-hump', icon: 'arcHump', label: '拱形桥', tip: '凸形圆弧桥面（半径 2 m）：物体在最高点对桥面的压力小于重力' },
+  arcDip: { tool: 'add-arc-dip', icon: 'arcDip', label: '凹形桥', tip: '凹形圆弧桥面（半径 2 m）：物体在最低点对桥面的压力大于重力' },
+  arcGroove: { tool: 'add-arc-groove', icon: 'arcGroove', label: '可动槽', tip: '放在光滑水平面上可以滑动的半圆槽（2 kg，不翻转）：小球与槽组成的系统水平方向动量守恒' },
+  hoop: { tool: 'add-hoop', icon: 'hoop', label: '圆环', tip: '可滚动的细圆环（I ≈ mr²），与圆柱比较滚动快慢' },
+  board: { tool: 'add-board', icon: 'board', label: '长木板', tip: '可运动的长木板（2 kg），用于板块模型' },
+  cart: { tool: 'add-cart', icon: 'cart', label: '小车', tip: '带轮的小车（1 kg，与地面无摩擦）' },
+  steps: { tool: 'add-steps', icon: 'steps', label: '台阶', tip: '三级固定台阶（每级高 0.3 m、深 0.4 m）' },
+  pendulum: { tool: 'add-pendulum', icon: 'pendulum', label: '单摆', tip: '在单击处挂一个单摆：摆长 1 m、摆球 0.2 kg，从 30° 释放' }
 })
 /** Always on top (D86). */
 export const COMMON: ToolDef[] = [T.select, T.pan, T.ball, T.block, T.ground, T.incline, T.rope, T.spring]
 /** Category pages, one shown at a time (D86). */
 export const PAGES: Array<{ id: string; title: string; tools: ToolDef[] }> = trDeep([
-  { id: 'body', title: '物体', tools: [T.disc, T.wedge, T.polygon, T.wall, T.conveyor, T.pulley] },
+  { id: 'body', title: '物体', tools: [T.disc, T.wedge, T.polygon, T.wall, T.conveyor, T.pulley, T.hoop, T.board, T.cart, T.steps] },
+  { id: 'track', title: '轨道', tools: [T.arcQuarter, T.arcHalf, T.arcLoop, T.arcHump, T.arcDip, T.arcGroove, T.pendulum] },
   { id: 'connect', title: '连接', tools: [T.rod, T.damper, T.hinge, T.weld, T.slider, T.motor, T.gear] },
   { id: 'field', title: '力与场', tools: [T.force, T.central, T.charge, T.fixedCharge, T.efield, T.bfield] },
   { id: 'edit', title: '编辑', tools: [T.cut, T.combine] },

@@ -14,12 +14,12 @@
  * list in the system prompt, the call as a JSON object in the answer); one that rejects `response_format` gets the
  * request without it; `max_tokens` → `max_completion_tokens` and no `temperature` for providers that ask for that.
  */
-import { jsonProtocol, toolLine, toolResult } from './aiText'
+import { BREVITY, jsonProtocol, toolLine, toolResult } from './aiText'
 import { settings } from '../app/settings'
 import { tl } from '../i18n'
 import { netRequest, NetError } from '../platform/net'
 import type { NetResponse } from '../platform/net'
-import { account, cookieMode, official, signedIn } from './account'
+import { account, cookieMode, official, refreshAccount, signedIn } from './account'
 import { getKey } from './keys'
 import { fromAnthropic, toAnthropic } from './anthropic'
 import { isDesktop } from '../platform/files'
@@ -373,23 +373,61 @@ async function sendLearning(request: ChatRequest, opts: ChatOptions): Promise<Ch
 const emptyAnswer = (r: ChatResult) => !textOf(r.message).trim() && !r.message.tool_calls?.length
 
 /**
+ * Connections whose model thought although thinking was switched off (26.59 fix 3, D197): an official server older
+ * than 20261102-r2 drops the switch, and some models think whatever they are told. Learnt per connection while the
+ * app runs.
+ */
+const thinksAnyway = new Set<string>()
+/** Room for an answer on such a connection: the whole answer limit of an old official server. */
+const THINKING_ROOM = 8192
+
+/** The model thought without being asked (the thinking text came back, or reasoning tokens were counted). */
+function thoughtUnasked(req: ChatRequest, r: ChatResult): boolean {
+  if (req.reasoning === 'on') return false
+  const tokens = (r.usage as { completion_tokens_details?: { reasoning_tokens?: number } } | undefined)?.completion_tokens_details?.reasoning_tokens ?? 0
+  return tokens > 0 || !!r.message.reasoning_content
+}
+
+/** The request with room for thinking and a reminder to keep it short (a model that cannot be stopped from thinking). */
+function roomy(req: ChatRequest): ChatRequest {
+  const messages = req.messages.map((m, i) => (i === 0 && m.role === 'system' && typeof m.content === 'string' ? { ...m, content: m.content + BREVITY } : m))
+  return { ...req, messages, max_tokens: Math.max(req.max_tokens ?? 2000, THINKING_ROOM) }
+}
+
+/**
  * Ask the AI. Throws AiError. An empty answer, or a structured (JSON) answer cut off by the token limit, is asked
  * once more with three times the room (26.59 fix): thinking models spend the budget on thinking, and DeepSeek's JSON
- * mode can answer with blanks.
+ * mode can answer with blanks. 26.59 fix 3 (D197): on a connection whose model thinks although told not to (an old
+ * official server, or such a model), every request gets room for the thinking and a reminder to keep it short from
+ * the start; before blaming an old official server, the account information is refreshed (the server may have been
+ * updated since the app started) and the request tried once more.
  */
 export async function chat(req: ChatRequest, opts: ChatOptions = {}): Promise<ChatResult> {
   const ready = aiReady()
   if (!ready.ok) throw new AiError('not_configured', ready.reason)
-  const res = await sendLearning(req, opts)
-  const cutJson = res.truncated && !!req.response_format && !res.message.tool_calls?.length
-  if (!emptyAnswer(res) && !cutJson) return res
+  const k = connKey()
+  const careful = req.reasoning !== 'on' && (thinksAnyway.has(k) || serverAlwaysThinks())
+  const res = await sendLearning(careful ? roomy(req) : req, opts)
+  if (thoughtUnasked(req, res)) thinksAnyway.add(k)
+  const cut = (r: ChatResult) => emptyAnswer(r) || (r.truncated && !!req.response_format && !r.message.tool_calls?.length)
+  if (!cut(res)) return res
   if (opts.signal?.aborted) throw new AiError('aborted', tl('已取消'))
-  const room = Math.min(32000, Math.max(4000, (req.max_tokens ?? 2000) * 3))
-  const again = await sendLearning({ ...req, max_tokens: room, purpose: `${req.purpose ?? 'chat'} (again)` }, opts)
-  // An official server older than 20261102-r2 cannot switch DeepSeek's thinking off and caps the answer length:
-  // a long thinking fills it every time, so say what helps instead of retrying in vain (26.59 fix)
-  const stillCut = emptyAnswer(again) || (again.truncated && !!req.response_format && !again.message.tool_calls?.length)
-  if (stillCut && serverAlwaysThinks()) throw new AiError('server', tl('官方服务器还不能关闭 DeepSeek 的“思考”，思考占满了回答的长度上限（服务器为 20261102-r1 或更早）。请在服务器上部署网站更新 20261102-r2（运行一次升级脚本），或暂时在“设置 › 账号与 AI”中改用自己的 API key。'))
+  const room = Math.min(32000, Math.max(4000, (req.max_tokens ?? 2000) * 3, careful ? THINKING_ROOM : 0))
+  const base = thinksAnyway.has(k) && req.reasoning !== 'on' ? roomy(req) : req
+  let again = await sendLearning({ ...base, max_tokens: room, purpose: `${req.purpose ?? 'chat'} (again)` }, opts)
+  if (!cut(again)) return again
+  if (settings.ai.connection === 'official' && aiFlavor() === 'deepseek') {
+    // Perhaps the server was updated while the app was open: read its capabilities again
+    const before = account.ai?.thinking === true
+    await refreshAccount().catch(() => {})
+    if (!before && account.ai?.thinking === true && !opts.signal?.aborted) {
+      thinksAnyway.delete(k)
+      again = await sendLearning({ ...req, max_tokens: room, purpose: `${req.purpose ?? 'chat'} (server updated)` }, opts)
+      if (!cut(again)) return again
+    }
+    // An official server older than 20261102-r2 cannot switch DeepSeek's thinking off and caps the answer length
+    if (serverAlwaysThinks()) throw new AiError('server', tl('官方 AI 服务器的版本较旧（20261102-r1 或更早），关不掉 DeepSeek 的“思考”，这次的思考超出了单次回答的长度上限。请联系管理员部署网站更新 20261102-r2（运行一次升级脚本）；也可以稍后重试，或在“设置 › 账号与 AI”中改用自己的 API key。'))
+  }
   return again
 }
 

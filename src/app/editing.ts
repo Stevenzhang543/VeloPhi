@@ -4,6 +4,7 @@
  * under the cursor are answered by the core (views.rs) for the shown state. Drag-to-create, handles,
  * annotations and the context-menu commands build on these in `./editor/`.
  */
+import { placePreset } from './editor/presets'
 import { tl } from '../i18n'
 import type { BodyDef, ConnectorDef, Scene } from '../core/scene/types'
 import { COULOMB_K, connectorAnchors } from '../core/scene/types'
@@ -93,6 +94,10 @@ export function placeObject(scene: Scene, cp: EditView, tool: Tool, p: Pt): stri
     // 26.54 (D78)
     case 'add-charge': case 'add-fixed-charge':
       return addCharge(scene, tool === 'add-fixed-charge', p, 0.05)
+    // 26.59 fix 3 (D194): ready-made parts
+    case 'add-arc-quarter': case 'add-arc-half': case 'add-arc-loop': case 'add-arc-hump': case 'add-arc-dip': case 'add-arc-groove':
+    case 'add-hoop': case 'add-board': case 'add-cart': case 'add-steps': case 'add-pendulum':
+      return placePreset(scene, tool, p, snap)
     case 'add-polygon': {
       // Regular pentagon, a dynamic polygon about its centre of mass
       const r = 0.15, at = onSurface(r * Math.cos(Math.PI / 5))

@@ -156,7 +156,7 @@ export function searchCatalog(query: string, kind?: string, limit = 8) {
   return items.sort((a, b) => b.s - a.s).slice(0, limit).map(({ s: _s, ...x }) => x)
 }
 
-async function confirmReplace(): Promise<void> {
+export async function confirmReplace(): Promise<void> {
   if (state.dirty && !(await ask(tl('Copilot 要替换当前场景，当前场景有未保存的修改。继续吗？')))) throw new ToolError('the user kept the current scene (unsaved changes)')
 }
 
@@ -551,8 +551,8 @@ export const TOOLS: Tool[] = [
   {
     name: 'build_scene', level: 'change', label: a => tl('搭建场景 {0}', [str((a.scene as { name?: string } | undefined)?.name) || '']),
     description: `Build a new scene when no template fits (replaces the current scene). SI units, x right, y up. scene = { name, gravity (m/s², default 9.8), duration (s),
-surfaces: [{type:"ground", id, top, left, right, muS, muK} | {type:"incline", id, angleDeg, base, x0, y0, mu} | {type:"wall", id, x, bottom, top}],
-bodies: [{id, name, shape:"box"|"ball"|"rod"|"cylinder", width, height, radius, length, mass, position:[x,y] or on:{surface, s (m from the top of an incline) | x}, velocity:[vx,vy], mu, restitution, charge (C)}],
+surfaces: [{type:"ground", id, top, left, right, muS, muK} | {type:"incline", id, angleDeg, base, x0, y0, mu} | {type:"wall", id, x, bottom, top} | {type:"arc", id, center:[x,y], radius (the running surface), startDeg, sweepDeg (0° right, 90° up; quarter track: 180, 90; vertical loop: 0, 360), side:"inside"|"outside" (hump), mu}],
+bodies: [{id, name, shape:"box"|"ball"|"rod"|"cylinder"|"groove"|"hoop", width, height, radius, length, thickness, startDeg, sweepDeg, mass, position:[x,y] (groove: its circle's centre) or on:{surface, s (m from the top of an incline) | x | angleDeg (on an arc track)}, velocity:[vx,vy], mu, restitution, charge (C), fixedRotation}],
 pulleys: [{id, position:[x,y], radius}],
 connectors: [{type:"rope", a, b, via:[pulley ids]} | {type:"spring", a, b, k, restLength} | {type:"rod", a, b, anchorB:[x,y]} | {type:"hinge", a, anchorB} | {type:"force", body, F:[Fx,Fy]}],
 fields: [{type:"electric", E:[Ex,Ey], region:[[x0,y0],[x1,y1]] | null} | {type:"magnetic", B (T, out of the page +), region} | {type:"liquid", density, region}] }.

@@ -27,6 +27,8 @@ import { PAGE_ACTIVE } from '../live'
 import { isDesktop } from '../../platform/files'
 import { ask } from '../../platform/ask'
 import AiSettings from './ai/AiSettings.vue'
+import { canLockOrientation, orientationMode, setOrientationMode } from '../androidBridge'
+import type { Orientation } from '../androidBridge'
 
 const props = withDefaults(defineProps<{ active?: boolean }>(), { active: true })
 provide(PAGE_ACTIVE, computed(() => props.active))
@@ -73,6 +75,11 @@ function setDensity(d: Density) {
   if (d === 'projection') settings.projector = true
   else { settings.projector = false; settings.density = d }
 }
+// 26.59 fix 3 (D199): screen orientation of the Android app (kept by the app itself)
+const lockable = canLockOrientation()
+const orientation = ref<Orientation>(orientationMode())
+const ORIENTATIONS: Array<{ id: Orientation; label: string }> = [{ id: 'auto', label: tl('自动旋转') }, { id: 'portrait', label: tl('锁定竖屏') }, { id: 'landscape', label: tl('锁定横屏') }]
+function pickOrientation(o: Orientation) { if (setOrientationMode(o)) orientation.value = o }
 const THEMES: Array<{ id: ThemeMode; label: string; icon: string }> = [
   { id: 'system', label: tl('跟随系统'), icon: 'display' }, { id: 'light', label: tl('浅色'), icon: 'sun' }, { id: 'dark', label: tl('深色'), icon: 'moon' }
 ]
@@ -210,6 +217,11 @@ async function resetAll() { if (await ask(tl('将所有设置恢复为默认值�
             </div>
             <div class="srow"><div class="sl"><b>{{ tl('外观') }}</b><span>{{ tl('浅色适合投影；“跟随系统”会随系统的深浅色实时切换。') }}</span></div>
               <div v-slide-indicator class="segmented"><button v-for="t in THEMES" :key="t.id" :class="{ on: settings.themeMode === t.id }" @click="settings.themeMode = t.id"><Icon :name="t.icon" :size="14" />{{ t.label }}</button></div>
+            </div>
+            <div v-if="lockable" class="srow"><div class="sl"><b>{{ tl('屏幕方向') }}</b><span>{{ tl('有些手机的系统网页组件在旋转屏幕时会出错（VeloΦ 会自动重新打开并恢复场景）；锁定方向可以避免。') }}</span></div>
+              <div v-slide-indicator class="segmented" role="radiogroup" :aria-label="tl('屏幕方向')">
+                <button v-for="o in ORIENTATIONS" :key="o.id" role="radio" :aria-checked="orientation === o.id" :class="{ on: orientation === o.id }" @click="pickOrientation(o.id)">{{ o.label }}</button>
+              </div>
             </div>
             <div class="srow"><div class="sl"><b>{{ tl('界面缩放') }}</b><span>{{ tl('文字与控件的大小（不影响画布的物理比例）。') }}</span></div>
               <div class="sc range"><input v-model.number="settings.uiScale" type="range" min="0.85" max="1.4" step="0.05" :aria-label="tl('界面缩放')" /><span class="mono val">{{ Math.round(settings.uiScale * 100) }}%</span></div>

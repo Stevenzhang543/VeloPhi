@@ -14,7 +14,7 @@ export const ROUTE_SYSTEM = `你是 VeloΦ 的读题助手。VeloΦ 是一个“
   "summary": "用题目的语言一句话复述：研究对象、物理过程、所求",
   "category": { "chapter": "章节 id", "types": ["题型", …], "level": "basic | advanced | hard", "stage": "junior | senior | university" },
   "process": "motion | static | circuit | optics | thermal | field | other（题目的物理过程：要仿真的运动，还是平衡 / 关系的计算）",
-  "objects": { "bodies": 运动物体个数, "pulleys": 滑轮总数, "movablePulleys": 其中动滑轮个数, "ropes": 绳的根数, "springs": 弹簧个数, "rods": 轻杆或铰链个数, "inclines": 斜面个数 },
+  "objects": { "bodies": 运动物体个数, "pulleys": 滑轮总数, "movablePulleys": 其中动滑轮个数, "ropes": 绳的根数, "springs": 弹簧个数, "rods": 轻杆或铰链个数, "inclines": 斜面个数, "arcs": 圆弧轨道（圆弧槽、竖直圆轨道、拱形桥、圆环）个数 },
   "route": "example | template | task | model | scene | equations | unsupported",
   "id": "所选例题 id / 模板 id / 任务领域 id / 模型 id；scene、equations 与 unsupported 时为 null",
   "alternatives": ["也可能合适的其他 id"],
@@ -25,7 +25,7 @@ export const ROUTE_SYSTEM = `你是 VeloΦ 的读题助手。VeloΦ 是一个“
 
 先判断题目的逻辑，再匹配：
 - 先定 process：要看物体随时间怎样运动 → motion；求平衡时的力、拉力、支持力、力矩（静止或匀速、“至少要多大的力”）→ static；电路、光路、热学等 → 相应类别。
-- 再数 objects：把题目（含图）里的运动物体、滑轮（其中轴会动的是动滑轮）、绳（一根连续的绳算一根）、弹簧、轻杆、斜面逐个数清楚。
+- 再数 objects：把题目（含图）里的运动物体、滑轮（其中轴会动的是动滑轮）、绳（一根连续的绳算一根）、弹簧、轻杆、斜面、圆弧轨道逐个数清楚。
 - 匹配只看结构与过程，不看话题：模板“结构”里每一项的个数都不少于题目的 objects，且模板的说明与题目的过程一致，才能选它。两道题都有滑轮不代表能用同一个模板；一个模板装不下题目的全部物体时，不要硬套，App 会拒绝。
 
 选择 route 的顺序：
@@ -121,9 +121,11 @@ ${TARGETS}
     "name": "场景名", "gravity": 9.8,
     "surfaces": [ { "type": "ground", "id": "ground", "top": 0, "left": -2, "right": 10, "muS": 0.2, "muK": 0.2 },
                   { "type": "incline", "id": "slope", "angleDeg": 37, "base": 4, "x0": 0, "y0": 0, "mu": 0.25 },
-                  { "type": "wall", "id": "wall", "x": 10, "bottom": 0, "top": 2 } ],
+                  { "type": "wall", "id": "wall", "x": 10, "bottom": 0, "top": 2 },
+                  { "type": "arc", "id": "track", "center": [0, 1], "radius": 1, "startDeg": 180, "sweepDeg": 90, "side": "inside", "mu": 0 } ],
     "bodies": [ { "id": "A", "name": "物块 A", "shape": "box", "width": 0.3, "height": 0.2, "mass": 2, "on": { "surface": "slope", "s": 0.5 }, "velocity": [0, 0] },
-                { "id": "B", "name": "小球 B", "shape": "ball", "radius": 0.1, "mass": 1, "position": [5, 0.1], "velocity": [-2, 0], "restitution": 1, "charge": 0 } ],
+                { "id": "B", "name": "小球 B", "shape": "ball", "radius": 0.1, "mass": 1, "position": [5, 0.1], "velocity": [-2, 0], "restitution": 1, "charge": 0 },
+                { "id": "C", "name": "小球 C", "shape": "ball", "radius": 0.05, "mass": 0.2, "on": { "surface": "track", "angleDeg": 180 } } ],
     "pulleys": [ { "id": "P", "position": [4, 1.2], "radius": 0.08 }, { "id": "Q", "position": [2, 0.6], "radius": 0.06, "on": "C" } ],
     "connectors": [ { "type": "rope", "a": "A", "b": "B", "via": ["P"] },
                     { "type": "spring", "a": "A", "b": "wall", "k": 50, "restLength": 1 },
@@ -136,7 +138,8 @@ ${TARGETS}
   "solution": ["解题思路，2–6 步"],
   "assumptions": [], "clarifications": []
 }
-规则：一律国际单位（m、kg、s、N、C、V/m、T）；坐标 x 向右、y 向上，地面顶面 y = top；"on" 把物体放在斜面上距顶端 s 米处或地面上 x 处；"s" 不能超过斜面长度；物体初始不能互相重叠；绳经过的滑轮按顺序写在 via；动滑轮写 "on": 承载它的物体 id（例如挂重物的轻质滑轮架，用一个小方块作为物体），position 为轮轴的位置；磁场 B 垂直纸面，向外为正；region 为 null 表示全空间。questions 里的量 id 用你自己起的物体 id：<物体 id>.v 等；接触力 contact.<受力物体>|<施力物体>.N。
+规则：一律国际单位（m、kg、s、N、C、V/m、T）；坐标 x 向右、y 向上，地面顶面 y = top；"on" 把物体放在斜面上距顶端 s 米处或地面上 x 处；"s" 不能超过斜面长度；物体初始不能互相重叠；绳经过的滑轮按顺序写在 via；动滑轮写 "on": 承载它的物体 id（例如挂重物的轻质滑轮架，用一个小方块作为物体），position 为轮轴的位置；磁场 B 垂直纸面，向外为正；region 为 null 表示全空间。
+圆弧轨道（精确的圆）："arc" 的 center 是圆心，radius 是物体在其上运动的那一面的半径，从 startDeg 起逆时针转过 sweepDeg（0° 向右、90° 向上、180° 向左、270° 向下）；"side": "inside" 表示物体在圆的内侧运动（圆弧槽、四分之一圆弧轨道、竖直圆轨道、凹形桥），"outside" 表示在外侧（拱形桥、球面顶端）；完整的竖直圆轨道用 sweepDeg 360。四分之一圆弧轨道底端与水平面相切：圆心在底端正上方 R 处，startDeg 180、sweepDeg 90。物体放在轨道上用 "on": { "surface": 轨道 id, "angleDeg": 所在位置的角度 }。可移动的圆弧槽用物体 "shape": "groove"（radius、thickness、startDeg、sweepDeg，position 为圆心），可滚动的细圆环用 "shape": "hoop"。questions 里的量 id 用你自己起的物体 id：<物体 id>.v 等；接触力 contact.<受力物体>|<施力物体>.N。
 ${TARGETS}`
     case 'equations':
       return `没有合适的模板，请把题目写成方程模型。输出：

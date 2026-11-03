@@ -34,6 +34,7 @@ fn piece_json(p: &ShapePiece) -> Value {
     match p {
         ShapePiece::Circle { center, radius } => json!({ "kind": "circle", "center": v2(*center), "radius": jnum(*radius) }),
         ShapePiece::Polygon { verts, normals } => json!({ "kind": "polygon", "verts": verts.iter().map(|v| v2(*v)).collect::<Vec<_>>(), "normals": normals.iter().map(|v| v2(*v)).collect::<Vec<_>>() }),
+        ShapePiece::Arc { center, r_in, r_out, start, sweep } => json!({ "kind": "arc", "center": v2(*center), "rIn": jnum(*r_in), "rOut": jnum(*r_out), "start": jnum(*start), "sweep": jnum(*sweep) }),
     }
 }
 

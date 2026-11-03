@@ -49,8 +49,60 @@ pub fn touching_features(sys: &System, poses: &[Pose]) -> Vec<Touch> {
             }
             out.push(Touch { pair: pair.index, feature: fi, kin: k });
         }
+        drop_corner_pinch(sys, pair, &mut out, start);
     }
     out
+}
+
+/// Normals (as forces on one body) whose dot product is below this point against each other (more than 120° apart).
+const OPPOSED: f64 = -0.5;
+
+/**
+ * Contacts of two convex bodies that clamp them together (26.59 fix 3, D201). A vertex of one body on a face of the
+ * other and a vertex of the other on a face of the first (point–face, opposite roles) can both be valid only when their
+ * normals do not point against each other. When they do — the bodies are wrapped around each other at a sharp tip, an
+ * overlap that no vertex feature sees — the two rows clamp the bodies: large opposite normal forces whose friction
+ * holds them, so a block hangs on the tip of a wedge for ever, at rest. Only one is kept: the face of a fixed body, else
+ * the first found. Concave and compound bodies are not affected (a block in a channel is legitimately pushed from both
+ * sides), nor are touches whose normals meet at up to 120° (corners resting on corners). Same rule as the TypeScript
+ * reference (modes.ts `dropCornerPinch`).
+ */
+fn drop_corner_pinch(sys: &System, pair: &PairInfo, out: &mut Vec<Touch>, start: usize) {
+    let n = out.len();
+    let complex = |g: usize| matches!(sys.model.bodies[g].shape, ShapeModel::Complex(_));
+    if n - start < 2 || complex(pair.x) || complex(pair.y) {
+        return;
+    }
+    let mut gone = vec![false; n];
+    for i in start..n {
+        for j in i + 1..n {
+            if gone[i] || gone[j] {
+                continue;
+            }
+            let (fi, fj) = (&pair.features[out[i].feature], &pair.features[out[j].feature]);
+            if !fi.is_pf() || !fj.is_pf() || fi.a.body == fj.a.body {
+                continue;
+            }
+            let (ki, kj) = (&out[i].kin, &out[j].kin);
+            // Normals as forces on the pair's first body (opposite roles: one of them flips)
+            let (si, sj) = (if fi.a.body == pair.x { 1.0 } else { -1.0 }, if fj.a.body == pair.x { 1.0 } else { -1.0 });
+            if si * sj * (ki.nx * kj.nx + ki.ny * kj.ny) >= OPPOSED {
+                continue;
+            }
+            let fixed_j = !sys.model.bodies[fj.b_body()].dynamic && sys.model.bodies[fi.b_body()].dynamic;
+            if fixed_j {
+                gone[i] = true;
+            } else {
+                gone[j] = true;
+            }
+        }
+    }
+    let mut k = 0;
+    out.retain(|_| {
+        let keep = !gone[k];
+        k += 1;
+        keep
+    });
 }
 
 /// Touches of a pair split into contact units (26.52, D35; see modes.ts contactClusters).

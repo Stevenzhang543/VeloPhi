@@ -219,14 +219,35 @@ fn local_pieces(shape: &ShapeModel) -> Vec<LocalPiece> {
     match shape {
         ShapeModel::Circle { radius } => vec![LocalPiece::Circle { c: V::default(), r: *radius }],
         ShapeModel::Polygon { verts, normals, .. } => vec![poly(verts, normals)],
-        ShapeModel::Complex(cs) => cs
-            .pieces
-            .iter()
-            .map(|p| match p {
-                ShapePiece::Circle { center, radius } => LocalPiece::Circle { c: V::new(center.x, center.y), r: *radius },
-                ShapePiece::Polygon { verts, normals } => poly(verts, normals),
-            })
-            .collect(),
+        ShapeModel::Complex(cs) => {
+            let mut out = Vec::new();
+            for p in &cs.pieces {
+                match p {
+                    ShapePiece::Circle { center, radius } => out.push(LocalPiece::Circle { c: V::new(center.x, center.y), r: *radius }),
+                    ShapePiece::Polygon { verts, normals } => out.push(poly(verts, normals)),
+                    // 26.59 fix 3: the soft-step world sees an arc as convex quadrilaterals (3° each)
+                    ShapePiece::Arc { center, r_in, r_out, start, sweep } => {
+                        for q in crate::model::arc_quads(*center, *r_in, *r_out, *start, *sweep, std::f64::consts::PI / 60.0) {
+                            let m = q.len();
+                            let normals: Vec<crate::scene::Vec2> = (0..m)
+                                .map(|i| {
+                                    let (a, b) = (q[i], q[(i + 1) % m]);
+                                    let (ex, ey) = (b.x - a.x, b.y - a.y);
+                                    let l = (ex * ex + ey * ey).sqrt();
+                                    if l > 0.0 {
+                                        crate::scene::Vec2 { x: ey / l, y: -ex / l }
+                                    } else {
+                                        crate::scene::Vec2::default()
+                                    }
+                                })
+                                .collect();
+                            out.push(poly(&q, &normals));
+                        }
+                    }
+                }
+            }
+            out
+        }
     }
 }
 

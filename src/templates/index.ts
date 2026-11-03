@@ -12,7 +12,7 @@
  */
 import { tl, trDeep } from '../i18n'
 import type { Scene } from '../core/scene/types'
-import { COULOMB_K, usesFields, usesSoftStep } from '../core/scene/types'
+import { COULOMB_K, usesArcs, usesFields, usesSoftStep } from '../core/scene/types'
 import { DEG, cos, sin, tan } from '../core/math/dmath'
 import { addBody, addConnector, addGround, addIncline, addPulley, anchor, defaultGravity, emptyScene, onIncline, setDefaultGravity } from '../core/scene/build'
 import type { ForceDef, RodDef, RopeDef, SpringDef, HingeDef, WeldDef, MotorDef, GearDef, CentralDef, SliderDef } from '../core/scene/types'
@@ -683,8 +683,9 @@ export const TEMPLATES: TemplateInfo[] = trDeep([
  * Templates the TypeScript reference engine can run at all (26.58, D134): every template except the many-body ones —
  * the reference knows no `softstep` integrator and would compute hundreds of bodies with the event-driven solver.
  * (Field templates run there too, without their fields, as before; `referenceTemplates` is the stricter list.)
+ * 26.59 fix 3 (D193): arc tracks are not in the reference either.
  */
-export function exactTemplates(): TemplateInfo[] { return TEMPLATES.filter(t => !usesSoftStep(t.build(Object.fromEntries(t.params.map(p => [p.key, p.value]))))) }
+export function exactTemplates(): TemplateInfo[] { return TEMPLATES.filter(t => { const s = t.build(Object.fromEntries(t.params.map(p => [p.key, p.value]))); return !usesSoftStep(s) && !usesArcs(s) }) }
 
 /** Templates the TypeScript reference can run (D77): the ones without charges or fields. */
 export function referenceTemplates(): TemplateInfo[] { return TEMPLATES.filter(t => !usesFields(t.build(Object.fromEntries(t.params.map(p => [p.key, p.value]))))) }

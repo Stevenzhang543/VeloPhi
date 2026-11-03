@@ -16,8 +16,13 @@ export interface PolygonShape { kind: 'polygon'; verts: Vec2[]; normals: Vec2[];
 export type ShapePiece =
   | { kind: 'circle'; center: Vec2; radius: number }
   | { kind: 'polygon'; verts: Vec2[]; normals: Vec2[] }
-/** Concave polygon or compound shape: its convex pieces and the outlines of its parts (drawing). */
-export interface ComplexShape { kind: 'complex'; pieces: ShapePiece[]; outline: ShapePiece[] }
+/** An arc piece as the core describes it (26.59 fix 3, D193): annular sector about `center` from `start` over `sweep`. */
+export interface ArcPiece { kind: 'arc'; center: Vec2; rIn: number; rOut: number; start: number; sweep: number }
+/**
+ * Concave polygon, compound shape or arc: its convex pieces and the outlines of its parts (drawing). Arc outlines are
+ * handed to the drawing code as polygon loops (expandArcs); `arcs` keeps them exact.
+ */
+export interface ComplexShape { kind: 'complex'; pieces: Array<ShapePiece | ArcPiece>; outline: ShapePiece[]; arcs?: ArcPiece[] }
 export type ShapeModel = CircleShape | PolygonShape | ComplexShape
 
 /** A body of the compiled model. */
@@ -121,10 +126,46 @@ export function pairKey(a: string, b: string): string { return a < b ? `${a}|${b
 
 type Raw = Record<string, any> // eslint-disable-line @typescript-eslint/no-explicit-any
 
+/**
+ * Polygon loops that draw an arc (26.59 fix 3): one closed loop (outer side forwards, inner side back) for an open
+ * arc, an outer loop and a reversed inner loop (a hole) for a full ring; at most 2° per segment.
+ */
+export function arcLoops(p: ArcPiece): Array<{ kind: 'polygon'; verts: Vec2[]; normals: Vec2[] }> {
+  const ring = p.sweep >= 2 * Math.PI - 1e-9
+  const n = Math.max(2, Math.ceil(p.sweep / (Math.PI / 90)))
+  const at = (k: number, r: number) => { const t = p.start + (p.sweep * k) / n; return { x: p.center.x + r * Math.cos(t), y: p.center.y + r * Math.sin(t) } }
+  const loop = (verts: Vec2[]) => ({
+    kind: 'polygon' as const, verts,
+    normals: verts.map((a, i) => { const b = verts[(i + 1) % verts.length], ex = b.x - a.x, ey = b.y - a.y, l = Math.hypot(ex, ey) || 1; return { x: ey / l, y: -ex / l } })
+  })
+  if (ring) {
+    const outer: Vec2[] = [], inner: Vec2[] = []
+    for (let k = 0; k < n; k++) { outer.push(at(k, p.rOut)); inner.push(at(n - k, p.rIn)) }
+    return [loop(outer), loop(inner)]
+  }
+  const verts: Vec2[] = []
+  for (let k = 0; k <= n; k++) verts.push(at(k, p.rOut))
+  for (let k = n; k >= 0; k--) verts.push(at(k, p.rIn))
+  return [loop(verts)]
+}
+
+/** Outline pieces with every arc turned into its polygon loops (drawing, bounds, hit areas). */
+export function expandArcs(pieces: Array<ShapePiece | ArcPiece>): ShapePiece[] {
+  const out: ShapePiece[] = []
+  for (const p of pieces) { if (p.kind === 'arc') out.push(...arcLoops(p)); else out.push(p) }
+  return out
+}
+
 /** Link the descriptor of `modelInfo` into objects; `scene` supplies the body definitions and settings. */
 export function linkSystem(info: Raw, scene: Scene): System {
   const defs = new Map(scene.bodies.map(b => [b.id, b]))
-  const bodies: BodyModel[] = (info.bodies as Raw[]).map(b => ({ ...b, def: defs.get(b.id) ?? (b as unknown as BodyDef) } as BodyModel))
+  const bodies: BodyModel[] = (info.bodies as Raw[]).map(b => {
+    // 26.59 fix 3: arc outlines become polygon loops for drawing; the exact arcs stay in `arcs`
+    const shape = b.shape?.kind === 'complex' && (b.shape.outline as Raw[]).some(p => p.kind === 'arc')
+      ? { ...b.shape, outline: expandArcs(b.shape.outline), arcs: (b.shape.outline as Raw[]).filter(p => p.kind === 'arc') }
+      : b.shape
+    return { ...b, shape, def: defs.get(b.id) ?? (b as unknown as BodyDef) } as BodyModel
+  })
   const body = (g: number | null | undefined) => (g === null || g === undefined ? null : bodies[g])
   const anchor = (a: Raw): AnchorModel => ({ body: body(a.body), local: a.local })
   const pulleys: PulleyModel[] = (info.pulleys as Raw[]).map(p => ({ id: p.id, name: p.name, position: p.position, radius: p.radius, body: body(p.body) }))

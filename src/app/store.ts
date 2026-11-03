@@ -23,6 +23,9 @@ import { canonicalQuantityId } from '../engine/observe'
 import { logEvent } from './trialLog'
 import { buildTemplate } from '../templates'
 import { startSimulation } from './simClient'
+import { findOverlaps, pushApart } from '../engine/overlaps'
+import type { OverlapReport } from '../engine/overlaps'
+import { askOverlap, overlapPrompt } from './overlapGate'
 import type { RunStats, SimHandle } from './simClient'
 import type { DisplayOptions } from './settings'
 import { settings } from './settings'
@@ -44,6 +47,9 @@ export type Tool =
   | 'add-central' | 'shape-cut' | 'shape-combine'
   // 26.54 (D78): charges (moving and fixed); the field buttons switch the scene's uniform fields on
   | 'add-charge' | 'add-fixed-charge' | 'field-electric' | 'field-magnetic'
+  // 26.59 fix 3 (D194): ready-made parts (arc tracks, hoop, board, cart, steps, pendulum)
+  | 'add-arc-quarter' | 'add-arc-half' | 'add-arc-loop' | 'add-arc-hump' | 'add-arc-dip' | 'add-arc-groove'
+  | 'add-hoop' | 'add-board' | 'add-cart' | 'add-steps' | 'add-pendulum'
 
 /** Selected object, if any. */
 export type Selection = { kind: 'body' | 'connector' | 'pulley'; id: string } | null
@@ -147,7 +153,7 @@ export interface AppState {
   bottomTab: 'chart' | 'events'
   /** Effective theme (settings.themeMode resolved against the system appearance); read by the renderer. */
   theme: 'light' | 'dark'
-  toast: { text: string; error: boolean } | null
+  toast: { text: string; error: boolean; action?: { label: string; run: () => void } } | null
   showTemplates: boolean
   showExport: boolean
   showAbout: boolean
@@ -498,7 +504,35 @@ export function recognizeAgain() {
 }
 
 /** Compute the current scene. Partial recordings are shown while the run continues (settings.sim.progressive). */
+/**
+ * Overlapping bodies before a run (26.59 fix 3, D200): ask whether to push them apart along the shortest way (one
+ * undoable edit, after which the run starts) or to wait for the user to move them (nothing is computed until the
+ * scene changes). The choice applies to the scene as it is when answered.
+ */
+let settling = false
+async function settleOverlaps(r: OverlapReport) {
+  if (settling) return
+  settling = true
+  try {
+    const choice = await askOverlap(state.scene, r, (a, b, d) => tl('{0} 与 {1}：{2}', [a, b, d]))
+    const now = findOverlaps(cloneScene(state.scene))
+    if (!now?.pairs.length) return
+    if (choice === 'push' && now.moved.length && !now.remaining.length) {
+      edit(s => pushApart(s, now))
+      showToast(tl('已按最短路线把重叠的物体挤开（可撤销）'))
+      if (!state.autoRun) void runSimulation()
+      return
+    }
+    state.recording?.session.free()
+    state.recording = null
+    state.situations = []
+    state.simError = tl('物体重叠，未计算。移动物体（或撤销）后会重新计算。')
+  } finally { settling = false }
+}
+
 export function runSimulation(): Promise<void> {
+  // 26.59 fix 3: Android diagnosis switch "nosim" (app/compat.ts) — nothing is computed
+  if ((globalThis as { __velophiCompat?: string }).__velophiCompat?.split(',').includes('nosim')) return Promise.resolve()
   if (autoTimer) { clearTimeout(autoTimer); autoTimer = null }
   if (handle) { handle.cancel(); handle = null }
   const token = ++runToken
@@ -520,6 +554,14 @@ export function runSimulation(): Promise<void> {
     state.computing = false
     return Promise.resolve()
   }
+  // 26.59 fix 3 (D200): bodies overlapping at the start — the run waits for the user's choice
+  const overlaps = findOverlaps(scene)
+  if (overlaps?.pairs.length) {
+    state.computing = false
+    void settleOverlaps(overlaps)
+    return Promise.resolve()
+  }
+  if (overlapPrompt.open) overlapPrompt.answer?.('cancel')
   const unbounded = scene.settings.duration === null
   state.run = { ...emptyRun(), unbounded, tTarget: unbounded ? settings.sim.lookAheadSeconds : Infinity }
   recognizer = true
@@ -602,11 +644,12 @@ export function currentTime(): number {
 }
 
 /** Show a short message (errors stay longer). */
-export function showToast(text: string, error = false) {
-  state.toast = { text, error }
+export function showToast(text: string, error = false, action?: { label: string; run: () => void }) {
+  state.toast = { text, error, action }
   const current = state.toast
-  // 26.59 (D157): errors stay longer and can be closed; both are announced by the live regions in App.vue
-  setTimeout(() => { if (state.toast === current) state.toast = null }, error ? 12000 : 2600)
+  // 26.59 (D157): errors stay longer and can be closed; both are announced by the live regions in App.vue.
+  // 26.59 fix 3: a toast with an action button stays as long as an error
+  setTimeout(() => { if (state.toast === current) state.toast = null }, error || action ? 12000 : 2600)
 }
 
 // ---- Playback ----

@@ -45,10 +45,10 @@ export const EVENTS: Record<string, string> = {
  * What a scene is made of (26.59 fix, D191): the counts the AI also gives for a problem, so a template is chosen only
  * when it holds every object of the problem — not because the topic sounds alike ("both are pulleys").
  */
-export const STRUCTURE_KEYS = ['bodies', 'pulleys', 'movablePulleys', 'ropes', 'springs', 'rods', 'inclines'] as const
+export const STRUCTURE_KEYS = ['bodies', 'pulleys', 'movablePulleys', 'ropes', 'springs', 'rods', 'inclines', 'arcs'] as const
 export type StructureKey = typeof STRUCTURE_KEYS[number]
 export type Structure = Record<StructureKey, number>
-export const STRUCTURE_LABEL: Record<StructureKey, string> = { bodies: '运动物体', pulleys: '滑轮', movablePulleys: '动滑轮', ropes: '绳', springs: '弹簧', rods: '轻杆或铰链', inclines: '斜面' }
+export const STRUCTURE_LABEL: Record<StructureKey, string> = { bodies: '运动物体', pulleys: '滑轮', movablePulleys: '动滑轮', ropes: '绳', springs: '弹簧', rods: '轻杆或铰链', inclines: '斜面', arcs: '圆弧轨道或圆环' }
 
 /** The structure of a scene: moving bodies, pulleys (and how many move), ropes, springs, rods and hinges, inclines. */
 export function structureOf(scene: Scene): Structure {
@@ -61,7 +61,9 @@ export function structureOf(scene: Scene): Structure {
     ropes: scene.connectors.filter(c => c.type === 'rope').length,
     springs: scene.connectors.filter(c => c.type === 'spring').length,
     rods: scene.connectors.filter(c => c.type === 'rod' || c.type === 'hinge').length,
-    inclines: scene.bodies.filter(b => b.role === 'incline').length
+    inclines: scene.bodies.filter(b => b.role === 'incline').length,
+    // 26.59 fix 3 (D193): arc tracks, grooves and hoops
+    arcs: scene.bodies.filter(b => b.shape.type === 'arc').length
   }
 }
 

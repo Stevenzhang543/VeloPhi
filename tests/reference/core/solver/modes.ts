@@ -48,9 +48,33 @@ export function touchingFeatures(sys: System, poses: Pose[]): Touch[] {
       if (local.some(t => Math.abs(t.kin.cx - k.cx) <= 1e-9 && Math.abs(t.kin.cy - k.cy) <= 1e-9)) continue
       local.push({ pair, feature: f, kin: k })
     }
-    out.push(...local)
+    out.push(...dropCornerPinch(pair, local))
   }
   return out
+}
+
+/**
+ * Contacts of two convex bodies that clamp them together (26.59 fix 3, D201): a vertex of X on a face of Y and a vertex
+ * of Y on a face of X whose normals point against each other (more than 120° apart: bodies wrapped around a sharp tip)
+ * would hold the bodies by friction for ever. Keep the face of a fixed body, else the first found; concave and compound
+ * bodies are not affected (same rule as the Rust core, modes.rs `drop_corner_pinch`).
+ */
+function dropCornerPinch(pair: PairInfo, local: Touch[]): Touch[] {
+  if (local.length < 2 || pair.X.shape.kind === 'complex' || pair.Y.shape.kind === 'complex') return local
+  const gone = local.map(() => false)
+  for (let i = 0; i < local.length; i++) {
+    for (let j = i + 1; j < local.length; j++) {
+      if (gone[i] || gone[j]) continue
+      const fi = local[i].feature, fj = local[j].feature
+      if (fi.kind !== 'pf' || fj.kind !== 'pf' || fi.A.body === fj.A.body) continue
+      const ki = local[i].kin, kj = local[j].kin
+      const si = fi.A.body === pair.X ? 1 : -1, sj = fj.A.body === pair.X ? 1 : -1
+      if (si * sj * (ki.nx * kj.nx + ki.ny * kj.ny) >= -0.5) continue
+      if (!fj.B.body.dynamic && fi.B.body.dynamic) gone[i] = true
+      else gone[j] = true
+    }
+  }
+  return local.filter((_, i) => !gone[i])
 }
 
 /**

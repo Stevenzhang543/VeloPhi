@@ -4,15 +4,22 @@
  * floats over the right panel). Drag its left edge to change the width; collapse it to a thin strip (or, with the
  * setting off, hide it until Ctrl+I). On narrow windows it slides over the page; on phones it fills the screen.
  *
- * One box for all AI (D182): ask a question or say "帮我……" (Enter), or paste / type a problem — or attach its
- * photo — and press "识别题目" (Ctrl+Enter): the problem is read, the scene built and the engine computes the
- * answers, shown as one item of the conversation. "深度思考" lets a thinking model (DeepSeek) think first.
+ * Two Copilots (26.59 fix 3, D198), switched at the top, each with its own conversation: "解题" explains how to
+ * solve a problem (a teacher; no tools), "仿真" builds the problem in the engine — it writes a VeloΦ scene file
+ * (JSON), the app checks and loads it and the engine computes the answers, shown on a card with the file (copy,
+ * save as .velophi.json, load again) — and operates the app. One click hands a problem to the other Copilot.
+ * Photos can be pasted or dropped into either; "深度思考" lets a thinking model (DeepSeek) think first.
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { tl } from '../../../i18n'
 import { state, showToast } from '../../store'
 import { settings } from '../../settings'
-import { copilot, sendToCopilot, stopCopilot, clearCopilot, undoAction, recognizeInCopilot, copilotThinks, looksLikeProblem, STARTERS } from '../../../ai/copilot/session'
+import { copilot, sendToCopilot, stopCopilot, clearCopilot, undoAction, recognizeInCopilot, copilotThinks, STARTERS, setCopilotMode, restoreCopilotMode, buildInSim, explainInSolve, reloadScene } from '../../../ai/copilot/session'
+import type { Bubble, CopilotMode, SceneCard } from '../../../ai/copilot/session'
+import { problemAnswers } from '../../../ai/import/answers'
+import type { AnswerLine } from '../../../ai/import/answers'
+import { saveFile, sceneFilter } from '../../../platform/files'
+import { safeName } from '../../../export/safeName'
 import { renderAnswer } from '../../../ai/copilot/render'
 import { aiReady, aiVision, aiLabel, aiCanThink } from '../../../ai/client'
 import { aiImport, cancelImport } from '../../../ai/import/pipeline'
@@ -43,12 +50,33 @@ async function send(text = input.value) {
   const t = text.trim()
   if (!t && !image.value) return
   const img = image.value ?? undefined
-  // 26.59 fix (D190): a picture, or a whole problem, is read and built ("识别题目"); other messages are chat
-  if (img || looksLikeProblem(t)) { await recognize(); return }
   input.value = ''
   image.value = null
   await sendToCopilot(t, img)
 }
+const MODES: Array<{ id: CopilotMode; label: string; icon: string; hint: string }> = [
+  { id: 'solve', label: '解题讲解', icon: 'graduation', hint: '讲解题目：过程分析、规律选择、列式求解、易错点' },
+  { id: 'sim', label: '仿真搭建', icon: 'play', hint: '用引擎搭建题目：AI 写出场景文件（JSON），自动载入并计算' }
+]
+function pickMode(m: CopilotMode) { setCopilotMode(m); void nextTick(() => box.value?.focus()) }
+function onModeKey(e: KeyboardEvent) {
+  if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+  e.preventDefault()
+  pickMode(copilot.mode === 'solve' ? 'sim' : 'solve')
+  void nextTick(() => (document.querySelector(`[data-ui="copilot-mode-${copilot.mode}"]`) as HTMLElement | null)?.focus())
+}
+/** Answers of a scene card: live while its problem is open (they may still be computing), else as they were. */
+function cardAnswers(c: SceneCard): AnswerLine[] | null {
+  if (c.problemId && state.problem?.problem.id === c.problemId) return problemAnswers(c.problemId) ?? c.answers
+  return c.answers
+}
+function cardHidden(c: SceneCard): boolean { return c.hidden && !(c.problemId && state.problem?.problem.id === c.problemId && state.problem.revealed) }
+async function saveJson(c: SceneCard) {
+  try { if (await saveFile(c.json, `${safeName(c.name)}.velophi.json`, sceneFilter())) showToast(tl('已保存')) } catch (e) { showToast((e as Error).message, true) }
+}
+async function reload(c: SceneCard) { if (await reloadScene(c)) showToast(tl('已重新载入')) }
+/** The failed scene builds of an answer (the template reader is offered then). */
+const buildFailed = (b: Bubble) => !b.scene && b.actions.some(a => a.tool === 'apply_scene' && !a.ok)
 async function recognize(hint?: string, again?: { text: string; image?: string }) {
   if (!ready.value.ok) { goSetup(); return }
   const t = again ? again.text : input.value.trim()
@@ -66,7 +94,6 @@ function stop() { if (aiImport.busy) cancelImport(); stopCopilot() }
 
 function onKey(e: KeyboardEvent) {
   // stopPropagation: Ctrl+Enter is also "重新计算" for the window
-  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !e.isComposing) { e.preventDefault(); e.stopPropagation(); void recognize(); return }
   if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); e.stopPropagation(); void send(); return }
   if (e.key === 'Escape') { e.stopPropagation(); if (copilot.busy) stop(); else if (overlay.value) setOpen(false); else (e.target as HTMLElement).blur() }
 }
@@ -102,9 +129,9 @@ function nudgeWidth(e: KeyboardEvent) {
   else if (e.key === 'ArrowRight') settings.ai.dockWidth = Math.max(280, settings.ai.dockWidth - 20)
 }
 
-// The welcome page's "粘贴一道题" and the task panel open the dock with the box focused
-function focusBox() { setOpen(true) }
-onMounted(() => { window.addEventListener('velophi:focus-import', focusBox); if (open.value) void nextTick(() => box.value?.focus()) })
+// The welcome page's "粘贴一道题" and the task panel open the simulation Copilot with the box focused
+function focusBox() { if (!copilot.busy) setCopilotMode('sim'); setOpen(true) }
+onMounted(() => { restoreCopilotMode(); window.addEventListener('velophi:focus-import', focusBox); if (open.value) void nextTick(() => box.value?.focus()) })
 onBeforeUnmount(() => window.removeEventListener('velophi:focus-import', focusBox))
 watch(() => [copilot.bubbles.length, copilot.status, aiImport.stage], () => nextTick(() => { list.value?.scrollTo({ top: list.value.scrollHeight, behavior: 'smooth' }) }))
 </script>
@@ -113,7 +140,8 @@ watch(() => [copilot.bubbles.length, copilot.status, aiImport.stage], () => next
   <!-- Collapsed: a thin strip with the way back in (wide windows, setting on) -->
   <aside v-if="!open && !overlay && settings.ai.importBar" class="strip" :aria-label="'Copilot'">
     <button type="button" class="btn icon ghost" data-ui="copilot-open" :title="tl('打开 Copilot（{0}+I）', [MOD])" :aria-label="tl('打开 Copilot')" @click="setOpen(true)"><Icon name="chat" :size="17" /></button>
-    <button type="button" class="btn icon ghost" :title="tl('识别题目：粘贴题目或图片')" :aria-label="tl('识别题目')" @click="setOpen(true)"><Icon name="wand" :size="16" /></button>
+    <button type="button" class="btn icon ghost" :title="tl('解题：讲解题目的思路与过程')" :aria-label="tl('解题讲解')" @click="pickMode('solve'); setOpen(true)"><Icon name="graduation" :size="16" /></button>
+    <button type="button" class="btn icon ghost" :title="tl('仿真：用引擎搭建题目')" :aria-label="tl('仿真搭建')" @click="pickMode('sim'); setOpen(true)"><Icon name="play" :size="16" /></button>
     <span class="strip-label" aria-hidden="true">Copilot</span>
   </aside>
 
@@ -128,12 +156,19 @@ watch(() => [copilot.bubbles.length, copilot.status, aiImport.stage], () => next
       <button type="button" class="btn icon ghost" :title="tl('AI 设置')" :aria-label="tl('AI 设置')" @click="goSetup"><Icon name="settings" :size="14" /></button>
       <button type="button" class="btn icon ghost" :title="overlay ? tl('关闭（Esc）') : tl('收起（{0}+I）', [MOD])" :aria-label="tl('收起')" @click="setOpen(false)"><Icon :name="overlay ? 'close' : 'sidebar'" :size="14" /></button>
     </header>
+    <div class="modes" role="tablist" :aria-label="tl('Copilot 模式')" @keydown="onModeKey">
+      <button
+        v-for="m in MODES" :key="m.id" type="button" role="tab" class="mode-tab" :class="{ on: copilot.mode === m.id }" :data-ui="`copilot-mode-${m.id}`"
+        :aria-selected="copilot.mode === m.id" :tabindex="copilot.mode === m.id ? 0 : -1" :disabled="copilot.busy && copilot.mode !== m.id" :title="tl(m.hint)" @click="pickMode(m.id)"
+      ><Icon :name="m.icon" :size="13" />{{ tl(m.label) }}</button>
+    </div>
 
     <div ref="list" class="body" aria-live="polite">
       <div v-if="!copilot.bubbles.length" class="empty">
-        <p>{{ tl('问物理问题、让我替你操作软件，或者粘贴一道题（文字或图片）：AI 判断题目的逻辑，匹配模板或从零建模，答案由 App 计算，并给出解题思路。') }}</p>
+        <p v-if="copilot.mode === 'solve'">{{ tl('把题目发给我（文字或图片）：我会分析物理过程、讲清规律的选择，一步步列式求解，并指出易错点。也可以问概念。想看真实的运动过程，点“在仿真中搭建”。') }}</p>
+        <p v-else>{{ tl('把题目发给我（文字或图片）：我会读题，写出 VeloΦ 场景文件（JSON）把它搭出来并自动载入，答案由引擎计算。也可以让我修改场景、显示受力、播放、画曲线。') }}</p>
         <p v-if="settings.ai.learningMode" class="mode">{{ tl('学习模式已开启：我先给提示，你作答后再对照答案。') }}</p>
-        <div class="starters"><button v-for="s in STARTERS" :key="s" type="button" class="btn small" @click="send(tl(s))">{{ tl(s) }}</button></div>
+        <div class="starters"><button v-for="s in STARTERS[copilot.mode]" :key="s" type="button" class="btn small" @click="send(tl(s))">{{ tl(s) }}</button></div>
       </div>
       <template v-for="b in copilot.bubbles" :key="b.id">
         <div v-if="b.role === 'user'" class="msg user"><img v-if="b.image" :src="b.image" :alt="tl('题目图片')"><span>{{ b.text }}</span></div>
@@ -148,8 +183,40 @@ watch(() => [copilot.bubbles.length, copilot.status, aiImport.stage], () => next
               <span v-if="a.undone" class="muted">{{ tl('已撤销') }}</span>
             </li>
           </ul>
+          <div v-if="b.scene" class="scene-card">
+            <div class="sc-head"><Icon name="studio" :size="13" /><b>{{ tl('已搭建并载入：{0}', [b.scene.name]) }}</b></div>
+            <p class="sc-meta">{{ tl('{0} 个物体 · {1} 个连接件', [b.scene.bodies, b.scene.connectors]) }}</p>
+            <ol v-if="b.scene.questions.length" class="sc-ans">
+              <li v-for="(q, i) in b.scene.questions" :key="i">
+                <span>{{ q }}</span>
+                <b v-if="cardHidden(b.scene)">{{ tl('（作答后揭晓）') }}</b>
+                <b v-else>{{ cardAnswers(b.scene)?.[i]?.text ?? tl('计算中…') }}</b>
+                <small v-if="!cardHidden(b.scene) && cardAnswers(b.scene)?.[i]?.note" class="muted">{{ cardAnswers(b.scene)?.[i]?.note }}</small>
+              </li>
+            </ol>
+            <details v-if="b.scene.notes.length || b.scene.warnings.length" class="sc-notes">
+              <summary>{{ tl('App 的调整与提示（{0}）', [b.scene.notes.length + b.scene.warnings.length]) }}</summary>
+              <ul><li v-for="(n, i) in [...b.scene.notes, ...b.scene.warnings]" :key="i">{{ n }}</li></ul>
+            </details>
+            <details class="sc-json">
+              <summary>{{ tl('场景文件（JSON）') }}</summary>
+              <pre tabindex="0">{{ b.scene.json }}</pre>
+            </details>
+            <div class="sc-btns">
+              <button type="button" class="btn small ghost" @click="copy(b.scene.json)"><Icon name="copy" :size="12" />{{ tl('复制 JSON') }}</button>
+              <button type="button" class="btn small ghost" @click="saveJson(b.scene)"><Icon name="save" :size="12" />{{ tl('保存 .json') }}</button>
+              <button type="button" class="btn small ghost" :disabled="copilot.busy" @click="reload(b.scene)"><Icon name="undo" :size="12" />{{ tl('重新载入') }}</button>
+            </div>
+          </div>
           <div v-if="b.text" class="text" v-html="renderAnswer(b.text)" />
           <button v-if="b.text" type="button" class="copy" :title="tl('复制')" :aria-label="tl('复制')" @click="copy(b.text)"><Icon name="copy" :size="12" /></button>
+          <div v-if="b.problem && !copilot.busy" class="handoff">
+            <button v-if="copilot.mode === 'solve'" type="button" class="btn small" @click="buildInSim(b.problem)"><Icon name="play" :size="12" />{{ tl('在仿真中搭建这道题') }}</button>
+            <template v-else>
+              <button type="button" class="btn small" @click="explainInSolve(b.problem, b.scene)"><Icon name="graduation" :size="12" />{{ b.scene ? tl('讲解这道题（附仿真结果）') : tl('讲解这道题') }}</button>
+              <button v-if="buildFailed(b)" type="button" class="btn small ghost" :title="tl('改用模板匹配的读题流程（识别题目）')" @click="recognize(undefined, { text: b.problem })"><Icon name="wand" :size="12" />{{ tl('改用模板读题') }}</button>
+            </template>
+          </div>
         </div>
         <div v-else class="msg error" role="alert">
           <span>{{ b.text }}</span>
@@ -164,7 +231,7 @@ watch(() => [copilot.bubbles.length, copilot.status, aiImport.stage], () => next
       <div v-if="image" class="thumb"><img :src="image" :alt="tl('题目图片')"><button type="button" class="btn small ghost" @click="image = null">{{ tl('移除图片') }}</button></div>
       <textarea
         ref="box" v-model="input" rows="3" class="field" data-ui="copilot-input"
-        :placeholder="tl('提问，或粘贴一道题 / 图片：题目会自动识别、建模并给出答案与思路（Enter 发送 · Shift+Enter 换行）')"
+        :placeholder="copilot.mode === 'solve' ? tl('发一道题或一个问题（可粘贴图片），我来讲解思路与解法（Enter 发送 · Shift+Enter 换行）') : tl('发一道题（可粘贴图片），我用引擎把它搭出来并计算；也可以让我改场景、显示受力、播放（Enter 发送 · Shift+Enter 换行）')"
         :aria-label="tl('给 Copilot 的消息或题目')" @keydown="onKey" @paste="onPaste"
       />
       <div class="tools">
@@ -176,8 +243,7 @@ watch(() => [copilot.bubbles.length, copilot.status, aiImport.stage], () => next
           <button type="button" class="btn small" @click="stop">{{ tl('停止') }}</button>
         </template>
         <template v-else>
-          <button type="button" class="btn" data-ui="copilot-recognize" :disabled="!input.trim() && !image" :title="tl('读题、建好场景，引擎算答案（{0}+Enter）', [MOD])" @click="recognize()"><Icon name="wand" :size="14" />{{ tl('识别题目') }}</button>
-          <button type="button" class="btn primary" :disabled="!input.trim() && !image" :title="tl('发送（Enter）')" @click="send()"><Icon name="send" :size="14" />{{ tl('发送') }}</button>
+          <button type="button" class="btn primary" data-ui="copilot-send" :disabled="!input.trim() && !image" :title="tl('发送（Enter）')" @click="send()"><Icon :name="copilot.mode === 'sim' ? 'play' : 'send'" :size="14" />{{ copilot.mode === 'sim' ? tl('搭建') : tl('发送') }}</button>
         </template>
       </div>
       <p v-if="copilotThinks()" class="tiny muted">{{ tl('深度思考已开启：回答更慢，用量更多。') }}</p>
@@ -188,7 +254,7 @@ watch(() => [copilot.bubbles.length, copilot.status, aiImport.stage], () => next
 <style scoped>
 .strip { flex: 0 0 auto; width: 44px; margin-left: 8px; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 0; border-radius: var(--radius-panel, 16px); background: var(--pane); border: 1px solid var(--separator); }
 .strip-label { writing-mode: vertical-rl; font-size: var(--type-tiny); color: var(--text-3); letter-spacing: 0.08em; margin-top: 6px; }
-.dock { position: relative; flex: 0 0 auto; margin-left: 8px; min-width: 280px; max-width: 640px; border-radius: var(--radius-panel, 16px); background: var(--pane); border: 1px solid var(--separator); display: grid; grid-template-rows: auto minmax(0, 1fr) auto; grid-template-columns: minmax(0, 1fr); overflow: hidden; }
+.dock { position: relative; flex: 0 0 auto; margin-left: 8px; min-width: 280px; max-width: 640px; border-radius: var(--radius-panel, 16px); background: var(--pane); border: 1px solid var(--separator); display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; grid-template-columns: minmax(0, 1fr); overflow: hidden; }
 .dock.overlay { position: fixed; z-index: 60; right: 8px; top: calc(var(--control-h) + 22px); bottom: 8px; width: min(420px, calc(100vw - 16px)); margin: 0; box-shadow: var(--shadow-float, 0 18px 48px rgba(0, 0, 0, 0.28)); animation: enter var(--dur-panel, 280ms) var(--ease-out); }
 .dock.phone { left: 4px; right: 4px; top: 4px; bottom: 4px; width: auto; }
 @keyframes enter { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
@@ -201,7 +267,9 @@ watch(() => [copilot.bubbles.length, copilot.status, aiImport.stage], () => next
 .empty { color: var(--text-2); font-size: var(--type-small); display: grid; gap: 8px; }
 .empty p { margin: 0; }
 .mode { color: var(--accent); }
-.starters { display: flex; flex-wrap: wrap; gap: 6px; }
+.empty { min-width: 0; }
+.starters { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.starters .btn { white-space: normal; text-align: left; height: auto; min-height: 28px; padding-top: 4px; padding-bottom: 4px; line-height: 1.35; max-width: 100%; }
 .msg { max-width: 94%; border-radius: 14px; padding: 8px 11px; line-height: 1.55; font-size: var(--type-body); position: relative; }
 .msg.user { align-self: flex-end; background: var(--accent); color: var(--on-accent); white-space: pre-wrap; display: grid; gap: 6px; }
 .msg.user img { max-width: 220px; border-radius: 8px; }
@@ -239,6 +307,26 @@ watch(() => [copilot.bubbles.length, copilot.status, aiImport.stage], () => next
 .chip-toggle { display: inline-flex; align-items: center; gap: 4px; height: 28px; padding: 0 10px; border-radius: 999px; border: 1px solid var(--separator); background: none; color: var(--text-2); font: inherit; font-size: var(--type-small); cursor: pointer; }
 .chip-toggle:hover { background: var(--hover); }
 .chip-toggle.on { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+.modes { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; margin: 8px 10px 0; padding: 2px; border-radius: 10px; background: var(--fill); }
+.mode-tab { display: inline-flex; align-items: center; justify-content: center; gap: 5px; height: 28px; border: 0; border-radius: 8px; background: none; color: var(--text-2); font: inherit; font-size: var(--type-small); cursor: pointer; }
+.mode-tab:hover:not(:disabled) { color: var(--text); }
+.mode-tab.on { background: var(--pane); color: var(--text); font-weight: 600; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12); }
+.mode-tab:disabled { opacity: 0.5; cursor: default; }
+.mode-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.scene-card { margin: 0 0 8px; padding: 8px 10px; border-radius: 10px; background: var(--pane); border: 1px solid var(--separator); display: grid; gap: 4px; font-size: var(--type-small); }
+.sc-head { display: flex; align-items: center; gap: 6px; color: var(--success); }
+.sc-head b { color: var(--text); font-weight: 600; overflow-wrap: anywhere; }
+.sc-meta { margin: 0; color: var(--text-3); }
+.sc-ans { margin: 2px 0; padding-left: 20px; display: grid; gap: 2px; }
+.sc-ans li span::after { content: ' = '; color: var(--text-3); }
+.sc-ans small { display: block; }
+.sc-notes, .sc-json { color: var(--text-2); }
+.sc-notes summary, .sc-json summary { cursor: pointer; }
+.sc-notes ul { margin: 4px 0 0; padding-left: 18px; }
+.sc-json pre { margin: 4px 0 0; max-height: 260px; overflow: auto; padding: 6px 8px; border-radius: 6px; background: var(--fill); font-family: var(--font-mono); font-size: 11px; line-height: 1.4; white-space: pre; }
+.sc-btns { display: flex; flex-wrap: wrap; gap: 4px; }
+.sc-btns .btn, .handoff .btn { display: inline-flex; align-items: center; gap: 4px; }
+.handoff { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .tiny { margin: 0; font-size: var(--type-tiny); }
 .muted { color: var(--text-3); }
 @media (prefers-reduced-motion: reduce) { .dock.overlay { animation: none; } .dot { animation: none; } }

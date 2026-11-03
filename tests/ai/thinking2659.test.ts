@@ -187,8 +187,23 @@ describe('second try and refusals', () => {
       () => reply({ role: 'assistant', content: '', reasoning_content: '想了很多' }, 'length'),
       () => reply({ role: 'assistant', content: '{"route": "equ', reasoning_content: '想了更多' }, 'length')
     ])
-    await expect(chat({ messages: [{ role: 'user', content: 'q' }], max_tokens: 3000, response_format: { type: 'json_object' }, reasoning: 'off' })).rejects.toThrow(/20261102-r2/)
-    expect(seen).toHaveLength(2)
+    await expect(chat({ messages: [{ role: 'system', content: 's' }, { role: 'user', content: 'q' }], max_tokens: 3000, response_format: { type: 'json_object' }, reasoning: 'off' })).rejects.toThrow(/20261102-r2/)
+    // 26.59 fix 3 (D197): room for the thinking and a reminder to keep it short from the first try; before the error
+    // the account information is read again (here the server cannot be reached: the third request)
+    expect(seen).toHaveLength(3)
+    expect(seen[0].max_tokens).toBe(8192)
+    expect(String((seen[0].messages as Array<{ content: string }>)[0].content)).toMatch(/不要长时间思考/)
+    // The server was updated in the meantime: the account says so, and the request is tried once more
+    const seen2 = scripted([
+      () => reply({ role: 'assistant', content: '', reasoning_content: '想了很多' }, 'length'),
+      () => reply({ role: 'assistant', content: '{"route": "equ', reasoning_content: '想了更多' }, 'length'),
+      () => ({ status: 200, contentType: 'application/json', retryAfter: null, body: JSON.stringify({ user: { id: 1, username: 't', isAdmin: false }, ai: { enabled: true, model: 'deepseek-flash', vision: true, provider: 'deepseek', thinking: true } }) }),
+      () => reply({ role: 'assistant', content: '{"route":"equations"}' })
+    ])
+    const ok = await chat({ messages: [{ role: 'user', content: 'q' }], max_tokens: 3000, response_format: { type: 'json_object' }, reasoning: 'off' })
+    expect(ok.message.content).toBe('{"route":"equations"}')
+    expect(seen2).toHaveLength(4)
+    expect((seen2[3].thinking as { type: string }).type).toBe('disabled')
     // A server that can switch thinking off keeps the plain second try
     account.ai = { enabled: true, model: 'deepseek-flash', vision: true, provider: 'deepseek', thinking: true } as never
     scripted([() => reply({ role: 'assistant', content: '' }, 'length'), () => reply({ role: 'assistant', content: '' }, 'length')])

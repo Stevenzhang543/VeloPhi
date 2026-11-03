@@ -5,6 +5,18 @@ export const EDITOR_ICONS: Record<string, string> = {
   // Object tools
   wedge: 'M4 19h16L4 9zM14 5h6M16 2.5h4',
   polygon: 'M12 3.5l8 5.8-3 10.2H7L4 9.3zM12 3.5v.01M20 9.3v.01M17 19.5v.01M7 19.5v.01M4 9.3v.01',
+  // 26.59 fix 3 (D194): ready-made parts
+  arcQuarter: 'M4 4a16 16 0 0 0 16 16M4 4h-1M20 20v1M20 20h2',
+  arcHalf: 'M3 6a9 9 0 0 0 18 0M3 6h-1M21 6h1',
+  arcLoop: 'M12 12m-8 0a8 8 0 1 0 16 0a8 8 0 1 0-16 0M12 12m-5.5 0a5.5 5.5 0 1 0 11 0a5.5 5.5 0 1 0-11 0',
+  arcHump: 'M3 17a10 10 0 0 1 18 0M2 19h20M12 7v.01',
+  arcDip: 'M3 7a10 10 0 0 0 18 0M2 5h20M12 17v.01',
+  arcGroove: 'M5 8a7 7 0 0 0 14 0M5 8h-1.5M19 8h1.5M2 20h20M12 13m-1.5 0a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0-3 0',
+  hoop: 'M12 12m-7 0a7 7 0 1 0 14 0a7 7 0 1 0-14 0M12 12m-5 0a5 5 0 1 0 10 0a5 5 0 1 0-10 0M3 21h18',
+  board: 'M2 13h20v3H2zM9 13V9h6v4',
+  cart: 'M4 9h16v6H4zM8 17.5m-2 0a2 2 0 1 0 4 0a2 2 0 1 0-4 0M16 17.5m-2 0a2 2 0 1 0 4 0a2 2 0 1 0-4 0',
+  steps: 'M3 20h18V6h-5v5h-5v5H6v4',
+  pendulum: 'M4 3h16M12 3l5 13M17 18m-2 0a2 2 0 1 0 4 0a2 2 0 1 0-4 0',
   // Measuring and annotation tools
   ruler: 'M3 16L16 3l5 5L8 21zM7 12l2 2M10 9l1.5 1.5M12 7l2 2M15 4l1.5 1.5M5 14l1.5 1.5',
   protractor: 'M4 20h16M4 20L15 6M11 20a7 7 0 0 0-2.6-5.5',

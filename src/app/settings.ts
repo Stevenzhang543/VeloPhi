@@ -201,6 +201,8 @@ export interface AiSettings {
   copilot: boolean
   /** 'act': Copilot changes the app directly (each change can be undone); 'ask': it asks first. */
   copilotMode: 'act' | 'ask'
+  /** 26.59 fix 3 (D198): the Copilot shown — 'solve' explains problems, 'sim' builds them in the engine. */
+  copilotTab: 'solve' | 'sim'
   /** Learning mode (D169): hints first, the values only after the student's own answer. */
   learningMode: boolean
   /** Send a summary of the current scene and results with Copilot questions (D154). */
@@ -290,6 +292,7 @@ function defaults(): AppSettings {
       importBar: true,
       copilot: true,
       copilotMode: 'act',
+      copilotTab: 'sim',
       learningMode: false,
       shareScene: true,
       revealAnswers: true,
@@ -479,6 +482,7 @@ function sanitize() {
   const ai = settings.ai
   if (!['official', 'openai', 'anthropic'].includes(ai.connection)) ai.connection = d.ai.connection
   if (!['act', 'ask'].includes(ai.copilotMode)) ai.copilotMode = d.ai.copilotMode
+  if (!['solve', 'sim'].includes(ai.copilotTab)) ai.copilotTab = d.ai.copilotTab
   for (const k of ['openai', 'anthropic'] as const) {
     const pr = ai[k]
     if (typeof pr.baseUrl !== 'string' || !/^https?:\/\//.test(pr.baseUrl)) pr.baseUrl = d.ai[k].baseUrl

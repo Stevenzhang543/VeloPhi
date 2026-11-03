@@ -8,14 +8,22 @@ import type { Anchor, BodyDef, ConnectorDef, RegionDef, Scene, ShapeDef } from '
 import { COULOMB_K } from '../../core/scene/types'
 import { parseScene, serializeScene } from '../../core/scene/io'
 import { DEG, cos, sin } from '../../core/math/dmath'
+import { arcCentroid } from '../../core/scene/arc'
 import type { Vec2 } from '../../core/math/vec'
 
 type V = [number, number]
-export interface SurfaceSpec { type: 'ground' | 'incline' | 'wall'; id: string; name?: string; top?: number; left?: number; right?: number; angleDeg?: number; base?: number; x0?: number; y0?: number; x?: number; bottom?: number; muS?: number; muK?: number; mu?: number; restitution?: number; beltSpeed?: number }
+/**
+ * A fixed surface. 26.59 fix 3 (D193): "arc" is a circular track — the circle about `center` with `radius` (the
+ * surface a ball runs on: inside for grooves and loops, outside for humps), from `startDeg` counter-clockwise over
+ * `sweepDeg` (0° points right, 90° up), `thickness` thick (on the outer side).
+ */
+export interface SurfaceSpec { type: 'ground' | 'incline' | 'wall' | 'arc'; id: string; name?: string; top?: number; left?: number; right?: number; angleDeg?: number; base?: number; x0?: number; y0?: number; x?: number; bottom?: number; muS?: number; muK?: number; mu?: number; restitution?: number; beltSpeed?: number; center?: V; radius?: number; thickness?: number; startDeg?: number; sweepDeg?: number; side?: 'inside' | 'outside' }
 export interface BodySpec {
-  id: string; name?: string; shape: 'box' | 'ball' | 'rod' | 'cylinder'
-  width?: number; height?: number; radius?: number; length?: number
-  mass: number; position?: V; on?: { surface: string; s?: number; x?: number }; angleDeg?: number
+  /** 26.59 fix 3: "groove" is a movable arc track (radius, thickness, startDeg, sweepDeg; position = its circle's centre), "hoop" a thin ring that rolls. */
+  id: string; name?: string; shape: 'box' | 'ball' | 'rod' | 'cylinder' | 'groove' | 'hoop'
+  width?: number; height?: number; radius?: number; length?: number; thickness?: number; startDeg?: number; sweepDeg?: number
+  /** On a ground (x), an incline (s from the top) or an arc track (angleDeg on its circle, the side the track runs on). */
+  mass: number; position?: V; on?: { surface: string; s?: number; x?: number; angleDeg?: number }; angleDeg?: number
   velocity?: V; angularVelocity?: number; muS?: number; muK?: number; mu?: number; restitution?: number; charge?: number
   fixedRotation?: boolean; particle?: boolean; drag?: { linear?: number; quadratic?: number }
 }
@@ -79,7 +87,17 @@ export function compileSceneSpec(spec: SceneSpec): Scene {
       if (!num(x) || !num(bottom) || !num(top) || top <= bottom) { P(`${w}: wall needs x and bottom < top`); return }
       const th = 0.2
       surf.set(s.id, { s, body: addBody(scene, { id: s.id, name: s.name ?? '墙', kind: 'static', role: 'wall', shape: { type: 'box', width: th, height: top - bottom }, position: { x, y: (top + bottom) / 2 }, material: mat(s, w) }) })
-    } else P(`${w}.type must be ground, incline or wall`)
+    } else if (s.type === 'arc') {
+      // 26.59 fix 3 (D193): circular track; `radius` is the running surface (inner side, or outer side for "outside")
+      const R = s.radius, t = s.thickness ?? 0.1, a0 = s.startDeg ?? 180, sw = s.sweepDeg ?? 90
+      if (!vec(s.center)) { P(`${w}.center must be [x, y] (the circle's centre)`); return }
+      if (!num(R) || R <= 0 || !num(t) || t <= 0) { P(`${w}: radius and thickness must be positive (m)`); return }
+      if (!num(a0) || !num(sw) || sw <= 0 || sw > 360) { P(`${w}: sweepDeg must be within (0, 360]`); return }
+      const outside = s.side === 'outside'
+      if (outside && t >= R) { P(`${w}: an outside track needs thickness < radius`); return }
+      const inner = outside ? R - t : R
+      surf.set(s.id, { s, body: addBody(scene, { id: s.id, name: s.name ?? '圆弧轨道', kind: 'static', role: 'ground', shape: { type: 'arc', radius: inner, thickness: t, start: a0 * DEG, sweep: Math.min(sw, 360) * DEG }, position: { x: s.center[0], y: s.center[1] }, material: mat(s, w), color: '#64748b' }) })
+    } else P(`${w}.type must be ground, incline, wall or arc`)
   })
 
   const bodies = new Map<string, BodyDef>()
@@ -96,7 +114,17 @@ export function compileSceneSpec(spec: SceneSpec): Scene {
       const wd = b.shape === 'rod' ? (b.length ?? 1) : (b.width ?? 0.3), h = b.shape === 'rod' ? (b.height ?? 0.04) : (b.height ?? 0.2)
       if (!num(wd) || wd <= 0 || !num(h) || h <= 0) { P(`${w}: width/height (or length) must be positive (m)`); return }
       shape = { type: 'box', width: wd, height: h }; half = h / 2; role = b.shape === 'rod' ? 'rod' : 'block'
-    } else { P(`${w}.shape must be box, ball, rod or cylinder`); return }
+    } else if (b.shape === 'groove' || b.shape === 'hoop') {
+      // 26.59 fix 3: movable arc track (its body origin is its centre of mass) or a thin hoop
+      const R = b.radius ?? (b.shape === 'hoop' ? 0.2 : 0.5), t = b.thickness ?? (b.shape === 'hoop' ? 0.02 : 0.1)
+      const a0 = b.shape === 'hoop' ? 0 : (b.startDeg ?? 180), sw = b.shape === 'hoop' ? 360 : (b.sweepDeg ?? 180)
+      if (!num(R) || R <= 0 || !num(t) || t <= 0 || !num(a0) || !num(sw) || sw <= 0 || sw > 360) { P(`${w}: radius, thickness > 0 and sweepDeg within (0, 360]`); return }
+      const arc = { type: 'arc' as const, radius: R, thickness: t, start: a0 * DEG, sweep: sw * DEG }
+      const { c } = arcCentroid(arc)
+      shape = { ...arc, center: { x: -c.x, y: -c.y } }; half = R + t; role = b.shape === 'hoop' ? 'wheel' : 'block'
+    } else { P(`${w}.shape must be box, ball, rod, cylinder, groove or hoop`); return }
+    // A groove's position names its circle's centre: the body origin is its centre of mass
+    const arcShift = shape.type === 'arc' && shape.center ? { x: -shape.center.x, y: -shape.center.y } : { x: 0, y: 0 }
     let position: Vec2 | null = null, angle = (b.angleDeg ?? 0) * DEG
     if (b.on) {
       const su = surf.get(b.on.surface)
@@ -110,9 +138,22 @@ export function compileSceneSpec(spec: SceneSpec): Scene {
       } else if (su.s.type === 'ground') {
         const x = b.on.x ?? b.position?.[0] ?? 0
         if (!num(x)) { P(`${w}.on.x must be a number`); return }
-        position = { x, y: (su.s.top ?? 0) + half }
-      } else { P(`${w}.on: bodies can be placed on a ground or an incline`); return }
-    } else if (vec(b.position)) position = { x: b.position[0], y: b.position[1] }
+        position = { x: x + arcShift.x, y: (su.s.top ?? 0) + half + arcShift.y }
+      } else if (su.s.type === 'arc') {
+        // On an arc track at angle θ of its circle: a ball inside (grooves, loops) or outside (humps) the circle
+        const th = b.on.angleDeg
+        if (!num(th)) { P(`${w}.on.angleDeg must be the angle on the track's circle (0° right, 90° up)`); return }
+        const [cx, cy] = su.s.center as V, R = su.s.radius as number, u = { x: cos(th * DEG), y: sin(th * DEG) }
+        const outside = su.s.side === 'outside'
+        if (shape.type === 'circle') {
+          const d = outside ? R + shape.radius : R - shape.radius
+          if (d <= 0) { P(`${w}: the ball is larger than the track`); return }
+          position = { x: cx + d * u.x, y: cy + d * u.y }
+        } else if (shape.type === 'box' && outside) {
+          position = { x: cx + (R + shape.height / 2) * u.x, y: cy + (R + shape.height / 2) * u.y }; angle = (th - 90) * DEG
+        } else { P(`${w}.on: only balls (inside or outside) and boxes (outside) can be placed on an arc track`); return }
+      } else { P(`${w}.on: bodies can be placed on a ground, an incline or an arc track`); return }
+    } else if (vec(b.position)) position = { x: b.position[0] + arcShift.x, y: b.position[1] + arcShift.y }
     else { P(`${w} needs position [x, y] or on {surface, s|x}`); return }
     if (b.velocity !== undefined && !vec(b.velocity)) P(`${w}.velocity must be [vx, vy] (m/s)`)
     if (b.charge !== undefined && !num(b.charge)) P(`${w}.charge must be a number (C)`)

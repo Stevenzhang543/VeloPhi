@@ -3,7 +3,7 @@
 
 use crate::dmath::{atan2 as atan2_det, cos, sin, PI_VALUE};
 use crate::js::js_max;
-use crate::model::{AnchorModel, BodyModel, Model, PulleyModel, RopeModel, ShapeModel, ShapePiece, SliderModel};
+use crate::model::{AnchorModel, ArcSpan, BodyModel, Model, PulleyModel, RopeModel, ShapeHollow, ShapeModel, ShapePiece, SliderModel};
 use crate::scene::Vec2;
 
 /// Pose and velocity of a body; `th` is the angle whose cosine and sine are `c` and `s`.
@@ -139,6 +139,8 @@ pub struct PointFeature {
     pub vertex: i32,
     /// Convex piece of a complex body the point lies on (26.52; None otherwise).
     pub piece: Option<usize>,
+    /// Directions the round side covers (an arc's outer side, 26.59 fix 3); None: all around.
+    pub span: Option<ArcSpan>,
 }
 
 /// A polygon face from e0 to e1 with its outward normal and length.
@@ -161,6 +163,8 @@ pub enum FeatureB {
     Face(FaceFeature),
     /// Point against point, with the vertex cone of B (n1, n2).
     Point(PointFeature, Option<(Vec2, Vec2)>),
+    /// Point inside B's concave circle (an arc's inner side, 26.59 fix 3): `local` is the centre, `radius` the circle's.
+    Hollow(PointFeature),
 }
 
 /// A possible contact; `probe_key` is the key of the probe that watches A's point (featureProbeKey).
@@ -177,7 +181,7 @@ impl ContactFeature {
     pub fn b_body(&self) -> usize {
         match &self.b {
             FeatureB::Face(f) => f.body,
-            FeatureB::Point(p, _) => p.body,
+            FeatureB::Point(p, _) | FeatureB::Hollow(p) => p.body,
         }
     }
     /// Point against face?
@@ -213,8 +217,101 @@ fn fill(a: &BodyModel, ax: f64, ay: f64, aw: f64, b: &BodyModel, bx: f64, by: f6
     RowJ { ai: a.index, ax, ay, aw, bi: b.index, bx, by, bw, ex: Vec::new() }
 }
 
+/// Angular margins of a world direction (dx, dy) within a span of a body at pose `p` (26.59 fix 3): the angle from
+/// the span's middle is δ, the margins are half + δ and half − δ (rad), both ≥ 0 inside.
+#[inline]
+fn span_margins(span: &ArcSpan, p: &Pose, dx: f64, dy: f64) -> (f64, f64) {
+    let mx = p.c * span.mid.x - p.s * span.mid.y;
+    let my = p.s * span.mid.x + p.c * span.mid.y;
+    let d = atan2_det(mx * dy - my * dx, mx * dx + my * dy);
+    (span.half + d, span.half - d)
+}
+
 /// Kinematics of a contact feature at the given poses.
 pub fn contact_kin(model: &Model, f: &ContactFeature, poses: &[Pose]) -> ContactKin {
+    let mut k = match &f.b {
+        FeatureB::Hollow(h) => hollow_kin(model, &f.a, h, poses),
+        _ => contact_kin_base(model, f, poses),
+    };
+    // 26.59 fix 3 (D193): a round side with a span (an arc's outer side) touches only within it, on either side
+    if let FeatureB::Point(pf, None) = &f.b {
+        if let Some(sp) = &pf.span {
+            let (m1, m2) = span_margins(sp, &poses[pf.body], k.nx, k.ny);
+            k.m1 = m1;
+            k.m2 = m2;
+        }
+    }
+    if let Some(sp) = &f.a.span {
+        let (m1, m2) = span_margins(sp, &poses[f.a.body], -k.nx, -k.ny);
+        k.m1 = if m1 < k.m1 { m1 } else { k.m1 };
+        k.m2 = if m2 < k.m2 { m2 } else { k.m2 };
+    }
+    k
+}
+
+/// A point of A inside B's concave circle (26.59 fix 3, D193): like two round points with the normal reversed — the
+/// gap is R − r_A − |P_A − C|, the normal points from the wall towards the circle's centre.
+fn hollow_kin(model: &Model, fa: &PointFeature, h: &PointFeature, poses: &[Pose]) -> ContactKin {
+    let a_body = &model.bodies[fa.body];
+    let pa_pose = &poses[a_body.global];
+    let pa = point_state(pa_pose, fa.local);
+    let rad_a = fa.radius;
+    let w_a = pa_pose.w;
+    let b_body = &model.bodies[h.body];
+    let pb_pose = &poses[b_body.global];
+    let pb = point_state(pb_pose, h.local);
+    let w_b = pb_pose.w;
+    let dx = pa.px - pb.px;
+    let dy = pa.py - pb.py;
+    let dist = (dx * dx + dy * dy).sqrt();
+    // n = −(P_A − C)/|P_A − C|; at the centre itself any direction will do
+    let nx = if dist > 0.0 { -dx / dist } else { 0.0 };
+    let ny = if dist > 0.0 { -dy / dist } else { -1.0 };
+    let tx = -ny;
+    let ty = nx;
+    let gap = h.radius - rad_a - dist;
+    let dvx = pa.vx - pb.vx;
+    let dvy = pa.vy - pb.vy;
+    let vn = nx * dvx + ny * dvy;
+    let jn = fill(a_body, nx, ny, ny * pa.rx - nx * pa.ry, b_body, -nx, -ny, -(ny * pb.rx - nx * pb.ry));
+    let perp_sq = dvx * dvx + dvy * dvy - vn * vn;
+    let cn = nx * (pa.qx - pb.qx) + ny * (pa.qy - pb.qy) - if dist > 0.0 { perp_sq / dist } else { 0.0 };
+    let cx = pa.px - rad_a * nx;
+    let cy = pa.py - rad_a * ny;
+    let rho_ax = cx - pa_pose.x;
+    let rho_ay = cy - pa_pose.y;
+    let rho_bx = cx - pb_pose.x;
+    let rho_by = cy - pb_pose.y;
+    let v_ax = pa_pose.vx - w_a * rho_ay;
+    let v_ay = pa_pose.vy + w_a * rho_ax;
+    let v_bx = pb_pose.vx - w_b * rho_by;
+    let v_by = pb_pose.vy + w_b * rho_bx;
+    let ddx = v_ax - v_bx;
+    let ddy = v_ay - v_by;
+    let vt = tx * ddx + ty * ddy;
+    let jt = fill(a_body, tx, ty, ty * rho_ax - tx * rho_ay, b_body, -tx, -ty, -(ty * rho_bx - tx * rho_by));
+    // dn/dt = −(Δv − v_n n)/|P_A − C|
+    let ndx = if dist > 0.0 { -(dvx - vn * nx) / dist } else { 0.0 };
+    let ndy = if dist > 0.0 { -(dvy - vn * ny) / dist } else { 0.0 };
+    let tdx = -ndy;
+    let tdy = ndx;
+    let cdx = pa.vx - rad_a * ndx;
+    let cdy = pa.vy - rad_a * ndy;
+    let rd_ax = cdx - pa_pose.vx;
+    let rd_ay = cdy - pa_pose.vy;
+    let rd_bx = cdx - pb_pose.vx;
+    let rd_by = cdy - pb_pose.vy;
+    let ct = tdx * ddx + tdy * ddy + w_a * (ty * rd_ax - tx * rd_ay) - w_b * (ty * rd_bx - tx * rd_by);
+    // The contact lies in the direction −n from the centre
+    let (m1, m2) = match &h.span {
+        Some(sp) => span_margins(sp, pb_pose, -nx, -ny),
+        None => (1.0, 1.0),
+    };
+    ContactKin { gap, nx, ny, tx, ty, cx, cy, vn, vt, jn, cn, jt, ct, m1, m2 }
+}
+
+/// Kinematics of a point–face or point–point feature (the TypeScript port, unchanged).
+fn contact_kin_base(model: &Model, f: &ContactFeature, poses: &[Pose]) -> ContactKin {
     let a_body = &model.bodies[f.a.body];
     let pa_pose = &poses[a_body.global];
     let pa = point_state(pa_pose, f.a.local);
@@ -322,6 +419,7 @@ pub fn contact_kin(model: &Model, f: &ContactFeature, poses: &[Pose]) -> Contact
             }
             ContactKin { gap, nx, ny, tx, ty, cx, cy, vn, vt, jn, cn, jt, ct, m1, m2 }
         }
+        FeatureB::Hollow(_) => unreachable!("hollow features use hollow_kin"),
     }
 }
 
@@ -338,23 +436,24 @@ struct BodyPoint {
     radius: f64,
     cone: Option<(Vec2, Vec2)>,
     piece: Option<usize>,
+    span: Option<ArcSpan>,
 }
 
 /// The point features of a body (see kinematics.ts bodyPoints).
 fn body_points(b: &BodyModel) -> Vec<BodyPoint> {
     match &b.shape {
-        ShapeModel::Circle { radius } => vec![BodyPoint { vertex: -1, local: Vec2::default(), radius: *radius, cone: None, piece: None }],
+        ShapeModel::Circle { radius } => vec![BodyPoint { vertex: -1, local: Vec2::default(), radius: *radius, cone: None, piece: None, span: None }],
         ShapeModel::Polygon { verts, normals, .. } => {
             let m = verts.len();
             (0..m)
-                .map(|i| BodyPoint { vertex: i as i32, local: verts[i], radius: 0.0, cone: Some((normals[(i + m - 1) % m], normals[i])), piece: None })
+                .map(|i| BodyPoint { vertex: i as i32, local: verts[i], radius: 0.0, cone: Some((normals[(i + m - 1) % m], normals[i])), piece: None, span: None })
                 .collect()
         }
         ShapeModel::Complex(c) => c
             .points
             .iter()
             .enumerate()
-            .map(|(i, p)| BodyPoint { vertex: i as i32, local: p.local, radius: p.radius, cone: p.cone, piece: Some(p.piece) })
+            .map(|(i, p)| BodyPoint { vertex: i as i32, local: p.local, radius: p.radius, cone: p.cone, piece: Some(p.piece), span: p.span })
             .collect(),
     }
 }
@@ -375,6 +474,14 @@ fn body_faces(b: &BodyModel) -> Vec<FaceFeature> {
     }
 }
 
+/// The concave circular sides of a body (arcs, 26.59 fix 3).
+fn body_hollows(b: &BodyModel) -> &[ShapeHollow] {
+    match &b.shape {
+        ShapeModel::Complex(c) => &c.hollows,
+        _ => &[],
+    }
+}
+
 /// Key of the probe that watches A's point against B (against its piece for a complex B).
 fn feature_probe_key(a: &BodyModel, vertex: i32, b: &BodyModel, piece: Option<usize>) -> String {
     match piece {
@@ -389,16 +496,16 @@ fn complex_pair_features(x: &BodyModel, y: &BodyModel) -> Vec<ContactFeature> {
     let (px, py, fx, fy) = (body_points(x), body_points(y), body_faces(x), body_faces(y));
     let pf = |out: &mut Vec<ContactFeature>, a: &BodyModel, p: &BodyPoint, b: &BodyModel, f: &FaceFeature| {
         out.push(ContactFeature {
-            a: PointFeature { body: a.global, local: p.local, radius: p.radius, vertex: p.vertex, piece: None },
+            a: PointFeature { body: a.global, local: p.local, radius: p.radius, vertex: p.vertex, piece: None, span: p.span },
             b: FeatureB::Face(*f),
             probe_key: feature_probe_key(a, p.vertex, b, f.piece),
         });
     };
     let pp = |out: &mut Vec<ContactFeature>, a: &BodyModel, p: &BodyPoint, b: &BodyModel, q: &BodyPoint| {
         out.push(ContactFeature {
-            a: PointFeature { body: a.global, local: p.local, radius: p.radius, vertex: p.vertex, piece: None },
+            a: PointFeature { body: a.global, local: p.local, radius: p.radius, vertex: p.vertex, piece: None, span: p.span },
             b: FeatureB::Point(
-                PointFeature { body: b.global, local: q.local, radius: q.radius, vertex: q.vertex, piece: q.piece },
+                PointFeature { body: b.global, local: q.local, radius: q.radius, vertex: q.vertex, piece: q.piece, span: q.span },
                 if q.radius > 0.0 { None } else { q.cone },
             ),
             probe_key: feature_probe_key(a, p.vertex, b, q.piece),
@@ -440,6 +547,20 @@ fn complex_pair_features(x: &BodyModel, y: &BodyModel) -> Vec<ContactFeature> {
             }
         }
     }
+    // 26.59 fix 3 (D193): every point of one body inside the concave circles of the other
+    let ph = |out: &mut Vec<ContactFeature>, a: &BodyModel, pts: &[BodyPoint], b: &BodyModel| {
+        for (hi, h) in body_hollows(b).iter().enumerate() {
+            for p in pts {
+                out.push(ContactFeature {
+                    a: PointFeature { body: a.global, local: p.local, radius: p.radius, vertex: p.vertex, piece: None, span: p.span },
+                    b: FeatureB::Hollow(PointFeature { body: b.global, local: h.center, radius: h.radius, vertex: -2 - hi as i32, piece: Some(h.piece), span: h.span }),
+                    probe_key: feature_probe_key(a, p.vertex, b, Some(h.piece)),
+                });
+            }
+        }
+    };
+    ph(&mut out, x, &px, y);
+    ph(&mut out, y, &py, x);
     out
 }
 
@@ -455,7 +576,7 @@ pub fn pair_features(model: &Model, xi: usize, yi: usize) -> Vec<ContactFeature>
         if let ShapeModel::Polygon { verts, normals, lengths } = &b.shape {
             for f in 0..verts.len() {
                 out.push(ContactFeature {
-                    a: PointFeature { body: a.global, local, radius, vertex: vi, piece: None },
+                    a: PointFeature { body: a.global, local, radius, vertex: vi, piece: None, span: None },
                     b: FeatureB::Face(FaceFeature {
                         body: b.global,
                         face: f,
@@ -475,9 +596,9 @@ pub fn pair_features(model: &Model, xi: usize, yi: usize) -> Vec<ContactFeature>
             let m = verts.len();
             for v in 0..m {
                 out.push(ContactFeature {
-                    a: PointFeature { body: a.global, local, radius, vertex: -1, piece: None },
+                    a: PointFeature { body: a.global, local, radius, vertex: -1, piece: None, span: None },
                     b: FeatureB::Point(
-                        PointFeature { body: b.global, local: verts[v], radius: 0.0, vertex: v as i32, piece: None },
+                        PointFeature { body: b.global, local: verts[v], radius: 0.0, vertex: v as i32, piece: None, span: None },
                         Some((normals[(v + m - 1) % m], normals[v])),
                     ),
                     probe_key: probe_key(a, -1, b),
@@ -489,8 +610,8 @@ pub fn pair_features(model: &Model, xi: usize, yi: usize) -> Vec<ContactFeature>
     match (&x.shape, &y.shape) {
         (ShapeModel::Circle { radius: rx }, ShapeModel::Circle { radius: ry }) => {
             out.push(ContactFeature {
-                a: PointFeature { body: x.global, local: origin, radius: *rx, vertex: -1, piece: None },
-                b: FeatureB::Point(PointFeature { body: y.global, local: origin, radius: *ry, vertex: -1, piece: None }, None),
+                a: PointFeature { body: x.global, local: origin, radius: *rx, vertex: -1, piece: None, span: None },
+                b: FeatureB::Point(PointFeature { body: y.global, local: origin, radius: *ry, vertex: -1, piece: None, span: None }, None),
                 probe_key: probe_key(x, -1, y),
             });
         }
@@ -1095,6 +1216,8 @@ pub struct Probe {
     pub b: usize,
     /// Convex piece of a complex B the probe watches (26.52); None: the whole of B.
     pub piece: Option<usize>,
+    /// Span of A's round side (an arc's outer side, 26.59 fix 3); None: all around.
+    pub span: Option<ArcSpan>,
 }
 
 /// Probes of a pair with a complex shape: each point of one body against each piece of the other (26.52, D35).
@@ -1114,10 +1237,11 @@ fn complex_pair_probes(x: &BodyModel, y: &BodyModel) -> Vec<Probe> {
                             vertex: p.vertex,
                             b: b.global,
                             piece: Some(k),
+                            span: p.span,
                         });
                     }
                 }
-                _ => out.push(Probe { key, a: a.global, local: p.local, radius: p.radius, vertex: p.vertex, b: b.global, piece: None }),
+                _ => out.push(Probe { key, a: a.global, local: p.local, radius: p.radius, vertex: p.vertex, b: b.global, piece: None, span: p.span }),
             }
         }
     };
@@ -1142,11 +1266,11 @@ pub fn pair_probes(model: &Model, xi: usize, yi: usize) -> Vec<Probe> {
     let mut out = Vec::new();
     let add = |out: &mut Vec<Probe>, a: &BodyModel, b: &BodyModel| match &a.shape {
         ShapeModel::Circle { radius } => {
-            out.push(Probe { key: probe_key(a, -1, b), a: a.global, local: Vec2::default(), radius: *radius, vertex: -1, b: b.global, piece: None })
+            out.push(Probe { key: probe_key(a, -1, b), a: a.global, local: Vec2::default(), radius: *radius, vertex: -1, b: b.global, piece: None, span: None })
         }
         ShapeModel::Polygon { verts, .. } => {
             for (i, v) in verts.iter().enumerate() {
-                out.push(Probe { key: probe_key(a, i as i32, b), a: a.global, local: *v, radius: 0.0, vertex: i as i32, b: b.global, piece: None });
+                out.push(Probe { key: probe_key(a, i as i32, b), a: a.global, local: *v, radius: 0.0, vertex: i as i32, b: b.global, piece: None, span: None });
             }
         }
         ShapeModel::Complex(_) => {}
@@ -1198,7 +1322,164 @@ fn piece_distance(p: &ShapePiece, lx: f64, ly: f64) -> f64 {
             (dx * dx + dy * dy).sqrt() - radius
         }
         ShapePiece::Polygon { verts, normals } => convex_distance(verts, normals, lx, ly),
+        ShapePiece::Arc { center, r_in, r_out, start, sweep } => arc_closest(*center, *r_in, *r_out, *start, *sweep, lx, ly).0,
     }
+}
+
+/// Closest point of a segment to (lx, ly): squared distance and the point.
+#[inline]
+fn segment_closest(a: Vec2, b: Vec2, lx: f64, ly: f64) -> (f64, f64, f64) {
+    let ex = b.x - a.x;
+    let ey = b.y - a.y;
+    let wx = lx - a.x;
+    let wy = ly - a.y;
+    let ee = ex * ex + ey * ey;
+    let u = if ee > 0.0 { ((wx * ex + wy * ey) / ee).clamp(0.0, 1.0) } else { 0.0 };
+    let qx = a.x + u * ex;
+    let qy = a.y + u * ey;
+    ((lx - qx) * (lx - qx) + (ly - qy) * (ly - qy), qx, qy)
+}
+
+/// Signed distance from a local point to an annular sector and the closest point of its boundary (26.59 fix 3,
+/// D193): exact for the inner and outer circles and the two end faces.
+pub fn arc_closest(c: Vec2, r_in: f64, r_out: f64, start: f64, sweep: f64, lx: f64, ly: f64) -> (f64, f64, f64) {
+    let dx = lx - c.x;
+    let dy = ly - c.y;
+    let r = (dx * dx + dy * dy).sqrt();
+    let (ux, uy) = if r > 0.0 { (dx / r, dy / r) } else { (1.0, 0.0) };
+    let span = ArcSpan::of(start, sweep);
+    let within = match &span {
+        None => true,
+        Some(sp) => atan2_det(sp.mid.x * dy - sp.mid.y * dx, sp.mid.x * dx + sp.mid.y * dy).abs() <= sp.half,
+    };
+    let on = |rr: f64| (c.x + rr * ux, c.y + rr * uy);
+    // The end faces (radial segments) of an open arc
+    let ends = |best: &mut (f64, f64, f64)| {
+        for t in [start, start + sweep] {
+            let (ct, st) = (cos(t), sin(t));
+            let a = Vec2 { x: c.x + r_in * ct, y: c.y + r_in * st };
+            let b = Vec2 { x: c.x + r_out * ct, y: c.y + r_out * st };
+            let q = segment_closest(a, b, lx, ly);
+            if q.0 < best.0 {
+                *best = q;
+            }
+        }
+    };
+    if !within {
+        let mut best = (f64::INFINITY, lx, ly);
+        ends(&mut best);
+        return (best.0.sqrt(), best.1, best.2);
+    }
+    if r < r_in {
+        let (qx, qy) = on(r_in);
+        return (r_in - r, qx, qy);
+    }
+    if r > r_out {
+        let (qx, qy) = on(r_out);
+        return (r - r_out, qx, qy);
+    }
+    // Inside the material: the nearest side
+    let (di, do_) = (r - r_in, r_out - r);
+    let mut best = if di <= do_ { (di * di, on(r_in).0, on(r_in).1) } else { (do_ * do_, on(r_out).0, on(r_out).1) };
+    if span.is_some() {
+        ends(&mut best);
+    }
+    (-best.0.sqrt(), best.1, best.2)
+}
+
+/// Signed distance from a local point to a piece and the closest point of the piece's boundary (26.59 fix 3).
+fn piece_closest(p: &ShapePiece, lx: f64, ly: f64) -> (f64, f64, f64) {
+    match p {
+        ShapePiece::Circle { center, radius } => {
+            let dx = lx - center.x;
+            let dy = ly - center.y;
+            let d = (dx * dx + dy * dy).sqrt();
+            let (ux, uy) = if d > 0.0 { (dx / d, dy / d) } else { (1.0, 0.0) };
+            (d - radius, center.x + radius * ux, center.y + radius * uy)
+        }
+        ShapePiece::Polygon { verts, normals } => {
+            let m = verts.len();
+            let mut max_gap = f64::NEG_INFINITY;
+            let mut face = 0;
+            for f in 0..m {
+                let g = normals[f].x * (lx - verts[f].x) + normals[f].y * (ly - verts[f].y);
+                if g > max_gap {
+                    max_gap = g;
+                    face = f;
+                }
+            }
+            if max_gap <= 0.0 {
+                return (max_gap, lx - max_gap * normals[face].x, ly - max_gap * normals[face].y);
+            }
+            let mut best = (f64::INFINITY, lx, ly);
+            for f in 0..m {
+                let q = segment_closest(verts[f], verts[(f + 1) % m], lx, ly);
+                if q.0 < best.0 {
+                    best = q;
+                }
+            }
+            (best.0.sqrt(), best.1, best.2)
+        }
+        ShapePiece::Arc { center, r_in, r_out, start, sweep } => arc_closest(*center, *r_in, *r_out, *start, *sweep, lx, ly),
+    }
+}
+
+/// Signed distance from a world point to the piece (or the whole) of B a probe watches, with the closest point
+/// (world).
+fn probe_target_closest(model: &Model, p: &Probe, poses: &[Pose], px: f64, py: f64) -> (f64, f64, f64) {
+    let b = &model.bodies[p.b];
+    let pose = &poses[p.b];
+    let dx = px - pose.x;
+    let dy = py - pose.y;
+    let lx = pose.c * dx + pose.s * dy;
+    let ly = -pose.s * dx + pose.c * dy;
+    let local = match (&b.shape, p.piece) {
+        (ShapeModel::Complex(c), Some(k)) => piece_closest(&c.pieces[k], lx, ly),
+        (ShapeModel::Complex(c), None) => {
+            let mut best = (f64::INFINITY, lx, ly);
+            for pc in &c.pieces {
+                let q = piece_closest(pc, lx, ly);
+                if q.0 < best.0 {
+                    best = q;
+                }
+            }
+            best
+        }
+        (ShapeModel::Circle { radius }, _) => piece_closest(&ShapePiece::Circle { center: Vec2::default(), radius: *radius }, lx, ly),
+        (ShapeModel::Polygon { verts, normals, .. }, _) => piece_closest(&ShapePiece::Polygon { verts: verts.clone(), normals: normals.clone() }, lx, ly),
+    };
+    (local.0, pose.x + pose.c * local.1 - pose.s * local.2, pose.y + pose.s * local.1 + pose.c * local.2)
+}
+
+/// Value of a probe whose point is a round side with a span (an arc's outer side, 26.59 fix 3, D193): the distance
+/// from the arc itself to B — through the nearest point of B when its direction lies within the span, else from the
+/// nearer end of the arc. Continuous where the direction crosses the span's ends.
+fn span_probe_value(model: &Model, p: &Probe, sp: &ArcSpan, poses: &[Pose], px: f64, py: f64) -> f64 {
+    let (d, qx, qy) = probe_target_closest(model, p, poses, px, py);
+    if d <= 0.0 {
+        return d - p.radius;
+    }
+    let pa = &poses[p.a];
+    let (m1, m2) = span_margins(sp, pa, qx - px, qy - py);
+    if m1 >= 0.0 && m2 >= 0.0 {
+        return d - p.radius;
+    }
+    let mut best = f64::INFINITY;
+    for sgn in [-1.0, 1.0] {
+        // End directions: the middle turned by ∓half (body coordinates)
+        let (ch, sh) = (cos(sp.half), sgn * sin(sp.half));
+        let ex = ch * sp.mid.x - sh * sp.mid.y;
+        let ey = sh * sp.mid.x + ch * sp.mid.y;
+        let lx = p.local.x + p.radius * ex;
+        let ly = p.local.y + p.radius * ey;
+        let wx = pa.x + pa.c * lx - pa.s * ly;
+        let wy = pa.y + pa.s * lx + pa.c * ly;
+        let v = probe_target_closest(model, p, poses, wx, wy).0;
+        if v < best {
+            best = v;
+        }
+    }
+    best
 }
 
 /// Signed distance from a local point to a convex polygon.
@@ -1245,6 +1526,9 @@ pub fn probe_value(model: &Model, p: &Probe, poses: &[Pose]) -> f64 {
     let pa = &poses[p.a];
     let px = pa.x + pa.c * p.local.x - pa.s * p.local.y;
     let py = pa.y + pa.s * p.local.x + pa.c * p.local.y;
+    if let Some(sp) = &p.span {
+        return span_probe_value(model, p, sp, poses, px, py);
+    }
     if let (Some(k), ShapeModel::Complex(c)) = (p.piece, &model.bodies[p.b].shape) {
         let pose = &poses[p.b];
         let dx = px - pose.x;

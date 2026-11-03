@@ -25,11 +25,24 @@ export const SCENE_VERSION_REGIONS = 7
  * with the exact solver (hundreds of bodies) — format 8 makes them warn that the file comes from a newer version.
  */
 export const SCENE_VERSION_SOFTSTEP = 8
+/**
+ * Format 9 (26.59 fix 3, D193): scenes with arc tracks (`shape.type: 'arc'`). Older versions cannot read the shape
+ * and warn that the file comes from a newer version.
+ */
+export const SCENE_VERSION_ARCS = 9
 /** Engine version written into saved scenes. */
 export const ENGINE_VERSION = '26.59.0'
 
 /** Shape of a body, in body coordinates (m). */
-export type ShapeDef = PartShapeDef | CompoundShapeDef
+export type ShapeDef = PartShapeDef | CompoundShapeDef | ArcShapeDef
+
+/**
+ * Circular arc track (26.59 fix 3, D193): the annular sector between `radius` and `radius + thickness` about `center`
+ * (body coordinates, default the origin), from angle `start` counter-clockwise over `sweep` (rad, 0 < sweep ≤ 2π).
+ * Its inner side is an exact concave circle (grooves, loops, bowls), its outer side an exact convex one (humps).
+ * Dynamic arcs turn about their centre of mass, which must be the body origin. Computed by the Rust core only.
+ */
+export interface ArcShapeDef { type: 'arc'; radius: number; thickness: number; start: number; sweep: number; center?: Vec2 }
 
 /** A shape that can also be a part of a compound shape. */
 export type PartShapeDef =
@@ -362,7 +375,12 @@ export function rigidConstantsSet(scene: Scene): 'CODATA2018' | 'CODATA2022' {
  */
 export function usesFields(scene: Scene): boolean {
   const s = scene.settings
-  return !!(s.electric || s.magnetic || s.coulomb || s.regions?.length || s.railLoops?.length || s.integrator === 'softstep' || scene.bodies.some(b => !!b.charge) || scene.branches?.some(b => usesFields(b.scene)))
+  return !!(usesArcs(scene) || s.electric || s.magnetic || s.coulomb || s.regions?.length || s.railLoops?.length || s.integrator === 'softstep' || scene.bodies.some(b => !!b.charge) || scene.branches?.some(b => usesFields(b.scene)))
+}
+
+/** The scene (or one of its branches) has arc tracks (26.59 fix 3, D193; Rust core only, like fields). */
+export function usesArcs(scene: Scene): boolean {
+  return scene.bodies.some(b => b.shape.type === 'arc') || !!scene.branches?.some(b => usesArcs(b.scene))
 }
 
 /** The scene (or one of its branches) is computed with the many-body solver (26.58). */
@@ -376,9 +394,9 @@ export function usesRegions(scene: Scene): boolean {
   return !!(s.regions?.length || s.railLoops?.length || scene.branches?.some(b => usesRegions(b.scene)))
 }
 
-/** File format version a scene is written as: 8 with the many-body solver, 7 with regions or rail loops, 6 with charges or fields, otherwise 5. */
+/** File format version a scene is written as: 9 with arc tracks, 8 with the many-body solver, 7 with regions or rail loops, 6 with charges or fields, otherwise 5. */
 export function sceneVersionOf(scene: Scene): number {
-  return usesSoftStep(scene) ? SCENE_VERSION_SOFTSTEP : usesRegions(scene) ? SCENE_VERSION_REGIONS : usesFields(scene) ? SCENE_VERSION_FIELDS : SCENE_VERSION
+  return usesArcs(scene) ? SCENE_VERSION_ARCS : usesSoftStep(scene) ? SCENE_VERSION_SOFTSTEP : usesRegions(scene) ? SCENE_VERSION_REGIONS : usesFields(scene) ? SCENE_VERSION_FIELDS : SCENE_VERSION
 }
 
 /** Initial values of the energy ledger (26.51, D52). */

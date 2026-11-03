@@ -71,6 +71,11 @@ const TEXT: Record<string, [Render, Render, Render]> = {
     p => `${str(p.body)}: the parts of the compound body are taken relative to its centre of mass`,
     p => `${str(p.body)}: Die Teile des zusammengesetzten Körpers werden auf seinen Schwerpunkt bezogen`
   ],
+  'warn.arcCentred': [
+    p => `${str(p.body)}：圆弧的位置已改为相对于它的质心`,
+    p => `${str(p.body)}: the arc is placed relative to its centre of mass`,
+    p => `${str(p.body)}: Der Bogen wird auf seinen Schwerpunkt bezogen`
+  ],
   'warn.muSBelowMuK': [
     p => `${str(p.body)}：静摩擦因数小于动摩擦因数（μs < μk）`,
     p => `${str(p.body)}: coefficient of static friction below kinetic (μs < μk)`,
@@ -218,6 +223,7 @@ function sceneText(m: Message, lang: Lang): string | null {
     case 'scene.polygonTooFew': return t('{0}：多边形至少需要 3 个顶点', [b])
     case 'scene.polygonNotSimple': return t('{0}：多边形的边不能相交，面积不能为零', [b])
     case 'scene.compoundEmpty': return t('{0}：复合体至少需要一个部分', [b])
+    case 'scene.arcInvalid': return t('{0}：圆弧的半径和厚度须大于 0，圆心角须在 0…360° 之间', [b])
     case 'scene.compoundPartInvalid': return t('{0}：复合体的部分无效（半径、宽高须大于 0，多边形须为简单多边形）', [b])
     case 'scene.materialRange': return t('{0}：摩擦因数应 ≥ 0，恢复系数应在 0…1', [b])
     case 'scene.dragNegative': return t('{0}：阻力系数应 ≥ 0', [b])

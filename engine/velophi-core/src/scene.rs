@@ -42,6 +42,16 @@ pub enum ShapeDef {
     Compound {
         parts: Vec<ShapePart>,
     },
+    /// Circular arc track (26.59 fix 3, D193): the annular sector between `radius` and `radius + thickness` about
+    /// `center` (body coordinates), from angle `start` counter-clockwise over `sweep` (rad, 0 < sweep ≤ 2π). Its
+    /// inner side is an exact concave circle, its outer side an exact convex one. Not a part of a compound shape.
+    Arc {
+        radius: f64,
+        thickness: f64,
+        start: f64,
+        sweep: f64,
+        center: Vec2,
+    },
 }
 
 /// A part of a compound shape: its shape, the position of its origin and its angle.
@@ -658,6 +668,13 @@ fn parse_part_shape(shape: &serde_json::Map<String, Value>, path: &str) -> PResu
             width: num(shape.get("width"), &format!("{path}.width"), None)?,
             height: num(shape.get("height"), &format!("{path}.height"), None)?,
         },
+        Some("arc") if !path.contains("parts[") => ShapeDef::Arc {
+            radius: num(shape.get("radius"), &format!("{path}.radius"), None)?,
+            thickness: num(shape.get("thickness"), &format!("{path}.thickness"), None)?,
+            start: num(shape.get("start"), &format!("{path}.start"), Some(0.0))?,
+            sweep: num(shape.get("sweep"), &format!("{path}.sweep"), None)?,
+            center: vec2(shape.get("center"), &format!("{path}.center"), Some(Vec2::default()))?,
+        },
         Some("polygon") => {
             let pts = shape.get("points").and_then(|p| p.as_array()).ok_or_else(|| err_path("scene.notList", &format!("{path}.points")))?;
             let mut points = Vec::with_capacity(pts.len());
@@ -988,6 +1005,12 @@ pub fn validate_scene(scene: &Scene) -> PResult<()> {
             ShapeDef::Polygon { points } if !polygon_is_simple(points) => {
                 return Err(Message::new("scene.polygonNotSimple").text("body", b.name.clone()));
             }
+            // 26.59 fix 3 (D193)
+            ShapeDef::Arc { radius, thickness, sweep, .. }
+                if !(*radius > 0.0 && *thickness > 0.0 && *sweep > 0.0 && *sweep <= 2.0 * std::f64::consts::PI + 1e-12) =>
+            {
+                return Err(Message::new("scene.arcInvalid").text("body", b.name.clone()));
+            }
             ShapeDef::Compound { parts } => {
                 if parts.is_empty() {
                     return Err(Message::new("scene.compoundEmpty").text("body", b.name.clone()));
@@ -997,7 +1020,7 @@ pub fn validate_scene(scene: &Scene) -> PResult<()> {
                         ShapeDef::Circle { radius } => !(*radius > 0.0),
                         ShapeDef::Box { width, height } => !(*width > 0.0 && *height > 0.0),
                         ShapeDef::Polygon { points } => !polygon_is_simple(points),
-                        ShapeDef::Compound { .. } => true,
+                        ShapeDef::Compound { .. } | ShapeDef::Arc { .. } => true,
                     };
                     if bad {
                         return Err(Message::new("scene.compoundPartInvalid").text("body", b.name.clone()));

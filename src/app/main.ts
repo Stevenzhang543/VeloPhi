@@ -45,6 +45,8 @@ setTemplateGravity(settings.defaultGravity)
 watch(() => settings.defaultGravity, setTemplateGravity)
 
 async function start() {
+  // 26.59 fix 3 (D192): Android diagnosis — "nocore" stops before the computing core loads
+  if ((window as unknown as { __velophiCompat?: string }).__velophiCompat?.split(',').includes('nocore')) { void revealInterface(); return }
   // Every calculation of the interface runs in the Rust core: it must be loaded before the first scene is built
   try {
     await loadCore(wasmUrl)
@@ -56,10 +58,18 @@ async function start() {
     return
   }
   await initHost(settings.sim.engine === 'wasm')
+  // 26.59 fix 3 (D192): rendering switches for diagnosing Android WebViews (only when set over adb)
+  const { applyCompat, compatFlags } = await import('./compat')
+  applyCompat()
+  if (compatFlags().includes('blank')) { void revealInterface(); return }
+  if (compatFlags().includes('simonly')) { state.scene = buildTemplate('incline'); runSimulation(); void revealInterface(); return }
+  if (compatFlags().includes('nowelcome')) settings.ui.welcomed = true
   state.scene = buildTemplate('incline')
   state.chart = defaultChart(state.scene)
   createApp(App).mount('#app')
   runSimulation()
+  // 26.59 fix 3 (D192): Android — reopen the scene after the app restarted itself, keep snapshots
+  void import('./recovery').then(m => m.initRecovery()).catch(() => {})
   // Opening reveal from the centre of the screen (D54)
   void revealInterface()
   // Release self-check inside WebView2 (only with `--selftest <file>`; see app/selfCheck.ts)

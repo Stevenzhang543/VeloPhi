@@ -52,6 +52,7 @@ import type { DragFeedback, Handle, HandleDrag, HandleId } from '../editor/handl
 import { applyHandleDrag, bodyHandles, deleteVertex, edgeAt, handleKey, hitHandle, insertVertex, pulleyHandles, rotateStemFrom, startHandleDrag } from '../editor/handles'
 import type { DragTool } from '../editor/create'
 import { createFromDrag, createPolygon, dragPreview, isDragTool, polygonPreview } from '../editor/create'
+import { isPresetTool } from '../editor/presets'
 import { addAnnotation, annotationPointAt, deleteAnnotation, editAnnotations, hitAnnotation, placeMoved, pushHistory, setAnnotationPoint } from '../editor/annotations'
 import {
   bringToFront, convertToPolygon, copySelection, deleteSelection, duplicateSelection, hasClipboard, kindChangeBlocker, nudgeSelection,
@@ -616,6 +617,14 @@ function onDown(e: MouseEvent) {
   }
   if (isDragTool(tool)) {
     drag = { kind: 'create', tool, a: sp, b: sp, step: snapOn(e.altKey) ? snapStep(ppm) : 0, moved: false, sx: e.clientX, sy: e.clientY }
+    return
+  }
+  // 26.59 fix 3 (D194): ready-made parts are placed with one click
+  if (isPresetTool(tool)) {
+    let id: string | null = null
+    edit(scene => { id = placeObject(scene, cp, tool, sp) })
+    if (id) { editor.annotationId = null; state.selection = { kind: 'body', id }; state.rightTab = 'inspect' }
+    if (!e.shiftKey) state.tool = 'select'
     return
   }
   // 26.52: central fields, cutting, combining
@@ -1447,6 +1456,7 @@ const selectionHint = computed(() => {
   const rot = settings.editor.angleSnap > 0 ? tl('（按 {0}° 吸附，Shift 自由旋转）', [settings.editor.angleSnap]) : settings.editor.objectSnap ? tl('（任意角度；靠近 0°、90° 或附近表面的倾角时吸附，Alt 关闭）') : ''
   if (b.shape.type === 'polygon') return tl('拖动顶点改形状，双击边添加顶点，Alt+单击顶点删除；圆形手柄旋转{0}', [rot])
   if (b.shape.type === 'box') return tl('拖动方形手柄改大小（Shift 等比），圆形手柄旋转{0}；右键可转为多边形', [rot])
+  if (b.shape.type === 'arc') return tl('拖动内侧的手柄改半径，圆形手柄旋转{0}；起始角、圆心角与厚度在“属性”中修改', [rot])
   return tl('拖动手柄改半径')
 })
 </script>

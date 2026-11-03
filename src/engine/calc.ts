@@ -7,11 +7,14 @@ import { msgText } from '../i18n/locale'
 import type { ShapeDef } from '../core/scene/types'
 import type { Vec2 } from '../core/math/vec'
 import { calc } from './core'
-import type { ShapePiece } from './model'
+import { expandArcs, type ArcPiece, type ShapePiece } from './model'
 
-/** Outline of a shape as the solver places it in body coordinates (dynamic bodies about their centre of mass). */
+/**
+ * Outline of a shape as the solver places it in body coordinates (dynamic bodies about their centre of mass); arcs
+ * come as polygon loops (26.59 fix 3).
+ */
 export function shapeOutline(shape: ShapeDef, dynamic: boolean): ShapePiece[] {
-  return calc<{ outline: ShapePiece[] }>({ op: 'shapeOutline', shape, dynamic }).outline
+  return expandArcs(calc<{ outline: Array<ShapePiece | ArcPiece> }>({ op: 'shapeOutline', shape, dynamic }).outline)
 }
 
 /** Area, area centroid and moment of inertia about the centroid of a (compound) shape of mass `mass`. */
