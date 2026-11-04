@@ -13,6 +13,7 @@ import { PREDICTION_RULE, compareValues } from '../task/compare'
 import { tl, trDeep, paren, colonSep } from '../i18n'
 import type { Scene } from '../core/scene/types'
 import type { ChangeType, Recording, SimEvent } from '../engine/recording'
+import { endedAtRest, readyForAnswers } from '../engine/recording'
 import type { QuantityDef } from '../engine/observe'
 import { listQuantities, valueAt } from '../engine/observe'
 import type { Situation } from '../formula/recognize'
@@ -188,7 +189,7 @@ export function evaluateTarget(rec: Recording, sits: Situation[], target: Predic
   const tMax = (rec.frameCount - 1) * rec.dt
   if (target.kind === 'event') {
     const e = firstEvent(rec, target.event, target.body)
-    if (!e) return { sim: null, formula: null, unit: 's', simNote: rec.completed ? tl('本次仿真中没有发生该事件') : tl('仿真未算完，记录内没有该事件') }
+    if (!e) return { sim: null, formula: null, unit: 's', simNote: rec.completed || readyForAnswers(rec, true) ? tl('本次仿真中没有发生该事件') : tl('仿真未算完，记录内没有该事件') }
     let formula: number | null = null
     let formulaNote: string | undefined = tl('没有识别到可计算该时刻的公式')
     for (const c of cardsAt(rec, e.t, { digits: 8 }, sits)) {
@@ -205,8 +206,10 @@ export function evaluateTarget(rec: Recording, sits: Situation[], target: Predic
     const defs = new Map(listQuantities(rec).map(q => [q.id, q]))
     const q = defs.get(target.id)
     if (!q) return { sim: null, formula: null, unit: '', simNote: tl('场景中没有这个量（物体或连接件可能已删除）') }
-    if (target.t < 0 || target.t > tMax + 1e-12) return { sim: null, formula: null, unit: q.unit, simNote: tl('该时刻超出了仿真时长') }
-    const v = valueAt(rec, target.t, target.id)
+    // 26.60 (D203): after the run stopped at rest the last state holds
+    const atRest = endedAtRest(rec) && target.t > tMax
+    if (target.t < 0 || (target.t > tMax + 1e-12 && !atRest)) return { sim: null, formula: null, unit: q.unit, simNote: tl('该时刻超出了仿真时长') }
+    const v = valueAt(rec, Math.min(target.t, tMax), target.id)
     return { sim: Number.isFinite(v) ? v : null, formula: null, unit: q.unit, formulaNote: tl('此类预测只与仿真比较') }
   }
   const f = FORMULAS.find(x => x.id === target.formula)

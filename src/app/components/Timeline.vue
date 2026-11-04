@@ -14,7 +14,7 @@
  */
 import { tl, listSep } from '../../i18n'
 import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
-import { state, play, pause, seekFrame, seekTime, seekAfter, computeTo, stopRun } from '../store'
+import { state, play, pause, seekFrame, seekTime, seekAfter, computeTo, stopRun, continueRun, stoppedByUser } from '../store'
 import { useGated } from '../live'
 import { fmtNum, fmtTime, settings, unitLabel } from '../settings'
 import { formulaTimeline } from '../../formula/match'
@@ -31,7 +31,7 @@ import { shownTime } from '../../units/clock'
 import { ask } from '../../platform/ask'
 
 /** `showTime`: false where the page shows the playing time itself (the monitor's clock, 26.57). */
-const props = withDefaults(defineProps<{ active?: boolean; showTime?: boolean }>(), { active: true, showTime: true })
+const props = withDefaults(defineProps<{ active?: boolean; showTime?: boolean; compact?: boolean; noPlay?: boolean }>(), { active: true, showTime: true, compact: false, noPlay: false })
 
 const rec = computed(() => (state.stale ? null : state.recording))
 const unbounded = computed(() => !!rec.value?.unbounded)
@@ -86,6 +86,27 @@ const markers = computed(() => {
     return { index, t, left: ((t - t0) / span.value) * 100, text: `${e.changes.map(eventLabel).filter((v, i, a) => a.indexOf(v) === i).join(listSep())} @ ${fmtNum(shownTime(t), 's', Math.min(10, state.digits + 2))} ${unitLabel('s')}` }
   })
 })
+
+/**
+ * 26.60 (D203): the state of the computation — runs go on while anything moves (computing ahead of playback) and stop
+ * only at rest, at a stop condition or when the user stops them.
+ */
+/** Computed time for the status: two decimals at most, no trailing zeros. */
+const fmtShort = (t: number) => fmtNum(Math.round(shownTime(t) * 100) / 100, 's', 8)
+const statusKind = computed(() => (state.buffering ? 'wait' : state.computing ? 'busy' : rec.value?.completed && (rec.value.stopReason === 'rest' || rec.value.stopReason === 'restApprox' || rec.value.stopReason === 'stopAt') ? 'done' : ''))
+const statusText = computed(() => {
+  const r = rec.value
+  if (state.buffering) return tl('缓冲中…')
+  if (state.computing) return state.run.paused ? tl('已算至 {0} {1} · 播放时继续', [fmtShort(tComputed.value), unitLabel('s')]) : tl('计算中 · {0} {1}', [fmtShort(tComputed.value), unitLabel('s')])
+  if (!r || !r.completed) return ''
+  if ((r.stopReason === 'rest' || r.stopReason === 'restApprox') && r.frameCount <= 2) return tl('静止：没有物体会运动')
+  if (r.stopReason === 'rest' || r.stopReason === 'restApprox') return tl('已静止 · 共 {0} {1}', [fmtShort(tComputed.value), unitLabel('s')])
+  if (r.stopReason === 'stopAt') return tl('已到终止条件 · {0} {1}', [fmtShort(tComputed.value), unitLabel('s')])
+  if (r.stopReason === 'user') return tl('已停止于 {0} {1}', [fmtShort(tComputed.value), unitLabel('s')])
+  if (r.stopReason === 'duration') return tl('共 {0} {1}', [fmtShort(tComputed.value), unitLabel('s')])
+  return ''
+})
+const statusTip = computed(() => (state.computing ? (state.run.paused ? tl('物体仍在运动：计算领先播放位置足够远后暂歇，播放前进或拖到后面时继续') : tl('持续计算中；可以先播放已算出的部分')) : statusKind.value === 'done' ? tl('所有物体都已静止（或到了终止条件），之后不会再变化') : ''))
 
 function toggle() { if (state.playing) pause(); else play() }
 function step(d: number) { pause(); seekFrame(state.frame + d) }
@@ -179,18 +200,28 @@ async function removeBranch() {
 </script>
 
 <template>
-  <div class="timeline">
+  <div class="timeline" :class="{ compact }">
     <div class="controls" :class="{ unb: unbounded }">
-      <button class="btn icon ghost" :title="tl('回到开始（Home）')" :disabled="!rec" @click="pause(); seekFrame(0)"><Icon name="start" /></button>
-      <button class="btn icon ghost" :title="tl('上一帧（←）')" :disabled="!rec" @click="step(-1)"><Icon name="stepb" /></button>
-      <button class="btn icon primary play" data-ui="play" :title="state.playing ? tl('暂停播放（空格）') : tl('播放（空格）')" :aria-label="state.playing ? tl('暂停播放') : tl('播放')" :disabled="!rec" @click="toggle"><Icon :name="state.playing ? 'pause' : 'play'" /></button>
-      <button class="btn icon ghost" :title="tl('下一帧（→）')" :disabled="!rec" @click="step(1)"><Icon name="stepf" /></button>
-      <button class="btn icon ghost" :title="tl('到结尾（End）')" :disabled="!rec" @click="pause(); seekFrame(lastFrame)"><Icon name="end" /></button>
-      <span class="sep" />
-      <button class="btn ghost small" :title="tl('上一个事件')" :disabled="!markers.length" @click="jumpEvent(-1)">◀<span class="ev-lbl"> {{ tl('事件') }}</span></button>
-      <button class="btn ghost small" data-ui="next-event" :title="tl('下一个事件（跳到事件后的第一帧）')" :disabled="!markers.length" @click="jumpEvent(1)"><span class="ev-lbl">{{ tl('事件') }} </span>▶</button>
-      <span class="sep" />
-      <select v-model.number="state.speed" data-ui="speed" class="field speed" :title="tl('播放速度（仿真时间 / 真实时间）')">
+      <button class="btn icon ghost hide-c" :title="tl('回到开始（Home）')" :disabled="!rec" @click="pause(); seekFrame(0)"><Icon name="start" /></button>
+      <button class="btn icon ghost hide-c" :title="tl('上一帧（←）')" :disabled="!rec" @click="step(-1)"><Icon name="stepb" /></button>
+      <button v-if="!noPlay" class="btn icon primary play" data-ui="play" :title="state.playing ? tl('暂停播放（空格）') : tl('播放（空格）')" :aria-label="state.playing ? tl('暂停播放') : tl('播放')" :disabled="!rec" @click="toggle"><Icon :name="state.playing ? 'pause' : 'play'" /></button>
+      <button class="btn icon ghost hide-c" :title="tl('下一帧（→）')" :disabled="!rec" @click="step(1)"><Icon name="stepf" /></button>
+      <button class="btn icon ghost hide-c" :title="tl('到结尾（End）')" :disabled="!rec" @click="pause(); seekFrame(lastFrame)"><Icon name="end" /></button>
+      <span class="sep hide-c" />
+      <button class="btn ghost small ev-btn" :title="tl('上一个事件')" :aria-label="tl('上一个事件')" :disabled="!markers.length" @click="jumpEvent(-1)">◀<span class="ev-lbl"> {{ tl('事件') }}</span></button>
+      <button class="btn ghost small ev-btn" data-ui="next-event" :title="tl('下一个事件（跳到事件后的第一帧）')" :aria-label="tl('下一个事件')" :disabled="!markers.length" @click="jumpEvent(1)"><span class="ev-lbl">{{ tl('事件') }} </span>▶</button>
+      <!-- 26.60 (D205): in the floating bar the track sits in the row itself -->
+      <div v-if="compact" class="track inline" :class="{ scrub: scrubbing }">
+        <div class="rail" />
+        <div class="computed" :style="{ transform: `scaleX(${computedFraction})` }" />
+        <div class="played" :style="{ transform: `scaleX(${playedFraction})` }" />
+        <input type="range" :min="kMin" :max="kMax" step="1" :value="rec ? Math.round(tNow / rec.dt) : 0" :disabled="!rec" :aria-label="tl('时间')" @input="onTrack" @pointerdown="scrubbing = true" @pointerup="scrubbing = false" @pointercancel="scrubbing = false" @blur="scrubbing = false" />
+        <div v-if="scrubbing && rec" class="bubble mono" :style="{ left: `calc(7px + (100% - 14px) * ${playedFraction})` }">{{ fmtT(tNow) }} {{ unitLabel('s') }}</div>
+        <TimelineMarks :markers="markers" :branch-marks="branchMarks" @marker="onMarker" @branch="showBranch" />
+      </div>
+      <span v-if="showTime" class="mono time" :title="tl('播放时刻')">t = {{ fmtT(tNow) }} {{ unitLabel('s') }}</span>
+      <span v-if="!compact" class="sep" />
+      <select v-model.number="state.speed" data-ui="speed" class="field speed" :title="tl('播放速度（仿真时间 / 真实时间）')" :aria-label="tl('播放速度')">
         <option :value="0.05">0.05×</option>
         <option :value="0.1">0.1×</option>
         <option :value="0.25">0.25×</option>
@@ -199,31 +230,30 @@ async function removeBranch() {
         <option :value="2">2×</option>
         <option :value="4">4×</option>
       </select>
-      <button class="btn icon ghost" :class="{ active: state.loop }" :title="tl('循环播放')" :aria-pressed="state.loop" @click="state.loop = !state.loop"><Icon name="loop" /></button>
-      <span class="sep" />
-      <button class="btn ghost small branch-btn" data-ui="branch" :disabled="!branchable" :title="tl('从当前时刻建立分支：之后修改物体、连接件或参数，从此刻继续计算；原记录保留，可切换和在曲线中叠加对照（先暂停）')" @click="branchHere()"><Icon name="branch" :size="15" /><span class="br-lbl"> {{ tl('从此刻分支') }}</span></button>
-      <template v-if="branches.length">
-        <select v-model="branchValue" class="field branch-sel" :title="tl('切换主线与分支')">
-          <option v-for="o in branchOptions" :key="o.id" :value="o.id">{{ o.label }}</option>
-        </select>
-        <button v-if="state.branch" class="btn icon ghost" :title="tl('删除此分支')" @click="removeBranch"><Icon name="trash" :size="15" /></button>
+      <button class="btn icon ghost hide-xs" :class="{ active: state.loop }" :title="tl('循环播放')" :aria-pressed="state.loop" @click="state.loop = !state.loop"><Icon name="loop" /></button>
+      <template v-if="!compact">
+        <span class="sep" />
+        <button class="btn ghost small branch-btn" data-ui="branch" :disabled="!branchable" :title="tl('从当前时刻建立分支：之后修改物体、连接件或参数，从此刻继续计算；原记录保留，可切换和在曲线中叠加对照（先暂停）')" @click="branchHere()"><Icon name="branch" :size="15" /><span class="br-lbl"> {{ tl('从此刻分支') }}</span></button>
+        <template v-if="branches.length">
+          <select v-model="branchValue" class="field branch-sel" :title="tl('切换主线与分支')">
+            <option v-for="o in branchOptions" :key="o.id" :value="o.id">{{ o.label }}</option>
+          </select>
+          <button v-if="state.branch" class="btn icon ghost" :title="tl('删除此分支')" @click="removeBranch"><Icon name="trash" :size="15" /></button>
+        </template>
+        <span class="sep" />
+        <button class="btn ghost small ftl-btn" :class="{ active: fu.timeline }" :aria-pressed="fu.timeline" :title="tl('在时间轴下方显示公式时间轴：各情形的时间段与公式判定')" @click="fu.timeline = !fu.timeline">{{ tl('公式') }}</button>
+        <button v-if="range" class="btn ghost small" :title="tl('时间轴恢复显示全程')" @click="range = null">{{ tl('显示全程') }}</button>
+        <button v-if="unbounded" class="btn ghost small zoom-btn" :title="zoom === 'all' ? tl('时间轴只显示播放位置附近 60 s') : tl('时间轴显示全部已算出的范围')" @click="zoom = zoom === 'all' ? 'recent' : 'all'">{{ zoom === 'all' ? tl('全程') : tl('近 60 s') }}</button>
+        <span class="spacer" />
+        <span class="mono tiny muted frames">{{ tl('帧 {0} / {1}', [rec ? frameNow : 0, rec ? lastFrame : 0]) }}</span>
       </template>
-      <span class="sep" />
-      <button class="btn ghost small ftl-btn" :class="{ active: fu.timeline }" :aria-pressed="fu.timeline" :title="tl('在时间轴下方显示公式时间轴：各情形的时间段与公式判定')" @click="fu.timeline = !fu.timeline">{{ tl('公式') }}</button>
-      <button v-if="range" class="btn ghost small" :title="tl('时间轴恢复显示全程')" @click="range = null">{{ tl('显示全程') }}</button>
-      <span class="spacer" />
-      <span v-if="state.buffering" class="badge warn computing" :title="tl('播放追上了计算，等待新的帧')">{{ tl('缓冲中…') }}</span>
-      <template v-if="unbounded">
-        <span v-if="state.computing" class="badge info computing" :title="state.run.paused ? tl('已领先播放位置足够远，计算暂停；播放前进时继续') : tl('持续计算中；可以先播放已算出的部分')">{{ tl('已计算至 {0} {1}{2}', [fmtT(tComputed), unitLabel('s'), state.run.paused ? tl(' · 计算暂歇') : '']) }}</span>
-        <button v-if="state.computing" class="btn ghost small stop-btn" :title="tl('停止计算（保留已算出的部分）')" @click="stopRun()">{{ tl('停止计算') }}</button>
-        <button class="btn ghost small zoom-btn" :title="zoom === 'all' ? tl('时间轴只显示播放位置附近 60 s') : tl('时间轴显示全部已算出的范围')" @click="zoom = zoom === 'all' ? 'recent' : 'all'">{{ zoom === 'all' ? tl('全程') : tl('近 60 s') }}</button>
-      </template>
-      <span v-else-if="state.computing && rec" class="badge info computing" :title="tl('仍在计算（{0}%）；可以先播放已算出的部分', [Math.round(computedFraction * 100)])">{{ tl('已计算至 {0} {1}', [fmtT(tComputed), unitLabel('s')]) }}</span>
-      <!-- 26.57 (D121, manual §2 图 C): one playing time; how far it is computed is the badge above, not a second clock -->
-      <span v-if="showTime" class="mono time" :title="tl('播放时刻')">t = {{ fmtT(tNow) }}<template v-if="!unbounded"> / {{ fmtT(duration) }}</template> {{ unitLabel('s') }}</span>
-      <span class="mono tiny muted frames">{{ tl('帧 {0} / {1}', [rec ? frameNow : 0, rec ? lastFrame : 0]) }}</span>
+      <!-- 26.60 (D203): what the computation is doing — it goes on while anything moves and stops only at rest -->
+      <span v-if="statusText" class="status" :class="statusKind" role="status" :title="statusTip">{{ statusText }}</span>
+      <button v-if="state.computing && !state.run.paused" class="btn ghost small stop-btn" :title="tl('停止计算（保留已算出的部分）')" @click="stopRun()">{{ tl('停止') }}</button>
+      <button v-if="stoppedByUser()" class="btn ghost small" data-ui="continue" :title="tl('从头再算一遍并继续算下去（结果相同）')" @click="continueRun()">{{ tl('继续计算') }}</button>
+      <slot name="end" />
     </div>
-    <div class="track" :class="{ scrub: scrubbing }">
+    <div v-if="!compact" class="track" :class="{ scrub: scrubbing }">
       <div class="rail" />
       <div class="computed" :style="{ transform: `scaleX(${computedFraction})` }" />
       <div class="played" :style="{ transform: `scaleX(${playedFraction})` }" />
@@ -231,7 +261,7 @@ async function removeBranch() {
       <div v-if="scrubbing && rec" class="bubble mono" :style="{ left: `calc(7px + (100% - 14px) * ${playedFraction})` }">{{ fmtT(tNow) }} {{ unitLabel('s') }}</div>
       <TimelineMarks :markers="markers" :branch-marks="branchMarks" @marker="onMarker" @branch="showBranch" />
     </div>
-    <div v-if="fu.timeline && fbars.length" class="ftrack" :style="{ height: `${lanes * 11 + 3}px` }" role="list" :aria-label="tl('公式时间轴')">
+    <div v-if="!compact && fu.timeline && fbars.length" class="ftrack" :style="{ height: `${lanes * 11 + 3}px` }" role="list" :aria-label="tl('公式时间轴')">
       <FormulaTrack :bars="visibleBars" :t0="view.t0" :span="span" @bar="onBar" @zoom="zoomTo" />
       <div class="fnow" :style="{ left: `calc(${playedFraction * 100}%)` }" />
     </div>
@@ -245,17 +275,20 @@ async function removeBranch() {
 .sep { width: 1px; height: 18px; background: var(--separator); margin: 0 4px; flex: 0 0 auto; }
 .speed { width: 76px; flex: 0 0 auto; }
 .controls > .btn { flex: 0 0 auto; }
-.computing { margin-right: 4px; flex: 0 1 auto; min-width: 6em; display: block; line-height: 20px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.status { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--type-small); color: var(--text-2); padding: 2px 9px; border-radius: 999px; background: var(--fill); line-height: 20px; }
+.status.busy { color: var(--accent); background: var(--accent-soft); }
+.status.wait { color: var(--warning); background: color-mix(in srgb, var(--warning) 14%, transparent); }
+.status.done { color: var(--success, #16a34a); background: color-mix(in srgb, var(--success, #16a34a) 12%, transparent); }
 /* Narrow: drop the secondary texts before anything gets squeezed */
 @container (max-width: 820px) { .frames, .ev-lbl, .zoom-btn, .br-lbl { display: none; } }
-/* A continuing run also shows how far it has computed, a stop and a range button (26.53) */
 @container (max-width: 1080px) { .unb .frames, .unb .ev-lbl, .unb .br-lbl { display: none; } }
 .branch-sel { width: 180px; flex: 0 1 auto; min-width: 80px; }
 .branch-btn { display: inline-flex; align-items: center; gap: 2px; white-space: nowrap; }
-@container (max-width: 560px) { .computing, .sep, .stop-btn { display: none; } .speed { width: 62px; } }
-.time { font-size: var(--type-body); font-weight: 600; margin: 0 8px; white-space: nowrap; }
+@container (max-width: 560px) { .sep { display: none; } .speed { width: 62px; } }
+.time { font-size: var(--type-body); font-weight: 600; margin: 0 6px; white-space: nowrap; }
 .frames { white-space: nowrap; }
 .track { position: relative; height: 24px; margin-top: 2px; }
+.track.inline { flex: 1 1 120px; min-width: 80px; margin: 0 4px; }
 .rail, .computed, .played { position: absolute; left: 7px; right: 7px; top: 10px; height: 4px; border-radius: 999px; pointer-events: none; transform-origin: left; }
 .rail { background: var(--fill-strong); }
 .computed { background: var(--accent-soft); transition: transform 200ms linear; }
@@ -274,12 +307,17 @@ async function removeBranch() {
 .bubble { position: absolute; bottom: calc(100% + 2px); transform: translateX(-50%); background: var(--text); color: var(--pane); font-size: var(--type-tiny); padding: 2px 7px; border-radius: 7px; pointer-events: none; white-space: nowrap; box-shadow: var(--shadow); animation: pop-in var(--dur-2) var(--ease-out); z-index: 2; }
 .ftl-btn.active { color: var(--accent); }
 .ftrack { position: relative; margin: 0 7px 2px; }
-/* A situation with nothing to compare at all: an outline only */
 .fnow { position: absolute; top: 0; bottom: 0; width: 1.5px; margin-left: -0.75px; background: var(--accent); pointer-events: none; opacity: 0.8; }
 @container (max-width: 560px) { .ftl-btn { display: none; } }
-/* 26.59 (D176): phones — the transport row wraps; frame stepping, branches and the frame counter give way */
+/* 26.60 (D205): the floating bar — one row: play, events, the track, time, speed, status */
+.compact { padding: 4px 8px; }
+.compact .hide-c { display: none; }
+.compact .ev-lbl { display: none; }
+.compact .ev-btn { min-width: 28px; padding: 0 6px; }
+@container (max-width: 640px) { .compact .speed { width: 58px; } .compact .hide-xs { display: none; } .compact .status { max-width: 30%; } }
+@container (max-width: 420px) { .compact .ev-btn, .compact .speed { display: none; } .compact .time { font-size: var(--type-small); margin: 0 2px; } }
 @media (max-width: 600px) {
-  .controls { flex-wrap: wrap; row-gap: 4px; }
-  .controls .sep, .controls .frames, .controls .branch-btn, .controls .branch-sel, .controls .ftl-btn { display: none; }
+  .timeline:not(.compact) .controls { flex-wrap: wrap; row-gap: 4px; }
+  .timeline:not(.compact) .controls .sep, .timeline:not(.compact) .controls .frames, .timeline:not(.compact) .controls .branch-btn, .timeline:not(.compact) .controls .branch-sel, .timeline:not(.compact) .controls .ftl-btn { display: none; }
 }
 </style>

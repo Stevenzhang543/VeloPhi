@@ -89,8 +89,6 @@ export const TEXTS_2654: Record<string, readonly [string, string]> = {
   '连接': ['Connect', 'Verbinden'],
   '力与场': ['Forces and fields', 'Kräfte und Felder'],
   '搜索工具': ['Search tools', 'Werkzeuge suchen'],
-  '物体吸附：靠近其他物体时吸到刚好接触的位置；按住 Alt 临时关闭': ['Body snapping: pulls into exact contact near other bodies; hold Alt to suspend', 'Körper einrasten: zieht in der Nähe anderer Körper genau in Kontakt; Alt gedrückt halten setzt aus'],
-  '网格吸附：放置、移动、改大小和编辑顶点时对齐网格；按住 Alt 临时关闭': ['Grid snapping: align to the grid when placing, moving, resizing and editing vertices; hold Alt to suspend', 'Am Raster einrasten: beim Platzieren, Verschieben, Skalieren und Bearbeiten von Ecken; Alt gedrückt halten setzt aus'],
   '找到 {0} 个工具（Enter 选第一个）': ['{0} tools found (Enter picks the first)', '{0} Werkzeuge gefunden (Enter wählt das erste)'],
   '没有匹配的工具': ['No matching tools', 'Keine passenden Werkzeuge'],
   '工具分类': ['Tool categories', 'Werkzeugkategorien'],

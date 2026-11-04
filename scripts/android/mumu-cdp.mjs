@@ -1,6 +1,7 @@
 // VeloPhi APK checks on the MuMu emulator through the WebView's DevTools protocol (26.59 fix 3, D192).
 // Started by scripts\android\mumu.ps1 -Step cdp|rotation-matrix (which finds adb and the emulator):
-//   node scripts/android/mumu-cdp.mjs --adb <adb.exe> --serial <host:port> --out <folder> [--plan rotate|matrix] [--cycles 3]
+//   node scripts/android/mumu-cdp.mjs --adb <adb.exe> --serial <host:port> --out <folder> [--plan rotate|matrix|lock|ui] [--cycles 3]
+// 26.60 (D206): --plan ui drives the phone layout with touch events (tab bar, bottom sheets, a tool, the run button).
 // The APK enables WebView debugging only when asked over adb (setprop debug.velophi.devtools 1, see MainActivity.kt).
 // For every variant: start the app, connect to its page, run the variant's script (CSS or state changes), turn the
 // screen landscape / portrait a few times and record whether the app process survived. The table goes to
@@ -46,7 +47,7 @@ async function connect(pid) {
     const r = await send('Runtime.evaluate', { expression: expr, awaitPromise: true, returnByValue: true })
     return r.error ? `ERR ${JSON.stringify(r.error)}` : r.result?.exceptionDetails ? `EXC ${r.result.exceptionDetails.exception?.description ?? r.result.exceptionDetails.text}` : r.result?.result?.value
   }
-  return { url: pages[0].url, evaluate, close: () => { try { ws.close() } catch { /* gone */ } } }
+  return { url: pages[0].url, evaluate, send, close: () => { try { ws.close() } catch { /* gone */ } } }
 }
 
 // ---- page-side helpers (strings evaluated in the page) ----
@@ -182,8 +183,65 @@ async function lockCheck() {
   return { name: 'lock-portrait', survived, note }
 }
 
+/**
+ * 26.60 (D206): the phone layout on the device — touch events through DevTools (the app's own touch handlers run):
+ * open the tools sheet, pick the block and place one on the canvas, open the analysis sheet and drag it to full
+ * height and back down to close it, run, and collect the page's errors. Screenshots ui-*.png.
+ */
+async function uiCheck() {
+  sh('setprop debug.velophi.devtools 1')
+  sh(`am force-stop ${PKG}`)
+  sh('settings put system accelerometer_rotation 0')
+  sh('settings put system user_rotation 0')
+  await sleep(1500)
+  sh(`monkey -p ${PKG} -c android.intent.category.LAUNCHER 1`)
+  await sleep(10000)
+  sh('settings put system accelerometer_rotation 0')
+  const pid0 = pidOf()
+  const page = pid0 ? await connect(pid0) : null
+  if (!page) { log('ui: no DevTools page'); return { name: 'ui', result: 'no devtools' } }
+  const ev = async (label, expr) => { const r = await page.evaluate(expr); log(`  ${label}: ${typeof r === 'string' ? r.slice(0, 200) : JSON.stringify(r)}`); return r }
+  await ev('errors hook', `(() => { window.__errs = []; addEventListener('error', e => __errs.push(String(e.message).slice(0, 160))); addEventListener('unhandledrejection', e => __errs.push('rejection: ' + String(e.reason).slice(0, 160))); return 'ok' })()`)
+  await ev('state', STATE)
+  await ev('layout', `JSON.stringify({ phone: !!document.querySelector('.app.phone'), nav: !!document.querySelector('.pnav'), dialogs: [...document.querySelectorAll('[role=dialog]')].map(d => d.getAttribute('aria-label') || d.className).slice(0, 3) })`)
+  // A welcome or other dialog in front: Escape closes it
+  await ev('close dialogs', `(() => { for (let i = 0; i < 3 && document.querySelector('[role=dialog]'); i++) document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); return document.querySelectorAll('[role=dialog]').length })()`)
+  const rectOf = async sel => { const r = await page.evaluate(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e) return null; const b = e.getBoundingClientRect(); return JSON.stringify({ x: b.left + b.width / 2, y: b.top + b.height / 2, top: b.top, w: b.width, h: b.height }) })()`); return typeof r === 'string' && r.startsWith('{') ? JSON.parse(r) : null }
+  const touch = async (type, x, y) => page.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y }] })
+  const tap = async (label, sel) => { const r = await rectOf(sel); if (!r) { log(`  tap ${label}: ${sel} not found`); return false } await touch('touchStart', r.x, r.y); await sleep(60); await touch('touchEnd'); log(`  tap ${label} at ${Math.round(r.x)},${Math.round(r.y)}`); await sleep(900); return true }
+  const drag = async (label, x, y0, y1) => { await touch('touchStart', x, y0); for (let k = 1; k <= 12; k++) { await touch('touchMove', x, y0 + (y1 - y0) * k / 12); await sleep(16) } await touch('touchEnd'); log(`  drag ${label} ${Math.round(y0)} -> ${Math.round(y1)}`); await sleep(900) }
+  await tap('tools tab', '[data-ui="sheet-tools"]')
+  shot('ui-1-tools')
+  await ev('sheet', `document.querySelector('.sheet')?.className ?? 'none'`)
+  const picked = await page.evaluate(`(() => { const b = [...document.querySelectorAll('.palette .tool')].find(e => /物块|Block|Klotz/.test(e.textContent)); if (!b) return null; const r = b.getBoundingClientRect(); return JSON.stringify({ x: r.left + r.width / 2, y: r.top + r.height / 2 }) })()`)
+  if (typeof picked === 'string' && picked.startsWith('{')) { const p = JSON.parse(picked); await touch('touchStart', p.x, p.y); await sleep(60); await touch('touchEnd'); log('  tap block tool'); await sleep(900) } else log('  block tool not found')
+  await ev('sheet after pick', `document.querySelector('.sheet')?.className ?? 'none'`)
+  const view = await rectOf('.view canvas')
+  if (view) { await touch('touchStart', view.x, view.top + view.h * 0.3); await sleep(60); await touch('touchEnd'); log('  tap canvas'); await sleep(1500) }
+  shot('ui-2-placed')
+  await tap('analysis tab', '[data-ui="sheet-analysis"]')
+  const handle = await rectOf('.sheet .grab, .sheet .handle, .sheet [data-grip]')
+  if (handle) { await drag('sheet up', handle.x, handle.y, 80); shot('ui-3-analysis-full'); await drag('sheet down', handle.x, 90, view ? view.top + view.h + 200 : 1400) }
+  else log('  sheet handle not found')
+  await ev('sheet after drag down', `document.querySelector('.sheet')?.className ?? 'none'`)
+  await tap('run', '[data-ui="run"]')
+  await sleep(3000)
+  shot('ui-4-run')
+  await ev('status', `document.querySelector('.ptime')?.textContent?.replace(/\\s+/g, ' ').trim().slice(0, 120) ?? ''`)
+  const errs = await ev('page errors', `JSON.stringify(window.__errs ?? [])`)
+  const alive = pidOf() === pid0
+  page.close()
+  adb('forward', '--remove', `tcp:${PORT}`)
+  sh('setprop debug.velophi.devtools 0')
+  const note = `${alive ? 'app stayed up' : 'app process changed'}; errors ${errs}`
+  log(`  => ${note}`)
+  return { name: 'ui', survived: alive ? 1 : 0, note }
+}
+
 const results = []
-if (PLAN === 'lock') {
+if (PLAN === 'ui') {
+  results.push(await uiCheck())
+} else if (PLAN === 'lock') {
   results.push(await lockCheck())
 } else if (PLAN === 'rotate') {
   results.push(await run('base', VARIANTS.base, { shot: true }))

@@ -195,14 +195,10 @@ export interface AiSettings {
   anthropic: AiProvider
   /** Desktop: HTTP proxy for the user's own provider ('' = the system proxy). */
   proxy: string
-  /** The problem import bar above the canvas (D172). */
-  importBar: boolean
   /** The Copilot button and panel (D167). */
   copilot: boolean
   /** 'act': Copilot changes the app directly (each change can be undone); 'ask': it asks first. */
   copilotMode: 'act' | 'ask'
-  /** 26.59 fix 3 (D198): the Copilot shown — 'solve' explains problems, 'sim' builds them in the engine. */
-  copilotTab: 'solve' | 'sim'
   /** Learning mode (D169): hints first, the values only after the student's own answer. */
   learningMode: boolean
   /** Send a summary of the current scene and results with Copilot questions (D154). */
@@ -211,9 +207,6 @@ export interface AiSettings {
   revealAnswers: boolean
   /** 26.59 fix: "深度思考" for Copilot (DeepSeek thinking mode; slower, more tokens). */
   thinking: boolean
-  /** 26.59 fix (D183): the Copilot dock is open, and its width (px). */
-  dockOpen: boolean
-  dockWidth: number
 }
 
 /** All preferences. */
@@ -289,16 +282,12 @@ function defaults(): AppSettings {
       openai: { baseUrl: 'https://api.openai.com/v1', model: 'gpt-4o-mini', vision: true },
       anthropic: { baseUrl: 'https://api.anthropic.com', model: 'claude-sonnet-4-5', vision: true },
       proxy: '',
-      importBar: true,
       copilot: true,
       copilotMode: 'act',
-      copilotTab: 'sim',
       learningMode: false,
       shareScene: true,
       revealAnswers: true,
-      thinking: false,
-      dockOpen: true,
-      dockWidth: 380
+      thinking: false
     },
     rev: SETTINGS_REV
   }
@@ -482,7 +471,6 @@ function sanitize() {
   const ai = settings.ai
   if (!['official', 'openai', 'anthropic'].includes(ai.connection)) ai.connection = d.ai.connection
   if (!['act', 'ask'].includes(ai.copilotMode)) ai.copilotMode = d.ai.copilotMode
-  if (!['solve', 'sim'].includes(ai.copilotTab)) ai.copilotTab = d.ai.copilotTab
   for (const k of ['openai', 'anthropic'] as const) {
     const pr = ai[k]
     if (typeof pr.baseUrl !== 'string' || !/^https?:\/\//.test(pr.baseUrl)) pr.baseUrl = d.ai[k].baseUrl

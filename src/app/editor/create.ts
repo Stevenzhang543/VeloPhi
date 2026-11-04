@@ -18,7 +18,7 @@ import { fmtQ } from '../settings'
 import { DYN_MATERIAL, STATIC_MATERIAL, addCharge, nextName } from '../editing'
 import type { OverlayLabel, OverlayShape } from '../../render/overlay'
 import type { Pt } from './geometry'
-import { MIN_SIZE, centroid, clean, convexHull, isValidConvex, isValidSimple, signedArea } from './geometry'
+import { MIN_SIZE, centroid, cleanLen, convexHull, isValidConvex, isValidSimple, signedArea } from './geometry'
 
 /** Tools that create an object by press-drag. */
 export type DragTool = 'add-ball' | 'add-block' | 'add-disc' | 'add-wedge' | 'add-ground' | 'add-incline' | 'add-wall' | 'add-conveyor' | 'add-pulley' | 'add-charge' | 'add-fixed-charge'
@@ -35,13 +35,13 @@ const L = (v: number, digits = 4) => fmtQ(v, 'm', digits)
 /** Radius of a centre-radius drag, a whole number of snap steps when snapping. */
 function radiusOf(a: Pt, b: Pt, step: number): number {
   const r = Math.hypot(b.x - a.x, b.y - a.y)
-  return step > 0 ? clean(Math.max(step, Math.round(r / step) * step)) : r
+  return step > 0 ? cleanLen(Math.max(step, Math.round(r / step) * step)) : r
 }
 const A = (v: number) => fmtQ(v, 'rad', 3)
 
 /** Right triangle of the incline and wedge tools (world, counter-clockwise) or null when too small. */
 function triangle(a: Pt, b: Pt): { pts: Pt[]; base: number; h: number; angle: number } | null {
-  const base = clean(Math.abs(b.x - a.x)), h = clean(Math.abs(b.y - a.y))
+  const base = cleanLen(Math.abs(b.x - a.x)), h = cleanLen(Math.abs(b.y - a.y))
   if (base < MIN_SIZE || h < MIN_SIZE) return null
   const yb = Math.min(a.y, b.y), yt = Math.max(a.y, b.y)
   const C = { x: a.x, y: yb }, T = { x: a.x, y: yt }, E = { x: b.x, y: yb }
@@ -50,7 +50,7 @@ function triangle(a: Pt, b: Pt): { pts: Pt[]; base: number; h: number; angle: nu
 }
 
 function rect(a: Pt, b: Pt): { cx: number; cy: number; w: number; h: number } {
-  return { cx: clean((a.x + b.x) / 2), cy: clean((a.y + b.y) / 2), w: clean(Math.abs(b.x - a.x)), h: clean(Math.abs(b.y - a.y)) }
+  return { cx: cleanLen((a.x + b.x) / 2), cy: cleanLen((a.y + b.y) / 2), w: cleanLen(Math.abs(b.x - a.x)), h: cleanLen(Math.abs(b.y - a.y)) }
 }
 
 /** Preview of a drag from a to b: outline, dimension labels, and whether releasing would create something. */

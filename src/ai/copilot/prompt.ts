@@ -1,7 +1,6 @@
 /**
- * The state of the app sent with a question to the simulation Copilot (D154; when the user allows it). The built-in
- * prompts of the two Copilots are in simPrompt.ts and solvePrompt.ts (26.59 fix 3, D198; they replace the single
- * prompt of 26.59, D169/D181).
+ * The state of the app sent with a question to the Copilot (D154; when the user allows it). The built-in prompts are in
+ * copilotPrompt.ts (the conversation) and simPrompt.ts (the scene builder) — 26.60, D204.
  */
 import { settings } from '../../app/settings'
 import { appState, sceneSummary } from './tools'

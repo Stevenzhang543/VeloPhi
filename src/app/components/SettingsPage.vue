@@ -28,6 +28,7 @@ import { isDesktop } from '../../platform/files'
 import { ask } from '../../platform/ask'
 import AiSettings from './ai/AiSettings.vue'
 import { canLockOrientation, orientationMode, setOrientationMode } from '../androidBridge'
+import { phone } from '../layout'
 import type { Orientation } from '../androidBridge'
 
 const props = withDefaults(defineProps<{ active?: boolean }>(), { active: true })
@@ -57,11 +58,14 @@ const NAV_GROUPS: Array<{ title: string; ids: SectionId[] }> = [
 ]
 const byId = (id: SectionId) => SECTIONS.find(s => s.id === id)!
 const current = ref<SectionId>('general')
+/** 26.60 (D206): on a phone the page shows either the list of sections or one section (with a way back). */
+const showNav = ref(true)
+function pick(id: SectionId) { current.value = id; showNav.value = false }
 const section = computed(() => SECTIONS.find(s => s.id === current.value)!)
 const resettable = computed(() => current.value !== 'keys' && current.value !== 'about' && current.value !== 'handbook')
 // Another part of the app asked for a section (the formula cards open the handbook)
 watch(() => state.settingsSection, id => {
-  if (id && SECTIONS.some(s => s.id === id)) current.value = id as SectionId
+  if (id && SECTIONS.some(s => s.id === id)) { current.value = id as SectionId; showNav.value = false }
   if (id) state.settingsSection = null
 }, { immediate: true })
 function reset() { if (resettable.value) resetSettings(current.value as SettingsSection) }
@@ -185,13 +189,13 @@ async function resetAll() { if (await ask(tl('将所有设置恢复为默认值�
 </script>
 
 <template>
-  <div class="settings-page">
-    <nav class="pane snav" :aria-label="tl('设置分区')">
+  <div class="settings-page" :class="{ phone, 'show-nav': phone && showNav }">
+    <nav v-show="!phone || showNav" class="pane snav" :aria-label="tl('设置分区')">
       <div class="pane-header">{{ tl('设置') }}</div>
       <div class="nav-list">
         <template v-for="g in NAV_GROUPS" :key="g.title">
           <div class="nav-group tiny">{{ g.title }}</div>
-          <button v-for="s in g.ids.map(byId)" :key="s.id" class="nav-item" :class="{ on: current === s.id }" :aria-current="current === s.id ? 'page' : undefined" @click="current = s.id">
+          <button v-for="s in g.ids.map(byId)" :key="s.id" class="nav-item" :class="{ on: current === s.id }" :aria-current="current === s.id ? 'page' : undefined" @click="pick(s.id)">
             <span class="nav-icon"><Icon :name="s.icon" :size="15" /></span>{{ s.label }}
           </button>
         </template>
@@ -199,8 +203,9 @@ async function resetAll() { if (await ask(tl('将所有设置恢复为默认值�
       <div class="nav-foot tiny muted">{{ tl('设置保存在本机，不随场景文件保存。') }}<button class="link" @click="resetAll">{{ tl('全部恢复默认') }}</button></div>
     </nav>
 
-    <section class="pane scontent">
+    <section v-show="!phone || !showNav" class="pane scontent">
       <div class="content">
+        <button v-if="phone" class="btn ghost small back" @click="showNav = true"><Icon name="arrowLeft" :size="15" />{{ tl('设置') }}</button>
         <header class="shead">
           <div>
             <h2>{{ section.label }}</h2>
@@ -369,7 +374,7 @@ async function resetAll() { if (await ask(tl('将所有设置恢复为默认值�
         <template v-else-if="current === 'editor'">
           <div class="sgroup">
             <div class="srow"><div class="sl"><b>{{ tl('物体吸附') }}</b><span>{{ tl('移动、缩放和旋转都是连续的；只有靠近其他物体的面、顶点或圆周时才吸到刚好接触的位置，离开一段距离后脱开。按住 Alt 临时关闭。') }}</span></div><input v-model="settings.editor.objectSnap" type="checkbox" class="switch" /></div>
-            <div class="srow"><div class="sl"><b>{{ tl('网格吸附') }}</b><span>{{ tl('可选：放置、拖动和改变尺寸时对齐网格（打开时优先于物体吸附）；按住 Alt 临时关闭。') }}</span></div><input v-model="settings.editor.snap" type="checkbox" class="switch" /></div>
+            <div class="srow"><div class="sl"><b>{{ tl('网格吸附') }}</b><span>{{ tl('可选：放置、拖动和改变尺寸时，物体的边、角或圆弧端点对齐网格；靠近其他物体时仍吸到刚好接触；按住 Alt 临时关闭。') }}</span></div><input v-model="settings.editor.snap" type="checkbox" class="switch" /></div>
             <div class="srow"><div class="sl"><b>{{ tl('吸附步长') }}</b><span>{{ tl('0 表示自动（随缩放使用画面上的细网格间距）。') }}</span></div>
               <div class="sc"><NumField :model-value="settings.editor.snapStep" unit="m" :min="0" :max="100" width="150px" :disabled="!settings.editor.snap" @update:model-value="v => (settings.editor.snapStep = v)" /></div>
             </div>
@@ -484,6 +489,16 @@ async function resetAll() { if (await ask(tl('将所有设置恢复为默认值�
 .nav-foot { padding: 10px 14px 12px; line-height: 1.5; }
 .link { border: 0; background: none; color: var(--accent); cursor: pointer; padding: 0; margin-left: 4px; font-size: inherit; }
 .scontent { min-height: 0; }
+/* 26.60 (D206): phones — one column, the list or one section; rows wrap their control under the label */
+.settings-page.phone { grid-template-columns: minmax(0, 1fr); gap: 0; }
+.phone .pane { border-radius: 0; box-shadow: none; }
+.phone .content { padding: 8px 14px 24px; }
+.phone .nav-item { height: 44px; }
+.phone .srow { flex-wrap: wrap; row-gap: 6px; }
+.phone .sl { flex: 1 1 200px; }
+.phone .sc.range input { width: 140px; }
+.phone select.field { min-width: 0; max-width: 100%; }
+.back { margin: 0 0 6px -6px; gap: 4px; }
 .content { overflow: auto; flex: 1; padding: 18px 28px 28px; }
 .content > * { max-width: 780px; margin-left: auto; margin-right: auto; }
 .shead { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 10px; }

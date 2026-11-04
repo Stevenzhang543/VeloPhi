@@ -8,7 +8,7 @@ import { addBody, addConnector, addGround, emptyScene } from '../../src/core/sce
 import type { BodyDef, RopeDef } from '../../src/core/scene/types'
 import { combineBodies, cutBodies, explodeCompound, splitPolygonByLine } from '../../src/app/editor/shapeOps'
 import { signedArea, worldVerts } from '../../src/app/editor/geometry'
-import { outlinesOf, shifted, snapBodyMove } from '../../src/app/editor/objectSnap'
+import { outlinesOf, snapBodyMove } from '../../src/app/editor/objectSnap'
 
 const area = (p: Array<{ x: number; y: number }>) => Math.abs(signedArea(p))
 const SQUARE = [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }]
@@ -131,8 +131,7 @@ describe('object snapping with concave and compound outlines', () => {
     })
     expect(outlinesOf(d)).toHaveLength(3)
     // Raw move down to 3 cm above the ground (3 px at 100 px/m): snaps the balls onto it
-    const raw = outlinesOf(d).map(o => shifted(o, { x: 0, y: -0.27 }))
-    const r = snapBodyMove(s, d.id, raw, 100, { keys: [] })
+    const r = snapBodyMove(s, d.id, { x: 0, y: -0.27 }, 100, { keys: [] })
     expect(r.contacts.length).toBeGreaterThan(0)
     expect(-0.27 + r.delta.y).toBeCloseTo(-0.3, 12)
   })
@@ -142,8 +141,7 @@ describe('object snapping with concave and compound outlines', () => {
     addBody(s, { id: 'u', name: 'U', kind: 'static', shape: { type: 'polygon', points: U }, position: { x: 0, y: 0 } })
     const ball = addBody(s, { id: 'ball', name: 'o', shape: { type: 'circle', radius: 0.3 }, position: { x: 1.5, y: 2 }, mass: 1 })
     // Ball in the notch, 3 cm above its floor (y = 1): snaps down onto the floor, not out of the U
-    const raw = outlinesOf(ball).map(o => shifted(o, { x: 0, y: -0.67 }))
-    const r = snapBodyMove(s, ball.id, raw, 100, { keys: [] })
+    const r = snapBodyMove(s, ball.id, { x: 0, y: -0.67 }, 100, { keys: [] })
     expect(r.contacts.length).toBeGreaterThan(0)
     expect(2 - 0.67 + r.delta.y).toBeCloseTo(1.3, 12)
     expect(worldVerts(s.bodies[0])).toHaveLength(8)

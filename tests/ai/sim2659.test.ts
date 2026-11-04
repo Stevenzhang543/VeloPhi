@@ -1,9 +1,9 @@
 /**
- * 26.59 fix 3 (D198): the two Copilots. The simulation Copilot's scene files — the prompt's examples load and give
- * the textbook answers, the forgiving normalization (vectors as arrays, degrees, shorthands, rope wraps, centres of
- * mass, "rest"), the errors sent back for repair (deep overlaps, unknown quantity ids, missing masses) — and the
- * conversations: apply_scene through a tool call or a JSON code block, a repair round, the solving Copilot without
- * tools, and the hand-overs between them with the engine's answers.
+ * Scene files written by the AI (26.59 fix 3, D198) and the merged Copilot of 26.60 (D204). The builder's examples load
+ * and give the textbook answers, the forgiving normalization (vectors as arrays, degrees, shorthands, rope wraps,
+ * centres of mass, "rest"), the errors sent back for repair (deep overlaps, unknown quantity ids, missing masses); the
+ * conversation: a problem gets 答案 · 过程 · 解释 and the offer to build it, the builder (a JSON-only request, repaired
+ * at most twice) loads it as a problem, build_scene from a request, and the comparison with the engine's answers.
  */
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
 import type { Scene } from '../../src/core/scene/types'
@@ -23,10 +23,12 @@ const openProblem = vi.fn(async (p: { id: string; scene: Scene; questions: unkno
 vi.mock('../../src/app/problemMode', () => ({ openProblem, reveal: vi.fn(), openBuiltin: vi.fn(async () => true), openProblemText: vi.fn() }))
 
 const { prepareAiScene, compactSceneDoc, sceneBlocks, withoutSceneBlocks } = await import('../../src/ai/copilot/simScene')
-const { SIM_EXAMPLES, simSystem } = await import('../../src/ai/copilot/simPrompt')
-const { simHooks, simToolDefs } = await import('../../src/ai/copilot/simTools')
+const { SIM_EXAMPLES, builderSystem } = await import('../../src/ai/copilot/simPrompt')
+const { copilotSystem } = await import('../../src/ai/copilot/copilotPrompt')
+const { jsonOf } = await import('../../src/ai/copilot/builder')
+const { simHooks, copilotToolDefs } = await import('../../src/ai/copilot/simTools')
 const session = await import('../../src/ai/copilot/session')
-const { copilot, sendToCopilot, setCopilotMode, buildInSim, explainInSolve, resetCopilots, parkedConversation } = session
+const { copilot, sendToCopilot, buildFromAnswer, compareWithSim, clearCopilot } = session
 const { setTransport } = await import('../../src/platform/net')
 const { settings } = await import('../../src/app/settings')
 const { setKey } = await import('../../src/ai/keys')
@@ -60,11 +62,12 @@ describe('scene files of the simulation Copilot', () => {
     const dh = 0.7731 - 0.03
     expect(extreme(arc, 'ball.v', 'max', 1.2)).toBeCloseTo(Math.sqrt(2 * 9.8 * dh), 2)
     expect(extreme(arc, 'contact.ball|track.N', 'max', 1.2)).toBeCloseTo(0.98 + (0.1 * 2 * 9.8 * dh) / 0.77, 1)
-    // The prompt carries the examples, the targets and the format
-    const sys = simSystem()
-    for (const e of SIM_EXAMPLES) expect(sys).toContain(JSON.stringify(e.file))
+    // The builder's prompt carries the examples (as whole outputs), the targets and the format; JSON only
+    const sys = builderSystem()
+    for (const e of SIM_EXAMPLES) { const { questions, ...scene } = e.file; expect(sys).toContain(JSON.stringify(scene)); expect(sys).toContain(JSON.stringify(questions)) }
     expect(sys).toContain('"format": "velophi-scene"')
-    expect(sys).toContain('apply_scene')
+    expect(sys).toContain('只输出一个 JSON 对象')
+    expect(sys).not.toContain('apply_scene')
   })
 
   it('normalizes hand-written JSON: arrays, degrees, shorthands, wraps, centres of mass, rest', () => {
@@ -176,8 +179,7 @@ beforeEach(() => {
   settings.ai.thinking = false
   setKey('openai', 'sk-test')
   resetCaps()
-  setCopilotMode('sim')
-  resetCopilots()
+  clearCopilot()
   simHooks.waitMs = 0
   state.scene = buildTemplate('incline')
   state.problem = null
@@ -186,106 +188,110 @@ beforeEach(() => {
 })
 afterEach(() => setTransport(null))
 
-describe('the simulation Copilot', () => {
-  it('builds a problem with apply_scene: checked, opened as a problem, shown as a card, undoable', async () => {
-    const { questions, ...file } = SIM_EXAMPLES[1].file as { questions: unknown }
+/** The builder's whole answer for an example (what a model returns: one JSON object). */
+const built = (i: number, extra: Record<string, unknown> = {}) => { const { questions, ...scene } = SIM_EXAMPLES[i].file; return JSON.stringify({ title: String(scene.name), stem: SIM_EXAMPLES[i].title, assumptions: ['滑轮半径取 0.05 m'], scene, questions, ...extra }) }
+
+describe('the Copilot (26.60, D204)', () => {
+  it('a problem gets 答案 · 过程 · 解释 and the offer; the builder loads it as a problem, shown as a card, undoable', async () => {
     const seen = scripted([
-      () => ok(call('apply_scene', { scene: file, questions, title: '桌面连接体', stem: PROBLEM })),
-      () => ok({ role: 'assistant', content: '已搭好：A 在桌面上，B 竖直悬挂。' })
+      () => ok({ role: 'assistant', content: '**答案**\n- a = 1.96 m/s²\n- T = 7.84 N\n\n**过程** …\n\n**解释** …' }),
+      () => ok({ role: 'assistant', content: built(1) })
     ])
     await sendToCopilot(PROBLEM)
+    expect(seen).toHaveLength(1)
+    // One prompt (teacher and assistant), the operating tools and build_scene; no scene file is written in the chat
+    expect(String(seen[0].messages[0].content)).toBe(copilotSystem())
+    expect(String(seen[0].messages[0].content)).toContain('**答案**')
+    expect(seen[0].tools!.map(t => t.function.name)).toEqual(copilotToolDefs().map(t => t.function.name))
+    expect(seen[0].tools!.some(t => t.function.name === 'build_scene')).toBe(true)
+    expect(seen[0].tools!.some(t => t.function.name === 'apply_scene' || t.function.name === 'import_problem')).toBe(false)
+    const answer = copilot.bubbles.find(b => b.role === 'assistant')!
+    expect(answer.problem).toBe(PROBLEM)
+    expect(answer.offer).toEqual({ state: 'open' })
+    expect(openProblem).not.toHaveBeenCalled()
+    // The user chooses to build it: a JSON-only request with the problem and the explanation
+    await buildFromAnswer(answer)
     expect(seen).toHaveLength(2)
-    expect(String(seen[0].messages[0].content)).toContain('velophi-scene')
-    expect(seen[0].tools!.map(t => t.function.name)).toEqual(simToolDefs().map(t => t.function.name))
-    expect(seen[0].tools!.some(t => t.function.name === 'import_problem')).toBe(false)
+    expect(String(seen[1].messages[0].content)).toBe(builderSystem())
+    expect(seen[1].tools).toBeUndefined()
+    const ask = String(seen[1].messages[1].content)
+    expect(ask).toContain(PROBLEM)
+    expect(ask).toContain('a = 1.96 m/s²')
+    expect(answer.offer).toEqual({ state: 'done' })
     expect(openProblem).toHaveBeenCalledTimes(1)
-    expect(state.problem!.problem.stem).toBe(PROBLEM)
     expect(state.problem!.problem.questions).toHaveLength(2)
-    const toolMsg = seen[1].messages.find(m => m.role === 'tool')!
-    expect(JSON.parse(String(toolMsg.content))).toMatchObject({ ok: true, loaded: '桌面连接体' })
-    const bot = copilot.bubbles.find(b => b.role === 'assistant')!
-    expect(bot.scene).toMatchObject({ ok: true, name: '桌面连接体', bodies: 4, connectors: 1, questions: ['A 的加速度', '绳的拉力'] })
-    expect(JSON.parse(bot.scene!.json).format).toBe('velophi-scene')
-    expect(bot.problem).toBe(PROBLEM)
-    expect(bot.actions[0]).toMatchObject({ tool: 'apply_scene', ok: true })
-    session.undoAction(bot.actions[0])
+    const card = copilot.bubbles.at(-1)!
+    expect(card.scene).toMatchObject({ ok: true, name: '桌面—滑轮连接体', bodies: 4, connectors: 1, questions: ['A 的加速度', '绳的拉力'] })
+    expect(JSON.parse(card.scene!.json).format).toBe('velophi-scene')
+    expect(card.assumptions).toEqual(['滑轮半径取 0.05 m'])
+    expect(card.actions[0]).toMatchObject({ tool: 'build_scene', ok: true })
+    // The conversation learns what was built (so a question about it can follow)
+    expect(String(copilot.history.at(-1)!.content)).toContain('<sim_results>')
+    session.undoAction(card.actions[0])
     expect(state.scene.bodies.some(b => b.id === 'block')).toBe(true)
   })
 
-  it('a failed file goes back with its errors and the repaired one loads', async () => {
-    const broken = { bodies: [{ id: 'floor', kind: 'static', shape: { type: 'box', width: 4, height: 0.4 }, position: [0, -0.2] }, { id: 'a', shape: { type: 'box', width: 0.4, height: 0.4 }, position: [0, 0.2] }] }
-    const fixed = { bodies: [broken.bodies[0], { ...broken.bodies[1], mass: 1 }] }
+  it('the builder\'s broken object goes back with its errors; the corrected one loads', async () => {
+    const broken = { scene: { bodies: [{ id: 'floor', kind: 'static', shape: { type: 'box', width: 4, height: 0.4 }, position: [0, -0.2] }, { id: 'a', shape: { type: 'box', width: 0.4, height: 0.4 }, position: [0, 0.2] }] }, questions: [] }
+    const fixed = { scene: { bodies: [broken.scene.bodies[0], { ...broken.scene.bodies[1], mass: 1 }] }, questions: [] }
     const seen = scripted([
-      () => ok(call('apply_scene', { scene: broken })),
-      () => ok(call('apply_scene', { scene: fixed }, 'c2')),
+      () => ok(call('build_scene', { request: '在地面上放一个 1 kg 的方块' })),
+      // a fenced answer with a trailing comma is still read; it lacks the mass
+      () => ok({ role: 'assistant', content: '```json\n' + JSON.stringify(broken).replace(/]}$/, '],}') + '\n```' }),
+      () => ok({ role: 'assistant', content: JSON.stringify(fixed) }),
       () => ok({ role: 'assistant', content: '好了。' })
     ])
     await sendToCopilot('在地面上放一个 1 kg 的方块')
-    const first = JSON.parse(String(seen[1].messages.find(m => m.role === 'tool')!.content)) as { ok: boolean; errors: string[] }
-    expect(first.ok).toBe(false)
-    expect(first.errors[0]).toMatch(/mass/)
+    expect(seen).toHaveLength(4)
+    expect(String(seen[2].messages.at(-1)!.content)).toMatch(/mass/)
+    const toolMsg = JSON.parse(String(seen[3].messages.find(m => m.role === 'tool')!.content)) as { ok: boolean }
+    expect(toolMsg.ok).toBe(true)
     const bot = copilot.bubbles.find(b => b.role === 'assistant')!
-    expect(bot.actions.map(a => a.ok)).toEqual([false, true])
-    expect(bot.actions[0].undo).toBeUndefined()
+    expect(bot.actions.map(a => a.ok)).toEqual([true])
     expect(bot.scene?.ok).toBe(true)
+    expect(bot.offer).toBeUndefined()
     expect(loadScene).toHaveBeenCalledTimes(1)
   })
 
-  it('a scene file written as a JSON code block is loaded without another round', async () => {
-    const seen = scripted([
-      () => ok({ role: 'assistant', content: `按题意搭建：\n\n\`\`\`json\n${JSON.stringify({ scene: SIM_EXAMPLES[0].file, title: '斜面' })}\n\`\`\`\n\n载入后引擎会计算答案。` })
-    ])
-    await sendToCopilot('质量 2 kg 的物块从倾角 30° 的斜面上由静止下滑，μ = 0.2，求 1 s 末的速度。')
-    expect(seen).toHaveLength(1)
-    const bot = copilot.bubbles.find(b => b.role === 'assistant')!
-    expect(bot.scene?.name).toBe('斜面')
-    expect(bot.text).toContain('按题意搭建')
-    expect(bot.text).not.toContain('velophi-scene')
-    expect(state.problem!.problem.questions).toHaveLength(2)
-  })
-})
-
-describe('the solving Copilot and the hand-overs', () => {
-  it('explains without tools; its conversation is kept apart; "在仿真中搭建" hands the problem over', async () => {
-    setCopilotMode('solve')
-    const seen = scripted([
-      () => ok({ role: 'assistant', content: '**题意与已知** …\n\n**答案**：a = 1.96 m/s²，T = 7.84 N' }),
-      () => ok(call('apply_scene', { scene: SIM_EXAMPLES[1].file })),
-      () => ok({ role: 'assistant', content: '已搭建。' })
-    ])
-    await sendToCopilot(PROBLEM)
-    expect(seen[0].tools).toBeUndefined()
-    expect(String(seen[0].messages[0].content)).toContain('解题')
-    const solved = copilot.bubbles.find(b => b.role === 'assistant')!
-    expect(solved.problem).toBe(PROBLEM)
-    await buildInSim(solved.problem!)
-    expect(copilot.mode).toBe('sim')
-    expect(settings.ai.copilotTab).toBe('sim')
-    expect(String(seen[1].messages.at(-1)!.content)).toContain(PROBLEM)
-    expect(copilot.bubbles[0].text).toContain('在仿真中搭建这道题')
-    expect(copilot.bubbles.find(b => b.role === 'assistant')!.scene?.ok).toBe(true)
-    // The solving conversation waits, parked, with its answer
-    expect(parkedConversation('solve').bubbles).toHaveLength(2)
-    setCopilotMode('solve')
-    expect(copilot.bubbles[1].text).toContain('1.96')
+  it('reads the JSON of an answer leniently', () => {
+    expect(jsonOf('好的：\n```json\n{"a": [1, 2,], // c\n"b": "x,}"}\n```')).toEqual({ a: [1, 2], b: 'x,}' })
+    expect(jsonOf('前言 {"scene": {"bodies": []}} 后记')).toEqual({ scene: { bodies: [] } })
+    expect(jsonOf('没有 JSON')).toBeNull()
   })
 
-  it('"讲解这道题" sends the engine\'s answers along as <sim_results>', async () => {
+  it('"对照讲解" sends the engine\'s answers along as <sim_results>; no offer under it', async () => {
     const seen = scripted([
-      () => ok(call('apply_scene', { scene: SIM_EXAMPLES[1].file })),
-      () => ok({ role: 'assistant', content: '已搭建。' }),
-      () => ok({ role: 'assistant', content: '解题思路……与仿真一致。' })
+      () => ok({ role: 'assistant', content: '**答案** a = 1.96 m/s²' }),
+      () => ok({ role: 'assistant', content: built(1) }),
+      () => ok({ role: 'assistant', content: '讲解与仿真一致。' })
     ])
     await sendToCopilot(PROBLEM)
-    const bot = copilot.bubbles.find(b => b.role === 'assistant')!
-    bot.scene!.answers = [{ prompt: 'A 的加速度', value: 1.96, unit: 'm/s²', text: '1.960 m/s²' }, { prompt: '绳的拉力', value: 7.84, unit: 'N', text: '7.840 N' }]
-    await explainInSolve(bot.problem!, bot.scene)
-    expect(copilot.mode).toBe('solve')
+    await buildFromAnswer(copilot.bubbles.find(b => b.role === 'assistant')!)
+    const card = copilot.bubbles.at(-1)!
+    card.scene!.answers = [{ prompt: 'A 的加速度', value: 1.96, unit: 'm/s²', text: '1.960 m/s²' }, { prompt: '绳的拉力', value: 7.84, unit: 'N', text: '7.840 N' }]
+    await compareWithSim(card.problem!, card.scene!)
     const sent = String(seen[2].messages.at(-1)!.content)
     expect(sent).toContain('<sim_results>')
     expect(sent).toContain('(1) A 的加速度 = 1.960 m/s²')
-    expect(seen[2].tools).toBeUndefined()
-    expect(copilot.bubbles[0].text).toContain('附仿真结果')
-    expect(copilot.bubbles[0].text).not.toContain('<sim_results>')
+    const last = copilot.bubbles.at(-1)!
+    expect(last.text).toContain('一致')
+    expect(last.offer).toBeUndefined()
+    expect(copilot.bubbles.at(-2)!.text).toContain('对照讲解与仿真结果')
+    expect(copilot.bubbles.at(-2)!.text).not.toContain('<sim_results>')
+  })
+
+  it('a refused build says why and offers to try again', async () => {
+    scripted([
+      () => ok({ role: 'assistant', content: '**答案** R = 5 Ω' }),
+      () => ok({ role: 'assistant', content: '{"error": "这是电路题，力学引擎不能模拟"}' })
+    ])
+    await sendToCopilot('电阻 R1 = 2 Ω 与 R2 = 3 Ω 串联接在 10 V 电源上，求总电阻和电流是多少？')
+    const answer = copilot.bubbles.find(b => b.role === 'assistant')!
+    expect(answer.offer).toEqual({ state: 'open' })
+    await buildFromAnswer(answer)
+    expect(answer.offer?.state).toBe('failed')
+    expect(copilot.bubbles.at(-1)!.role).toBe('error')
+    expect(copilot.bubbles.at(-1)!.text).toContain('电路')
+    expect(openProblem).not.toHaveBeenCalled()
   })
 })

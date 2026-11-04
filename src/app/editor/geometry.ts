@@ -19,6 +19,8 @@ export const MIN_SIZE = 5e-3
 
 /** Remove floating noise from sums and differences of snapped coordinates (0.6000000000000001 → 0.6). */
 export function clean(v: number): number { return Number(v.toPrecision(12)) }
+/** A length or coordinate (m) without noise: also a value that is zero up to noise is 0 (26.60: not 1.1e-16). */
+export function cleanLen(v: number): number { return Math.abs(v) < 1e-12 ? 0 : Number(v.toPrecision(12)) }
 
 /**
  * A coordinate written by the shape operations (26.53, D74): the nearest multiple of 10⁻⁹ (m, or rad for angles), so

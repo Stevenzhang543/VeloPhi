@@ -1,15 +1,13 @@
 /**
- * The Copilot conversations (26.59, D167–D170; split in 26.59 fix 3, D198). Two Copilots, each with its own
- * conversation:
- *  - "解题" (solve) explains how to solve a problem — situation, stages, forces, laws, equations, answer, check —
- *    as a teacher; it has no tools.
- *  - "仿真" (sim) builds the problem in the engine: it writes a complete scene file (JSON) and loads it with
- *    apply_scene (an answer that carries the file as a JSON code block is loaded the same way), the engine computes,
- *    and the answers come back; it also operates the app (display, playback, curves, readings). Its tool calls run
- *    in the app (asking first when the setting or the tool says so), at most 10 rounds per question; each change
- *    keeps a snapshot so "撤销" in the chat restores the scene and the panels as they were before it.
- * A problem goes from one to the other with one click ("在仿真中搭建这道题" / "讲解这道题"), the engine's answers
- * travelling along as <sim_results>.
+ * The Copilot conversation (26.59, D167–D170; split in 26.59 fix 3, D198; one Copilot again in 26.60, D204).
+ *  - A whole problem (text or photo) is answered as a teacher would: 答案, 过程, 解释 — no scene is built. Under the
+ *    answer the user chooses whether to generate the simulation: "生成仿真场景" runs the scene builder (builder.ts: a
+ *    JSON-only request, checked, repaired at most twice, loaded as a problem), and the engine's answers can then be
+ *    compared with the explanation ("对照讲解").
+ *  - Requests to build or change a set-up go through the build_scene tool (the same builder); questions about the app,
+ *    the scene and the results are answered with the reading, display and playback tools. Tool calls run in the app
+ *    (asking first when the setting or the tool says so), at most 10 rounds per question; each change keeps a snapshot
+ *    so "撤销" in the chat restores the scene and the panels as they were before it.
  */
 import { truncated, withTranscript } from '../aiText'
 import { reactive } from 'vue'
@@ -20,11 +18,12 @@ import { AiError } from '../types'
 import { ToolError } from './tools'
 import type { Tool } from './tools'
 import { stateNote } from './prompt'
-import { simSystem, repairNote, explainAsk, simResultsText } from './simPrompt'
-import { solveSystem } from './solvePrompt'
-import { simToolDefs, simToolByName, simHooks, applyAiScene, LONG_RESULTS } from './simTools'
+import { copilotSystem, compareAsk } from './copilotPrompt'
+import { simResultsText } from './simPrompt'
+import { applyAiScene, copilotToolDefs, copilotToolByName, simHooks, buildHooks, LONG_RESULTS } from './simTools'
 import type { SceneCard } from './simTools'
-import { sceneBlocks, withoutSceneBlocks } from './simScene'
+import { buildScene } from './builder'
+import { compactSceneDoc } from './simScene'
 import { transcribeImage, importProblem } from '../import/pipeline'
 import { outcomeText, waitForAnswers } from '../import/answers'
 import type { ImportOutcome } from '../import/pipeline'
@@ -36,9 +35,6 @@ import { setTask, taskUi } from '../../app/task/taskState'
 import type { TaskSpec } from '../../task/types'
 import type { ProblemSession } from '../../app/store'
 import { logEvent } from '../../app/trialLog'
-
-/** The two Copilots. */
-export type CopilotMode = 'solve' | 'sim'
 
 export interface Action { id: number; tool: string; label: string; ok: boolean; error?: string; undo?: number; undone?: boolean }
 /**
@@ -57,14 +53,20 @@ export interface Bubble {
   /** 'import': the outcome when done, and what was read (for "重试"). */
   outcome?: ImportOutcome | null
   source?: { text: string; image?: string }
-  /** 26.59 fix 3: the scene this answer built (simulation Copilot). */
+  /** The scene this answer built (26.59 fix 3; 26.60: the builder's result). */
   scene?: SceneCard
-  /** 26.59 fix 3: the problem this answer is about (photo transcribed), for the hand-over to the other Copilot. */
+  /** The problem this answer is about (photo transcribed). */
   problem?: string
+  /**
+   * 26.60 (D204): the choice offered under the answer to a problem — generate the simulation scene ('open'), being
+   * built ('building'), built ('done'), declined ('no') or failed ('failed', with the reasons).
+   */
+  offer?: { state: 'open' | 'building' | 'done' | 'no' | 'failed'; errors?: string[] }
+  /** Assumptions the builder made (sizes the problem did not give). */
+  assumptions?: string[]
 }
 
 interface Snapshot { scene: string; name: string | null; page: typeof state.page; rightTab: typeof state.rightTab; bottomTab: typeof state.bottomTab; problem: ProblemSession | null; task: TaskSpec | null }
-interface Conversation { bubbles: Bubble[]; history: ChatMessage[]; historyThinking: boolean }
 
 const MAX_ROUNDS = 10
 const MAX_RESULT = 6000
@@ -72,8 +74,6 @@ const MAX_LONG_RESULT = 24000
 let ids = 0
 
 export const copilot = reactive({
-  /** The Copilot shown (its conversation is `bubbles` / `history`; the other one is parked). */
-  mode: 'sim' as CopilotMode,
   bubbles: [] as Bubble[],
   history: [] as ChatMessage[],
   /** Whether the history was written with thinking on (DeepSeek wants the thinking of every turn back then). */
@@ -84,38 +84,16 @@ export const copilot = reactive({
   snapshots: [] as Snapshot[]
 })
 
-const parked: Record<CopilotMode, Conversation> = { solve: emptyConversation(), sim: emptyConversation() }
-function emptyConversation(): Conversation { return { bubbles: [], history: [], historyThinking: false } }
-
 let controller: AbortController | null = null
 export function stopCopilot() { controller?.abort() }
 
-/** Show the other Copilot (its conversation comes back as it was). Not while one is answering. */
-export function setCopilotMode(m: CopilotMode) {
-  if (copilot.busy || m === copilot.mode) return
-  parked[copilot.mode] = { bubbles: copilot.bubbles, history: copilot.history, historyThinking: copilot.historyThinking }
-  const c = parked[m]
-  copilot.bubbles = c.bubbles
-  copilot.history = c.history
-  copilot.historyThinking = c.historyThinking
-  parked[m] = emptyConversation()
-  copilot.mode = m
-  settings.ai.copilotTab = m
-}
-
-/** The remembered Copilot, once the settings are loaded (the dock calls this when it opens). */
-export function restoreCopilotMode() {
-  const m = settings.ai.copilotTab === 'solve' ? 'solve' : 'sim'
-  if (m !== copilot.mode && !copilot.busy) setCopilotMode(m)
-}
-
-/** Start a new conversation with the Copilot shown. */
+/** Start a new conversation. */
 export function clearCopilot() {
   stopCopilot()
   copilot.bubbles = []
   copilot.history = []
   copilot.historyThinking = false
-  if (copilot.mode === 'sim') copilot.snapshots = []
+  copilot.snapshots = []
   copilot.status = ''
 }
 
@@ -153,16 +131,18 @@ function compact(v: unknown, max = MAX_RESULT): string {
   return s.length > max ? truncated(s.slice(0, max)) : s
 }
 
-/** Options of a question: `context` is sent with it but not shown, `display` is shown instead of the text. */
-export interface SendOptions { context?: string; display?: string; problem?: boolean }
+/**
+ * Options of a question: `context` is sent with it but not shown, `display` is shown instead of the text, `problem`
+ * marks it as a problem (offer the simulation), `noOffer` leaves the offer out (a comparison with the simulation).
+ */
+export interface SendOptions { context?: string; display?: string; problem?: boolean; noOffer?: boolean }
 
-/** Ask the Copilot shown; adds the answer to its conversation. */
+/** Ask the Copilot; adds the answer to the conversation. */
 export async function sendToCopilot(text: string, image?: string, opts: SendOptions = {}): Promise<void> {
   const t = text.trim()
   if ((!t && !image) || copilot.busy) return
   controller = new AbortController()
   const signal = controller.signal
-  const mode = copilot.mode
   copilot.busy = true
   copilot.status = tl('思考中')
   copilot.bubbles.push({ id: ++ids, role: 'user', text: opts.display ?? t, image, actions: [] })
@@ -186,10 +166,12 @@ export async function sendToCopilot(text: string, image?: string, opts: SendOpti
       const r = await transcribeImage(image, t, signal)
       said = withTranscript(t || tl('请看这道题。'), r.transcript)
     }
-    if (opts.problem || image || looksLikeProblem(t)) answer.problem = said
-    if (mode === 'solve') await solveTurn(answer, userMsg, said + context, think, signal)
-    else await simTurn(answer, userMsg, said + stateNote() + context, think, signal)
+    const problem = !!(opts.problem || image || looksLikeProblem(t))
+    if (problem) answer.problem = said
+    await chatTurn(answer, userMsg, said + stateNote() + context, think, signal)
     if (!answer.text) answer.text = answer.scene ? '' : answer.actions.length ? tl('已完成。') : '…'
+    // 26.60 (D204): under the answer to a problem the user chooses whether to generate the simulation
+    if (problem && !answer.scene && !opts.noOffer) answer.offer = { state: 'open' }
   } catch (e) {
     const err = e instanceof AiError ? e : null
     // A scene that was built stays in the conversation (with its card) even when the answer after it failed
@@ -201,6 +183,7 @@ export async function sendToCopilot(text: string, image?: string, opts: SendOpti
     // Older turns keep only their text (no repeated state blocks or images); hand-over results stay with them
     userMsg.content = said + context
     simHooks.applied = null
+    buildHooks.run = null
     copilot.busy = false
     copilot.status = ''
     controller = null
@@ -213,29 +196,19 @@ export async function sendToCopilot(text: string, image?: string, opts: SendOpti
   }
 }
 
-/** The solving Copilot: one answer, no tools. */
-async function solveTurn(answer: Bubble, userMsg: ChatMessage, content: string, think: boolean, signal: AbortSignal) {
-  userMsg.content = content
-  copilot.history.push(userMsg)
-  copilot.status = tl('分析题目')
-  const res = await chat({ messages: [{ role: 'system', content: solveSystem() }, ...copilot.history], temperature: 0.3, max_tokens: think ? 16000 : 6000, reasoning: think ? 'on' : 'off', purpose: 'copilot-solve' }, { signal })
-  const msg = res.message
-  if (!think) delete msg.reasoning_content
-  if (msg.reasoning_content) answer.reasoning = msg.reasoning_content
-  copilot.history.push(msg)
-  const text = typeof msg.content === 'string' ? msg.content.trim() : ''
-  answer.text = text + (res.truncated ? `\n\n${tl('（回答太长，后面被截断了。）')}` : '')
-  logEvent('copilot.solve', { chars: text.length })
-}
-
-/** The simulation Copilot: the tool loop; a scene file written as a JSON code block is loaded like apply_scene. */
-async function simTurn(answer: Bubble, userMsg: ChatMessage, content: string, think: boolean, signal: AbortSignal) {
+/** One question: the tool loop (build_scene runs the scene builder, its card goes on this answer). */
+async function chatTurn(answer: Bubble, userMsg: ChatMessage, content: string, think: boolean, signal: AbortSignal) {
   userMsg.content = content
   copilot.history.push(userMsg)
   simHooks.applied = card => { answer.scene = { ...card } }
-  let built = false
+  buildHooks.run = async a => {
+    const r = await buildScene({ request: a.request, current: a.modify ? compactSceneDoc(documentScene()) : undefined }, { signal, title: a.title, onStatus: st => { copilot.status = st } })
+    if (r.ok) { answer.assumptions = r.assumptions; return { ...r.result, assumptions: r.assumptions.length ? r.assumptions : undefined } }
+    if (r.refused) return { ok: false, summary: r.refused, errors: [r.refused] }
+    return { ok: false, summary: tl('场景文件有 {0} 处问题', [r.errors.length]), errors: r.errors }
+  }
   for (let round = 0; round < MAX_ROUNDS; round++) {
-    const res = await chat({ messages: [{ role: 'system', content: simSystem() }, ...copilot.history], tools: simToolDefs(), tool_choice: 'auto', temperature: 0.2, max_tokens: think ? 16000 : 8000, reasoning: think ? 'on' : 'off', purpose: 'copilot-sim' }, { signal })
+    const res = await chat({ messages: [{ role: 'system', content: copilotSystem() }, ...copilot.history], tools: copilotToolDefs(), tool_choice: 'auto', temperature: 0.3, max_tokens: think ? 16000 : 8000, reasoning: think ? 'on' : 'off', purpose: 'copilot' }, { signal })
     const msg = res.message
     if (!think) delete msg.reasoning_content
     if (msg.reasoning_content) answer.reasoning = (answer.reasoning ? `${answer.reasoning}\n\n` : '') + msg.reasoning_content
@@ -243,27 +216,20 @@ async function simTurn(answer: Bubble, userMsg: ChatMessage, content: string, th
     const calls = msg.tool_calls ?? []
     const said = typeof msg.content === 'string' ? msg.content.trim() : ''
     if (!calls.length) {
-      // No tool call: a scene file in the text (providers without tools, or a model that wrote it out) is loaded
-      const blocks = built ? [] : sceneBlocks(said)
-      answer.text = (blocks.length ? withoutSceneBlocks(said) : said) + (res.truncated ? `\n\n${tl('（回答太长，后面被截断了。）')}` : '')
-      if (!blocks.length) break
-      const ok = await applyFromText(answer, blocks[blocks.length - 1])
-      if (ok === true) { built = true; break }
-      if (signal.aborted) break
-      copilot.history.push({ role: 'user', content: repairNote(ok) })
-      continue
+      answer.text = said + (res.truncated ? `\n\n${tl('（回答太长，后面被截断了。）')}` : '')
+      break
     }
     if (said) answer.text = said
     for (const call of calls) {
-      const tool = simToolByName(call.function.name)
+      const tool = copilotToolByName(call.function.name)
       const result = await runTool(answer, tool, call.function.name, call.function.arguments)
-      if (call.function.name === 'apply_scene' && (result as { ok?: boolean })?.ok === true) built = true
       copilot.history.push({ role: 'tool', tool_call_id: call.id, content: compact(result, LONG_RESULTS.has(call.function.name) ? MAX_LONG_RESULT : MAX_RESULT) })
       logEvent('copilot.tool', { tool: call.function.name, ok: !(result as { error?: unknown })?.error })
     }
     if (signal.aborted) break
     if (round === MAX_ROUNDS - 1) answer.text = (answer.text ? `${answer.text}\n\n` : '') + tl('（操作步骤较多，已暂停；可以继续告诉我下一步。）')
   }
+  logEvent('copilot.answer', { chars: answer.text.length, actions: answer.actions.length })
 }
 
 /** Run one tool call (asking first when needed); a result {ok: false} counts as a failed change. */
@@ -298,34 +264,6 @@ async function runTool(answer: Bubble, tool: Tool | undefined, name: string, arg
   return result
 }
 
-/** Load a scene file the AI wrote in its answer; true, or the problems to send back. */
-async function applyFromText(answer: Bubble, block: unknown): Promise<true | string[]> {
-  const action: Action = { id: ++ids, tool: 'apply_scene', label: tl('搭建并载入：{0}', [tl('场景')]), ok: false }
-  copilot.status = action.label
-  try {
-    if (settings.ai.copilotMode === 'ask' && !(await ask(tl('Copilot 想要：{0}。允许吗？', [action.label])))) throw new ToolError('the user declined this action')
-    action.undo = snapshot()
-    const r = await applyAiScene(block, undefined)
-    if (!r.ok) {
-      copilot.snapshots.length = action.undo
-      action.undo = undefined
-      action.error = tl('场景文件有 {0} 处问题', [r.errors.length])
-      answer.actions.push(action)
-      return r.errors
-    }
-    action.ok = true
-    action.label = tl('搭建并载入：{0}', [r.card.name])
-    answer.actions.push(action)
-    return true
-  } catch (e) {
-    if (action.undo !== undefined) copilot.snapshots.length = action.undo
-    action.undo = undefined
-    action.error = (e as Error).message
-    answer.actions.push(action)
-    return [action.error]
-  }
-}
-
 /** Load a built scene again (its card's "重新载入"), as the same problem when it had questions. */
 export async function reloadScene(card: SceneCard): Promise<boolean> {
   if (copilot.busy) return false
@@ -334,23 +272,70 @@ export async function reloadScene(card: SceneCard): Promise<boolean> {
   return r.ok
 }
 
-/** The engine's answers of a built scene as context for the solving Copilot. */
+/** The engine's answers of a built scene as context for the Copilot's explanation. */
 export function simResultsNote(card: SceneCard): string { return simResultsText(card.name, card.answers, card.hidden) }
 
 const brief = (s: string) => { const one = s.replace(/\s+/g, ' ').trim(); return one.length > 90 ? `${one.slice(0, 88)}…` : one }
 
-/** "在仿真中搭建这道题": the problem goes to the simulation Copilot. */
-export async function buildInSim(problem: string) {
-  if (copilot.busy || !problem.trim()) return
-  setCopilotMode('sim')
-  await sendToCopilot(problem, undefined, { display: `${tl('在仿真中搭建这道题')}\n${brief(problem)}`, problem: true })
+/**
+ * "生成仿真场景" under the answer to a problem (26.60, D204): the builder writes the scene from the problem (with the
+ * explanation, so it reads the problem the same way), the app loads it as a problem and the engine computes; the
+ * card and the answers appear in the conversation, which also learns them (so "为什么不一样？" can follow).
+ */
+export async function buildFromAnswer(b: Bubble): Promise<void> {
+  if (copilot.busy || !b.problem || (b.offer && b.offer.state !== 'open' && b.offer.state !== 'failed')) return
+  controller = new AbortController()
+  const signal = controller.signal
+  copilot.busy = true
+  b.offer = { state: 'building' }
+  copilot.bubbles.push({ id: ++ids, role: 'user', text: `${tl('生成仿真场景并导入')}\n${brief(b.problem)}`, actions: [] })
+  const item: Bubble = reactive({ id: ++ids, role: 'assistant', text: '', actions: [], problem: b.problem }) as Bubble
+  copilot.bubbles.push(item)
+  simHooks.applied = card => { item.scene = { ...card } }
+  const action: Action = { id: ++ids, tool: 'build_scene', label: tl('搭建并载入：{0}', [tl('场景')]), ok: false }
+  try {
+    if (settings.ai.copilotMode === 'ask' && !(await ask(tl('Copilot 想要：{0}。允许吗？', [tl('生成仿真场景并导入')])))) throw new ToolError('the user declined this action')
+    action.undo = snapshot()
+    const r = await buildScene({ problem: b.problem, solution: b.text }, { signal, onStatus: st => { copilot.status = st } })
+    if (r.ok) {
+      action.ok = true
+      action.label = tl('搭建并载入：{0}', [r.card.name])
+      item.actions.push(action)
+      item.assumptions = r.assumptions
+      item.text = r.tries > 1 ? tl('已搭建（构建器修正了 {0} 次）。', [r.tries - 1]) : ''
+      b.offer = { state: 'done' }
+      copilot.history.push(
+        { role: 'user', content: `${tl('（我选择了生成仿真场景）')}\n${b.problem}` },
+        { role: 'assistant', content: `${tl('已搭建并载入场景“{0}”。', [r.card.name])}${simResultsText(r.card.name, r.card.answers, r.card.hidden)}` }
+      )
+    } else {
+      if (action.undo !== undefined) copilot.snapshots.length = action.undo
+      action.undo = undefined
+      copilot.bubbles.splice(copilot.bubbles.indexOf(item), 1)
+      const why = r.refused ? [r.refused] : r.errors
+      b.offer = { state: 'failed', errors: why.slice(0, 6) }
+      copilot.bubbles.push({ id: ++ids, role: 'error', text: r.refused ? tl('构建器认为引擎不能模拟这道题：{0}', [r.refused]) : tl('场景搭建失败（试了 {0} 次）：{1}', [r.tries, why.slice(0, 3).join('；')]), actions: [] })
+    }
+  } catch (e) {
+    const err = e instanceof AiError ? e : null
+    copilot.bubbles.splice(copilot.bubbles.indexOf(item), 1)
+    b.offer = { state: 'open' }
+    if (err?.code !== 'aborted') copilot.bubbles.push({ id: ++ids, role: 'error', text: err ? err.message : String((e as Error).message), actions: [], code: err?.code })
+  } finally {
+    simHooks.applied = null
+    copilot.busy = false
+    copilot.status = ''
+    controller = null
+  }
 }
 
-/** "讲解这道题": the problem and the engine's answers go to the solving Copilot. */
-export async function explainInSolve(problem: string, card?: SceneCard) {
+/** "不用了": the offer under an answer is dismissed. */
+export function declineOffer(b: Bubble) { if (b.offer?.state === 'open') b.offer = { state: 'no' } }
+
+/** "对照讲解": the Copilot compares its explanation with the engine's answers of the built scene. */
+export async function compareWithSim(problem: string, card: SceneCard) {
   if (copilot.busy || !problem.trim()) return
-  setCopilotMode('solve')
-  await sendToCopilot(explainAsk(problem), undefined, { context: card ? simResultsNote(card) : '', display: `${card ? tl('讲解这道题（附仿真结果）') : tl('讲解这道题')}\n${brief(problem)}`, problem: true })
+  await sendToCopilot(compareAsk(problem), undefined, { context: simResultsNote(card), display: `${tl('对照讲解与仿真结果')}\n${brief(problem)}`, noOffer: true })
 }
 
 /**
@@ -414,34 +399,14 @@ function trimToText() {
   }
 }
 
-/** Worked prompts to start with (chips under an empty conversation), per Copilot. */
-export const STARTERS: Record<CopilotMode, string[]> = {
-  solve: [
-    '板块模型的题一般怎么分析？',
-    '为什么竖直圆轨道最高点的速度不能为零？',
-    '动量守恒和机械能守恒什么时候可以同时用？',
-    '质量 2 kg 的物块从倾角 30° 的斜面顶端由静止下滑，μ = 0.2，求 1 s 末的速度。'
-  ],
-  sim: [
-    '质量 2 kg 的物块从倾角 30° 的斜面顶端由静止下滑，μ = 0.2，求 1 s 末的速度。',
-    '搭一个竖直圆轨道：小球从 h = 2.5R 的光滑斜轨上滑下，看它能否通过最高点',
-    '帮我搭一个两个物块用绳跨过定滑轮相连的场景',
-    '显示物块受到的支持力和摩擦力',
-    '用 x‑t / v‑t / a‑t 曲线解释一下这个运动'
-  ]
-}
+/** Worked prompts to start with (chips under an empty conversation). */
+export const STARTERS: string[] = [
+  '质量 2 kg 的物块从倾角 30° 的斜面顶端由静止下滑，μ = 0.2，求 1 s 末的速度。',
+  '为什么竖直圆轨道最高点的速度不能为零？',
+  '搭一个竖直圆轨道：小球从 h = 2.5R 的光滑斜轨上滑下，看它能否通过最高点',
+  '显示物块受到的支持力和摩擦力',
+  '用 x‑t / v‑t / a‑t 曲线解释一下这个运动'
+]
 
-/** Type used by the dock for the scene card. */
+/** Type used by the panel for the scene card. */
 export type { SceneCard }
-
-/** For tests: the parked conversation of a Copilot. */
-export function parkedConversation(m: CopilotMode): Conversation { return parked[m] }
-
-/** For tests and "新对话" of both: forget both conversations. */
-export function resetCopilots() {
-  clearCopilot()
-  parked.solve = emptyConversation()
-  parked.sim = emptyConversation()
-  copilot.snapshots = []
-}
-

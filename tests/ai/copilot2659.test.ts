@@ -28,7 +28,7 @@ const { resetCaps, chat, toJsonProtocol } = await import('../../src/ai/client')
 const { toAnthropic, fromAnthropic } = await import('../../src/ai/anthropic')
 const { readProblem } = await import('../../src/ai/import/pipeline')
 const { toolDefs } = await import('../../src/ai/copilot/tools')
-const { simToolDefs } = await import('../../src/ai/copilot/simTools')
+const { copilotToolDefs } = await import('../../src/ai/copilot/simTools')
 const { renderAnswer } = await import('../../src/ai/copilot/render')
 
 type Body = Record<string, unknown> & { messages: Array<{ role: string; content: unknown }>; tools?: unknown[] }
@@ -60,7 +60,7 @@ describe('Copilot tool loop', () => {
     ])
     await sendToCopilot('把斜面倾角改成 40 度')
     expect(seen).toHaveLength(2)
-    expect((seen[0].tools as unknown[]).length).toBe(simToolDefs().length)
+    expect((seen[0].tools as unknown[]).length).toBe(copilotToolDefs().length)
     expect(String(seen[0].messages[1].content)).toContain('<app_state>')
     expect(seen[1].messages.some(m => m.role === 'tool')).toBe(true)
     expect((state.scene.extra as { template: { values: { theta: number } } }).template.values.theta).toBe(40)

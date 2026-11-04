@@ -7,14 +7,17 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { tl } from '../../i18n'
 import { state } from '../store'
+import { phone } from '../layout'
 
 interface Step { sel: string; title: string; text: string }
 const STEPS = computed<Step[]>(() => [
-  { sel: '.page-studio .left', title: tl('1 / 5 · 工具'), text: tl('选一个工具，在画布上单击放置物体（物块、小球、斜面、绳、弹簧……），拖拽可拉出大小。') },
+  { sel: phone.value ? '[data-ui="sheet-tools"]' : '[data-ui="tools"]', title: tl('1 / 5 · 工具'), text: tl('画布左侧的工具条：选一个工具，在画布上单击放置物体（物块、小球、斜面、绳、弹簧……），拖拽可拉出大小；“全部工具”里还有轨道、连接、力与场。') },
   { sel: '.page-studio .view', title: tl('2 / 5 · 画布'), text: tl('拖动物体改位置，滚轮缩放，右键平移。运行后画面上的箭头、轨迹与读数都来自求解器。') },
-  { sel: '.page-studio .pane.bottom', title: tl('3 / 5 · 时间轴与曲线'), text: tl('空格播放 / 暂停，拖动时间轴到任意时刻；菱形是碰撞、开始滑动等事件，点一下看详情。下面是曲线。') },
-  { sel: '.page-studio .pane.right', title: tl('4 / 5 · 分析'), text: tl('“公式”把适用的公式代入数值并与仿真并排比较；“监视”读出任意物体此刻的物理量；“任务”可以粘贴一道题。') },
-  { sel: '.topbar .run', title: tl('5 / 5 · 运行'), text: tl('修改后自动重新计算；旁边的标记说明这次用的是精确求解器还是实时多体求解器。') }
+  { sel: phone.value ? '.ptime' : '[data-ui="timeline"]', title: tl('3 / 5 · 时间轴'), text: tl('空格播放 / 暂停，拖动时间轴到任意时刻；菱形是碰撞、开始滑动等事件。只要物体还在运动就会一直算下去。点“曲线”展开曲线与事件。') },
+  phone.value
+    ? { sel: '.pnav', title: tl('4 / 5 · 底部标签栏'), text: tl('工具、属性、分析（公式、曲线、事件、题目）与 AI 都从底部打开，面板可以拖到三分之一、三分之二或全屏，向下拖关闭。中间的按钮运行或播放。') }
+    : { sel: '.sidebar', title: tl('4 / 5 · 侧栏'), text: tl('右侧一个侧栏，四页：属性、分析（公式与仿真并排对照、监视读数）、题目、AI（Copilot 讲题并生成仿真场景）。顶部的“搭建 / 仿真 / 分析”切换常用的布局。') },
+  { sel: '[data-ui="run"]', title: tl('5 / 5 · 运行'), text: tl('修改后自动重新计算；旁边的标记说明这次用的是精确求解器还是实时多体求解器。') }
 ])
 const step = computed(() => (state.tourStep !== null ? STEPS.value[state.tourStep] : null))
 const rect = ref<{ x: number; y: number; w: number; h: number } | null>(null)

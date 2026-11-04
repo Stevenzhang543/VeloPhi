@@ -157,6 +157,17 @@ export function minorGridStep(ppm: number): number { return niceStep(ppm, 24) }
  * and transform, the colours, the style factors, the length unit and the state of the web fonts.
  */
 let gridCache: { key: string; canvas: HTMLCanvasElement | OffscreenCanvas } | null = null
+
+/**
+ * 26.60 (D205): the strip of the canvas covered by floating controls at its bottom (the timeline bar), in CSS px. The
+ * scale bar and the notes at the bottom left are drawn above it.
+ */
+let bottomInset = 0
+/** The same at the left edge (the floating tool strip): the scale bar starts right of it. */
+let leftInset = 0
+export function setBottomInset(px: number, left = 0) { bottomInset = Number.isFinite(px) ? Math.max(0, px) : 0; leftInset = Number.isFinite(left) ? Math.max(0, left) : 0 }
+export function getBottomInset(): number { return bottomInset }
+
 function drawGrid(ctx: CanvasRenderingContext2D, cam: Camera, P: Palette, axes: boolean, grid: boolean) {
   if (!axes && !grid) return
   const m = typeof ctx.getTransform === 'function' ? ctx.getTransform() : null
@@ -164,7 +175,7 @@ function drawGrid(ctx: CanvasRenderingContext2D, cam: Camera, P: Palette, axes: 
   if (!m || m.b !== 0 || m.c !== 0 || !target || (typeof OffscreenCanvas === 'undefined' && typeof document === 'undefined')) { paintGrid(ctx, cam, P, axes, grid); return }
   const st = currentStyle()
   const fonts = typeof document !== 'undefined' && document.fonts ? `${document.fonts.status}${document.fonts.size}` : ''
-  const key = [cam.cx, cam.cy, cam.ppm, cam.width, cam.height, target.width, target.height, m.a, m.d, m.e, m.f, P.bg, P.gridMinor, P.gridMajor, P.text2, axes, grid, st.font, st.line, unit('m'), disp(1, 'm'), fonts].join('|')
+  const key = [cam.cx, cam.cy, cam.ppm, cam.width, cam.height, target.width, target.height, m.a, m.d, m.e, m.f, P.bg, P.gridMinor, P.gridMajor, P.text2, axes, grid, st.font, st.line, unit('m'), disp(1, 'm'), fonts, bottomInset, leftInset].join('|')
   if (!gridCache || gridCache.key !== key) {
     const c = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(target.width, target.height) : Object.assign(document.createElement('canvas'), { width: target.width, height: target.height })
     const g = c.getContext('2d') as CanvasRenderingContext2D | null
@@ -211,10 +222,15 @@ function paintGrid(ctx: CanvasRenderingContext2D, cam: Camera, P: Palette, axes:
     const ly = Math.max(fpx(12), Math.min(cam.height - 30, oy + fpx(12)))
     // Label every major line, or every other one when they would crowd
     const every = major * cam.ppm < fpx(10) * 7 ? 2 : 1
+    // 26.60: no tick label under the axis name at the right end
+    ctx.font = font(11)
+    const nameLeft = cam.width - ctx.measureText(xName).width - 10
+    ctx.font = font(10, MONO)
     for (let x = Math.ceil(topLeft.x / major) * major; x <= br.x; x += major) {
       if (Math.abs(x) < major * 1e-6 || (Math.round(x / major) % every) !== 0) continue
       const [sx] = toScreen(cam, x, 0)
       const s = tickText(disp(x, 'm'))
+      if (Math.abs(ly - Math.max(fpx(12), Math.min(cam.height - 30, oy - 4))) < fpx(14) && sx + 3 + ctx.measureText(s).width > nameLeft) continue
       ctx.fillText(s, sx + 3, ly)
     }
     const lx = Math.max(4, Math.min(cam.width - 40, ox + 4))
@@ -225,15 +241,32 @@ function paintGrid(ctx: CanvasRenderingContext2D, cam: Camera, P: Palette, axes:
       ctx.fillText(tickText(disp(y, 'm')), lx, sy - 3)
     }
   }
-  // Scale bar
-  const bar = major
+}
+
+/**
+ * The scale bar at the bottom left (26.60: drawn over the scene with a backing, above the floating controls — under
+ * the scene a ground or an incline hid its label).
+ */
+function drawScaleBar(ctx: CanvasRenderingContext2D, cam: Camera, P: Palette) {
+  const bar = minorGridStep(cam.ppm) * 5
   const len = bar * cam.ppm
+  const by = cam.height - 14 - bottomInset, bx = 14 + leftInset
+  ctx.save()
+  ctx.font = font(11, MONO)
+  const text = `${tickText(disp(bar, 'm'))} ${unit('m')}`
+  const tw = ctx.measureText(text).width
+  ctx.fillStyle = P.labelBg
+  ctx.globalAlpha = 0.85
+  ctx.beginPath()
+  if (typeof ctx.roundRect === 'function') ctx.roundRect(bx - 6, by - 10, len + tw + 18, 20, 6); else ctx.rect(bx - 6, by - 10, len + tw + 18, 20)
+  ctx.fill()
+  ctx.globalAlpha = 1
   ctx.fillStyle = P.text2
   ctx.strokeStyle = P.text2
   ctx.lineWidth = lw(2)
-  ctx.beginPath(); ctx.moveTo(14, cam.height - 14); ctx.lineTo(14 + len, cam.height - 14); ctx.moveTo(14, cam.height - 18); ctx.lineTo(14, cam.height - 10); ctx.moveTo(14 + len, cam.height - 18); ctx.lineTo(14 + len, cam.height - 10); ctx.stroke()
-  ctx.font = font(11, MONO)
-  ctx.fillText(`${tickText(disp(bar, 'm'))} ${lu}`, 18 + len, cam.height - 10)
+  ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx + len, by); ctx.moveTo(bx, by - 4); ctx.lineTo(bx, by + 4); ctx.moveTo(bx + len, by - 4); ctx.lineTo(bx + len, by + 4); ctx.stroke()
+  ctx.fillText(text, bx + 4 + len, by + 4)
+  ctx.restore()
 }
 
 /** Outline path of a body at a pose (screen coordinates). */
@@ -968,6 +1001,7 @@ export function drawScene(ctx: CanvasRenderingContext2D, cam: Camera, input: Dra
 
   // Teaching annotations
   if (input.annotations && input.annotations.length) drawAnnotations(ctx, cam, input.annotations, P, input.digits, input.selectedAnnotation ?? null)
+  if (options.axes || options.grid) drawScaleBar(ctx, cam, P)
   // 26.54: values of the uniform fields
   if (options.fields !== false && (model.settings.electric || model.settings.magnetic)) fieldLegend(ctx, cam, model.settings, P, (v, u) => q(v, u, input.digits))
 
@@ -1100,7 +1134,7 @@ function drawKeyMoments(ctx: CanvasRenderingContext2D, cam: Camera, input: DrawI
     const c = e.changes[0]
     if (c.type === 'timestep') {
       // A solver change has no place in the scene: one note above the scale bar
-      if (!solverNote) { solverNote = true; tag(ctx, 12, cam.height - 34, tl('t = {0} 起{1}', [q(e.t, 's', input.digits), eventLabel(c)]), P.friction, P, font(11)) }
+      if (!solverNote) { solverNote = true; tag(ctx, 12, cam.height - 34 - bottomInset, tl('t = {0} 起{1}', [q(e.t, 's', input.digits), eventLabel(c)]), P.friction, P, font(11)) }
       continue
     }
     const body = rec.system.model.byId.get(c.bodies.find(id => rec.system.model.byId.get(id)?.dynamic) ?? '')

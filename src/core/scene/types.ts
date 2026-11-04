@@ -31,7 +31,7 @@ export const SCENE_VERSION_SOFTSTEP = 8
  */
 export const SCENE_VERSION_ARCS = 9
 /** Engine version written into saved scenes. */
-export const ENGINE_VERSION = '26.59.0'
+export const ENGINE_VERSION = '26.60.0'
 
 /** Shape of a body, in body coordinates (m). */
 export type ShapeDef = PartShapeDef | CompoundShapeDef | ArcShapeDef

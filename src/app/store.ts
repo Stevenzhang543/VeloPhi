@@ -61,6 +61,11 @@ export type Page = 'studio' | 'lab' | 'monitor' | 'settings'
 export interface RunInfo {
   /** The scene is unbounded: the run grows until stopped. */
   unbounded: boolean
+  /**
+   * 26.60 (D203): the scene's duration, computed at least (answers of a problem are read up to it); every run goes on
+   * while anything moves and stops only at rest, at a stop condition or when the user stops it. Null: none set.
+   */
+  horizon: number | null
   /** Simulated time computed (s). */
   tComputed: number
   /** Time the run computes to before it pauses (look-ahead target; +∞ for a bounded run). */
@@ -85,7 +90,7 @@ export interface RunInfo {
 
 /** RunInfo before any run. */
 function emptyRun(): RunInfo {
-  return { unbounded: false, tComputed: 0, tTarget: 0, speed: 0, memoryBytes: 0, chunks: 0, residentChunks: 0, checkpoints: 0, rebuilds: 0, engine: 'wasm', engineReason: null, paused: false, fingerprint: null }
+  return { unbounded: false, horizon: null, tComputed: 0, tTarget: 0, speed: 0, memoryBytes: 0, chunks: 0, residentChunks: 0, checkpoints: 0, rebuilds: 0, engine: 'wasm', engineReason: null, paused: false, fingerprint: null }
 }
 
 /** A problem being answered or written (26.52, D40): answers in SI (numeric) or option indices (choice). */
@@ -419,6 +424,24 @@ export function stopRun() {
   handle?.stop()
 }
 
+/**
+ * Continue after the user stopped a run (26.60, D203): the scene is computed again (same result, deterministic) and on
+ * past where it stopped; the frame shown stays.
+ */
+export function continueRun() {
+  const rec = state.recording
+  if (!rec || state.stale || state.computing) return
+  const end = (rec.frameCount - 1) * rec.dt
+  void runSimulation()
+  computeTo(end + settings.sim.lookAheadSeconds)
+}
+
+/** The run ended because the user stopped it (it can be continued). */
+export function stoppedByUser(): boolean {
+  const rec = state.recording
+  return !!rec && !state.stale && !state.computing && rec.completed === true && rec.stopReason === 'user'
+}
+
 /** Compute the run in flight at least up to time t (an unbounded run otherwise stops at its look-ahead). */
 export function computeTo(t: number) {
   handle?.computeTo(t)
@@ -562,15 +585,18 @@ export function runSimulation(): Promise<void> {
     return Promise.resolve()
   }
   if (overlapPrompt.open) overlapPrompt.answer?.('cancel')
-  const unbounded = scene.settings.duration === null
-  state.run = { ...emptyRun(), unbounded, tTarget: unbounded ? settings.sim.lookAheadSeconds : Infinity }
+  // 26.60 (D203): no run ends while something still moves. The scene's duration (problems, AI-built scenes, older
+  // files) is only how far it computes at least; the run continues with the look-ahead and stops at rest.
+  const horizon = scene.settings.duration ?? null
+  const unbounded = true
+  state.run = { ...emptyRun(), unbounded, horizon, tTarget: Math.max(settings.sim.lookAheadSeconds, horizon ?? 0) }
   recognizer = true
   lastRecognition = 0
   let delivered = false
   const started = performance.now()
   const playhead = freshScene ? 0 : state.time
   const h = startSimulation(scene, {
-    budgetMs: settings.sim.budgetSeconds * 1000, useWorker: settings.sim.worker, progressive: settings.sim.progressive || unbounded,
+    budgetMs: settings.sim.budgetSeconds * 1000, useWorker: settings.sim.worker, progressive: settings.sim.progressive || unbounded, duration: null,
     lookAhead: settings.sim.lookAheadSeconds, memoryBytes: settings.sim.memoryMB * 1024 * 1024
   }, {
     onPartial: rec => {
@@ -592,6 +618,7 @@ export function runSimulation(): Promise<void> {
   })
   handle = h
   if (unbounded && playhead > 0) h.setPlayhead(playhead, 0)
+  if (horizon !== null) h.computeTo(horizon)
   return h.done.then(rec => {
     if (token !== runToken) return
     handle = null

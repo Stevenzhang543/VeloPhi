@@ -28,7 +28,7 @@ import type { AnnotationDef, BodyDef, RegionDef } from '../../core/scene/types'
 import { connectorAnchors, usesSoftStep } from '../../core/scene/types'
 import { cloneScene, parseScene, serializeScene } from '../../core/scene/io'
 import type { Camera } from '../../render/renderer'
-import { DARK, LIGHT, computeTrajectories, drawScene, eventLabelAt, forceArrowAt, sceneVectorScales, toScreen, toWorld, vectorScales } from '../../render/renderer'
+import { DARK, LIGHT, computeTrajectories, drawScene, eventLabelAt, forceArrowAt, sceneVectorScales, setBottomInset, toScreen, toWorld, vectorScales } from '../../render/renderer'
 import { openEventDetail } from '../details'
 import type { FrameEffects } from '../../render/frame'
 import { DEFAULT_STYLE, PROJECTOR_STYLE, crowded, renderFrame } from '../../render/frame'
@@ -46,12 +46,13 @@ import type { Pt } from '../editor/geometry'
 import { bodyBounds, bodyCenter, outlineWorld, pulleyWorld } from '../editor/geometry'
 import { featureSnap, snapOn, snapPoint, snapStep } from '../editor/snap'
 import type { ContactSnap, SnapMemory } from '../editor/objectSnap'
-import { outlinesOf, sceneFeatures, shifted, snapAngles, snapBodyMove, snapPointToObjects, snapRotation } from '../editor/objectSnap'
+import { sceneFeatures, snapAngles, snapBodyMove, snapPointToObjects, snapRotation } from '../editor/objectSnap'
 import type { OverlayShape } from '../../render/overlay'
 import type { DragFeedback, Handle, HandleDrag, HandleId } from '../editor/handles'
 import { applyHandleDrag, bodyHandles, deleteVertex, edgeAt, handleKey, hitHandle, insertVertex, pulleyHandles, rotateStemFrom, startHandleDrag } from '../editor/handles'
 import type { DragTool } from '../editor/create'
 import { createFromDrag, createPolygon, dragPreview, isDragTool, polygonPreview } from '../editor/create'
+import { shell } from '../layout'
 import { isPresetTool } from '../editor/presets'
 import { addAnnotation, annotationPointAt, deleteAnnotation, editAnnotations, hitAnnotation, placeMoved, pushHistory, setAnnotationPoint } from '../editor/annotations'
 import {
@@ -78,6 +79,8 @@ const snapGuides = shallowRef<OverlayShape[]>([])
 const cursor = ref('default')
 
 const editing = computed(() => state.stale || !state.recording)
+/** 26.60 (D205): the studio shows the time in its floating timeline (the canvas does not repeat it). */
+const floatingTime = true
 /** Geometry can be changed (move, handles): the studio, and the shown state is the initial one. */
 const canEditGeometry = computed(() => studio.value && (editing.value || (state.frame === 0 && !state.playing)))
 
@@ -140,6 +143,7 @@ function draw() {
   if (!c || !visible()) return
   const ctx = c.getContext('2d')
   if (!ctx) return
+  setBottomInset(floatBottom, floatLeft)
   try {
     paint(ctx)
   } catch (err) {
@@ -214,9 +218,15 @@ function resize() {
   c.style.width = `${r.width}px`
   c.style.height = `${r.height}px`
   cam.value = { ...cam.value, width: r.width, height: r.height }
+  // Floating controls over the bottom of the canvas (the timeline bar of the studio, D205)
+  const cs = getComputedStyle(h)
+  floatBottom = parseFloat(cs.getPropertyValue('--float-bottom')) || 0
+  floatLeft = parseFloat(cs.getPropertyValue('--float-left')) || 0
   if (!fittedVisible) { fittedVisible = true; fitView() }
   requestDraw()
 }
+let floatBottom = 0
+let floatLeft = 0
 
 /**
  * Fit the view to where things happen: every recorded position of the moving bodies (or their initial
@@ -303,6 +313,7 @@ onMounted(() => {
   if (host.value) ro.observe(host.value)
   resize()
   window.addEventListener('keydown', onKeyCapture, true)
+  window.addEventListener('keydown', onTabKey, true)
   window.addEventListener('keydown', onSpace)
   window.addEventListener('keyup', onSpace)
   window.addEventListener('keyup', onAltUp)
@@ -312,10 +323,37 @@ onBeforeUnmount(() => {
   if (raf) cancelAnimationFrame(raf) // Unmounting: nothing left to draw
   raf = 0
   window.removeEventListener('keydown', onKeyCapture, true)
+  window.removeEventListener('keydown', onTabKey, true)
   window.removeEventListener('keydown', onSpace)
   window.removeEventListener('keyup', onSpace)
   window.removeEventListener('keyup', onAltUp)
+  endWindowDrag()
 })
+
+// 26.60 (issue 3): a drag that leaves the canvas (over the sidebar, the timeline or out of the window) keeps going;
+// it used to end at the edge, so a quick move dropped the body short of where the pointer went.
+let windowDrag = false
+function onWindowMove(e: MouseEvent) { if (e.target !== canvas.value) onMove(e) }
+function onWindowUp(e: MouseEvent) {
+  endWindowDrag()
+  if (e.target !== canvas.value && drag) onUp(e)
+}
+function beginWindowDrag() {
+  if (windowDrag || !drag || drag.kind === 'right') return
+  windowDrag = true
+  window.addEventListener('mousemove', onWindowMove)
+  window.addEventListener('mouseup', onWindowUp)
+}
+function endWindowDrag() {
+  if (!windowDrag) return
+  windowDrag = false
+  window.removeEventListener('mousemove', onWindowMove)
+  window.removeEventListener('mouseup', onWindowUp)
+}
+function onMouseDown(e: MouseEvent) {
+  onDown(e)
+  beginWindowDrag()
+}
 
 // Shown again: take the current size (it may have changed while hidden) and draw the current state
 watch(pageActive, on => { if (on) { resize(); requestDraw() } })
@@ -333,7 +371,15 @@ watch(() => [state.recording, state.stale], () => {
 })
 /** Computed time at which the view is fitted once more (0: none). */
 let refitAt = 0
-watch(() => state.run.tComputed, t => { if (refitAt > 0 && t >= refitAt && state.recording && !state.stale && visible()) { refitAt = 0; fitView() } })
+/** Fit again once the recording itself (not only the run's progress report, which runs ahead of it) reaches refitAt. */
+function maybeRefit() {
+  const rec = state.recording
+  if (refitAt <= 0 || !rec || state.stale || !visible()) return
+  if ((rec.frameCount - 1) * rec.dt + 1e-9 < refitAt && !rec.completed) return
+  refitAt = 0
+  fitView()
+}
+watch(() => [state.run.tComputed, state.recording, state.time], maybeRefit)
 // 26.55 (D97): plain values are compared shallowly (a deep watch walked the whole list on every frame); the objects
 // that change in place (display switches, selection, formula highlight) are watched deeply on their own
 watch(() => [state.frame, state.time, state.recording, state.stale, state.playing, state.speed, state.theme, state.digits, state.pendingConnector, state.tool, hover.value, hotHandle.value, problemLocked(), state.rightTab], requestDraw)
@@ -642,6 +688,11 @@ function onDown(e: MouseEvent) {
   if (tool === 'shape-combine') {
     const hit = hitTest(cp, p, tol)
     if (hit?.kind !== 'body') { notify(tl('请点击要组合的物体')); return }
+    // The second click of a double click finishes (dblclick), it does not toggle again
+    if (e.detail >= 2) return
+    // 26.60: remember the picks before this click — the first click (or tap) of a double click must not toggle
+    draftBefore.push({ t: performance.now(), ids: editor.combineDraft.slice() })
+    if (draftBefore.length > 4) draftBefore.shift()
     const i = editor.combineDraft.indexOf(hit.id)
     if (i >= 0) editor.combineDraft.splice(i, 1); else editor.combineDraft.push(hit.id)
     requestDraw()
@@ -748,8 +799,9 @@ function onDown(e: MouseEvent) {
       return
     }
   }
-  // During playback a click on a moving body is a request for its readings
-  if (!editing.value && hit?.kind === 'body' && state.rightTab === 'inspect' && cp.sys.model.byId.get(hit.id)?.dynamic) state.rightTab = 'watch'
+  // During playback a click on a moving body is a request for its readings (26.60: not in the build mode, where a
+  // click selects the body to edit it; the run that follows each edit made every click open the readings)
+  if (!editing.value && shell.mode !== 'build' && hit?.kind === 'body' && state.rightTab === 'inspect' && cp.sys.model.byId.get(hit.id)?.dynamic) state.rightTab = 'watch'
   if (hit && (hit.kind === 'body' || hit.kind === 'pulley') && canEditGeometry.value) {
     drag = { kind: 'move', sel: hit, start: p, applied: { x: 0, y: 0 }, snapshot: serializeScene(state.scene), moved: false, sx: e.clientX, sy: e.clientY, mem: { keys: [] } }
   }
@@ -824,13 +876,13 @@ function onMove(e: MouseEvent) {
       const s = snapOn(e.altKey) ? snapStep(ppm) : 0
       let want = s ? { x: Math.round(tot.x / s) * s, y: Math.round(tot.y / s) * s } : tot
       snapGuides.value = []
-      if (!s && !e.altKey && settings.editor.objectSnap && d.sel?.kind === 'body') {
-        // Object snapping (D47): the outline at the raw position, pulled into contact with its neighbours
+      if (!e.altKey && (s || settings.editor.objectSnap) && d.sel?.kind === 'body') {
+        // 26.60 (D202): the grid (a feature of the body onto a grid line) and object contacts together — contacts win
+        // along their normals, so a part can be put against the ground with grid snapping on
         const sel = d.sel
         const def = state.scene.bodies.find(b => b.id === sel.id)
         if (def) {
-          const raw = outlinesOf(def).map(o => shifted(o, { x: tot.x - d.applied.x, y: tot.y - d.applied.y }))
-          const r = snapBodyMove(state.scene, def.id, raw, ppm, d.mem)
+          const r = snapBodyMove(state.scene, def.id, { x: tot.x - d.applied.x, y: tot.y - d.applied.y }, ppm, d.mem, { grid: s, objects: settings.editor.objectSnap })
           want = { x: tot.x + r.delta.x, y: tot.y + r.delta.y }
           snapGuides.value = contactGuides(r.contacts)
         }
@@ -1055,6 +1107,40 @@ function onUp(e: MouseEvent) {
   }
 }
 
+/** The canvas was reached with the Tab key (shows the focus ring; a click does not, 26.60). */
+const kbdFocus = ref(false)
+let lastTab = 0
+function onCanvasFocus() { kbdFocus.value = performance.now() - lastTab < 300 }
+function onTabKey(e: KeyboardEvent) { if (e.key === 'Tab') lastTab = performance.now() }
+
+/** Clear the picks of a multi-click tool (the draft bar's cancel). */
+function cancelDraft() { clearDrafts(); draftBefore.length = 0; requestDraw() }
+
+/**
+ * The bar under the canvas while a multi-click tool has picks (26.60): finish it without a keyboard or a double click
+ * — on a tablet the first tap of a double tap used to drop the last pick, so combining could not be finished.
+ */
+const draftBar = computed(() => {
+  if (state.tool === 'shape-combine' && editor.combineDraft.length) {
+    const n = editor.combineDraft.length
+    return { label: tl('已选 {0} 个物体', [n]), action: tl('组合'), ready: n >= 2, finish: () => finishCombine(), undo: null as null | (() => void) }
+  }
+  if (state.tool === 'add-polygon' && editor.polyDraft.length) {
+    const n = editor.polyDraft.length
+    return { label: tl('已放 {0} 个顶点', [n]), action: tl('完成多边形'), ready: n >= 3, finish: () => closePolygon(), undo: () => { editor.polyDraft.pop(); requestDraw() } }
+  }
+  return null
+})
+
+/** Picks of the combine tool before each of the last clicks (26.60: a double click finishes with the picks as they were). */
+const draftBefore: Array<{ t: number; ids: string[] }> = []
+/** Undo the toggle made by the first click (or tap) of a double click before finishing. */
+function restoreDraftBeforeDouble() {
+  const last = draftBefore[draftBefore.length - 1]
+  if (last && performance.now() - last.t < 700) editor.combineDraft.splice(0, editor.combineDraft.length, ...last.ids)
+  draftBefore.length = 0
+}
+
 /** Finish the combine tool: the picked bodies become one compound body. */
 function finishCombine() {
   const ids = editor.combineDraft.slice()
@@ -1071,13 +1157,14 @@ function finishCombine() {
 }
 
 function onLeave() {
-  snapGuides.value = []
   hover.value = null
   hotHandle.value = null
+  const d = drag
+  // A drag with the window listeners keeps going outside the canvas (26.60); the context menu needs a release inside
+  if (d && d.kind !== 'right' && windowDrag) { requestDraw(); return }
+  snapGuides.value = []
   cursorWorld.value = null
   snapMark.value = null
-  const d = drag
-  // A drag that leaves the canvas ends there (the context menu needs a release inside)
   if (d && d.kind !== 'right') onUp(new MouseEvent('mouseup'))
   drag = null
   requestDraw()
@@ -1088,7 +1175,15 @@ function onDblClick(e: MouseEvent) {
   const p = worldOf(e)
   const [sx, sy] = screenOf(e)
   if (state.tool === 'add-polygon') { closePolygon(); return }
-  if (state.tool === 'shape-combine') { finishCombine(); return }
+  if (state.tool === 'shape-combine') {
+    // The double-clicked body is one of the parts whether it was picked before or not
+    const cp = currentPoses()
+    const hit = cp ? hitTest(cp, p, 8 / cam.value.ppm) : null
+    restoreDraftBeforeDouble()
+    if (hit?.kind === 'body' && !editor.combineDraft.includes(hit.id)) editor.combineDraft.push(hit.id)
+    finishCombine()
+    return
+  }
   if (state.tool !== 'select') return
   const ah = hitAnnotation(cam.value, state.scene.annotations, sx, sy)
   if (ah?.type === 'text') { editor.textInput = { at: { ...ah.at }, text: ah.text, editId: ah.id }; return }
@@ -1432,10 +1527,10 @@ const toolHint = computed(() => {
     case 'add-force': return tl('点击物体上的作用点添加恒力')
     case 'add-central': return tl('点击放置力心：点在运动物体上时力心随它运动（如行星绕恒星），点在空白处时固定不动')
     case 'shape-cut': return tl('按住并拖出一条直线，把它穿过的矩形和多边形切开（质量按面积分配）；撤销可恢复')
-    case 'shape-combine': return editor.combineDraft.length >= 2 ? tl('已选 {0} 个物体：双击或按 Enter 组合成一个复合体；再点一次取消选择；Esc 放弃', [editor.combineDraft.length]) : tl('依次点击要组合的物体（固定物体只能与固定物体组合）')
+    case 'shape-combine': return editor.combineDraft.length >= 2 ? tl('已选 {0} 个物体：点下方的“组合”（或双击、按 Enter）组合成一个复合体；再点一次取消选择', [editor.combineDraft.length]) : tl('依次点击要组合的物体（固定物体只能与固定物体组合）')
     case 'pan': return tl('拖动平移视图')
     case 'select': return ''
-    case 'add-polygon': return editor.polyDraft.length >= 3 ? tl('已放 {0} 个顶点：点击第一个顶点、双击或按 Enter 完成；Backspace 撤回一点；Esc 取消', [editor.polyDraft.length]) : tl('依次点击放置顶点（可以是凹多边形；边不能相交）') + snap
+    case 'add-polygon': return editor.polyDraft.length >= 3 ? tl('已放 {0} 个顶点：点击第一个顶点、点下方的“完成多边形”、双击或按 Enter 完成', [editor.polyDraft.length]) : tl('依次点击放置顶点（可以是凹多边形；边不能相交）') + snap
     case 'measure-ruler': return tl('按住并拖动测量长度与倾角（自动吸附到顶点和质心）') + snap
     case 'measure-angle': return editor.angleDraft.length === 0 ? tl('点击角的顶点') : editor.angleDraft.length === 1 ? tl('点击第一条边上的一点') : tl('点击第二条边上的一点')
     case 'annotate-text': return tl('点击放置文字标注')
@@ -1463,10 +1558,10 @@ const selectionHint = computed(() => {
 
 <template>
   <div ref="host" class="viewport" :class="[`v-${props.variant}`]">
-    <canvas ref="canvas" :style="{ cursor }" tabindex="0" role="img" :aria-label="tl('场景画布：{0}', [state.scene.name])" @wheel="onWheel" @mousedown="onDown" @mousemove="onMove" @mouseup="onUp" @mouseleave="onLeave" @dblclick="onDblClick" @contextmenu.prevent @touchstart="onTouchStart" @touchmove="onTouchMove" @touchend="onTouchEnd" @touchcancel="onTouchEnd" />
+    <canvas ref="canvas" :class="{ 'kbd-focus': kbdFocus }" :style="{ cursor }" tabindex="0" role="img" :aria-label="tl('场景画布：{0}', [state.scene.name])" @wheel="onWheel" @mousedown="onMouseDown" @mousemove="onMove" @mouseup="onUp" @mouseleave="onLeave" @dblclick="onDblClick" @contextmenu.prevent @touchstart="onTouchStart" @touchmove="onTouchMove" @touchend="onTouchEnd" @touchcancel="onTouchEnd" @focus="onCanvasFocus" @blur="kbdFocus = false" />
     <div class="sr-only" aria-live="polite">{{ liveText }}</div>
     <div class="overlay top-left">
-      <span v-if="timeText && studio" class="time mono">{{ timeText }}</span>
+      <span v-if="timeText && studio && !floatingTime" class="time mono">{{ timeText }}</span>
       <span v-if="editing" class="badge warn">{{ studio ? tl('编辑中') : tl('未运行') }}{{ state.recording ? tl(' · 结果已过期') : '' }}</span>
       <span v-if="state.computing && !state.run.paused" class="badge info">{{ tl('计算中…') }}</span>
       <span v-if="state.simError" class="badge bad" :title="msgText(state.simError)">{{ msgText(state.simError) }}</span>
@@ -1475,6 +1570,12 @@ const selectionHint = computed(() => {
     <div v-if="toolHint || editor.notice || selectionHint" class="overlay hint-col">
       <div v-if="toolHint || selectionHint" class="hint small">{{ toolHint || selectionHint }}</div>
       <div v-if="editor.notice" class="hint small notice">{{ editor.notice }}</div>
+    </div>
+    <div v-if="studio && draftBar" class="draft-bar" role="toolbar" :aria-label="draftBar.label">
+      <span class="count">{{ draftBar.label }}</span>
+      <button v-if="draftBar.undo" type="button" class="btn small" @click="draftBar.undo">{{ tl('撤回一点') }}</button>
+      <button type="button" class="btn small" @click="cancelDraft">{{ tl('取消') }}</button>
+      <button type="button" class="btn primary small" data-ui="draft-finish" :disabled="!draftBar.ready" @click="draftBar.finish">{{ draftBar.action }}</button>
     </div>
     <div class="overlay bottom-right">
       <button class="btn ghost small" :title="tl('缩放到运动范围')" @click="fitView">{{ tl('适合视图') }}</button>
@@ -1488,11 +1589,18 @@ const selectionHint = computed(() => {
 <style scoped>
 .viewport { position: relative; width: 100%; height: 100%; overflow: hidden; border-radius: var(--radius-pane); background: var(--canvas-bg); box-shadow: var(--shadow); }
 canvas { display: block; touch-action: none; }
-canvas:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+/* 26.60: no ring after a click (pressing Enter to finish a tool used to outline the whole canvas); only when reached with Tab */
+canvas:focus, canvas:focus-visible { outline: none; }
+canvas.kbd-focus:focus { outline: 2px solid var(--accent); outline-offset: -2px; }
+/* Finishing a multi-click tool without a keyboard (26.60): picks, finish and cancel */
+.draft-bar { position: absolute; left: 50%; bottom: calc(var(--float-bottom, 0px) + 14px); transform: translateX(-50%); display: flex; align-items: center; gap: 8px; padding: 6px 8px 6px 14px; background: var(--pane); border-radius: 999px; box-shadow: var(--shadow); z-index: 4; white-space: nowrap; }
+.draft-bar .count { color: var(--text-2); font-size: var(--type-small); }
 .overlay { position: absolute; display: flex; gap: 6px; align-items: center; pointer-events: none; }
 .overlay > * { pointer-events: auto; }
 .top-left { top: 10px; left: 12px; }
 .bottom-right { bottom: 8px; right: 8px; }
+/* 26.60 (D205): the studio's timeline floats at the bottom — the fit button goes to the top right */
+.v-studio .bottom-right { bottom: auto; top: 8px; }
 .hint-col { top: 10px; left: 50%; transform: translateX(-50%); flex-direction: column; max-width: 70%; }
 .overlay.hint-col > * { pointer-events: none; user-select: none; }
 .hint { background: var(--pane); padding: 4px 10px; border-radius: 999px; box-shadow: var(--shadow); color: var(--text-2); text-align: center; }

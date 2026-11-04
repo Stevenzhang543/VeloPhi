@@ -17,6 +17,7 @@ import { fillParams } from '../i18n/tri'
 import type { Scene } from '../core/scene/types'
 import { parseScene, serializeScene, SceneFileError } from '../core/scene/io'
 import type { ChangeType, Recording } from '../engine/recording'
+import { endedAtRest, horizonOf, readyForAnswers } from '../engine/recording'
 import { extremeOf, listQuantities, valueAtFrame, valuesAtEvent } from '../engine/observe'
 import type { Situation } from '../formula/recognize'
 import type { PredictionTarget, TargetValue } from '../analysis/prediction'
@@ -132,6 +133,14 @@ export function evaluateProblemTarget(rec: Recording, sits: Situation[], target:
   if (!q) return { sim: null, formula: null, unit: '', simNote: tl('场景中没有这个量（物体或连接件可能已删除）') }
   const finite = (v: number) => (Number.isFinite(v) ? v : null)
   if (target.kind === 'end') {
+    // 26.60 (D203): the end of a scene with a duration is that time (runs go on past it while anything moves)
+    const h = horizonOf(rec)
+    if (h !== null && rec.unbounded) {
+      const k = Math.round(h / rec.dt)
+      if (k <= rec.frameCount - 1) return { sim: finite(valueAtFrame(rec, k, target.id)), formula: null, unit: q.unit }
+      if (endedAtRest(rec) || rec.stopReason === 'stopAt') return { sim: finite(valueAtFrame(rec, rec.frameCount - 1, target.id)), formula: null, unit: q.unit }
+      return { sim: null, formula: null, unit: q.unit, simNote: tl('仿真还没算到 {0} s', [formatSig(h, 4)]) }
+    }
     // 26.57 (T28): an unbounded recording has no end value — its last frame is only where computing stopped
     if (rec.unbounded && !(rec.stopReason === 'stopAt' || rec.stopReason === 'rest' || rec.stopReason === 'restApprox')) return { sim: null, formula: null, unit: q.unit, simNote: tl('无限时长的记录没有“结束值”：请改为指定时刻，或给场景设定终止条件') }
     return { sim: finite(valueAtFrame(rec, rec.frameCount - 1, target.id)), formula: null, unit: q.unit }
@@ -142,7 +151,7 @@ export function evaluateProblemTarget(rec: Recording, sits: Situation[], target:
     return { sim: Number.isFinite(best) ? best : null, formula: null, unit: q.unit }
   }
   const e = firstEvent(rec, target.event, target.body)
-  if (!e) return { sim: null, formula: null, unit: q.unit, simNote: rec.completed ? tl('本次仿真中没有发生该事件') : tl('仿真未算完，记录内没有该事件') }
+  if (!e) return { sim: null, formula: null, unit: q.unit, simNote: rec.completed || readyForAnswers(rec, true) ? tl('本次仿真中没有发生该事件') : tl('仿真未算完，记录内没有该事件') }
   const v = valuesAtEvent(rec, e.index, target.side === 'after' ? 'after' : 'before', [target.id])[0]
   return { sim: finite(v), formula: null, unit: q.unit }
 }

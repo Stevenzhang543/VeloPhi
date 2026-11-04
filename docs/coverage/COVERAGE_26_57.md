@@ -1,6 +1,6 @@
 # VeloPhi 26.57 覆盖记录
 
-本文件由 `node scripts/coverage2657.mjs` 根据 `docs/coverage/requirements-26.57.json` 与教学包注册数据（src/content/packages）生成；机器可读版本为 coverage-26.57.json。生成时检查每条证据引用都指向仓库中存在的测试（文件与测试名、Rust `#[test]` 函数），“已验证”必须至少有一条测试。26.56 的模型族与需求矩阵见 COVERAGE_26_56.md（本版未改模型注册的状态与成熟度）。
+本文件由 `node scripts/coverage2657.mjs` 根据 `tests/fixtures/coverage/requirements-26.57.json` 与教学包注册数据（src/content/packages）生成；机器可读版本为 coverage-26.57.json。生成时检查每条证据引用都指向仓库中存在的测试（文件与测试名、Rust `#[test]` 函数），“已验证”必须至少有一条测试。26.56 的模型族与需求矩阵见 COVERAGE_26_56.md（本版未改模型注册的状态与成熟度）。
 
 ## 1 总览
 

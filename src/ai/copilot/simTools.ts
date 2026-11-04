@@ -1,16 +1,14 @@
 /**
- * Tools of the simulation Copilot (26.59 fix 3, D198): `apply_scene` loads a scene file the AI wrote (checked and
- * placed by simScene.ts; with questions it opens as a problem and the engine's answers come back), `get_scene_json`
- * and `get_template_scene` give the AI a file to start from, and the reading, display and playback tools of the
- * general Copilot operate the app. The whole-problem reader (`import_problem`) and the small scene description
- * (`build_scene`) are not offered here: the scene file replaces them.
+ * Scene files of the Copilot (26.59 fix 3, D198; 26.60, D204): `applyAiScene` checks, places and loads a scene file the
+ * builder wrote (simScene.ts; with questions it opens as a problem and the engine's answers come back), shown as a scene
+ * card. The Copilot's tools: `build_scene` (runs the builder, builder.ts), `get_scene_json`, and the reading, display
+ * and playback tools of tools.ts.
  */
 import { tl } from '../../i18n'
 import { state, loadScene, documentScene } from '../../app/store'
 import { settings } from '../../app/settings'
 import { openProblem, reveal } from '../../app/problemMode'
 import { serializeScene } from '../../core/scene/io'
-import { templateById, buildTemplate } from '../../templates'
 import type { Problem } from '../../teaching/problems'
 import { waitForProblemAnswers } from '../import/answers'
 import type { AnswerLine } from '../import/answers'
@@ -103,61 +101,45 @@ const round = (v: number) => Number(v.toPrecision(6))
 const S = (description: string, extra: Partial<JsonSchema> = {}): JsonSchema => ({ type: 'string', description, ...extra })
 const obj = (properties: Record<string, JsonSchema>, required: string[] = []): JsonSchema => ({ type: 'object', properties, required, additionalProperties: false })
 
-/** The tools only the simulation Copilot has. */
-export const SIM_ONLY: Tool[] = [
+/** Hooks of a build_scene call: the session runs the builder (with its abort signal and status line). */
+export const buildHooks: { run: ((a: { request: string; modify: boolean; title?: string }) => Promise<Record<string, unknown>>) | null } = { run: null }
+
+/** The tools only the Copilot of 26.60 has: build a scene with the builder, read the current scene file (D204). */
+export const SCENE_TOOLS: Tool[] = [
   {
-    name: 'apply_scene', level: 'change', label: a => tl('搭建并载入：{0}', [String(a.title || (a.scene as { name?: string } | undefined)?.name || tl('场景'))]),
-    description: 'Load a complete VeloΦ scene file (format "velophi-scene", the JSON described in the system prompt) into the app, replacing the current scene. With questions, it opens as a problem and returns the answers the engine computed. Returns ok:false with errors to fix when the file has problems — fix them and call again with the whole file.',
+    name: 'build_scene', level: 'change', label: a => tl('搭建并载入：{0}', [String(a.title || tl('场景'))]),
+    description: 'Build a scene in the app from a description: a separate scene builder writes the VeloΦ scene file, the app checks and loads it (replacing the current scene; with questions it opens as a problem) and the engine computes. Returns ok:true with the bodies and the engine\'s answers, or ok:false with what went wrong. Use it when the user asks to build, simulate or change a set-up — not for a problem the user only wants solved.',
     parameters: obj({
-      scene: { type: 'object', description: 'the complete scene file {format, name, settings, bodies, pulleys, connectors, watch}' },
-      questions: { type: 'array', description: 'one per thing the problem asks: {prompt, target, unit}', items: { type: 'object' } },
-      title: S('short title of the problem or scene'),
-      stem: S('the problem statement (shown in the problem panel)')
-    }, ['scene']),
+      request: S('what to build: the situation, every given value with its unit, and what to observe or find'),
+      modify: { type: 'boolean', description: 'true: change the current scene (its file is given to the builder) instead of building a new one' },
+      title: S('short title')
+    }, ['request']),
     run: async a => {
-      const r = await applyAiScene(a.scene, a.questions, { title: typeof a.title === 'string' ? a.title : undefined, stem: typeof a.stem === 'string' ? a.stem : undefined })
-      if (!r.ok) return { ok: false, errors: r.errors, notes: r.notes.length ? r.notes : undefined, summary: tl('场景文件有 {0} 处问题', [r.errors.length]) }
-      return r.result
+      if (!buildHooks.run) throw new ToolError('the scene builder is not available')
+      return buildHooks.run({ request: String(a.request ?? ''), modify: a.modify === true, title: typeof a.title === 'string' ? a.title : undefined })
     }
   },
   {
     name: 'get_scene_json', level: 'read', label: () => tl('读取当前场景文件'),
-    description: 'The current scene as a scene file (defaults left out, numbers rounded). Edit it and pass the whole file to apply_scene to change the scene.',
+    description: 'The current scene as a scene file (defaults left out, numbers rounded): bodies, ids, sizes and settings.',
     parameters: obj({}),
     run: () => ({ scene: compactSceneDoc(documentScene()) })
-  },
-  {
-    name: 'get_template_scene', level: 'read', label: a => tl('读取模板 {0}', [templateById(String(a.id))?.name ?? String(a.id)]),
-    description: 'The scene file of a simulation template (ids from search_catalog kind template), optionally with parameter values (the template\'s keys and display units). A starting point to edit and pass to apply_scene.',
-    parameters: obj({ id: S('template id'), params: { type: 'object', description: 'parameter values by key', additionalProperties: { type: 'number' } } }, ['id']),
-    run: a => {
-      const t = templateById(String(a.id))
-      if (!t) throw new ToolError(`no template ${a.id}; use search_catalog with kind template`)
-      const params: Record<string, number> = {}
-      if (a.params && typeof a.params === 'object') for (const [k, v] of Object.entries(a.params as Record<string, unknown>)) {
-        if (!t.params.some(p => p.key === k)) throw new ToolError(`template ${t.id} has no parameter ${k} (${t.params.map(p => `${p.key} [${p.unit}]`).join(', ')})`)
-        const n = Number(v)
-        if (!Number.isFinite(n)) throw new ToolError(`params.${k} must be a number`)
-        params[k] = n
-      }
-      return { template: t.name, parameters: t.params.map(p => ({ key: p.key, label: p.label, unit: p.unit, value: params[p.key] ?? p.value })), scene: compactSceneDoc(buildTemplate(t.id, params)) }
-    }
   }
 ]
 
-/** General Copilot tools the simulation Copilot also has (reading, display, playback, catalogue, small edits). */
+/** General Copilot tools (reading, display, playback, catalogue, small edits). */
 const SHARED = ['get_app_state', 'get_scene_summary', 'read_results', 'read_quantity', 'list_quantities', 'read_forces', 'search_catalog', 'list_examples', 'open_example', 'open_my_problem', 'load_template', 'set_parameters', 'add_force', 'playback', 'show', 'show_curves', 'set_display', 'select_body', 'reveal_answers', 'open_lab', 'open_model', 'point_to']
 
-/** The simulation Copilot's tools. */
-export function simTools(): Tool[] {
-  return [...SIM_ONLY, ...SHARED.map(n => TOOLS.find(t => t.name === n)).filter((t): t is Tool => !!t)]
+/** The Copilot's tools. */
+export function copilotTools(): Tool[] {
+  return [...SCENE_TOOLS, ...SHARED.map(n => TOOLS.find(t => t.name === n)).filter((t): t is Tool => !!t)]
 }
 
-export function simToolDefs(): ToolDef[] {
-  return simTools().map(t => ({ type: 'function', function: { name: t.name, description: t.description, parameters: t.parameters } }))
+export function copilotToolDefs(): ToolDef[] {
+  return copilotTools().map(t => ({ type: 'function', function: { name: t.name, description: t.description, parameters: t.parameters } }))
 }
 
-export function simToolByName(name: string): Tool | undefined { return simTools().find(t => t.name === name) }
+export function copilotToolByName(name: string): Tool | undefined { return copilotTools().find(t => t.name === name) }
 
 /** Results longer than the usual limit (scene files). */
-export const LONG_RESULTS = new Set(['get_scene_json', 'get_template_scene'])
+export const LONG_RESULTS = new Set(['get_scene_json'])

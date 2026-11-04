@@ -232,3 +232,24 @@ export function simulate(scene: Scene, opts: SimulateOptions = {}): Recording {
   rec.store = null
   return rec
 }
+
+/**
+ * 26.60 (D203): the scene's duration — runs no longer end there (they go on while anything moves), but a problem's
+ * answers, "end" values and "did not happen" are read up to it. Null when the scene sets none.
+ */
+export function horizonOf(rec: Recording): number | null {
+  const d = rec.scene.settings.duration
+  return typeof d === 'number' && d > 0 ? d : null
+}
+
+/** The run stopped because nothing moves any more (its last state holds for every later time). */
+export function endedAtRest(rec: Recording): boolean {
+  return rec.completed === true && (rec.stopReason === 'rest' || rec.stopReason === 'restApprox')
+}
+
+/** A recording has what answers read: it is complete, or computed past its horizon (the run may go on). */
+export function readyForAnswers(rec: Recording, computing: boolean): boolean {
+  if (rec.completed !== false && !computing) return true
+  const h = horizonOf(rec)
+  return h !== null && (rec.frameCount - 1) * rec.dt >= h - rec.dt / 2
+}

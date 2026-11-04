@@ -15,6 +15,7 @@ import { fmtQ, toDisp, unitLabel } from '../settings'
 import type { ChoiceQuestion, NumericQuestion, ProblemQuestion, ProblemTarget, QuestionKey } from '../../teaching/problems'
 import { CHAPTERS, isCorrect, answerError, problemParams, ptext, questionKey } from '../../teaching/problems'
 import { listQuantities } from '../../engine/observe'
+import { readyForAnswers } from '../../engine/recording'
 import type { QuantityDef } from '../../engine/observe'
 import { recognize } from '../../formula/recognize'
 import { FORMULAS } from '../../formula/library'
@@ -44,7 +45,8 @@ const params = computed(() => (s.value ? problemParams({ ...s.value.problem, sce
 const text = (t: Parameters<typeof ptext>[0]) => ptext(t, lang.value, params.value)
 const chapterLabel = (id: string) => { const c = CHAPTERS.find(x => x.id === id); return c ? c.label[lang.value] : id }
 
-const rec = computed(() => (!state.stale && state.recording && state.recording.completed !== false && !state.computing ? state.recording : null))
+// 26.60 (D203): runs go on past the scene's duration; the answers are read once it is reached
+const rec = computed(() => (!state.stale && state.recording && readyForAnswers(state.recording, state.computing) ? state.recording : null))
 const sits = computed(() => {
   const r = rec.value
   if (!r) return []

@@ -370,25 +370,26 @@ describe('transfer tasks change one condition (D116)', () => {
   })
 })
 
-describe('work modes are presets over one scene (VP-10, D118)', () => {
-  it('switching mode changes panels and overlays, never the scene, the time or the selection; changes are remembered per mode', async () => {
+describe('studio modes are presets over one scene (26.60, D205; VP-10, D118 before)', () => {
+  it('switching mode changes panels and overlays (26.60: the studio modes), never the scene, the time or the selection; changes are remembered per mode', async () => {
     const { state } = await import('../src/app/store')
-    const { setWorkMode, resetWorkMode, work, MODE_PRESETS } = await import('../src/app/workMode')
+    const { setStudioMode, resetStudioMode, shell, MODE_PRESETS } = await import('../src/app/layout')
     const scene = JSON.stringify(state.scene)
     state.time = 0.42
     state.selection = null
-    await setWorkMode('solve')
-    expect(work.mode).toBe('solve')
-    expect(state.rightTab).toBe(MODE_PRESETS.solve.rightTab)
-    expect(state.bottomTab).toBe('events')
-    state.display.velocity = true
-    await new Promise(r => setTimeout(r, 0))
-    await setWorkMode('experiment')
-    expect(state.rightTab).toBe('watch')
-    await setWorkMode('solve')
-    expect(state.display.velocity).toBe(true)
-    resetWorkMode()
-    expect(state.display.velocity).toBe(false)
+    setStudioMode('analyze')
+    expect(shell.mode).toBe('analyze')
+    expect(shell.sideTab).toBe(MODE_PRESETS.analyze.sideTab)
+    expect(['formula', 'watch', 'predict']).toContain(state.rightTab)
+    expect(shell.drawerOpen).toBe(true)
+    shell.drawerOpen = false
+    setStudioMode('build')
+    expect(state.rightTab).toBe('inspect')
+    expect(shell.drawerOpen).toBe(false)
+    setStudioMode('analyze')
+    expect(shell.drawerOpen).toBe(false)
+    resetStudioMode()
+    expect(shell.drawerOpen).toBe(true)
     expect(JSON.stringify(state.scene)).toBe(scene)
     expect(state.time).toBe(0.42)
   })

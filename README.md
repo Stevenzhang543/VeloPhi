@@ -1,4 +1,4 @@
-# VeloΦ (VeloPhi) 26.59
+# VeloΦ (VeloPhi) 26.60
 
 **English** · [简体中文](README.zh-CN.md) · [Deutsch](README.de.md)
 
@@ -6,7 +6,7 @@ VeloΦ is a 2D physics simulation and teaching engine for students, teachers and
 
 > Everything on the screen comes from the numerical solver; formulas are only compared, and errors are shown. That is what we mean by *physically verifiable*.
 
-![The studio: an incline with friction, forces drawn on the canvas, formulas compared with the simulation](assets/readme/studio.jpg)
+![The studio in the Analysis mode: an incline with friction, forces drawn on the canvas, formulas compared with the simulation in the sidebar, charts in the timeline drawer](assets/readme/studio.jpg)
 
 - **Repository:** <https://github.com/Stevenzhang543/VeloPhi>
 - **Downloads:** <https://github.com/Stevenzhang543/VeloPhi/releases> (Windows portable / installer, Android APK, web build)
@@ -15,7 +15,8 @@ VeloΦ is a 2D physics simulation and teaching engine for students, teachers and
 ## Highlights
 
 - **An exact solver for teaching.** Event-driven integration (Dormand–Prince 5(4) with error control, or symplectic Gauss–Legendre); contact, friction, impacts and rope states change at events located to about 10⁻¹² s; constraint forces are solved exactly from the acceleration equations; an energy ledger closes to 10⁻⁸.
-- **AI problem reading and Copilot (new in 26.59).** Paste a problem or attach a photo: the AI reads it, classifies it, chooses a model and sets the parameters, and the scene is ready to run; Copilot answers questions and can operate the app for you. The division of labour is strict: the AI *reads* and *acts*, the engine computes every numerical answer.
+- **A canvas-first studio (new in 26.60).** One slim top bar with the modes *Build / Simulation / Analysis*, a floating tool strip, a floating timeline and one sidebar; on phones a bottom tab bar with bottom sheets.
+- **Copilot and AI problem reading.** Send a problem as text or a photo: Copilot answers with the answer, the working and an explanation, and on request generates the simulation scene (a JSON scene file) so that the engine computes and checks the answers; it also answers questions and operates the app for you. The division of labour is strict: the AI *reads* and *acts*, the engine computes every numerical answer.
 - **A many-body solver.** Stacks, piles, dominoes and Galton boards with hundreds of bodies, computed with a soft-step solver re-implemented after the algorithms published with Box2D v3 and Rapier — and a **solver comparison** that shows how far it is from the exact solver.
 - **Formulas that are checked, not asserted.** About 180 model families with conditions in four states, independent references and step-by-step derivations; formulas are graded by curriculum level (Chinese curriculum or IB).
 - **Labs.** DC and AC circuits, electric and magnetic fields, lenses and ray optics, wave optics, waves and sound, 1D quantum mechanics, gases and heat engines, radioactive decay and nuclear reactions, special relativity.
@@ -23,48 +24,53 @@ VeloΦ is a 2D physics simulation and teaching engine for students, teachers and
 - **Reproducible.** Deterministic maths: the same scene gives the same SHA-256 fingerprint in the desktop app, in the browser and in Node; checkpoints rebuild evicted frames bit for bit.
 - **Open and offline.** One portable `.exe`, an APK or a static web build; simulation and teaching need no account, server or plug-in. The AI features work with your own API key (OpenAI-compatible or Anthropic format), or with the official AI after signing in with a whitelists.top account.
 
-## What is new in 26.59
+## What is new in 26.60
 
 | Area | Change |
 | --- | --- |
-| AI problem reading | The *Task* tab, the problem gallery and *Paste a problem* on the welcome page read problems (Copilot's *Build & simulate* falls back to it when a build fails) given as text, a picture, or both. The AI recognises the problem type and picks one of five routes — a built-in example, a simulation template, one of the six task domains, an analytic model, or, when no template fits, a **generated scene** — and fills in the numbers from the text. The app checks every id, parameter range and unit (and lets the AI repair its answer at most twice), then renders the scene; every answer is read from the simulation. Pictures are first transcribed to text, which you can correct and read again. A template is chosen only when its structure holds every object of the problem; otherwise the AI builds a scene (also with movable pulleys) or an **equation model** that the app solves and checks for contradictions. Every reading comes back with the answers computed by the app and a short **solution path**. |
-| Copilot | Docked on the right of the window (Ctrl+I opens or collapses it), with two tabs and a conversation each. **Solve & explain** works through a problem like a teacher: givens, the process, forces and motion, which law applies and why, the equations step by step, the answer, a check and common mistakes. **Build & simulate** has the AI write a complete VeloΦ scene file (JSON) for the problem, which the app checks and loads automatically as a problem whose answers the engine computes; the file is shown on a card to view, copy or save. It also changes the scene, shows force arrows and reads every force on a body, plays, draws curves, or **points** at a control with a spotlight. One click hands a problem to the other tab, with the simulation's results. Every change can be undone from the chat, “Ask me first” confirms each step, and **learning mode** gives hints first and reveals answers only after the student has answered. With DeepSeek, *Deep thinking* can be switched on. |
-| Account and official AI | Optional: sign in with a whitelists.top account (approve this device in the browser, or enter user name and password) to use the official AI with a daily allowance. Without signing in, enter your own key — OpenAI-compatible (OpenAI, DeepSeek, Qwen, local models …) or Anthropic; keys stay on your computer. |
-| Problems | From 30 to **82**, with four new chapters: electrostatics, magnetic fields and charged particles, electromagnetic induction, pressure and buoyancy. Filter by chapter, type (28), level and stage, and search titles, texts and tags; problems read by the AI can be kept in *My problems*. |
-| Look and feel | Glass only for the top bar, floating layers and Copilot; content panels are solid. A slim top bar: File · pages · Templates · Problems · Teaching · View · undo/redo · search · Recompute with its Compute menu · Help · Copilot. Consistent corner radii and motion, *Reduce transparency*, hit areas of at least 24 px (44 px on touch screens), a **Problem parameters** card at the top of *Properties* that changes everything in one place, and a phone layout. |
-| Android | The first **APK** (Android 8.0 or later, arm64 and armv7). |
+| Studio (desktop) | The canvas fills the window. A slim top bar holds the menu (file and export, templates and problems, teaching tools, pages, help), the three modes **Build / Simulation / Analysis**, undo/redo, search, templates, problems, view, run and AI. The modes are presets of what is shown — tools and properties; playback with charts and events; formulas, watch and charts — and what you change within a mode is remembered for it. A **tool strip** floats at the left of the canvas (common tools, *All tools*, the object list, snapping switches), a **timeline** floats at its bottom (its drawer opens upward with charts and events), and **one sidebar** on the right has four tabs: properties, analysis, problems and AI. It can be resized or folded to a rail of icons. |
+| Phone and Android | Full-screen canvas, a **bottom tab bar** (tools · properties · run/play · analysis · AI) and **bottom sheets** that stop at a third, two thirds or the full height and close when dragged down; a slim timeline above the tab bar; a two-level settings page. |
+| Copilot | One Copilot again. A problem (text or picture) is answered as **answer → working → explanation**; underneath, the app offers to **generate the simulation scene**. A separate builder request returns exactly one JSON object (the VeloΦ scene file, the questions and its assumptions); the app reads it leniently, checks, places and loads it, and sends any errors back for a corrected file — at most three tries. The scene card shows the engine's answers, the assumptions and the JSON (view, copy, save, reload), and **Compare the explanation with the simulation** has Copilot check its own working against the engine. “Build …” or “change the mass to 3 kg” builds or changes a scene directly. |
+| Timeline | Runs no longer stop at a fixed time: they go on while anything moves and end only at rest, at a stop condition or when you stop them (a scene's duration is now how far it computes at least). The computation stays ahead of playback and pauses when far enough ahead; a stopped run can be continued. |
+| Editing | Snapping uses exact signed gaps between the convex pieces and arc bands of the shapes: a block set on another keeps its sideways position, edges line up within 6 px, a quick move into a side is pushed out sideways. Grid snapping puts an edge, a corner or an arc's end on the grid and contacts still win (the quarter arc now lines up with the ground). Combining finishes on double-click or Enter (the double-clicked body is included) and the canvas shows its focus ring only for keyboard focus; drags continue outside the canvas. |
 
-![Copilot · Build & simulate: the AI writes the scene file, the app loads it as a problem and the engine computes the answers](assets/readme/ai-import.jpg)
+26.59 brought AI problem reading, the official AI with a whitelists.top account, 82 problems, exact arc tracks and the first Android APK — see its release notes.
+
+![Copilot: answer, working and explanation, then the offer to generate the simulation scene](assets/readme/copilot.jpg)
+
+![The generated scene is loaded as a problem; the card shows the engine's answers, the builder's assumptions and the JSON file](assets/readme/ai-import.jpg)
+
+![On a phone: the canvas, the analysis sheet with formulas, the tools sheet](assets/readme/phone.jpg)
 
 ## Download and run
 
 | File | What it is |
 | --- | --- |
-| `VeloPhi-v26.59-windows-x64-portable.exe` | Portable desktop app: double-click, nothing is installed. |
-| `VeloPhi-v26.59-windows-x64-setup.exe` | Installer for the same app (start menu entry, uninstaller). |
-| `VeloPhi-v26.59-android.apk` | Android app (Android 8.0 or later): open it on the phone and install it (allow the browser or file manager to install unknown apps). |
-| `VeloPhi-v26.59-web.zip` | Static web build: unzip and serve the folder with any static web server (it needs WebAssembly, so it does not run from `file://`), e.g. `npx serve dist` or `python -m http.server`. |
-| `VeloPhi-v26.59-source.zip` | Source code of this release. |
-| `VeloPhi-v26.59-release-evidence.zip` | Logs and test reports of the release build. |
+| `VeloPhi-v26.60-windows-x64-portable.exe` | Portable desktop app: double-click, nothing is installed. |
+| `VeloPhi-v26.60-windows-x64-setup.exe` | Installer for the same app (start menu entry, uninstaller). |
+| `VeloPhi-v26.60-android.apk` | Android app (Android 8.0 or later): open it on the phone and install it (allow the browser or file manager to install unknown apps). |
+| `VeloPhi-v26.60-web.zip` | Static web build: unzip and serve the folder with any static web server (it needs WebAssembly, so it does not run from `file://`), e.g. `npx serve dist` or `python -m http.server`. |
+| `VeloPhi-v26.60-source.zip` | Source code of this release. |
+| `VeloPhi-v26.60-release-evidence.zip` | Logs and test reports of the release build. |
 
 Requirements: Windows 10 or 11 (x64) with Microsoft Edge WebView2 (already part of current Windows), Android 8.0 or later with the system WebView for the APK, or any current desktop browser for the web build. Check a download against `SHA256SUMS.txt`: `certutil -hashfile <file> SHA256`.
 
 ## Ten-minute tutorial
 
-1. **First start.** The welcome page offers four ways in: *Teach a lesson* (projection mode and the template gallery), *Practise* (the learning path), *Paste a problem* (AI problem reading) and *Experiment* (an empty scene or the many-body sandbox). *60-second tour* lights up the five parts of the studio one by one. You can come back later through the cap icon in the top bar or Ctrl+K → “Welcome and tour”.
+1. **First start.** The welcome page offers four ways in: *Teach a lesson* (projection mode and the template gallery), *Practise* (the learning path), *Paste a problem* (AI problem reading) and *Experiment* (an empty scene or the many-body sandbox). *60-second tour* lights up the five parts of the studio one by one (on a phone, the parts of the phone layout). You can come back later through *Help* in the menu or Ctrl+K → “Welcome and tour”.
 
    ![Welcome page with three ways in](assets/readme/welcome.jpg)
 
-2. **Open a template.** Click **Templates**, choose a classic model (e.g. *Inclines and friction › Incline: static and kinetic friction*), change its parameters and click **Create scene**. Space plays and pauses, ← → step frame by frame; diamonds on the timeline are events (impacts, sticking, start of sliding) — click one to see what happened and why.
-3. **Read the physics.** The right panel *Analysis › Formula* lists the situations of the run; each formula shows the theoretical value, the simulated value and the error. Hover a formula to see the bodies, forces and angles it refers to on the canvas. *Monitor* reads every quantity of the selected body at this moment; *Details* opens derivations and worked solutions.
-4. **Build your own scene.** Pick a tool on the left (block, ball, incline, rope, spring, hinge, motor …), click on the canvas to place it, drag to size it. Editing is continuous and snaps only near other bodies (hold Alt to switch snapping off). Every change recomputes automatically.
+2. **Open a template.** Click **Templates**, choose a classic model (e.g. *Inclines and friction › Incline: static and kinetic friction*), change its parameters and click **Create scene**. Space plays and pauses, ← → step frame by frame; diamonds on the timeline are events (impacts, sticking, start of sliding) — click one to see what happened and why. The run goes on while anything moves; the status next to the timeline tells how far it has computed.
+3. **Read the physics.** Switch to the **Analysis** mode: the sidebar's *Analysis › Formula* lists the situations of the run; each formula shows the theoretical value, the simulated value and the error. Hover a formula to see the bodies, forces and angles it refers to on the canvas. *Monitor* reads every quantity of the selected body at this moment; *Details* opens derivations and worked solutions.
+4. **Build your own scene.** In the **Build** mode, pick a tool on the strip at the left of the canvas (or *All tools*: block, ball, incline, arc track, rope, spring, hinge, motor …), click on the canvas to place it, drag to size it. Editing is continuous and snaps only near other bodies, into exact contact with edges lined up (hold Alt to switch snapping off); grid snapping is optional. Every change recomputes automatically.
 5. **Predict first.** *Analysis › Predict* lets students write down a value and how sure they are before the run; after the run each prediction is compared with the simulation and the formula. A confident prediction that is far off is marked as a possible misconception.
-6. **Let the AI build a problem.** In *Settings › Account and AI*, sign in with a whitelists.top account or enter your own endpoint, model and key. In Copilot on the right, choose **Build & simulate**, paste a problem (or attach a photo) and press Enter: the AI writes the scene file, the app loads it, and the *Problems* tab shows the answers computed by the engine. **Explain this problem** on the card hands it to **Solve & explain** for a step-by-step explanation. Without AI, the offline rule-based reader in the *Task* tab still handles six problem domains.
+6. **Solve a problem with Copilot.** In *Settings › Account and AI*, sign in with a whitelists.top account or enter your own endpoint, model and key. Open **AI** (top bar, sidebar tab or Ctrl+I; on a phone the AI tab at the bottom), paste a problem (or attach a photo) and press Enter: Copilot gives the answer, the working and an explanation. Choose **Generate simulation scene** under it to have the engine build the problem and compute the answers, then **Compare the explanation with the simulation**. Without AI, the offline rule-based reader in the *Task* tab still handles six problem domains.
 
    ![The problem gallery: 82 problems, filtered by chapter, type, level and stage](assets/readme/problems.jpg)
 
-7. **Ask Copilot.** Copilot sits on the right (Ctrl+I collapses or opens it). Ask “why is the acceleration smaller than without friction?”, say “set the angle to 40° and play”, or “show me how to open the v‑t graph” (it highlights the control so you can click it yourself). Every step it took is listed in its answer and can be undone.
-8. **Labs.** The *Lab* page (Alt+2) has circuits that run in time, field lines, lenses, spectra, decay, quantum wells and more, each with readouts and substituted formulas.
+7. **Ask Copilot.** Copilot is the AI tab of the sidebar (Ctrl+I opens or closes it). Ask “why is the acceleration smaller than without friction?”, say “set the angle to 40° and play”, or “show me how to open the v‑t graph” (it highlights the control so you can click it yourself). Every step it took is listed in its answer and can be undone.
+8. **Labs.** The *Lab* page (menu or Alt+2) has circuits that run in time, field lines, lenses, spectra, decay, quantum wells and more, each with readouts and substituted formulas.
 9. **Many bodies.** Open *Many bodies and statistics › Galton board*: 120 balls fall through ten rows of pegs; under the board the counts per bin are drawn with the binomial expectation. Any scene can switch to *Real-time many-body* in *Scene › Calculation* (sub-steps, step rate, sleeping). *Solver comparison…* runs the exact and the many-body solver side by side.
 
    ![Galton board: counts per bin and the binomial distribution](assets/readme/galton.jpg)

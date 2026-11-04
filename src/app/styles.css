@@ -280,10 +280,10 @@ kbd { font-family: var(--font-mono); font-size: var(--type-tiny); background: va
 
 /* Menus and popovers */
 .menu { position: absolute; z-index: 8000; min-width: 220px; padding: 5px; border-radius: 14px; background: var(--pane); box-shadow: var(--shadow-pop), 0 0 0 0.5px var(--separator); display: flex; flex-direction: column; gap: 1px; animation: pop-in 140ms var(--ease-out); }
-.menu > button, .menu > label { display: flex; align-items: center; gap: 8px; height: var(--menu-row); padding: 0 10px; border: 0; border-radius: 7px; background: transparent; cursor: pointer; text-align: left; font-size: var(--type-body); white-space: nowrap; }
-.menu > button:hover, .menu > label:hover { background: var(--accent); color: var(--on-accent); }
+.menu > button, .menu > label, .menu .menu-col > button { display: flex; align-items: center; gap: 8px; height: var(--menu-row); padding: 0 10px; border: 0; border-radius: 7px; background: transparent; cursor: pointer; text-align: left; font-size: var(--type-body); white-space: nowrap; }
+.menu > button:hover, .menu > label:hover, .menu .menu-col > button:hover:not(:disabled) { background: var(--accent); color: var(--on-accent); }
 .menu > button:hover .muted, .menu > label:hover .muted { color: inherit; opacity: 0.8; }
-.menu > button:disabled { opacity: 0.45; cursor: default; background: transparent; color: inherit; }
+.menu > button:disabled, .menu .menu-col > button:disabled { opacity: 0.45; cursor: default; background: transparent; color: inherit; }
 .menu .sep { height: 1px; background: var(--separator); margin: 4px 6px; }
 .menu .menu-title { font-size: var(--type-tiny); color: var(--text-3); font-weight: 600; padding: 4px 10px 2px; }
 @keyframes pop-in { from { opacity: 0; transform: translateY(-4px) scale(0.98); } to { opacity: 1; transform: none; } }

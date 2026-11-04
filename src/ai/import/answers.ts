@@ -5,6 +5,7 @@
  */
 import { tl } from '../../i18n'
 import { state } from '../../app/store'
+import { readyForAnswers } from '../../engine/recording'
 import { fmtQ } from '../../app/settings'
 import { questionKey, ptext } from '../../teaching/problems'
 import { recognize } from '../../formula/recognize'
@@ -58,7 +59,8 @@ export function answersOf(o: ImportSuccess): AnswerLine[] | null {
  */
 export function problemAnswers(id: string): AnswerLine[] | null {
   if (state.problem?.problem.id !== id) return null
-  const rec = !state.stale && state.recording && state.recording.completed !== false && !state.computing ? state.recording : null
+  // 26.60 (D203): runs go on past the scene's duration; the answers are read once it is reached
+  const rec = !state.stale && state.recording && readyForAnswers(state.recording, state.computing) ? state.recording : null
   if (!rec) return null
   // Read only once the run is complete (events late in the run are not known before)
   void state.run.tComputed

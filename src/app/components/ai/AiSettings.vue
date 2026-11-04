@@ -162,9 +162,8 @@ const usage = computed(() => account.ai?.usage && account.ai.limits ? account.ai
 
     <!-- ---- Features ---- -->
     <div class="sgroup">
-      <div class="srow"><div class="sl"><b>{{ tl('主界面 AI 栏') }}</b><span>{{ tl('Copilot 收起后在窗口右侧保留一条窄边，随时点开；粘贴题目点“识别题目”即可导入。') }}</span></div><input v-model="ai.importBar" type="checkbox" class="switch"></div>
       <div class="srow"><div class="sl"><b>{{ tl('读题后直接显示答案') }}</b><span>{{ tl('关闭时答案先折叠，学生作答后再揭晓（适合练习）。') }}</span></div><input v-model="ai.revealAnswers" type="checkbox" class="switch"></div>
-      <div class="srow"><div class="sl"><b>Copilot</b><span>{{ tl('窗口右侧的 Copilot 栏：提问、识别题目、替你操作（Ctrl+I 打开或收起）。') }}</span></div><input v-model="ai.copilot" type="checkbox" class="switch"></div>
+      <div class="srow"><div class="sl"><b>Copilot</b><span>{{ tl('侧栏的 AI 页（手机上是底部的 AI）：讲题、生成仿真场景、替你操作（Ctrl+I 打开或收起）。') }}</span></div><input v-model="ai.copilot" type="checkbox" class="switch"></div>
       <div class="srow"><div class="sl"><b>{{ tl('深度思考') }}</b><span>{{ thinkNote }}</span></div><input v-model="ai.thinking" type="checkbox" class="switch" :disabled="!aiCanThink()"></div>
       <div class="srow"><div class="sl"><b>{{ tl('Copilot 操作软件') }}</b><span>{{ tl('直接执行：Copilot 可以替你载入例题、改参数、播放，每一步都能撤销；每次先问我：执行前先确认。') }}</span></div>
         <div class="segmented" role="radiogroup"><button role="radio" :aria-checked="ai.copilotMode === 'act'" :class="{ on: ai.copilotMode === 'act' }" @click="ai.copilotMode = 'act'">{{ tl('直接执行') }}</button><button role="radio" :aria-checked="ai.copilotMode === 'ask'" :class="{ on: ai.copilotMode === 'ask' }" @click="ai.copilotMode = 'ask'">{{ tl('每次先问我') }}</button></div>

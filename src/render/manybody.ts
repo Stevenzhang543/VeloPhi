@@ -8,7 +8,7 @@ import type { FrameView } from '../engine/views'
 import type { Scene } from '../core/scene/types'
 import type { HistogramDef } from '../templates/t2658'
 import type { Camera, Palette } from './renderer'
-import { toScreen } from './renderer'
+import { getBottomInset, toScreen } from './renderer'
 import { drawHistogram, histogramCounts } from './histogram'
 
 /** Contact points of a frame of a many-body run: [bodyA, bodyB, x, y, nx, ny, separation]. */
@@ -62,9 +62,9 @@ export function drawManyBody(ctx: CanvasRenderingContext2D, cam: Camera, o: { re
   ctx.font = '12px system-ui, sans-serif'
   const w = ctx.measureText(text).width + 16
   ctx.fillStyle = palette.labelBg
-  ctx.fillRect(12, cam.height - 58, w, 22)
+  ctx.fillRect(12, cam.height - 58 - getBottomInset(), w, 22)
   ctx.fillStyle = palette.text2
   ctx.textBaseline = 'middle'
-  ctx.fillText(text, 20, cam.height - 47)
+  ctx.fillText(text, 20, cam.height - 47 - getBottomInset())
   ctx.restore()
 }

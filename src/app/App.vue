@@ -13,16 +13,24 @@ import { overlapPrompt } from './overlapGate'
 import { deleteObject } from './editing'
 import { openScene, saveScene, newScene } from './files'
 import TopBar from './components/TopBar.vue'
-import LeftPanel from './components/LeftPanel.vue'
 import Viewport from './components/Viewport.vue'
+import Timeline from './components/Timeline.vue'
+import TemplateGallery from './components/TemplateGallery.vue'
+// 26.60 (D205–D206): the new shell — tool strip, floating timeline, one sidebar; phones: tab bar and sheets
+import ToolStrip from './components/ToolStrip.vue'
+import TimeDock from './components/TimeDock.vue'
+import Sidebar from './components/Sidebar.vue'
+import PhoneNav from './components/PhoneNav.vue'
+import BottomSheet from './components/BottomSheet.vue'
+import ToolPalette from './components/ToolPalette.vue'
+import ObjectList from './components/ObjectList.vue'
 import Inspector from './components/Inspector.vue'
+import SettingsPanel from './components/SettingsPanel.vue'
 import FormulaPanel from './components/FormulaPanel.vue'
 import WatchPanel from './components/WatchPanel.vue'
-import SettingsPanel from './components/SettingsPanel.vue'
-import Timeline from './components/Timeline.vue'
+import PredictionPanel from './components/PredictionPanel.vue'
 import ChartPanel from './components/ChartPanel.vue'
 import EventList from './components/EventList.vue'
-import TemplateGallery from './components/TemplateGallery.vue'
 const ExportDialog = defineAsyncComponent(() => import('./components/ExportDialog.vue'))
 const AboutDialog = defineAsyncComponent(() => import('./components/AboutDialog.vue'))
 const CoursewareDialog = defineAsyncComponent(() => import('./components/CoursewareDialog.vue'))
@@ -44,7 +52,6 @@ const ModelCatalog = defineAsyncComponent(() => import('./components/models/Mode
 import ProblemPanel from './components/ProblemPanel.vue'
 // 26.57 (D114): the task panel
 import TaskPanel from './components/task/TaskPanel.vue'
-import PredictionPanel from './components/PredictionPanel.vue'
 import { editor } from './editor/editorState'
 import MonitorPage from './components/MonitorPage.vue'
 import CanvasPins from './components/task/CanvasPins.vue'
@@ -54,20 +61,14 @@ const LabPage = defineAsyncComponent(() => import('./components/lab/LabPage.vue'
 import DetailPanel from './components/DetailPanel.vue'
 // 26.59 (D167, D172): the problem import bar and Copilot
 import Spotlight from './components/ai/Spotlight.vue'
-// 26.59 fix (D183): Copilot is a dock at the right edge, next to the pages
-const CopilotDock = defineAsyncComponent(() => import('./components/ai/CopilotDock.vue'))
+// 26.60 (D204): Copilot is the AI tab of the sidebar, or the AI sheet on a phone
+const CopilotPanel = defineAsyncComponent(() => import('./components/ai/CopilotPanel.vue'))
 import { isDesktop } from '../platform/files'
 import { PAGE_ACTIVE } from './live'
 import { settings } from './settings'
-import { vSlideIndicator } from './slideIndicator'
-import Icon from './components/Icon.vue'
 import { logEvent } from './trialLog'
-import { drawerOpen, narrow, railOn, setCopilotOpen } from './layout'
-// The dock starts as it was left (closed on narrow windows, where it covers the page)
-state.showCopilot = settings.ai.dockOpen && !narrow.value
-
-const bottomHeight = ref(290)
-const rightWidth = ref(380)
+import { phone, setCopilotOpen, shell, syncSideTab } from './layout'
+import type { SheetId } from './layout'
 
 const studioOn = computed(() => state.page === 'studio')
 // The studio page lives in this template; the other pages provide their own flag
@@ -92,7 +93,6 @@ watch(() => [mounted.lab, mounted.monitor, mounted.settings], () => {
  * A freshly mounted page is laid out once invisibly ("warming") before it is hidden.
  */
 function pageClass(p: Page) { return state.page === p ? 'is-on' : warmed[p] ? 'is-off' : 'is-warming' }
-const tabClass = (on: boolean) => (on ? 'is-on' : 'is-off')
 
 function typing(e: KeyboardEvent) {
   const t = e.target as HTMLElement
@@ -150,6 +150,7 @@ function premount() {
 
 let unlistenClose: (() => void) | null = null
 onMounted(async () => {
+  syncSideTab()
   window.addEventListener('keydown', onKey)
   window.addEventListener('keyup', onKeyUp)
   premount()
@@ -167,104 +168,96 @@ onMounted(async () => {
 })
 onBeforeUnmount(() => { window.removeEventListener('keydown', onKey); window.removeEventListener('keyup', onKeyUp); window.removeEventListener('beforeunload', beforeUnload); unlistenClose?.() })
 
-/** Narrowest right panel: its tabs must stay readable at the current interface scale. */
-const minRight = () => Math.round(280 * settings.uiScale * (settings.projector ? 1.18 : 1))
-watch(() => [settings.uiScale, settings.projector], () => { rightWidth.value = Math.max(rightWidth.value, minRight()) }, { immediate: true })
-
-function dragSplit(kind: 'bottom' | 'right', e: MouseEvent) {
-  const start = { x: e.clientX, y: e.clientY, h: bottomHeight.value, w: rightWidth.value }
-  const move = (ev: MouseEvent) => {
-    if (kind === 'bottom') bottomHeight.value = Math.max(150, Math.min(window.innerHeight - 260, start.h - (ev.clientY - start.y)))
-    else rightWidth.value = Math.max(minRight(), Math.min(640, start.w - (ev.clientX - start.x)))
-  }
-  const up = () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up) }
-  window.addEventListener('mousemove', move)
-  window.addEventListener('mouseup', up)
-}
-
-/**
- * Right panel (26.54, D86): three tabs — analysis (formulas, watch, prediction as a second-level switch), properties
- * and scene — plus the problem tab in problem mode. `state.rightTab` keeps naming the panel shown; the top tab and
- * the analysis page are derived from it and remembered in the settings.
- */
-type TopTab = 'problem' | 'task' | 'analysis' | 'inspect' | 'settings'
-const ANALYSIS = ['formula', 'watch', 'predict'] as const
-const isAnalysis = (t: typeof state.rightTab): t is (typeof ANALYSIS)[number] => (ANALYSIS as readonly string[]).includes(t)
-const topTab = computed<TopTab>(() => (isAnalysis(state.rightTab) ? 'analysis' : state.rightTab))
-/** Labels are computed so that a language change relabels them (App itself is not remounted). */
-const RIGHT_TABS = computed((): Array<{ id: TopTab; label: string }> => [
-  // The problem tab exists while a problem is open (26.52, D40)
+/** Phone sheets: titles, and the pages of the 属性 and 分析 sheets (26.60, D206). */
+const SHEET_TITLE: Record<SheetId, string> = { tools: '工具', inspect: '属性', analysis: '分析', ai: 'Copilot', timeline: '时间轴' }
+type PhonePage = 'inspect' | 'settings' | 'formula' | 'watch' | 'predict' | 'chart' | 'events' | 'problem' | 'task'
+const phonePage = ref<PhonePage>('formula')
+const PHONE_ANALYSIS = computed(() => [
   ...(state.problem ? [{ id: 'problem' as const, label: tl('题目') }] : []),
-  // 26.57 (D114): what is studied, known and asked, in one stable place
-  { id: 'task', label: tl('任务') },
-  { id: 'analysis', label: tl('分析') }, { id: 'inspect', label: tl('属性') }, { id: 'settings', label: tl('场景') }
+  { id: 'formula' as const, label: tl('公式') }, { id: 'chart' as const, label: tl('曲线') }, { id: 'events' as const, label: tl('事件') },
+  { id: 'watch' as const, label: tl('监视') }, { id: 'task' as const, label: tl('任务') }, { id: 'predict' as const, label: tl('预测') }
 ])
-const ANALYSIS_TABS = computed(() => [{ id: 'formula' as const, label: tl('公式') }, { id: 'watch' as const, label: tl('监视') }, { id: 'predict' as const, label: tl('预测') }])
-function openTop(t: TopTab) { state.rightTab = t === 'analysis' ? settings.ui.analysisTab : t }
-// Remember the tab (restored at the next start) and the page of the analysis tab
-if (settings.ui.rightTab && state.rightTab !== settings.ui.rightTab) state.rightTab = settings.ui.rightTab
-watch(() => state.rightTab, t => {
-  if (t === 'problem') return
-  settings.ui.rightTab = t
-  if (isAnalysis(t)) settings.ui.analysisTab = t
-})
-// Leaving problem mode on the problem tab shows the formula cards
-watch(() => state.problem, p => { if (!p && state.rightTab === 'problem') state.rightTab = 'formula' })
+// The analysis sheet follows the right panel's page (a problem opened shows it) and the bottom tab
+watch(() => state.rightTab, rt => { if (rt !== 'inspect' && rt !== 'settings') phonePage.value = rt })
+function pickPhonePage(p: PhonePage) {
+  phonePage.value = p
+  if (p === 'chart' || p === 'events') state.bottomTab = p === 'chart' ? 'chart' : 'events'
+  else state.rightTab = p
+}
+const sheetOn = (s: SheetId) => phone.value && shell.sheet === s
+watch(phone, p => { if (!p) shell.sheet = null })
 </script>
 
 <template>
   <div class="ambient" aria-hidden="true"><i /><i /><i /><i /></div>
-  <div :key="locale.lang" class="app" :style="{ '--bottom-h': `${bottomHeight}px`, '--right-w': `${rightWidth}px` }">
+  <div :key="locale.lang" class="app" :class="{ phone }">
     <TopBar class="top" />
     <div class="workspace">
-    <div class="pages">
-        <div class="page page-studio" :class="[pageClass('studio'), { rail: railOn, narrow, 'drawer-open': drawerOpen }]" :inert="!studioOn">
-          <aside class="left"><LeftPanel /></aside>
+      <div class="pages">
+        <!-- 26.60 (D205): the canvas fills the studio; the tools float on it, one sidebar at the right -->
+        <div v-if="!phone" class="page page-studio" :class="pageClass('studio')" :inert="!studioOn">
           <main class="center">
-            <div class="view"><Viewport variant="studio" /><CanvasPins /></div>
-            <div class="split-h" @mousedown.prevent="dragSplit('bottom', $event)" />
-            <section class="pane bottom">
-              <Timeline :active="studioOn" />
-              <div class="bottom-tabs">
-                <div v-slide-indicator class="tabs"><button data-ui="bottom-chart" :class="{ on: state.bottomTab === 'chart' }" @click="state.bottomTab = 'chart'">{{ tl('曲线') }}</button><button data-ui="bottom-events" :class="{ on: state.bottomTab === 'events' }" @click="state.bottomTab = 'events'">{{ tl('事件') }}</button></div>
-              </div>
-              <div class="bottom-body">
-                <ChartPanel :class="tabClass(state.bottomTab === 'chart')" :inert="state.bottomTab !== 'chart'" :active="studioOn && state.bottomTab === 'chart'" />
-                <EventList :class="tabClass(state.bottomTab === 'events')" :inert="state.bottomTab !== 'events'" :active="studioOn && state.bottomTab === 'events'" />
-              </div>
-            </section>
+            <div class="view">
+              <Viewport variant="studio" /><CanvasPins />
+              <ToolStrip />
+              <TimeDock v-if="!shell.drawerOpen" part="bar" :active="studioOn" />
+            </div>
+            <TimeDock v-if="shell.drawerOpen" part="drawer" :active="studioOn" />
           </main>
-          <div class="split-v" @mousedown.prevent="dragSplit('right', $event)" />
-          <!-- 26.55: in a narrow window the right panel is a drawer over the canvas -->
-          <button v-if="narrow" class="drawer-btn btn small" :aria-expanded="drawerOpen" :title="drawerOpen ? tl('收起面板') : tl('分析、属性与场景')" @click="drawerOpen = !drawerOpen"><Icon :name="drawerOpen ? 'close' : 'sidebar'" :size="14" />{{ drawerOpen ? tl('收起') : tl('面板') }}</button>
-          <aside class="pane right">
-            <div class="right-head">
-              <div v-slide-indicator class="tabs" :class="{ four: true, five: !!state.problem }" role="tablist">
-                <button v-for="t in RIGHT_TABS" :key="t.id" :data-ui="`tab-${t.id}`" role="tab" :aria-selected="topTab === t.id" :class="{ on: topTab === t.id }" @click="openTop(t.id)">{{ t.label }}</button>
-              </div>
-              <!-- Second level of the analysis tab (D86) -->
-              <div v-if="topTab === 'analysis'" class="subtabs" role="tablist" :aria-label="tl('分析')">
-                <button v-for="t in ANALYSIS_TABS" :key="t.id" :data-ui="`sub-${t.id}`" role="tab" :aria-selected="state.rightTab === t.id" :class="{ on: state.rightTab === t.id }" @click="state.rightTab = t.id">{{ t.label }}</button>
-              </div>
-            </div>
-            <div class="tab-stack">
-              <div v-if="state.problem" class="tab-panel" :class="tabClass(state.rightTab === 'problem')" :inert="state.rightTab !== 'problem'"><ProblemPanel /></div>
-              <div class="tab-panel" :class="tabClass(state.rightTab === 'task')" :inert="state.rightTab !== 'task'"><TaskPanel /></div>
-              <div class="tab-panel" :class="tabClass(state.rightTab === 'formula')" :inert="state.rightTab !== 'formula'"><FormulaPanel :active="studioOn && state.rightTab === 'formula'" /></div>
-              <div class="tab-panel" :class="tabClass(state.rightTab === 'inspect')" :inert="state.rightTab !== 'inspect'"><Inspector /></div>
-              <div class="tab-panel" :class="tabClass(state.rightTab === 'watch')" :inert="state.rightTab !== 'watch'"><WatchPanel :active="studioOn && state.rightTab === 'watch'" /></div>
-              <div class="tab-panel" :class="tabClass(state.rightTab === 'predict')" :inert="state.rightTab !== 'predict'"><PredictionPanel /></div>
-              <div class="tab-panel" :class="tabClass(state.rightTab === 'settings')" :inert="state.rightTab !== 'settings'"><SettingsPanel /></div>
-            </div>
-          </aside>
+          <Sidebar />
+        </div>
+        <!-- 26.60 (D206): phones — full-screen canvas, a slim timeline, sheets over the canvas -->
+        <div v-else class="page page-studio phone-studio" :class="pageClass('studio')" :inert="!studioOn">
+          <div class="view">
+            <Viewport variant="studio" /><CanvasPins />
+            <BottomSheet v-if="shell.sheet" :title="tl(SHEET_TITLE[shell.sheet])" @close="shell.sheet = null">
+              <template v-if="sheetOn('tools')">
+                <div class="sheet-pad">
+                  <ToolPalette touch @pick="shell.sheet = null" />
+                  <div class="snaps">
+                    <label class="snap"><input v-model="settings.editor.objectSnap" type="checkbox" class="switch" /><span>{{ tl('物体吸附') }}</span></label>
+                    <label class="snap"><input v-model="settings.editor.snap" type="checkbox" class="switch" /><span>{{ tl('网格吸附') }}</span></label>
+                  </div>
+                  <div class="ptitle tiny muted">{{ tl('对象') }}</div>
+                  <ObjectList @pick="shell.sheet = 'inspect'" />
+                </div>
+              </template>
+              <template v-else-if="sheetOn('inspect')">
+                <div class="chips" role="tablist">
+                  <button role="tab" :class="{ on: state.rightTab !== 'settings' }" @click="state.rightTab = 'inspect'">{{ tl('对象') }}</button>
+                  <button role="tab" :class="{ on: state.rightTab === 'settings' }" @click="state.rightTab = 'settings'">{{ tl('场景') }}</button>
+                </div>
+                <div class="sheet-pad"><SettingsPanel v-if="state.rightTab === 'settings'" /><Inspector v-else /></div>
+              </template>
+              <template v-else-if="sheetOn('analysis')">
+                <div class="chips scroll" role="tablist">
+                  <button v-for="p in PHONE_ANALYSIS" :key="p.id" role="tab" :class="{ on: phonePage === p.id }" @click="pickPhonePage(p.id)">{{ p.label }}</button>
+                </div>
+                <div class="fill">
+                  <div v-if="phonePage === 'chart' || phonePage === 'events'" class="abs"><ChartPanel v-if="phonePage === 'chart'" :active="studioOn" /><EventList v-else :active="studioOn" /></div>
+                  <div v-else class="sheet-pad">
+                    <FormulaPanel v-if="phonePage === 'formula'" :active="studioOn" />
+                    <WatchPanel v-else-if="phonePage === 'watch'" :active="studioOn" />
+                    <PredictionPanel v-else-if="phonePage === 'predict'" />
+                    <ProblemPanel v-else-if="phonePage === 'problem' && state.problem" />
+                    <TaskPanel v-else />
+                  </div>
+                </div>
+              </template>
+              <template v-else-if="sheetOn('ai')">
+                <div class="fill"><div class="abs"><CopilotPanel /></div></div>
+              </template>
+            </BottomSheet>
+          </div>
+          <div class="ptime"><Timeline compact no-play :active="studioOn" /></div>
         </div>
         <LabPage v-if="mounted.lab" class="page" :class="pageClass('lab')" :inert="state.page !== 'lab'" :active="state.page === 'lab'" />
         <MonitorPage v-if="mounted.monitor" class="page" :class="pageClass('monitor')" :inert="state.page !== 'monitor'" :active="state.page === 'monitor'" />
         <SettingsPage v-if="mounted.settings" class="page" :class="pageClass('settings')" :inert="state.page !== 'settings'" :active="state.page === 'settings'" />
         <DetailPanel />
+      </div>
     </div>
-    <CopilotDock v-if="settings.ai.copilot" />
-    </div>
+    <PhoneNav v-if="phone && state.page === 'studio'" />
     <TemplateGallery v-if="state.showTemplates" />
     <ExportDialog v-if="state.showExport && state.recording" />
     <AboutDialog v-if="state.showAbout" />
@@ -295,6 +288,7 @@ watch(() => state.problem, p => { if (!p && state.rightTab === 'problem') state.
   position: relative;
   z-index: 1;
   height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   padding: 0 8px 8px;
@@ -303,52 +297,27 @@ watch(() => state.problem, p => { if (!p && state.rightTab === 'problem') state.
 .workspace { flex: 1; min-height: 0; display: flex; }
 .pages { flex: 1; min-width: 0; min-height: 0; display: grid; position: relative; }
 .page { grid-area: 1 / 1; min-width: 0; min-height: 0; }
-.page-studio {
-  display: grid;
-  grid-template-columns: var(--left-w) 1fr 6px var(--right-w);
-  grid-template-rows: minmax(0, 1fr);
-  grid-template-areas: 'left center splitv right';
-  gap: 0 8px;
-}
-.left { grid-area: left; min-height: 0; }
-/* Icon rail of the tool palette (D56) */
-.page-studio.rail { --left-w: calc(56px * var(--zoom)); }
-.center { grid-area: center; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
-.view { flex: 1; min-height: 160px; position: relative; }
-.split-h { height: 8px; cursor: row-resize; flex: 0 0 auto; }
-.split-v { grid-area: splitv; cursor: col-resize; margin: 0 -4px; }
-.bottom { height: var(--bottom-h); flex: 0 0 auto; }
-.bottom-tabs { padding: 0 12px 4px; display: flex; }
-.bottom-tabs .tabs { width: 160px; }
-.bottom-body { flex: 1; min-height: 0; position: relative; }
-.bottom-body > * { position: absolute; inset: 0; }
-.right { grid-area: right; min-height: 0; }
-.right-head { padding: 10px 10px 6px; container-type: inline-size; }
-/* Three tabs (four in problem mode) and the analysis switch below them (D86) */
-.right-head .tabs.four button { flex: 1 1 auto; padding: 0 3px; }
-.right-head .tabs.five button { font-size: var(--type-tiny); padding: 0 2px; }
-@container (max-width: 300px) { .right-head .tabs button { font-size: var(--type-tiny); padding: 0 2px; } }
-.subtabs { display: flex; gap: 2px; margin-top: 6px; position: relative; }
-.subtabs button { flex: 1; border: 0; background: none; color: var(--text-2); font-size: var(--type-small); padding: 3px 4px; border-radius: 6px; cursor: pointer; border-bottom: 2px solid transparent; }
-.subtabs button:hover { color: var(--text); background: var(--hover); }
-.subtabs button.on { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
-.tab-stack { flex: 1; min-height: 0; position: relative; }
-.tab-panel { position: absolute; inset: 0; overflow: auto; padding: 4px 12px 12px; }
-/* 26.55 (D96): narrow windows — the right panel becomes a drawer over the canvas; phones stack the bottom pane.
-   26.59 fix: the closed drawer is clipped, so it does not widen the page (a wider page made phones zoom out and the
-   full-screen Copilot wider than the screen). */
-.drawer-btn { display: none; }
-.page-studio.narrow { grid-template-columns: var(--left-w) 1fr; grid-template-areas: 'left center'; position: relative; overflow: clip; }
-.page-studio.narrow .split-v { display: none; }
-/* 26.59: bottom right of the canvas */
-.page-studio.narrow .drawer-btn { display: inline-flex; position: absolute; bottom: 12px; right: 14px; z-index: 6; gap: 4px; box-shadow: var(--shadow); }
-.page-studio.narrow .right { grid-area: auto; background: var(--pane); position: absolute; top: 0; right: 0; bottom: 0; width: min(var(--right-w), 92vw); z-index: 5; transform: translateX(105%); transition: transform 0.2s ease; box-shadow: -8px 0 24px rgba(0, 0, 0, 0.18); }
-.page-studio.narrow.drawer-open .right { transform: none; }
-.page-studio.narrow.drawer-open .drawer-btn { top: auto; bottom: 12px; right: 14px; }
-@media (max-width: 760px) {
-  .app { padding: 0 4px 4px; }
-  .page-studio.narrow .right { width: 100%; }
-  .bottom { height: min(var(--bottom-h), 42vh); }
-}
-@media (prefers-reduced-motion: reduce) { .page-studio.narrow .right { transition: none; } }
+/* 26.60 (D205): canvas column and one sidebar */
+.page-studio { display: flex; gap: 8px; position: relative; }
+.center { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; container: studio / inline-size; }
+.view { flex: 1; min-height: 160px; position: relative; --float-bottom: 64px; --float-left: 62px; }
+.center:has(.drawer) .view { --float-bottom: 0px; }
+/* 26.60 (D206): phones */
+.app.phone { padding: 0; }
+.app.phone .top { padding: 0 6px; }
+.phone-studio { display: flex; flex-direction: column; gap: 0; }
+.phone-studio .view { flex: 1; min-height: 0; position: relative; overflow: hidden; --float-bottom: 0px; --float-left: 0px; }
+.phone-studio .view :deep(.viewport) { border-radius: 0; box-shadow: none; }
+.ptime { flex: 0 0 auto; background: var(--pane); border-top: 0.5px solid var(--separator); }
+.sheet-pad { padding: 4px 14px 16px; }
+.snaps { display: flex; gap: 16px; padding: 10px 2px 4px; }
+.snap { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; }
+.ptitle { margin: 10px 2px 4px; font-weight: 600; }
+.chips { display: flex; gap: 6px; padding: 2px 14px 8px; }
+.chips.scroll { overflow-x: auto; scrollbar-width: none; }
+.chips.scroll::-webkit-scrollbar { display: none; }
+.chips button { flex: 0 0 auto; min-height: 36px; padding: 0 14px; border: 0; border-radius: 999px; background: var(--fill); color: var(--text-2); font: inherit; font-size: var(--type-small); cursor: pointer; }
+.chips button.on { background: var(--accent); color: var(--on-accent); font-weight: 600; }
+.fill { position: relative; flex: 1; min-height: 0; height: calc(100% - 46px); }
+.abs { position: absolute; inset: 0; overflow: auto; }
 </style>

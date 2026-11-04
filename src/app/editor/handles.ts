@@ -12,7 +12,7 @@ import { tl } from '../../i18n'
 import type { BodyDef, PulleyDef, Scene } from '../../core/scene/types'
 import type { Pt, Attachments } from './geometry'
 import {
-  MIN_SIZE, bodyCenter, captureAttachments, centroid, clean, closestOnSegment, pulleyWorld, isValidSimple, localVerts, remapAttachments,
+  MIN_SIZE, bodyCenter, captureAttachments, centroid, cleanLen, closestOnSegment, pulleyWorld, isValidSimple, localVerts, remapAttachments,
   rotate, signedArea, toLocalPt, toWorldPt, worldVerts, writePolygon
 } from './geometry'
 import { roundTo } from './snap'
@@ -194,7 +194,7 @@ export function applyHandleDrag(scene: Scene, d: HandleDrag, p: Pt, o: DragOptio
     if (!pl || !d.origPulley) return fb
     let r = Math.hypot(p.x - d.center.x, p.y - d.center.y)
     if (o.snap) r = roundTo(r, o.step)
-    pl.radius = clean(Math.max(MIN_SIZE, r))
+    pl.radius = cleanLen(Math.max(MIN_SIZE, r))
     fb.labels.push({ at: { x: d.center.x + pl.radius, y: d.center.y }, text: `r = ${o.fmtLen(pl.radius)}` })
     return fb
   }
@@ -206,7 +206,7 @@ export function applyHandleDrag(scene: Scene, d: HandleDrag, p: Pt, o: DragOptio
   if (h.kind === 'radius' && orig.shape.type === 'circle') {
     let r = Math.hypot(p.x - orig.position.x, p.y - orig.position.y)
     if (o.snap) r = roundTo(r, o.step)
-    r = clean(Math.max(MIN_SIZE, r))
+    r = cleanLen(Math.max(MIN_SIZE, r))
     def.shape = { type: 'circle', radius: r }
     const k = r / orig.shape.radius
     if (d.att) remapAttachments(d.att, q => ({ x: q.x * k, y: q.y * k }))
@@ -218,7 +218,7 @@ export function applyHandleDrag(scene: Scene, d: HandleDrag, p: Pt, o: DragOptio
     const c = arcCenterWorld(orig as BodyDef & { shape: ArcShapeDef })
     let r = Math.hypot(p.x - c.x, p.y - c.y)
     if (o.snap) r = roundTo(r, o.step)
-    r = clean(Math.max(MIN_SIZE, r))
+    r = cleanLen(Math.max(MIN_SIZE, r))
     def.shape = { ...orig.shape, radius: r }
     def.position = { ...orig.position }
     placeArc(def)
@@ -230,7 +230,7 @@ export function applyHandleDrag(scene: Scene, d: HandleDrag, p: Pt, o: DragOptio
     const verts = localVerts(orig)
     const cand = verts.map(v => ({ ...v }))
     const lp = toLocalPt(orig, p)
-    cand[h.index] = { x: clean(lp.x), y: clean(lp.y) }
+    cand[h.index] = { x: cleanLen(lp.x), y: cleanLen(lp.y) }
     if (!isValidSimple(cand)) {
       fb.invalid = cand.map(l => toWorldPt(orig, l))
       return fb
@@ -261,11 +261,11 @@ function resizeBox(def: BodyDef, orig: BodyDef, d: HandleDrag, h: { sx: number; 
     const k = Math.max(nw / w, nh / hh)
     nw = w * k; nh = hh * k
   }
-  nw = clean(Math.max(MIN_SIZE, nw)); nh = clean(Math.max(MIN_SIZE, nh))
+  nw = cleanLen(Math.max(MIN_SIZE, nw)); nh = cleanLen(Math.max(MIN_SIZE, nh))
   const cx = h.sx !== 0 ? fx + h.sx * nw / 2 : 0
   const cy = h.sy !== 0 ? fy + h.sy * nh / 2 : 0
   const cw = toWorldPt(orig, { x: cx, y: cy })
-  const c = { x: clean(cw.x), y: clean(cw.y) }
+  const c = { x: cleanLen(cw.x), y: cleanLen(cw.y) }
   def.shape = { type: 'box', width: nw, height: nh }
   def.position = c
   const kx = nw / w, ky = nh / hh

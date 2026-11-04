@@ -41,15 +41,36 @@ function table(rows: string[]): string {
   return `<div class="tbl"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`
 }
 
+const ITEM = /^\s*([-*•]|\d+[.)])\s+/
 function block(lines: string[]): string {
   if (!lines.length) return ''
-  if (lines.every(l => /^\s*([-*•]|\d+[.)])\s+/.test(l))) {
-    const ordered = /^\s*\d/.test(lines[0])
-    const items = lines.map(l => `<li>${inline(l.replace(/^\s*([-*•]|\d+[.)])\s+/, ''))}</li>`).join('')
-    return ordered ? `<ol>${items}</ol>` : `<ul>${items}</ul>`
+  if (/^#{1,4}\s/.test(lines[0])) return `<p><b>${inline(lines[0].replace(/^#{1,4}\s/, ''))}</b></p>${block(lines.slice(1))}`
+  // 26.60: lists and text in one block — a line that is not an item (a display formula, a wrapped line) continues
+  // the item above it; text before the first item is a paragraph
+  const out: string[] = []
+  let para: string[] = []
+  let items: string[][] = []
+  let ordered = false
+  const flushPara = () => { if (para.length) out.push(`<p>${para.map(inline).join('<br>')}</p>`); para = [] }
+  const flushList = () => {
+    if (!items.length) return
+    const li = items.map(it => `<li>${it.map(inline).join('<br>')}</li>`).join('')
+    out.push(ordered ? `<ol>${li}</ol>` : `<ul>${li}</ul>`)
+    items = []
   }
-  if (/^#{1,4}\s/.test(lines[0])) return `<p><b>${inline(lines[0].replace(/^#{1,4}\s/, ''))}</b>${lines.length > 1 ? '<br>' + lines.slice(1).map(inline).join('<br>') : ''}</p>`
-  return `<p>${lines.map(inline).join('<br>')}</p>`
+  for (const l of lines) {
+    if (ITEM.test(l)) {
+      const o = /^\s*\d/.test(l)
+      if (items.length && o !== ordered) flushList()
+      flushPara()
+      ordered = o
+      items.push([l.replace(ITEM, '')])
+    } else if (items.length) items[items.length - 1].push(l.trim())
+    else para.push(l)
+  }
+  flushPara()
+  flushList()
+  return out.join('')
 }
 
 export function renderAnswer(text: string): string {

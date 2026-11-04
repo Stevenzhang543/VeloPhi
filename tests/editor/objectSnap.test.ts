@@ -20,7 +20,7 @@ function world(): { scene: Scene; ground: BodyDef; block: BodyDef } {
 
 /** Snap a raw displacement of the block (from its current definition) and return the corrected displacement. */
 function move(scene: Scene, b: BodyDef, d: { x: number; y: number }, mem: SnapMemory) {
-  const r = snapBodyMove(scene, b.id, shifted(outlineOf(b), d), PPM, mem)
+  const r = snapBodyMove(scene, b.id, d, PPM, mem)
   return { x: d.x + r.delta.x, y: d.y + r.delta.y, contacts: r.contacts }
 }
 

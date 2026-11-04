@@ -4490,7 +4490,7 @@ checksum = "accd4ea62f7bb7a82fe23066fb0957d48ef677f6eeb8215f372f52e48bb32426"
 
 [[package]]
 name = "velophi"
-version = "26.59.0"
+version = "26.60.0"
 dependencies = [
  "reqwest",
  "rustls",
@@ -4507,7 +4507,7 @@ dependencies = [
 
 [[package]]
 name = "velophi-core"
-version = "26.59.0"
+version = "26.60.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -4515,7 +4515,7 @@ dependencies = [
 
 [[package]]
 name = "velophi-native"
-version = "26.59.0"
+version = "26.60.0"
 dependencies = [
  "serde_json",
  "velophi-core",

@@ -260,7 +260,8 @@ export function duplicateBody(scene: Scene, id: string): string | null {
 }
 
 /** Sum a + d without the floating noise of repeated small steps (0.30000000000000004 → 0.3). */
-const add = (a: number, d: number) => Number((a + d).toPrecision(12))
+/** a + d with the rounding noise removed (12 significant digits; 26.60: a sum that is zero up to noise is 0, not 1e-16). */
+const add = (a: number, d: number) => { const v = a + d; return Math.abs(v) < 1e-12 * Math.max(1, Math.abs(a), Math.abs(d)) ? 0 : Number(v.toPrecision(12)) }
 
 /** Move a body or pulley by (dx, dy) (m). */
 export function moveObject(scene: Scene, sel: Selection, dx: number, dy: number) {
