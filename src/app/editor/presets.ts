@@ -1,11 +1,13 @@
 /**
  * Ready-made parts of the palette (26.59 fix 3, D194): arc tracks (quarter arc, semicircular groove, vertical loop,
- * hump and dip bridges, a movable groove), a hoop, a long board, a cart, steps and a pendulum — each placed with one
- * click so that it rests on the surface under the pointer — and the material presets of the inspector.
+ * hump and dip bridges, a movable groove, since 26.60 r2 a slide with an arc and a flat part), a hoop, a long board, a
+ * cart, steps and a pendulum — each placed with one click so that it rests on the surface under the pointer — and the
+ * material presets of the inspector.
  */
-import type { BodyDef, Material, RopeDef, Scene } from '../../core/scene/types'
+import type { BodyDef, Material, RopeDef, Scene, ShapePart, SpringDef } from '../../core/scene/types'
 import { addBody, addConnector } from '../../core/scene/build'
 import { arcCentroid, arcDeg } from '../../core/scene/arc'
+import { compoundMass } from '../../engine/calc'
 import type { Tool } from '../store'
 import { tl } from '../../i18n'
 
@@ -14,7 +16,7 @@ type Pt = { x: number; y: number }
 export type Snap = { foot: Pt; n: Pt; angle: number } | null
 
 /** Tools that place a preset part. */
-export const PRESET_TOOLS = ['add-arc-quarter', 'add-arc-half', 'add-arc-loop', 'add-arc-hump', 'add-arc-dip', 'add-arc-groove', 'add-hoop', 'add-board', 'add-cart', 'add-steps', 'add-pendulum'] as const
+export const PRESET_TOOLS = ['add-arc-quarter', 'add-arc-half', 'add-arc-loop', 'add-arc-hump', 'add-arc-dip', 'add-arc-groove', 'add-arc-slide', 'add-hoop', 'add-board', 'add-cart', 'add-steps', 'add-pendulum', 'add-launcher'] as const
 export type PresetTool = typeof PRESET_TOOLS[number]
 export const isPresetTool = (t: Tool | string): t is PresetTool => (PRESET_TOOLS as readonly string[]).includes(t)
 
@@ -78,6 +80,23 @@ export function placePreset(scene: Scene, tool: PresetTool, p: Pt, snap: Snap): 
         position: { x: centre.x + c.x, y: centre.y + c.y }, mass: 2, fixedRotation: true, material: SMOOTH, color: '#0ea5e9'
       }).id
     }
+    case 'add-arc-slide': {
+      // 26.60 r2 (D207): a smooth slide (3 kg) standing on the surface — a quarter arc (inner radius 0.5 m) whose lower
+      // end is tangent to a flat part 0.6 m long; one rigid body that slides but does not tip over
+      const R = 0.5, t = 0.1, L = 0.6
+      const centre = { x: base.x, y: base.y + R + t }
+      const parts: ShapePart[] = [
+        { shape: arcDeg(R, t, 180, 90), position: { x: 0, y: 0 }, angle: 0 },
+        { shape: { type: 'box', width: L, height: t }, position: { x: L / 2, y: -R - t / 2 }, angle: 0 }
+      ]
+      // Parts about the centre of mass (computed by the core), the body origin there
+      const { centroid: g } = compoundMass({ type: 'compound', parts }, 1)
+      const shifted = parts.map(q => ({ ...q, position: { x: q.position.x - g.x, y: q.position.y - g.y } }))
+      return addBody(scene, {
+        name: nameFor(scene, tl('圆弧滑块')), role: 'block', shape: { type: 'compound', parts: shifted },
+        position: { x: centre.x + g.x, y: centre.y + g.y }, mass: 3, fixedRotation: true, material: SMOOTH, color: '#0ea5e9'
+      }).id
+    }
     case 'add-hoop': {
       // Thin hoop (I ≈ mr²) that rolls
       const Ri = 0.18, t = 0.02
@@ -118,6 +137,15 @@ export function placePreset(scene: Scene, tool: PresetTool, p: Pt, snap: Snap): 
       const bob = addBody(scene, { name: nameFor(scene, tl('摆球')), kind: 'particle', role: 'ball', shape: { type: 'circle', radius: 0.05 }, position: { x: p.x + L * Math.sin(th), y: p.y - L * Math.cos(th) }, mass: 0.2, material: { muS: 0, muK: 0, restitution: 0 }, color: '#e11d48' })
       addConnector<RopeDef>(scene, { type: 'rope', name: tl('摆线'), a: { body: null, local: { x: p.x, y: p.y } }, b: { body: bob.id, local: { x: 0, y: 0 } }, pulleys: [], length: null })
       return bob.id
+    }
+    case 'add-launcher': {
+      // 26.60 r2 (D208): a wall, a spring that is not fastened to the block (k = 200 N/m, rest length 0.4 m) and a block
+      // (1 kg) pressing it 0.1 m, on the surface under the click; all smooth — released, the block leaves the spring
+      const h = 0.2, wallH = 0.5, wallW = 0.1, L0 = 0.4, x = 0.1
+      addBody(scene, { name: nameFor(scene, tl('墙')), kind: 'static', role: 'wall', shape: { type: 'box', width: wallW, height: wallH }, position: { x: base.x - wallW / 2, y: base.y + wallH / 2 }, material: SMOOTH, color: '#64748b' })
+      const block = addBody(scene, { name: nameFor(scene, tl('物块')), role: 'block', shape: { type: 'box', width: h, height: h }, position: { x: base.x + L0 - x + h / 2, y: base.y + h / 2 }, mass: 1, fixedRotation: true, material: SMOOTH, color: '#3b82f6' })
+      addConnector<SpringDef>(scene, { type: 'spring', name: tl('弹簧'), a: { body: null, local: { x: base.x, y: base.y + h / 2 } }, b: { body: block.id, local: { x: -h / 2, y: 0 } }, stiffness: 200, restLength: L0, damping: 0, pushOnly: true })
+      return block.id
     }
   }
   return null

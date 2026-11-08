@@ -1,23 +1,23 @@
 {
- "version": "26.56",
+ "version": "26.61",
  "generated": "scripts/coverage.mjs",
  "baseline": {
   "version": "26.55",
   "commit": "f71a4ffd1b3c0e470987e7d8d46d851af2025585"
  },
  "summary": {
-  "models": 180,
+  "models": 212,
   "status": {
-   "verified": 180
+   "verified": 212
   },
   "level": {
-   "L1": 74,
+   "L1": 106,
    "L2": 91,
    "L3": 15
   },
   "teaching": {
-   "0": 20,
-   "1": 143,
+   "0": 44,
+   "1": 151,
    "2": 17
   },
   "complete": [
@@ -41,15 +41,16 @@
    "partial": 38,
    "missing": 55,
    "verified": 80,
-   "unverified": 7
+   "unverified": 7,
+   "—": 32
   },
   "baselineLevel": {
    "L1": 59,
    "L2": 62,
-   "L0": 59
+   "L0": 91
   },
-  "oracleCases": 591,
-  "activities": 15,
+  "oracleCases": 698,
+  "activities": 19,
   "requirements": {
    "verified": 38,
    "partial": 17,
@@ -1625,6 +1626,7 @@
    },
    "links": {
     "templates": [
+     "incline-friction",
      "pull-force"
     ],
     "labs": [],
@@ -1768,7 +1770,10 @@
     "templates": [
      "projectile",
      "charge-deflection",
-     "oscilloscope"
+     "oscilloscope",
+     "projectile-slope",
+     "hump-bridge",
+     "projectile-wall"
     ],
     "labs": [],
     "problems": [
@@ -1779,7 +1784,9 @@
     "situations": [
      "projectile"
     ],
-    "activities": [],
+    "activities": [
+     "act-projectile"
+    ],
     "topics": [
      "motion"
     ]
@@ -1788,7 +1795,7 @@
     "validity": true,
     "independent": true,
     "teaching": false,
-    "interactive": false,
+    "interactive": true,
     "reproducible": true
    },
    "complete": false,
@@ -1971,6 +1978,7 @@
    "links": {
     "templates": [
      "incline",
+     "incline-friction",
      "conveyor-incline",
      "incline-efficiency",
      "slope-up",
@@ -2047,6 +2055,9 @@
    "links": {
     "templates": [
      "incline",
+     "incline-friction",
+     "pyramid",
+     "ball-pour",
      "table-pulley",
      "pull-force"
     ],
@@ -2127,7 +2138,13 @@
     "templates": [
      "pull-force",
      "incline-efficiency",
-     "slope-up"
+     "slope-up",
+     "arc-slide",
+     "vertical-loop",
+     "groove-momentum",
+     "spring-drop",
+     "spring-launcher",
+     "dome-slide"
     ],
     "labs": [],
     "problems": [
@@ -2535,7 +2552,8 @@
    },
    "links": {
     "templates": [
-     "movable-wedge"
+     "movable-wedge",
+     "groove-momentum"
     ],
     "labs": [],
     "problems": [
@@ -2686,7 +2704,9 @@
     "situations": [
      "collision"
     ],
-    "activities": [],
+    "activities": [
+     "act-collision"
+    ],
     "topics": [
      "momentum"
     ]
@@ -2695,7 +2715,7 @@
     "validity": true,
     "independent": true,
     "teaching": false,
-    "interactive": false,
+    "interactive": true,
     "reproducible": true
    },
    "complete": false,
@@ -2812,6 +2832,7 @@
    },
    "links": {
     "templates": [
+     "galton",
      "collision-2d",
      "ball-rod",
      "slider-stop",
@@ -2884,11 +2905,13 @@
    },
    "links": {
     "templates": [
+     "dominoes",
      "hinged-rod",
      "ball-rod",
      "motor-disc",
      "gears",
-     "physical-pendulum"
+     "physical-pendulum",
+     "hoop-disc"
     ],
     "labs": [],
     "problems": [
@@ -2956,6 +2979,8 @@
    },
    "links": {
     "templates": [
+     "pyramid",
+     "dominoes",
      "lever",
      "wheel-axle"
     ],
@@ -3023,9 +3048,11 @@
    },
    "links": {
     "templates": [
+     "ball-pour",
      "rolling",
      "rolling-resistance",
-     "v-groove"
+     "v-groove",
+     "hoop-disc"
     ],
     "labs": [],
     "problems": [
@@ -3163,7 +3190,11 @@
    "links": {
     "templates": [
      "vertical-circle-rope",
-     "uniform-circle"
+     "uniform-circle",
+     "arc-slide",
+     "vertical-loop",
+     "hump-bridge",
+     "dome-slide"
     ],
     "labs": [],
     "problems": [
@@ -4479,7 +4510,9 @@
     "templates": [
      "spring",
      "central-spring",
-     "vertical-spring"
+     "vertical-spring",
+     "spring-drop",
+     "spring-launcher"
     ],
     "labs": [],
     "problems": [
@@ -6389,7 +6422,9 @@
     ],
     "problems": [],
     "situations": [],
-    "activities": [],
+    "activities": [
+     "act-field"
+    ],
     "topics": [
      "electric"
     ]
@@ -6398,7 +6433,7 @@
     "validity": true,
     "independent": true,
     "teaching": false,
-    "interactive": false,
+    "interactive": true,
     "reproducible": true
    },
    "complete": false,
@@ -9034,14 +9069,16 @@
     ],
     "problems": [],
     "situations": [],
-    "activities": [],
+    "activities": [
+     "act-lens"
+    ],
     "topics": []
    },
    "criteria": {
     "validity": true,
     "independent": true,
     "teaching": false,
-    "interactive": false,
+    "interactive": true,
     "reproducible": true
    },
    "complete": false,
@@ -12128,7 +12165,10 @@
     "regressions": []
    },
    "links": {
-    "templates": [],
+    "templates": [
+     "galton",
+     "ball-pour"
+    ],
     "labs": [],
     "problems": [],
     "situations": [],
@@ -12328,6 +12368,1644 @@
    "example": "自由标量场单模，约化单位 ℏ = c = 1，k = 3，m = 4。",
    "answer": "ωk = 5；单模真空能为 2.5，增加一个量子使能量增加 5。",
    "validity": "受限：自由场单模的谐振子能级；相互作用、重整化和规范场暂缓"
+  },
+  {
+   "id": "K01",
+   "title": "有效数字与舍入",
+   "stages": [
+    "j",
+    "s"
+   ],
+   "priority": "P1",
+   "geometry": "abstract",
+   "domain": "K",
+   "baseline": null,
+   "status": "verified",
+   "level": 1,
+   "teaching": 1,
+   "restricted": false,
+   "references": [
+    "analytic"
+   ],
+   "evidence": {
+    "oracleCases": 4,
+    "tests": [],
+    "regressions": []
+   },
+   "links": {
+    "templates": [],
+    "labs": [],
+    "problems": [],
+    "situations": [],
+    "activities": [],
+    "topics": []
+   },
+   "criteria": {
+    "validity": true,
+    "independent": true,
+    "teaching": false,
+    "interactive": false,
+    "reproducible": true
+   },
+   "complete": false,
+   "gap": "只有受限解析计算（模型计算器），无交互仿真；有内容链接，无带证据的活动；L4 需要学生试用与修订记录",
+   "review": {
+    "physics": "2026-11-08",
+    "language": "2026-11-08"
+   },
+   "sources": [
+    "S01"
+   ],
+   "example": "把 0.0123456 保留 3 位有效数字。",
+   "answer": "数量级 −2；0.0123；相对误差 3.69×10⁻³。",
+   "validity": "x ≠ 0；n 为正整数"
+  },
+  {
+   "id": "K02",
+   "title": "游标卡尺与螺旋测微器读数",
+   "stages": [
+    "j",
+    "s"
+   ],
+   "priority": "P1",
+   "geometry": "abstract",
+   "domain": "K",
+   "baseline": null,
+   "status": "verified",
+   "level": 1,
+   "teaching": 1,
+   "restricted": false,
+   "references": [
+    "analytic"
+   ],
+   "evidence": {
+    "oracleCases": 3,
+    "tests": [],
+    "regressions": []
+   },
+   "links": {
+    "templates": [],
+    "labs": [],
+    "problems": [],
+    "situations": [],
+    "activities": [],
+    "topics": []
+   },
+   "criteria": {
+    "validity": true,
+    "independent": true,
+    "teaching": false,
+    "interactive": false,
+    "reproducible": true
+   },
+   "complete": false,
+   "gap": "只有受限解析计算（模型计算器），无交互仿真；有内容链接，无带证据的活动；L4 需要学生试用与修订记录",
+   "review": {
+    "physics": "2026-11-08",
+    "language": "2026-11-08"
+   },
+   "sources": [
+    "S01",
+    "S04"
+   ],
+   "example": "主尺 21 mm、第 7 格对齐（精度 0.02 mm）；测微器固定刻度 5.5 mm、可动刻度 23 格。",
+   "answer": "21.14 mm；5.730 mm（精度 0.01 mm）。",
+   "validity": "虚拟读数训练，不能代替实物操作"
+  },
+  {
+   "id": "K03",
+   "title": "非线性拟合与模型选择",
+   "stages": [
+    "u"
+   ],
+   "priority": "P2",
+   "geometry": "abstract",
+   "domain": "K",
+   "baseline": null,
+   "status": "verified",
+   "level": 1,
+   "teaching": 0,
+   "restricted": false,
+   "references": [
+    "analytic"
+   ],
+   "evidence": {
+    "oracleCases": 3,
+    "tests": [],
+    "regressions": []
+   },
+   "links": {
+    "templates": [],
+    "labs": [],
+    "problems": [],
+    "situations": [],
+    "activities": [],
+    "topics": []
+   },
+   "criteria": {
+    "validity": true,
+    "independent": true,
+    "teaching": false,
+    "interactive": false,
+    "reproducible": true
+   },
+   "complete": false,
+   "gap": "只有受限解析计算（模型计算器），无交互仿真；无教学内容；L4 需要学生试用与修订记录",
+   "review": {
+    "physics": "2026-11-08",
+    "language": "2026-11-08"
+   },
+   "sources": [
+    "S08"
+   ],
+   "example": "20 个点：线性模型 RSS = 0.8（2 参数），指数模型 RSS = 0.5（3 参数）。",
+   "answer": "AIC₁ = −60.378，AIC₂ = −67.778，ΔAIC = −7.40；模型 2 的权重 0.976。",
+   "validity": "AIC/BIC 只比较同一数据上的模型"
+  },
+  {
+   "id": "K04",
+   "title": "梯度、散度与旋度",
+   "stages": [
+    "u"
+   ],
+   "priority": "P2",
+   "geometry": "plane",
+   "domain": "K",
+   "baseline": null,
+   "status": "verified",
+   "level": 1,
+   "teaching": 0,
+   "restricted": false,
+   "references": [
+    "analytic",
+    "otherMethod"
+   ],
+   "evidence": {
+    "oracleCases": 3,
+    "tests": [],
+    "regressions": []
+   },
+   "links": {
+    "templates": [],
+    "labs": [],
+    "problems": [],
+    "situations": [],
+    "activities": [],
+    "topics": []
+   },
+   "criteria": {
+    "validity": true,
+    "independent": true,
+    "teaching": false,
+    "interactive": false,
+    "reproducible": true
+   },
+   "complete": false,
+   "gap": "只有受限解析计算（模型计算器），无交互仿真；无教学内容；L4 需要学生试用与修订记录",
+   "review": {
+    "physics": "2026-11-08",
+    "language": "2026-11-08"
+   },
+   "sources": [
+    "S08",
+    "S09"
+   ],
+   "example": "a = 2、b = 3 V/m²，点 (0.1, 0.2) m；c = 0.5、ω = 2 s⁻¹。",
+   "answer": "V = 0.14 V；E = (−0.4, −1.2) V/m；∇²V = 10 V/m²；散度 1 s⁻¹，旋度 4 s⁻¹。",
+   "validity": "二维光滑场"
+  },
+  {
+   "id": "K05",
+   "title": "量纲分析与 π 定理",
+   "stages": [
+    "s",
+    "u"
+   ],
+   "priority": "P2",
+   "geometry": "abstract",
+   "domain": "K",
+   "baseline": null,
+   "status": "verified",
+   "level": 1,
+   "teaching": 0,
+   "restricted": false,
+   "references": [
+    "analytic"
+   ],
+   "evidence": {
+    "oracleCases": 3,
+    "tests": [],
+    "regressions": []
+   },
+   "links": {
+    "templates": [
+     "pendulum"
+    ],
+    "labs": [],
+    "problems": [],
+    "situations": [],
+    "activities": [],
+    "topics": []
+   },
+   "criteria": {
+    "validity": true,
+    "independent": true,
+    "teaching": false,
+    "interactive": false,
+    "reproducible": true
+   },
+   "complete": false,
+   "gap": "交互内容未与本模型逐项对照，只交付受限解析计算；无教学内容；L4 需要学生试用与修订记录",
+   "review": {
+    "physics": "2026-11-08",
+    "language": "2026-11-08"
+   },
+   "sources": [
+    "S01"
+   ],
+   "example": "单摆：T、L、g、m 四个量，三个基本量纲；L = 1 m。",
+   "answer": "1 个无量纲组 T√(g/L)；T = 2.007 s（C = 2π）。",
+   "validity": "常数 C 需由实验或理论给出（小角单摆 C = 2π）"
+  },
+  {
+   "id": "K06",
+   "title": "t 检验与置信区间",
+   "stages": [
+    "u"
+   ],
+   "priority": "P2",
+   "geometry": "abstract",
+   "domain": "K",
+   "baseline": null,
+   "status": "verified",
+   "level": 1,
+   "teaching": 0,
+   "restricted": false,
+   "references": [
+    "analytic"
+   ],
+   "evidence": {
+    "oracleCases": 3,
+    "tests": [],
+    "regressions": []
+   },
+   "links": {
+    "templates": [],
+    "labs": [],
+    "problems": [],
+    "situations": [],
+    "activities": [],
+    "topics": []
+   },
+   "criteria": {
+    "validity": true,
+    "independent": true,
+    "teaching": false,
+    "interactive": false,
+    "reproducible": true
+   },
+   "complete": false,
+   "gap": "只有受限解析计算（模型计算器），无交互仿真；无教学内容；L4 需要学生试用与修订记录",
+   "review": {
+    "physics": "2026-11-08",
+    "language": "2026-11-08"
+   },
+   "sources": [
+    "S08"
+   ],
+   "example": "20 次测 g：均值 9.79、标准差 0.05 m/s²，与 9.81 比较（95%，t_c = 2.093）。",
+   "answer": "标准误差 0.0112；t = −1.79；区间 [9.767, 9.813]，不拒绝 9.81。",
+   "validity": "样本量太小或分布偏斜时结论不可靠"
+  },
+  {
+   "id": "K07",
+   "title": "非惯性系：离心力与科里奥利力",
+   "stages": [
+    "u"
+   ],
+   "priority": "P2",
+   "geometry": "plane",
+   "domain": "K",
+   "baseline": null,
+   "status": "verified",
+   "level": 1,
+   "teaching": 0,
+   "restricted": false,
+   "references": [
+    "analytic"
+   ],
+   "evidence": {
+    "oracleCases": 3,
+    "tests": [],
+    "regressions": []
+   },
+   "links": {
+    "templates": [
+     "elevator"
+    ],
+    "labs": [],
+    "problems": [],
+    "situations": [],
+    "activities": [],
+    "topics": []
+   },
+   "criteria": {
+    "validity": true,
+    "independent": true,
+    "teaching": false,
+    "interactive": false,
+    "reproducible": true
+   },
+   "complete": false,
+   "gap": "交互内容未与本模型逐项对照，只交付受限解析计算；无教学内容；L4 需要学生试用与修订记录",
+   "review": {
+    "physics": "2026-11-08",
+    "language": "2026-11-08"
+   },
+   "sources": [
+    "S08",
+    "S12"
+   ],
+   "example": "1 kg 物体在 0.5 rad/s 的转台上以 2 m/s 运动，距轴 3 m；同样速度在北纬 40° 地面。",
+   "answer": "科里奥利力 2 N，离心力 0.75 N；地面 1.87×10⁻⁴ m/s²。",
+   "validity": "虚拟力只在转动参考系中出现"
+  },
+  {
+   "id": "K08",
+   "title": "限制性三体与拉格朗日点",
+   "stages": [
+    "u"
+   ],
+   "priority": "P3",
+   "geometry": "plane",
+   "domain": "K",
+   "baseline": null,
+   "status": "verified",
+   "level": 1,
+   "teaching": 0,
+   "restricted": true,
+   "references": [
+    "analytic",
+    "otherMethod"
+   ],
+   "evidence": {
+    "oracleCases": 4,
+    "tests": [],
+    "regressions": []
+   },
+   "links": {
+    "templates": [
+     "binary-star"
+    ],
+    "labs": [],
+    "problems": [],
+    "situations": [],
+    "activities": [],
+    "topics": []
+   },
+   "criteria": {
+    "validity": true,
+    "independent": true,
+    "teaching": false,
+    "interactive": false,
+    "reproducible": true
+   },
+   "complete": false,
+   "gap": "L1/L2 用 Hill 半径；L4/L5 在等边三角形顶点，稳定判据 μ < 0.0385（Routh）",
+   "review": {
+    "physics": "2026-11-08",
+    "language": "2026-11-08"
+   },
+   "sources": [
+    "S08"
+   ],
+   "example": "日地系统 μ = 3.003×10⁻⁶，a = 1 AU。",
+   "answer": "L1/L2 距地球约 1.50×10⁹ m（150 万千米）；L4/L5 稳定。",
+   "validity": "受限：L1/L2 距离用 Hill 近似（μ 小时误差约 μ^(1/3)/3）；精确位置需解五次方程"
+  },
+  {
+   "id": "K09",
+   "title": "剪切模量、体积模量与泊松比",
+   "stages": [
+    "u"
+   ],
+   "priority": "P2",
+   "geometry": "abstract",
+   "domain": "K",
+   "baseline": null,
+   "status": "verified",
+   "level": 1,
+   "teaching": 0,
+   "restricted": false,
+   "references": [
+    "analytic"
+   ],
+   "evidence": {
+    "oracleCases": 4,
+    "tests": [],
+    "regressions": []
+   },
+   "links": {
+    "templates": [],
+    "labs": [],
+    "problems": [],
+    "situations": [],
+    "activities": [],
+    "topics": []
+   },
+   "criteria": {
+    "validity": true,
+    "independent": true,
+    "teaching": false,
+    "interactive": false,
+    "reproducible": true
+   },
+   "complete": false,
+   "gap": "只有受限解析计算（模型计算器），无交互仿真；无教学内容；L4 需要学生试用与修订记录",
+   "review": {
+    "physics": "2026-11-08",
+    "language": "2026-11-08"
+   },
+   "sources": [
+    "S08"
+   ],
+   "example": "钢 E = 200 GPa、ν = 0.3；剪应力 50 MPa；纵向应变 10⁻³。",
+   "answer": "G = 76.9 GPa，K = 167 GPa；γ = 6.5×10⁻⁴；横向应变 −3×10⁻⁴；体积应变 4×10⁻⁴。",
+   "validity": "0 ≤ ν < 0.5"
+  },
+  {
+   "id": "K10",
+   "title": "弹塑性与屈服",
+   "stages": [
+    "u"
+   ],
+   "priority": "P2",
+   "geometry": "abstract",
+   "domain": "K",
+   "baseline": null,
+   "status": "verified",
+   "level": 1,
+   "teaching": 0,
+   "restricted": false,
+   "references": [
+    "analytic"
+   ],
+   "evidence": {
+    "oracleCases": 4,
+    "tests": [],
+    "regressions": []
+   },
+   "links": {
+    "templates": [],
+    "labs": [],
+    "problems": [],
+    "situations": [],
+    "activities": [],
+    "topics": []
+   },
+   "criteria": {
+    "validity": true,
+    "independent": true,
+    "teaching": false,
+    "interactive": false,
+    "reproducible": true
+   },
+   "complete": false,
+   "gap": "只有受限解析计算（模型计算器），无交互仿真；无教学内容；L4 需要学生试用与修订记录",
+   "review": {
+    "physics": "2026-11-08",
+    "language": "2026-11-08"
+   },
+   "sources": [
+    "S08"
+   ],
+   "example": "E = 200 GPa，σ_y = 250 MPa，E_t = 2 GPa，拉到 ε = 0.4%。",
+   "answer": "屈服应变 0.125%；σ = 255.5 MPa；残余应变 0.272%。",
+   "validity": "单调加载；卸载按弹性斜率 E"
+  },
+  {
+   "id": "K11",
+   "title": "欧拉压杆屈曲",
+   "stages": [
+    "u"
+   ],
+   "priority": "P2",
+   "geometry": "line1d",
+   "domain": "K",
+   "baseline": null,
+   "status": "verified",
+   "level": 1,
+   "teaching": 0,
+   "restricted": false,
+   "references": [
+    "analytic",
+    "otherMethod"
+   ],
+   "evidence": {
+    "oracleCases": 3,
+    "tests": [],
+    "regressions": []
+   },
+   "links": {
+    "templates": [],
+    "labs": [],
+    "problems": [],
+    "situations": [],
+    "activities": [],
+    "topics": []
+   },
+   "criteria": {
+    "validity": true,
+    "independent": true,
+    "teaching": false,
+    "interactive": false,
+    "reproducible": true
+   },
+   "complete": false,
+   "gap": "只有受限解析计算（模型计算器），无交互仿真；无教学内容；L4 需要学生试用与修订记录",
+   "review": {
+    "physics": "2026-11-08",
+    "language": "2026-11-08"
+   },
+   "sources": [
+    "S08"
+   ],
+   "example": "钢杆 E = 200 GPa，I = 8.333×10⁻⁹ m⁴，L = 2 m，两端铰支，A = 1 cm²。",
+   "answer": "P_cr = 4.11 kN；σ_cr = 41.1 MPa；长细比 219。",
+   "validity": "临界应力低于屈服强度（长细比足够大）"
+  },
+  {
+   "id": "K12",
+   "title": "黏弹性：应力松弛与蠕变",
+   "stages": [
+    "u"
+   ],
+   "priority": "P2",
+   "geometry": "abstract",
+   "domain": "K",
+   "baseline": null,
+   "status": "verified",
+   "level": 1,
+   "teaching": 0,
+   "restricted": false,
+   "references": [
+    "analytic",
+    "otherMethod"
+   ],
+   "evidence": {
+    "oracleCases": 3,
+    "tests": [],
+    "regressions": []
+   },
+   "links": {
+    "templates": [],
+    "labs": [],
+    "problems": [],
+    "situations": [],
+    "activities": [],
+    "topics": []
+   },
+   "criteria": {
+    "validity": true,
+    "independent": true,
+    "teaching": false,
+    "interactive": false,
+    "reproducible": true
+   },
+   "complete": false,
+   "gap": "只有受限解析计算（模型计算器），无交互仿真；无教学内容；L4 需要学生试用与修订记录",
+   "review": {
+    "physics": "2026-11-08",
+    "language": "2026-11-08"
+   },
+   "sources": [
+    "S08"
+   ],
+   "example": "E = 1 MPa，η = 10⁷ Pa·s；ε₀ = 1%，σ₀ = 10 kPa；t = 5 s。",
+   "answer": "τ = 10 s；松弛应力 6.07 kPa；蠕变应变 0.393%。",
+   "validity": "线性黏弹性，单一松弛时间"
+  },
+  {
+   "id": "K13",
+   "title": "浅水波与色散",
+   "stages": [
+    "u"
+   ],
+   "priority": "P2",
+   "geometry": "section2d",
+   "domain": "K",
+   "baseline": null,
+   "status": "verified",
+   "level": 1,
+   "teaching": 0,
+   "restricted": false,
+   "references": [
+    "analytic"
+   ],
+   "evidence": {
+    "oracleCases": 4,
+    "tests": [],
+    "regressions": []
+   },
+   "links": {
+    "templates": [],
+    "labs": [],
+    "problems": [],
+    "situations": [],
+    "activities": [],
+    "topics": []
+   },
+   "criteria": {
+    "validity": true,
+    "independent": true,
+    "teaching": false,
+    "interactive": false,
+    "reproducible": true
+   },
+   "complete": false,
+   "gap": "只有受限解析计算（模型计算器），无交互仿真；无教学内容；L4 需要学生试用与修订记录",
+   "review": {
+    "physics": "2026-11-08",
+    "language": "2026-11-08"
+   },
+   "sources": [
+    "S17",
+    "S08"
+   ],
+   "example": "水深 2 m，波长 20 m。",
+   "answer": "√(gh) = 4.43 m/s；色散关系 4.17 m/s（比值 0.941）。",
+   "validity": "h ≪ λ 时 c → √(gh)"
+  },
+  {
+   "id": "K14",
+   "title": "温室效应与行星平衡温度",
+   "stages": [
+    "s",
+    "u"
+   ],
+   "priority": "P2",
+   "geometry": "abstract",
+   "domain": "K",
+   "baseline": null,
+   "status": "verified",
+   "level": 1,
+   "teaching": 1,
+   "restricted": false,
+   "references": [
+    "analytic"
+   ],
+   "evidence": {
+    "oracleCases": 4,
+    "tests": [],
+    "regressions": []
+   },
+   "links": {
+    "templates": [],
+    "labs": [],
+    "problems": [],
+    "situations": [],
+    "activities": [],
+    "topics": []
+   },
+   "criteria": {
+    "validity": true,
+    "independent": true,
+    "teaching": false,
+    "interactive": false,
+    "reproducible": true
+   },
+   "complete": false,
+   "gap": "只有受限解析计算（模型计算器），无交互仿真；有内容链接，无带证据的活动；L4 需要学生试用与修订记录",
+   "review": {
+    "physics": "2026-11-08",
+    "language": "2026-11-08"
+   },
+   "sources": [
+    "S08"
+   ],
+   "example": "地球：S₀ = 1361 W/m²，反照率 0.3，ε = 0.78。",
+   "answer": "T_e = 254.6 K；T_s = 288.1 K；增温 33.5 K。",
+   "validity": "教学模型：忽略对流、云与反馈"
+  },
+  {
+   "id": "K15",
+   "title": "热阻网络与多层墙",
+   "stages": [
+    "s",
+    "u"
+   ],
+   "priority": "P2",
+   "geometry": "line1d",
+   "domain": "K",
+   "baseline": null,
+   "status": "verified",
+   "level": 1,
+   "teaching": 0,
+   "restricted": false,
+   "references": [
+    "analytic",
+    "otherMethod"
+   ],
+   "evidence": {
+    "oracleCases": 3,
+    "tests": [],
+    "regressions": []
+   },
+   "links": {
+    "templates": [],
+    "labs": [],
+    "problems": [],
+    "situations": [],
+    "activities": [],
+    "topics": []
+   },
+   "criteria": {
+    "validity": true,
+    "independent": true,
+    "teaching": false,
+    "interactive": false,
+    "reproducible": true
+   },
+   "complete": false,
+   "gap": "只有受限解析计算（模型计算器），无交互仿真；无教学内容；L4 需要学生试用与修订记录",
+   "review": {
+    "physics": "2026-11-08",
+    "language": "2026-11-08"
+   },
+   "sources": [
+    "S08"
+   ],
+   "example": "砖 20 cm（k = 0.8）+ 保温 5 cm（k = 0.04），10 m²，室内 20 °C、室外 0 °C。",
+   "answer": "R = 0.1665 K/W；热流 120.1 W；交界面 15.50 °C。",
+   "validity": "热阻串联相加，与电阻类比"
+  },
+  {
+   "id": "K16",
+   "title": "制冷机与热泵",
+   "stages": [
+    "s",
+    "u"
+   ],
+   "priority": "P2",
+   "geometry": "abstract",
+   "domain": "K",
+   "baseline": null,
+   "status": "verified",
+   "level": 1,
+   "teaching": 0,
+   "restricted": false,
+   "references": [
+    "analytic"
+   ],
+   "evidence": {
+    "oracleCases": 3,
+    "tests": [],
+    "regressions": []
+   },
+   "links": {
+    "templates": [],
+    "labs": [],
+    "problems": [],
+    "situations": [],
+    "activities": [],
+    "topics": []
+   },
+   "criteria": {
+    "validity": true,
+    "independent": true,
+    "teaching": false,
+    "interactive": false,
+    "reproducible": true
+   },
+   "complete": false,
+   "gap": "只有受限解析计算（模型计算器），无交互仿真；无教学内容；L4 需要学生试用与修订记录",
+   "review": {
+    "physics": "2026-11-08",
+    "language": "2026-11-08"
+   },
+   "sources": [
+    "S08"
+   ],
+   "example": "室外 −5 °C，室内 35 °C 散热器，输入功 1 kJ。",
+   "answer": "制冷 COP ≤ 6.70；热泵 COP ≤ 7.70；最多送入 7.70 kJ 热量。",
+   "validity": "实际 COP 低于可逆极限"
+  },
+  {
+   "id": "K17",
+   "title": "辐照度与逆平方律",
+   "stages": [
+    "s"
+   ],
+   "priority": "P1",
+   "geometry": "space3d",
+   "domain": "K",
+   "baseline": null,
+   "status": "verified",
+   "level": 1,
+   "teaching": 1,
+   "restricted": false,
+   "references": [
+    "analytic"
+   ],
+   "evidence": {
+    "oracleCases": 3,
+    "tests": [],
+    "regressions": []
+   },
+   "links": {
+    "templates": [],
+    "labs": [],
+    "problems": [],
+    "situations": [],
+    "activities": [],
+    "topics": []
+   },
+   "criteria": {
+    "validity": true,
+    "independent": true,
+    "teaching": false,
+    "interactive": false,
+    "reproducible": true
+   },
+   "complete": false,
+   "gap": "只有受限解析计算（模型计算器），无交互仿真；有内容链接，无带证据的活动；L4 需要学生试用与修订记录",
+   "review": {
+    "physics": "2026-11-08",
+    "language": "2026-11-08"
+   },
+   "sources": [
+    "S08"
+   ],
+   "example": "100 W 点光源，距离 2 m，入射角 30°。",
+   "answer": "1.72 W/m²；正入射 1.99 W/m²。",
+   "validity": "距离远大于光源尺寸"
+  },
+  {
+   "id": "K18",
+   "title": "高斯光束",
+   "stages": [
+    "u"
+   ],
+   "priority": "P2",
+   "geometry": "line1d",
+   "domain": "K",
+   "baseline": null,
+   "status": "verified",
+   "level": 1,
+   "teaching": 0,
+   "restricted": false,
+   "references": [
+    "analytic"
+   ],
+   "evidence": {
+    "oracleCases": 3,
+    "tests": [],
+    "regressions": []
+   },
+   "links": {
+    "templates": [],
+    "labs": [],
+    "problems": [],
+    "situations": [],
+    "activities": [],
+    "topics": []
+   },
+   "criteria": {
+    "validity": true,
+    "independent": true,
+    "teaching": false,
+    "interactive": false,
+    "reproducible": true
+   },
+   "complete": false,
+   "gap": "只有受限解析计算（模型计算器），无交互仿真；无教学内容；L4 需要学生试用与修订记录",
+   "review": {
+    "physics": "2026-11-08",
+    "language": "2026-11-08"
+   },
+   "sources": [
+    "S08"
+   ],
+   "example": "He-Ne 激光 633 nm，束腰 0.5 mm，距束腰 1 m。",
+   "answer": "z_R = 1.24 m；w = 0.642 mm；R = 2.54 m；发散半角 0.403 mrad。",
+   "validity": "束腰远大于波长"
+  },
+  {
+   "id": "K19",
+   "title": "色差与球差",
+   "stages": [
+    "u"
+   ],
+   "priority": "P2",
+   "geometry": "plane",
+   "domain": "K",
+   "baseline": null,
+   "status": "verified",
+   "level": 1,
+   "teaching": 0,
+   "restricted": false,
+   "references": [
+    "analytic",
+    "otherMethod"
+   ],
+   "evidence": {
+    "oracleCases": 3,
+    "tests": [],
+    "regressions": []
+   },
+   "links": {
+    "templates": [],
+    "labs": [],
+    "problems": [],
+    "situations": [],
+    "activities": [],
+    "topics": []
+   },
+   "criteria": {
+    "validity": true,
+    "independent": true,
+    "teaching": false,
+    "interactive": false,
+    "reproducible": true
+   },
+   "complete": false,
+   "gap": "只有受限解析计算（模型计算器），无交互仿真；无教学内容；L4 需要学生试用与修订记录",
+   "review": {
+    "physics": "2026-11-08",
+    "language": "2026-11-08"
+   },
+   "sources": [
+    "S08"
+   ],
+   "example": "BK7 双凸透镜 R = 10 cm；球面镜 R = 50 cm，边缘光线高 5 cm。",
+   "answer": "f_d = 96.75 mm；色差 1.51 mm；阿贝数 63.8；球差 1.26 mm。",
+   "validity": "近轴焦距与有限孔径的差别"
+  },
+  {
+   "id": "K20",
+   "title": "理想运算放大器",
+   "stages": [
+    "u"
+   ],
+   "priority": "P2",
+   "geometry": "lumped",
+   "domain": "K",
+   "baseline": null,
+   "status": "verified",
+   "level": 1,
+   "teaching": 0,
+   "restricted": false,
+   "references": [
+    "analytic"
+   ],
+   "evidence": {
+    "oracleCases": 3,
+    "tests": [],
+    "regressions": []
+   },
+   "links": {
+    "templates": [],
+    "labs": [],
+    "problems": [],
+    "situations": [],
+    "activities": [],
+    "topics": []
+   },
+   "criteria": {
+    "validity": true,
+    "independent": true,
+    "teaching": false,
+    "interactive": false,
+    "reproducible": true
+   },
+   "complete": false,
+   "gap": "只有受限解析计算（模型计算器），无交互仿真；无教学内容；L4 需要学生试用与修订记录",
+   "review": {
+    "physics": "2026-11-08",
+    "language": "2026-11-08"
+   },
+   "sources": [
+    "S51"
+   ],
+   "example": "R_in = 10 kΩ，R_f = 47 kΩ，输入 0.2 V，电源 ±12 V。",
+   "answer": "反相 −4.7 倍，输出 −0.94 V；同相 5.7 倍，输出 1.14 V。",
+   "validity": "负反馈且输出未饱和时线性"
+  },
+  {
+   "id": "K21",
+   "title": "逻辑门与半加器",
+   "stages": [
+    "s",
+    "u"
+   ],
+   "priority": "P2",
+   "geometry": "lumped",
+   "domain": "K",
+   "baseline": null,
+   "status": "verified",
+   "level": 1,
+   "teaching": 0,
+   "restricted": false,
+   "references": [
+    "analytic"
+   ],
+   "evidence": {
+    "oracleCases": 4,
+    "tests": [],
+    "regressions": []
+   },
+   "links": {
+    "templates": [],
+    "labs": [],
+    "problems": [],
+    "situations": [],
+    "activities": [],
+    "topics": []
+   },
+   "criteria": {
+    "validity": true,
+    "independent": true,
+    "teaching": false,
+    "interactive": false,
+    "reproducible": true
+   },
+   "complete": false,
+   "gap": "只有受限解析计算（模型计算器），无交互仿真；无教学内容；L4 需要学生试用与修订记录",
+   "review": {
+    "physics": "2026-11-08",
+    "language": "2026-11-08"
+   },
+   "sources": [
+    "S51"
+   ],
+   "example": "A = 1、B = 1；三级门串联，每级 10 ns。",
+   "answer": "与 1，或 1，异或 0（进位 1），与非 0；延迟 30 ns。",
+   "validity": "理想数字电平"
+  },
+  {
+   "id": "K22",
+   "title": "电池容量、能量与续航",
+   "stages": [
+    "j",
+    "s"
+   ],
+   "priority": "P1",
+   "geometry": "lumped",
+   "domain": "K",
+   "baseline": null,
+   "status": "verified",
+   "level": 1,
+   "teaching": 1,
+   "restricted": false,
+   "references": [
+    "analytic"
+   ],
+   "evidence": {
+    "oracleCases": 3,
+    "tests": [],
+    "regressions": []
+   },
+   "links": {
+    "templates": [],
+    "labs": [],
+    "problems": [],
+    "situations": [],
+    "activities": [],
+    "topics": []
+   },
+   "criteria": {
+    "validity": true,
+    "independent": true,
+    "teaching": false,
+    "interactive": false,
+    "reproducible": true
+   },
+   "complete": false,
+   "gap": "只有受限解析计算（模型计算器），无交互仿真；有内容链接，无带证据的活动；L4 需要学生试用与修订记录",
+   "review": {
+    "physics": "2026-11-08",
+    "language": "2026-11-08"
+   },
+   "sources": [
+    "S51"
+   ],
+   "example": "3600 mAh（12960 C）、3.7 V 的电池，负载 2 W，效率 90%。",
+   "answer": "能量 47 952 J（13.3 Wh）；续航 21 578 s（约 6.0 h）。",
+   "validity": "估算：实际电压随电量下降"
+  },
+  {
+   "id": "K23",
+   "title": "太阳高度角、昼长与四季",
+   "stages": [
+    "j",
+    "s"
+   ],
+   "priority": "P1",
+   "geometry": "space3d",
+   "domain": "K",
+   "baseline": null,
+   "status": "verified",
+   "level": 1,
+   "teaching": 1,
+   "restricted": false,
+   "references": [
+    "analytic",
+    "otherMethod"
+   ],
+   "evidence": {
+    "oracleCases": 4,
+    "tests": [],
+    "regressions": []
+   },
+   "links": {
+    "templates": [],
+    "labs": [],
+    "problems": [],
+    "situations": [],
+    "activities": [],
+    "topics": []
+   },
+   "criteria": {
+    "validity": true,
+    "independent": true,
+    "teaching": false,
+    "interactive": false,
+    "reproducible": true
+   },
+   "complete": false,
+   "gap": "只有受限解析计算（模型计算器），无交互仿真；有内容链接，无带证据的活动；L4 需要学生试用与修订记录",
+   "review": {
+    "physics": "2026-11-08",
+    "language": "2026-11-08"
+   },
+   "sources": [
+    "S08"
+   ],
+   "example": "北纬 40°，夏至（δ = 23.44°），正午与午后 2 h（H = 30°）。",
+   "answer": "正午 73.44°；午后两小时 59.81°；昼长约 14.84 h。",
+   "validity": "|φ| + |δ| < 90°（无极昼极夜）"
+  },
+  {
+   "id": "K24",
+   "title": "月相与日月食几何",
+   "stages": [
+    "j",
+    "s"
+   ],
+   "priority": "P1",
+   "geometry": "space3d",
+   "domain": "K",
+   "baseline": null,
+   "status": "verified",
+   "level": 1,
+   "teaching": 1,
+   "restricted": false,
+   "references": [
+    "analytic"
+   ],
+   "evidence": {
+    "oracleCases": 4,
+    "tests": [],
+    "regressions": []
+   },
+   "links": {
+    "templates": [],
+    "labs": [],
+    "problems": [],
+    "situations": [],
+    "activities": [],
+    "topics": []
+   },
+   "criteria": {
+    "validity": true,
+    "independent": true,
+    "teaching": false,
+    "interactive": false,
+    "reproducible": true
+   },
+   "complete": false,
+   "gap": "只有受限解析计算（模型计算器），无交互仿真；有内容链接，无带证据的活动；L4 需要学生试用与修订记录",
+   "review": {
+    "physics": "2026-11-08",
+    "language": "2026-11-08"
+   },
+   "sources": [
+    "S08"
+   ],
+   "example": "上弦月（角距 90°）；恒星月 27.32 d，恒星年 365.26 d。",
+   "answer": "照亮一半；朔望月 29.53 d；地球本影长 1.38×10⁹ m（约地月距的 3.6 倍）。",
+   "validity": "朔望月由恒星月与恒星年给出"
+  },
+  {
+   "id": "K25",
+   "title": "红移与哈勃定律",
+   "stages": [
+    "s",
+    "u"
+   ],
+   "priority": "P2",
+   "geometry": "abstract",
+   "domain": "K",
+   "baseline": null,
+   "status": "verified",
+   "level": 1,
+   "teaching": 0,
+   "restricted": false,
+   "references": [
+    "analytic"
+   ],
+   "evidence": {
+    "oracleCases": 4,
+    "tests": [],
+    "regressions": []
+   },
+   "links": {
+    "templates": [],
+    "labs": [],
+    "problems": [],
+    "situations": [],
+    "activities": [],
+    "topics": []
+   },
+   "criteria": {
+    "validity": true,
+    "independent": true,
+    "teaching": false,
+    "interactive": false,
+    "reproducible": true
+   },
+   "complete": false,
+   "gap": "只有受限解析计算（模型计算器），无交互仿真；无教学内容；L4 需要学生试用与修订记录",
+   "review": {
+    "physics": "2026-11-08",
+    "language": "2026-11-08"
+   },
+   "sources": [
+    "S08"
+   ],
+   "example": "Hα 656.28 nm 观测到 700 nm；H₀ = 70 km/s/Mpc。",
+   "answer": "z = 0.0666；cz = 1.997×10⁷ m/s（相对论 1.931×10⁷）；d ≈ 8.8×10²⁴ m（约 285 Mpc，近似量级）。",
+   "validity": "z ≪ 1 时 cz 与相对论多普勒公式一致"
+  },
+  {
+   "id": "K26",
+   "title": "宇宙尺度因子（物质主导）",
+   "stages": [
+    "u"
+   ],
+   "priority": "P3",
+   "geometry": "abstract",
+   "domain": "K",
+   "baseline": null,
+   "status": "verified",
+   "level": 1,
+   "teaching": 0,
+   "restricted": true,
+   "references": [
+    "analytic"
+   ],
+   "evidence": {
+    "oracleCases": 3,
+    "tests": [],
+    "regressions": []
+   },
+   "links": {
+    "templates": [],
+    "labs": [],
+    "problems": [],
+    "situations": [],
+    "activities": [],
+    "topics": []
+   },
+   "criteria": {
+    "validity": true,
+    "independent": true,
+    "teaching": false,
+    "interactive": false,
+    "reproducible": true
+   },
+   "complete": false,
+   "gap": "只计算 Einstein–de Sitter 模型；ΛCDM 需数值积分",
+   "review": {
+    "physics": "2026-11-08",
+    "language": "2026-11-08"
+   },
+   "sources": [
+    "S08"
+   ],
+   "example": "H₀ = 70 km/s/Mpc；宇宙年龄一半时。",
+   "answer": "t₀ = 2.94×10¹⁷ s（9.31 Gyr）；a = 0.630；z = 0.587；H = 4.54×10⁻¹⁸ s⁻¹。",
+   "validity": "受限：不含暗能量与辐射，年龄偏小"
+  },
+  {
+   "id": "K27",
+   "title": "潮汐与洛希极限",
+   "stages": [
+    "u"
+   ],
+   "priority": "P2",
+   "geometry": "line1d",
+   "domain": "K",
+   "baseline": null,
+   "status": "verified",
+   "level": 1,
+   "teaching": 0,
+   "restricted": false,
+   "references": [
+    "analytic",
+    "otherMethod"
+   ],
+   "evidence": {
+    "oracleCases": 4,
+    "tests": [],
+    "regressions": []
+   },
+   "links": {
+    "templates": [],
+    "labs": [],
+    "problems": [],
+    "situations": [],
+    "activities": [],
+    "topics": []
+   },
+   "criteria": {
+    "validity": true,
+    "independent": true,
+    "teaching": false,
+    "interactive": false,
+    "reproducible": true
+   },
+   "complete": false,
+   "gap": "只有受限解析计算（模型计算器），无交互仿真；无教学内容；L4 需要学生试用与修订记录",
+   "review": {
+    "physics": "2026-11-08",
+    "language": "2026-11-08"
+   },
+   "sources": [
+    "S08"
+   ],
+   "example": "月球对地球表面的潮汐加速度；地球-月球密度的洛希极限。",
+   "answer": "Δa = 1.10×10⁻⁶ m/s²（约 g 的 1.1×10⁻⁷）；洛希极限 1.84×10⁷ m。",
+   "validity": "R ≪ d"
+  },
+  {
+   "id": "K28",
+   "title": "地震波：P 波与 S 波",
+   "stages": [
+    "u"
+   ],
+   "priority": "P2",
+   "geometry": "line1d",
+   "domain": "K",
+   "baseline": null,
+   "status": "verified",
+   "level": 1,
+   "teaching": 0,
+   "restricted": false,
+   "references": [
+    "analytic"
+   ],
+   "evidence": {
+    "oracleCases": 3,
+    "tests": [],
+    "regressions": []
+   },
+   "links": {
+    "templates": [],
+    "labs": [],
+    "problems": [],
+    "situations": [],
+    "activities": [],
+    "topics": []
+   },
+   "criteria": {
+    "validity": true,
+    "independent": true,
+    "teaching": false,
+    "interactive": false,
+    "reproducible": true
+   },
+   "complete": false,
+   "gap": "只有受限解析计算（模型计算器），无交互仿真；无教学内容；L4 需要学生试用与修订记录",
+   "review": {
+    "physics": "2026-11-08",
+    "language": "2026-11-08"
+   },
+   "sources": [
+    "S08"
+   ],
+   "example": "K = 50 GPa，G = 30 GPa，ρ = 3000 kg/m³，震中距 100 km。",
+   "answer": "v_P = 5.48 km/s，v_S = 3.16 km/s；到时差 13.37 s。",
+   "validity": "S 波不能在液体中传播（G = 0）"
+  },
+  {
+   "id": "K29",
+   "title": "膜的振动模态",
+   "stages": [
+    "u"
+   ],
+   "priority": "P2",
+   "geometry": "plane",
+   "domain": "K",
+   "baseline": null,
+   "status": "verified",
+   "level": 1,
+   "teaching": 0,
+   "restricted": false,
+   "references": [
+    "analytic",
+    "otherMethod"
+   ],
+   "evidence": {
+    "oracleCases": 3,
+    "tests": [],
+    "regressions": []
+   },
+   "links": {
+    "templates": [],
+    "labs": [],
+    "problems": [],
+    "situations": [],
+    "activities": [],
+    "topics": []
+   },
+   "criteria": {
+    "validity": true,
+    "independent": true,
+    "teaching": false,
+    "interactive": false,
+    "reproducible": true
+   },
+   "complete": false,
+   "gap": "只有受限解析计算（模型计算器），无交互仿真；无教学内容；L4 需要学生试用与修订记录",
+   "review": {
+    "physics": "2026-11-08",
+    "language": "2026-11-08"
+   },
+   "sources": [
+    "S08"
+   ],
+   "example": "张力 1000 N/m，面密度 0.1 kg/m²；0.5 m × 0.3 m 矩形 (1,1) 模；半径 15 cm 的鼓。",
+   "answer": "c = 100 m/s；f₁₁ = 194.4 Hz；f₀₁ = 255.2 Hz。",
+   "validity": "线性波动方程 ∂²u/∂t² = c²∇²u"
+  },
+  {
+   "id": "K30",
+   "title": "刚性方程与隐式积分",
+   "stages": [
+    "u"
+   ],
+   "priority": "P2",
+   "geometry": "abstract",
+   "domain": "K",
+   "baseline": null,
+   "status": "verified",
+   "level": 1,
+   "teaching": 0,
+   "restricted": false,
+   "references": [
+    "analytic",
+    "otherMethod"
+   ],
+   "evidence": {
+    "oracleCases": 3,
+    "tests": [],
+    "regressions": []
+   },
+   "links": {
+    "templates": [],
+    "labs": [],
+    "problems": [],
+    "situations": [],
+    "activities": [],
+    "topics": []
+   },
+   "criteria": {
+    "validity": true,
+    "independent": true,
+    "teaching": false,
+    "interactive": false,
+    "reproducible": true
+   },
+   "complete": false,
+   "gap": "只有受限解析计算（模型计算器），无交互仿真；无教学内容；L4 需要学生试用与修订记录",
+   "review": {
+    "physics": "2026-11-08",
+    "language": "2026-11-08"
+   },
+   "sources": [
+    "S08"
+   ],
+   "example": "λ = 50 s⁻¹，h = 0.05 s（λh = 2.5），20 步。",
+   "answer": "显式因子 −1.5，20 步后 3325（发散）；隐式因子 0.286，1.3×10⁻¹¹；精确 1.9×10⁻²²。",
+   "validity": "显式欧拉要求 λh ≤ 2 才稳定；隐式欧拉对任意 h 稳定"
+  },
+  {
+   "id": "K31",
+   "title": "灵敏度分析与最优化",
+   "stages": [
+    "u"
+   ],
+   "priority": "P2",
+   "geometry": "plane",
+   "domain": "K",
+   "baseline": null,
+   "status": "verified",
+   "level": 1,
+   "teaching": 0,
+   "restricted": false,
+   "references": [
+    "analytic",
+    "otherMethod"
+   ],
+   "evidence": {
+    "oracleCases": 3,
+    "tests": [],
+    "regressions": []
+   },
+   "links": {
+    "templates": [
+     "projectile"
+    ],
+    "labs": [],
+    "problems": [],
+    "situations": [],
+    "activities": [],
+    "topics": []
+   },
+   "criteria": {
+    "validity": true,
+    "independent": true,
+    "teaching": false,
+    "interactive": false,
+    "reproducible": true
+   },
+   "complete": false,
+   "gap": "交互内容未与本模型逐项对照，只交付受限解析计算；无教学内容；L4 需要学生试用与修订记录",
+   "review": {
+    "physics": "2026-11-08",
+    "language": "2026-11-08"
+   },
+   "sources": [
+    "S11"
+   ],
+   "example": "v₀ = 20 m/s，θ = 30°。",
+   "answer": "R = 35.35 m；∂R/∂θ = 40.8 m/rad；∂R/∂v = 3.53 s；最大射程 40.8 m（45°）；相对灵敏度 0.605。",
+   "validity": "解析导数；最优角 45°"
+  },
+  {
+   "id": "K32",
+   "title": "质心与质心系",
+   "stages": [
+    "s",
+    "u"
+   ],
+   "priority": "P1",
+   "geometry": "line1d",
+   "domain": "K",
+   "baseline": null,
+   "status": "verified",
+   "level": 1,
+   "teaching": 1,
+   "restricted": false,
+   "references": [
+    "analytic",
+    "otherMethod"
+   ],
+   "evidence": {
+    "oracleCases": 3,
+    "tests": [],
+    "regressions": []
+   },
+   "links": {
+    "templates": [
+     "collision-1d"
+    ],
+    "labs": [],
+    "problems": [],
+    "situations": [],
+    "activities": [],
+    "topics": []
+   },
+   "criteria": {
+    "validity": true,
+    "independent": true,
+    "teaching": false,
+    "interactive": false,
+    "reproducible": true
+   },
+   "complete": false,
+   "gap": "交互内容未与本模型逐项对照，只交付受限解析计算；有内容链接，无带证据的活动；L4 需要学生试用与修订记录",
+   "review": {
+    "physics": "2026-11-08",
+    "language": "2026-11-08"
+   },
+   "sources": [
+    "S14"
+   ],
+   "example": "1 kg 在 0 m 以 3 m/s 运动，2 kg 在 1 m 静止。",
+   "answer": "质心 0.667 m，速度 1 m/s；质心系中 +2 与 −1 m/s；可转化动能 3 J；弹性碰撞后 −1 与 2 m/s。",
+   "validity": "无外力（或外力冲量可忽略）"
   }
  ],
  "activities": [
@@ -12750,6 +14428,123 @@
    "dims": [],
    "open": {
     "lab": "nuclear"
+   }
+  },
+  {
+   "id": "act-projectile",
+   "title": "斜抛：分解运动与两次到达",
+   "stage": "s",
+   "models": [
+    "M04"
+   ],
+   "goals": [
+    "把斜抛分解为水平匀速与竖直匀变速",
+    "同一高度可能先后经过两次：按“第一次/下降时”选根"
+   ],
+   "prerequisites": {
+    "activities": [
+     "act-freefall"
+    ],
+    "models": [
+     "M02"
+    ]
+   },
+   "diagnostic": 1,
+   "questions": 4,
+   "transfer": 2,
+   "experiment": {
+    "vary": "h0",
+    "values": 4
+   },
+   "dims": [],
+   "open": {
+    "template": "projectile"
+   }
+  },
+  {
+   "id": "act-collision",
+   "title": "一维弹性碰撞：事件前后",
+   "stage": "s",
+   "models": [
+    "M17"
+   ],
+   "goals": [
+    "用动量守恒与动能守恒求碰后速度",
+    "分清碰撞事件的左极限（碰前）与右极限（碰后）"
+   ],
+   "prerequisites": {
+    "activities": [
+     "act-freefall"
+    ]
+   },
+   "diagnostic": 1,
+   "questions": 4,
+   "transfer": 2,
+   "experiment": {
+    "vary": "m2",
+    "values": 4
+   },
+   "dims": [],
+   "open": {
+    "template": "collision-1d"
+   }
+  },
+  {
+   "id": "act-lens",
+   "title": "凸透镜成像规律",
+   "stage": "j",
+   "models": [
+    "O04"
+   ],
+   "goals": [
+    "由焦距与物距求像距和放大率",
+    "用符号判断像的虚实与正倒"
+   ],
+   "prerequisites": {
+    "note": {
+     "zh": "知道凸透镜的焦点与三条特殊光线",
+     "en": "Know the focal points and the three principal rays of a converging lens",
+     "de": "Brennpunkte und die drei Hauptstrahlen der Sammellinse kennen"
+    }
+   },
+   "diagnostic": 1,
+   "questions": 3,
+   "transfer": 2,
+   "experiment": {
+    "vary": "u",
+    "values": 5
+   },
+   "dims": [],
+   "open": {
+    "lab": "lens"
+   }
+  },
+  {
+   "id": "act-field",
+   "title": "电场线、场强与负电荷的受力",
+   "stage": "s",
+   "models": [
+    "E02"
+   ],
+   "goals": [
+    "按矢量叠加求两个点电荷的合场",
+    "电场方向按正试探电荷受力定义；负电荷受力与场强反向"
+   ],
+   "prerequisites": {
+    "models": [
+     "E01"
+    ]
+   },
+   "diagnostic": 1,
+   "questions": 3,
+   "transfer": 2,
+   "experiment": {
+    "vary": "y",
+    "values": 4
+   },
+   "dims": [],
+   "open": {
+    "lab": "field"
    }
   }
  ]

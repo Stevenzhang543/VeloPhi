@@ -13,6 +13,7 @@ import { defaultChoice, displayLabel, formatQuantity, formatQuantityKind, format
 import type { Curriculum } from '../formula/levels'
 import { locale } from '../i18n/locale'
 import { shownTime } from '../units/clock'
+import { defaultMemoryMB } from '../platform/device'
 
 /** Theme choice; 'system' follows the OS appearance. */
 export type ThemeMode = 'system' | 'light' | 'dark'
@@ -272,7 +273,7 @@ function defaults(): AppSettings {
     effects: { quality: 'standard', glass: true, ambient: true, motionBlur: true, shutter: 0.5, particles: true, trails: false, trailSeconds: 0.6, respectReducedMotion: true, reduceTransparency: 'system' },
     editor: { snap: false, objectSnap: true, snapStep: 0, angleSnap: 0 },
     knowledge: { curriculum: 'auto', level: 2 },
-    sim: { worker: true, progressive: true, budgetSeconds: 60, lookAheadSeconds: 20, memoryMB: 512, engine: 'auto' },
+    sim: { worker: true, progressive: true, budgetSeconds: 60, lookAheadSeconds: 20, memoryMB: defaultMemoryMB(), engine: 'auto' },
     export: { fps: 60, scale: 1, bitrate: 0, csvSeparator: ',', csvDecimal: '.', imageBackground: 'theme', language: 'ui' },
     trialLog: false,
     ui: { sections: {}, toolRail: false, motion: true, formula: { density: 'compact', group: 'situation', pinned: [], body: '', category: '', verdict: 'all', pinnedOnly: false, timeline: true }, toolTab: 'body', rightTab: 'formula', analysisTab: 'formula', lab: 'circuit', labView: 'topic', learnDone: [], learnStage: 'j', welcomed: false },
@@ -294,7 +295,7 @@ function defaults(): AppSettings {
 }
 
 /** Current settings revision. */
-const SETTINGS_REV = 2659
+const SETTINGS_REV = 2660
 
 /** The live, reactive preferences (saved automatically). */
 export const settings = reactive<AppSettings>(defaults())
@@ -517,6 +518,8 @@ export function loadSettings() {
         settings.editor.snap = false
         settings.editor.angleSnap = 0
       }
+      // 26.60 r2: on Android the recording budget defaults to 192 MB; the old default (never changed) follows it
+      if (rev < 2660 && settings.sim.memoryMB === 512) settings.sim.memoryMB = defaultMemoryMB()
       settings.rev = SETTINGS_REV
     } else {
       const old = localStorage.getItem(OLD_KEY)

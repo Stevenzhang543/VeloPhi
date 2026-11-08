@@ -108,7 +108,7 @@ export const TOPICS: Topic[] = [
         'In einem senkrechten Kreis ändert sich der Betrag der Geschwindigkeit: Oben und unten über die Energieerhaltung verbinden, die Seil- oder Stabkraft aus der Zentripetalgleichung bestimmen. Die kritische Geschwindigkeit eines Seils oben ist √(gL).')
     ],
     laws: ['a = \\dfrac{v^2}{r}', 'F = \\dfrac{mv^2}{r}', 'v = \\omega r', 'T = \\dfrac{2\\pi r}{v}'],
-    situations: ['circle', 'vcircle-rope', 'vcircle-rod']
+    situations: ['circle', 'vcircle-rope', 'vcircle-rod', 'arc-inside', 'arc-outside']
   },
   {
     id: 'oscillation', icon: 'spring',

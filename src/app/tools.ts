@@ -15,6 +15,8 @@ export const T: Record<string, ToolDef> = trDeep({
   select: { tool: 'select', icon: 'select', label: '选择', tip: '选择、拖动物体；选中后拖动手柄改大小、旋转或编辑顶点（V）', key: 'V' },
   pan: { tool: 'pan', icon: 'pan', label: '平移', tip: '拖动视图（H；也可按住空格、中键或右键拖动）', key: 'H' },
   ball: { tool: 'add-ball', icon: 'ball', label: '小球', tip: '质点小球（只平动）：单击放置，拖动设定半径（O）', key: 'O' },
+  // 26.60 r2 (D209): a point mass without volume
+  point: { tool: 'add-point', icon: 'pointMass', label: '质点', tip: '绝对质点（没有体积，只平动）：单击放在表面上，与教材的“质点”完全一致' },
   block: { tool: 'add-block', icon: 'block', label: '物块', tip: '矩形刚体：单击放置，从一角拖到对角设定大小（B）', key: 'B' },
   disc: { tool: 'add-disc', icon: 'disc', label: '圆柱', tip: '可滚动的匀质圆柱：单击放置，拖动设定半径（C）', key: 'C' },
   wedge: { tool: 'add-wedge', icon: 'wedge', label: '楔块', tip: '可运动的直角三角形刚体：从直角处拖出底边和高' },
@@ -52,19 +54,23 @@ export const T: Record<string, ToolDef> = trDeep({
   arcHump: { tool: 'add-arc-hump', icon: 'arcHump', label: '拱形桥', tip: '凸形圆弧桥面（半径 2 m）：物体在最高点对桥面的压力小于重力' },
   arcDip: { tool: 'add-arc-dip', icon: 'arcDip', label: '凹形桥', tip: '凹形圆弧桥面（半径 2 m）：物体在最低点对桥面的压力大于重力' },
   arcGroove: { tool: 'add-arc-groove', icon: 'arcGroove', label: '可动槽', tip: '放在光滑水平面上可以滑动的半圆槽（2 kg，不翻转）：小球与槽组成的系统水平方向动量守恒' },
+  // 26.60 r2 (D207): an arc and a flat part as one movable body
+  arcSlide: { tool: 'add-arc-slide', icon: 'arcSlide', label: '圆弧滑块', tip: '光滑水平面上的滑块（3 kg，不翻转）：左侧是半径 0.5 m 的四分之一圆弧，底端与 0.6 m 长的水平段相切' },
   hoop: { tool: 'add-hoop', icon: 'hoop', label: '圆环', tip: '可滚动的细圆环（I ≈ mr²），与圆柱比较滚动快慢' },
   board: { tool: 'add-board', icon: 'board', label: '长木板', tip: '可运动的长木板（2 kg），用于板块模型' },
   cart: { tool: 'add-cart', icon: 'cart', label: '小车', tip: '带轮的小车（1 kg，与地面无摩擦）' },
   steps: { tool: 'add-steps', icon: 'steps', label: '台阶', tip: '三级固定台阶（每级高 0.3 m、深 0.4 m）' },
-  pendulum: { tool: 'add-pendulum', icon: 'pendulum', label: '单摆', tip: '在单击处挂一个单摆：摆长 1 m、摆球 0.2 kg，从 30° 释放' }
+  pendulum: { tool: 'add-pendulum', icon: 'pendulum', label: '单摆', tip: '在单击处挂一个单摆：摆长 1 m、摆球 0.2 kg，从 30° 释放' },
+  // 26.60 r2 (D208)
+  launcher: { tool: 'add-launcher', icon: 'launcher', label: '弹簧弹射', tip: '墙、不粘连的弹簧（200 N/m，原长 0.4 m）和被它压缩 0.1 m 的物块（1 kg）；光滑。释放后弹簧恢复原长时物块离开弹簧' }
 })
 /** Always on top (D86). */
 export const COMMON: ToolDef[] = [T.select, T.pan, T.ball, T.block, T.ground, T.incline, T.rope, T.spring]
 /** Category pages, one shown at a time (D86). */
 export const PAGES: Array<{ id: string; title: string; tools: ToolDef[] }> = trDeep([
-  { id: 'body', title: '物体', tools: [T.disc, T.wedge, T.polygon, T.wall, T.conveyor, T.pulley, T.hoop, T.board, T.cart, T.steps] },
-  { id: 'track', title: '轨道', tools: [T.arcQuarter, T.arcHalf, T.arcLoop, T.arcHump, T.arcDip, T.arcGroove, T.pendulum] },
-  { id: 'connect', title: '连接', tools: [T.rod, T.damper, T.hinge, T.weld, T.slider, T.motor, T.gear] },
+  { id: 'body', title: '物体', tools: [T.point, T.disc, T.wedge, T.polygon, T.wall, T.conveyor, T.pulley, T.hoop, T.board, T.cart, T.steps] },
+  { id: 'track', title: '轨道', tools: [T.arcQuarter, T.arcHalf, T.arcLoop, T.arcHump, T.arcDip, T.arcGroove, T.arcSlide, T.pendulum] },
+  { id: 'connect', title: '连接', tools: [T.launcher, T.rod, T.damper, T.hinge, T.weld, T.slider, T.motor, T.gear] },
   { id: 'field', title: '力与场', tools: [T.force, T.central, T.charge, T.fixedCharge, T.efield, T.bfield] },
   { id: 'edit', title: '编辑', tools: [T.cut, T.combine] },
   { id: 'mark', title: '标注', tools: [T.ruler, T.angle, T.text, T.arrow] }

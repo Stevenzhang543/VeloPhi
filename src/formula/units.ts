@@ -128,7 +128,11 @@ export const UNITS: Record<string, Dim> = {
   'W/m³': [-1, 1, -3],
   'K/W': [-2, -1, 3, 0, 1],
   'J·m': [3, 1, -2],
-  'C/m³': [-3, 0, 1, 1]
+  'C/m³': [-3, 0, 1, 1],
+  // 26.62 (D221): curriculum families K
+  'V/m²': [0, 1, -3, -1],
+  'W/(m²·K)': [0, 1, -3, 0, -1],
+  'kg/m²': [-2, 1, 0]
 }
 
 /** Dimension of a unit of UNITS; throws for unknown units. */

@@ -17,7 +17,9 @@ export const HANDBOOK_VARIANTS: Array<[string, Record<string, number>]> = [
   ['vertical-circle-rod', { v0: 3 }],
   ['alpha-scattering', { b: 0 }],
   ['velocity-selector', { v0: 3 }],
-  ['floating-block', { c: 30 }]
+  ['floating-block', { c: 30 }],
+  // 26.62 (D220): a loop the ball leaves above the centre
+  ['vertical-loop', { v0: 4 }]
 ]
 
 /**
@@ -25,6 +27,7 @@ export const HANDBOOK_VARIANTS: Array<[string, Record<string, number>]> = [
  * formula appears in it, otherwise from any template.
  */
 export const PREFERRED_TEMPLATE: Record<string, string> = {
+  'arc-inside': 'vertical-loop', 'arc-outside': 'hump-bridge',
   uniform: 'uniform-motion', 'const-force': 'pull-force', lever: 'lever', circle: 'uniform-circle', orbit: 'orbit', drag: 'drag-fall',
   damped: 'damped-spring', spin: 'motor-disc', gear: 'gears', incline: 'incline', flat: 'conveyor', 'board-block': 'board-block',
   'board-together': 'board-block', collision: 'collision-1d', bounce: 'free-fall', projectile: 'projectile', pendulum: 'pendulum',

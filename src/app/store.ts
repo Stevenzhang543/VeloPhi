@@ -38,7 +38,7 @@ export type { DisplayOptions } from './settings'
 /** Active editor tool. */
 export type Tool =
   | 'select' | 'pan'
-  | 'add-ball' | 'add-block' | 'add-disc' | 'add-wedge' | 'add-ground' | 'add-incline' | 'add-wall' | 'add-conveyor' | 'add-pulley'
+  | 'add-ball' | 'add-point' | 'add-block' | 'add-disc' | 'add-wedge' | 'add-ground' | 'add-incline' | 'add-wall' | 'add-conveyor' | 'add-pulley'
   | 'add-polygon'
   | 'connect-rope' | 'connect-rod' | 'connect-spring' | 'connect-hinge' | 'add-force'
   | 'connect-damper' | 'connect-weld' | 'connect-slider' | 'connect-motor' | 'connect-gear'
@@ -48,8 +48,8 @@ export type Tool =
   // 26.54 (D78): charges (moving and fixed); the field buttons switch the scene's uniform fields on
   | 'add-charge' | 'add-fixed-charge' | 'field-electric' | 'field-magnetic'
   // 26.59 fix 3 (D194): ready-made parts (arc tracks, hoop, board, cart, steps, pendulum)
-  | 'add-arc-quarter' | 'add-arc-half' | 'add-arc-loop' | 'add-arc-hump' | 'add-arc-dip' | 'add-arc-groove'
-  | 'add-hoop' | 'add-board' | 'add-cart' | 'add-steps' | 'add-pendulum'
+  | 'add-arc-quarter' | 'add-arc-half' | 'add-arc-loop' | 'add-arc-hump' | 'add-arc-dip' | 'add-arc-groove' | 'add-arc-slide'
+  | 'add-hoop' | 'add-board' | 'add-cart' | 'add-steps' | 'add-pendulum' | 'add-launcher'
 
 /** Selected object, if any. */
 export type Selection = { kind: 'body' | 'connector' | 'pulley'; id: string } | null
@@ -195,6 +195,9 @@ export interface AppState {
   modelPreset: { id: string; inputs: Record<string, number> } | null
   /** 26.59 (D167): the Copilot panel is open. */
   showCopilot: boolean
+  /** 26.62 (D222): the curriculum map and the topic it shows (null: the list). */
+  showCurriculum: boolean
+  curriculumTopic: string | null
   /** Formula card to bring into view in the formula panel (opened from the handbook). */
   formulaFocus: string | null
   /** Situation to bring into view in the formula panel (clicked on the formula timeline, D71). */
@@ -277,6 +280,8 @@ export const state = reactive<AppState>({
   modelId: null,
   modelPreset: null,
   showCopilot: false,
+  showCurriculum: false,
+  curriculumTopic: null,
   branch: null,
   mainScene: null,
   formulaFocus: null,

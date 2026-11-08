@@ -87,6 +87,13 @@
   color-scheme: light;
 }
 
+/* 26.60 r2: Android draws with its own fonts (Roboto and Noto Sans CJK, chosen by the page language); the bundled
+   variable fonts are not loaded there (platform/device.ts) */
+:root.sysfont {
+  --font-ui: system-ui, "Roboto", "Noto Sans CJK SC", sans-serif;
+  --font-mono: ui-monospace, "Droid Sans Mono", monospace;
+}
+
 :root[data-theme="dark"] {
   --bg: #0f1012;
   --pane: #1c1c1f;

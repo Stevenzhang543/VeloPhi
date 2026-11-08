@@ -65,6 +65,10 @@ pub enum ChangeType {
     /// 26.55 (D90): a charged body enters or leaves a field region.
     ZoneEnter,
     ZoneLeave,
+    /// 26.60 r2 (D208): a spring that only pushes reaches its rest length and the body leaves it, or the body
+    /// presses on its free end again.
+    SpringRelease,
+    SpringPress,
 }
 
 impl ChangeType {
@@ -91,6 +95,8 @@ impl ChangeType {
             ChangeType::RollStart => "rollStart",
             ChangeType::ZoneEnter => "zoneEnter",
             ChangeType::ZoneLeave => "zoneLeave",
+            ChangeType::SpringRelease => "springRelease",
+            ChangeType::SpringPress => "springPress",
         }
     }
 }
@@ -501,6 +507,15 @@ fn diff_modes(sys: &System, prev: Option<&Mode>, next: &Mode, impact: Option<&Im
         let ns = model.arena.switches.len();
         for (k, branch) in nsw.iter().enumerate() {
             if psw.get(k) == Some(branch) {
+                continue;
+            }
+            if k >= ns + model.zone_pairs.len() {
+                // 26.60 r2 (D208): a spring that only pushes
+                let Some(&si) = model.push_springs.get(k - ns - model.zone_pairs.len()) else { continue };
+                let sp = &model.springs[si];
+                let ty = if *branch > 0 { ChangeType::SpringPress } else { ChangeType::SpringRelease };
+                let bodies = [sp.a.body, sp.b.body].iter().flatten().filter(|&&g| model.bodies[g].dynamic).map(|&g| model.bodies[g].id.clone()).collect();
+                out.push(ChangeDetail::simple(ty, &sp.id, bodies));
                 continue;
             }
             if k >= ns {

@@ -1,4 +1,4 @@
-# VeloΦ (VeloPhi) 26.60
+# VeloΦ (VeloPhi) 26.62
 
 **English** · [简体中文](README.zh-CN.md) · [Deutsch](README.de.md)
 
@@ -18,23 +18,22 @@ VeloΦ is a 2D physics simulation and teaching engine for students, teachers and
 - **A canvas-first studio (new in 26.60).** One slim top bar with the modes *Build / Simulation / Analysis*, a floating tool strip, a floating timeline and one sidebar; on phones a bottom tab bar with bottom sheets.
 - **Copilot and AI problem reading.** Send a problem as text or a photo: Copilot answers with the answer, the working and an explanation, and on request generates the simulation scene (a JSON scene file) so that the engine computes and checks the answers; it also answers questions and operates the app for you. The division of labour is strict: the AI *reads* and *acts*, the engine computes every numerical answer.
 - **A many-body solver.** Stacks, piles, dominoes and Galton boards with hundreds of bodies, computed with a soft-step solver re-implemented after the algorithms published with Box2D v3 and Rapier — and a **solver comparison** that shows how far it is from the exact solver.
-- **Formulas that are checked, not asserted.** About 180 model families with conditions in four states, independent references and step-by-step derivations; formulas are graded by curriculum level (Chinese curriculum or IB).
+- **Formulas that are checked, not asserted.** 212 model families (180 of the capability blueprint and 32 for the curriculum) with conditions in four states, independent references and step-by-step derivations; formulas are graded by curriculum level (Chinese curriculum or IB).
 - **Labs.** DC and AC circuits, electric and magnetic fields, lenses and ray optics, wave optics, waves and sound, 1D quantum mechanics, gases and heat engines, radioactive decay and nuclear reactions, special relativity.
 - **Teaching tools.** Predictions with confidence, tasks from pasted problem text, teaching packages, learning activities, free-body diagrams, ticker tapes, problem sets, reports and courseware export.
 - **Reproducible.** Deterministic maths: the same scene gives the same SHA-256 fingerprint in the desktop app, in the browser and in Node; checkpoints rebuild evicted frames bit for bit.
 - **Open and offline.** One portable `.exe`, an APK or a static web build; simulation and teaching need no account, server or plug-in. The AI features work with your own API key (OpenAI-compatible or Anthropic format), or with the official AI after signing in with a whitelists.top account.
 
-## What is new in 26.60
+## What is new in 26.62
 
 | Area | Change |
 | --- | --- |
-| Studio (desktop) | The canvas fills the window. A slim top bar holds the menu (file and export, templates and problems, teaching tools, pages, help), the three modes **Build / Simulation / Analysis**, undo/redo, search, templates, problems, view, run and AI. The modes are presets of what is shown — tools and properties; playback with charts and events; formulas, watch and charts — and what you change within a mode is remembered for it. A **tool strip** floats at the left of the canvas (common tools, *All tools*, the object list, snapping switches), a **timeline** floats at its bottom (its drawer opens upward with charts and events), and **one sidebar** on the right has four tabs: properties, analysis, problems and AI. It can be resized or folded to a rail of icons. |
-| Phone and Android | Full-screen canvas, a **bottom tab bar** (tools · properties · run/play · analysis · AI) and **bottom sheets** that stop at a third, two thirds or the full height and close when dragged down; a slim timeline above the tab bar; a two-level settings page. |
-| Copilot | One Copilot again. A problem (text or picture) is answered as **answer → working → explanation**; underneath, the app offers to **generate the simulation scene**. A separate builder request returns exactly one JSON object (the VeloΦ scene file, the questions and its assumptions); the app reads it leniently, checks, places and loads it, and sends any errors back for a corrected file — at most three tries. The scene card shows the engine's answers, the assumptions and the JSON (view, copy, save, reload), and **Compare the explanation with the simulation** has Copilot check its own working against the engine. “Build …” or “change the mass to 3 kg” builds or changes a scene directly. |
-| Timeline | Runs no longer stop at a fixed time: they go on while anything moves and end only at rest, at a stop condition or when you stop them (a scene's duration is now how far it computes at least). The computation stays ahead of playback and pauses when far enough ahead; a stopped run can be continued. |
-| Editing | Snapping uses exact signed gaps between the convex pieces and arc bands of the shapes: a block set on another keeps its sideways position, edges line up within 6 px, a quick move into a side is pushed out sideways. Grid snapping puts an edge, a corner or an arc's end on the grid and contacts still win (the quarter arc now lines up with the ground). Combining finishes on double-click or Enter (the double-clicked body is included) and the canvas shows its focus ring only for keyboard focus; drags continue outside the canvas. |
+| Formula cards for circular tracks | Scenes on a vertical loop, an arc track, a hump bridge or a dome are now recognised as motion **inside** or **outside** a circular track. Eleven checked cards: the normal force at the bottom and at the top, the speed at the top, the critical speed √(5gρ) (inside) or √(gρ) (outside), and where, how high and how fast the body leaves the track (cos θ = (v²/gρ + 2)/3). ρ is the path radius (centre to the body's centre); cards that do not apply (it never reaches the top, it never leaves) say why. Every card has a step-by-step derivation, and the handbook topic *Circular motion* has eleven new worked examples. |
+| Curriculum map | Resources › Curriculum map: the **283 topics** of the curriculum blueprint from lower secondary to university, filtered by course system (China 2022 and 2017/2020, IGCSE 0625, IB MYP, IB DP 2025, Cambridge 9702, university), level, domain and coverage. Each topic opens what VeloPhi has for it — model families, templates, labs and circuit presets, activities, classroom experiments, handbook pages and workflows — and says honestly how it is covered: **simulated** (146), **model** (120), **concept** (13) or **real-lab companion** (4). Also: the **310 components** (done 194, partial 48, model only 50, not yet 18 with the reason), the **21 required experiments** of the Chinese 2022 standard, the **168 official syllabus chapters** mapped to topics, and the blueprint's **30 acceptance tests** tied to automatic tests. |
+| 32 new model families | K01–K32 fill what the blueprint needs: significant figures, vernier and micrometer reading, AIC/BIC, gradient/divergence/curl, the π theorem, t test and confidence interval, rotating frames, Lagrange points, elastic moduli, yield, Euler buckling, viscoelasticity, shallow-water waves, greenhouse balance, thermal resistance networks, heat-pump COP, irradiance, Gaussian beams, aberrations, the ideal op-amp, logic gates, battery run time, sun elevation and day length, moon phases and eclipses, redshift and Hubble's law, the scale factor, tides and the Roche limit, seismic waves, membrane modes, stiff equations, sensitivity and optimisation, the centre-of-mass frame — each with at least three independent reference values. 212 model families in all. |
+| Integration | Each model family lists the curriculum topics that use it; Copilot's catalogue search finds curriculum topics; the projectile, pendulum, collision, elevator and binary-star templates link to the new families. |
 
-26.59 brought AI problem reading, the official AI with a whitelists.top account, 82 problems, exact arc tracks and the first Android APK — see its release notes.
+26.61 brought checkable Copilot numbers and undo by snapshot id, the tolerant JSON reader, three classroom experiments, maxima between frames and the Research Preview Q08 — see its release notes.
 
 ![Copilot: answer, working and explanation, then the offer to generate the simulation scene](assets/readme/copilot.jpg)
 
@@ -46,12 +45,12 @@ VeloΦ is a 2D physics simulation and teaching engine for students, teachers and
 
 | File | What it is |
 | --- | --- |
-| `VeloPhi-v26.60-windows-x64-portable.exe` | Portable desktop app: double-click, nothing is installed. |
-| `VeloPhi-v26.60-windows-x64-setup.exe` | Installer for the same app (start menu entry, uninstaller). |
-| `VeloPhi-v26.60-android.apk` | Android app (Android 8.0 or later): open it on the phone and install it (allow the browser or file manager to install unknown apps). |
-| `VeloPhi-v26.60-web.zip` | Static web build: unzip and serve the folder with any static web server (it needs WebAssembly, so it does not run from `file://`), e.g. `npx serve dist` or `python -m http.server`. |
-| `VeloPhi-v26.60-source.zip` | Source code of this release. |
-| `VeloPhi-v26.60-release-evidence.zip` | Logs and test reports of the release build. |
+| `VeloPhi-v26.62-windows-x64-portable.exe` | Portable desktop app: double-click, nothing is installed. |
+| `VeloPhi-v26.62-windows-x64-setup.exe` | Installer for the same app (start menu entry, uninstaller). |
+| `VeloPhi-v26.62-android.apk` | Android app (Android 8.0 or later): open it on the phone and install it (allow the browser or file manager to install unknown apps). |
+| `VeloPhi-v26.62-web.zip` | Static web build: unzip and serve the folder with any static web server (it needs WebAssembly, so it does not run from `file://`), e.g. `npx serve dist` or `python -m http.server`. |
+| `VeloPhi-v26.62-source.zip` | Source code of this release. |
+| `VeloPhi-v26.62-release-evidence.zip` | Logs and test reports of the release build. |
 
 Requirements: Windows 10 or 11 (x64) with Microsoft Edge WebView2 (already part of current Windows), Android 8.0 or later with the system WebView for the APK, or any current desktop browser for the web build. Check a download against `SHA256SUMS.txt`: `certutil -hashfile <file> SHA256`.
 

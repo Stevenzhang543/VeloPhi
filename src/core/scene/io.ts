@@ -4,7 +4,7 @@
  * versions are migrated step by step; unknown fields of newer files are kept in `extra`.
  */
 import { tl } from '../../i18n'
-import type { AnnotationDef, BodyDef, BranchDef, ConnectorDef, PartShapeDef, RailLoopDef, RegionDef, Scene, SoftStepDef, StartLedgerDef, StopAtDef, StopKind } from './types'
+import type { AnnotationDef, ArcShapeDef, BodyDef, BranchDef, ConnectorDef, PartShapeDef, RailLoopDef, RegionDef, Scene, SoftStepDef, StartLedgerDef, StopAtDef, StopKind } from './types'
 import { ENGINE_VERSION, LEGACY_SCENE_FORMATS, MAX_DURATION, SCENE_FORMAT, SCENE_VERSION, SCENE_VERSION_ARCS, STOP_KINDS, sceneVersionOf } from './types'
 import { emptyScene } from './build'
 import { checkForceExpr, polygonIsSimple } from '../../engine/calc'
@@ -239,6 +239,17 @@ function parsePartShape(shape: Record<string, unknown>, path: string): PartShape
   throw new SceneFileError(tl('{0}.shape.type 未知', [path.replace(/\.shape$/, '')]))
 }
 
+/** An arc shape (a body shape, or since 26.60 r2 a part of a compound shape). */
+function parseArc(shape: Record<string, unknown>, path: string): ArcShapeDef {
+  return {
+    type: 'arc', radius: num(shape.radius, `${path}.radius`), thickness: num(shape.thickness, `${path}.thickness`),
+    start: num(shape.start, `${path}.start`, 0), sweep: num(shape.sweep, `${path}.sweep`),
+    ...(shape.center !== undefined && shape.center !== null ? { center: vec(shape.center, `${path}.center`) } : {})
+  }
+}
+
+const arcValid = (s: ArcShapeDef) => s.radius > 0 && s.thickness > 0 && s.sweep > 0 && s.sweep <= 2 * Math.PI + 1e-12
+
 function parseBody(b: Record<string, unknown>, path: string): BodyDef {
   const shape = b.shape as Record<string, unknown>
   if (!shape || typeof shape !== 'object') throw new SceneFileError(tl('{0}.shape 缺失', [path]))
@@ -251,16 +262,14 @@ function parseBody(b: Record<string, unknown>, path: string): BodyDef {
       parts: (shape.parts as Array<Record<string, unknown>>).map((p, i) => {
         const pp = `${path}.shape.parts[${i}]`
         if (!p || typeof p !== 'object' || !p.shape || typeof p.shape !== 'object') throw new SceneFileError(tl('{0}.shape 缺失', [pp]))
-        return { shape: parsePartShape(p.shape as Record<string, unknown>, `${pp}.shape`), position: vec(p.position, `${pp}.position`, { x: 0, y: 0 }), angle: num(p.angle, `${pp}.angle`, 0) }
+        // 26.60 r2 (D207): a part may be an arc
+        const ps = p.shape as Record<string, unknown>
+        return { shape: ps.type === 'arc' ? parseArc(ps, `${pp}.shape`) : parsePartShape(ps, `${pp}.shape`), position: vec(p.position, `${pp}.position`, { x: 0, y: 0 }), angle: num(p.angle, `${pp}.angle`, 0) }
       })
     }
   } else if (shape.type === 'arc') {
     // 26.59 fix 3 (D193): arc track
-    s = {
-      type: 'arc', radius: num(shape.radius, `${path}.shape.radius`), thickness: num(shape.thickness, `${path}.shape.thickness`),
-      start: num(shape.start, `${path}.shape.start`, 0), sweep: num(shape.sweep, `${path}.shape.sweep`),
-      ...(shape.center !== undefined && shape.center !== null ? { center: vec(shape.center, `${path}.shape.center`) } : {})
-    }
+    s = parseArc(shape, `${path}.shape`)
   } else s = parsePartShape(shape, `${path}.shape`)
   const mat = (b.material ?? {}) as Record<string, unknown>
   const kind = (['particle', 'rigid', 'static'].includes(b.kind as string) ? b.kind : 'rigid') as BodyDef['kind']
@@ -285,19 +294,20 @@ export function validateScene(scene: Scene) {
     if (ids.has(b.id)) throw new SceneFileError(tl('物体 id 重复：{0}', [b.id]))
     ids.add(b.id)
     if (b.kind !== 'static' && !(b.mass > 0)) throw new SceneFileError(tl('{0}：质量必须大于 0', [b.name]))
-    if (b.shape.type === 'circle' && !(b.shape.radius > 0)) throw new SceneFileError(tl('{0}：半径必须大于 0', [b.name]))
+    // 26.60 r2 (D209): a particle may be a point without volume (radius 0)
+    if (b.shape.type === 'circle' && !(b.shape.radius > 0 || (b.shape.radius === 0 && b.kind === 'particle'))) throw new SceneFileError(tl('{0}：半径必须大于 0', [b.name]))
     if (b.shape.type === 'box' && !(b.shape.width > 0 && b.shape.height > 0)) throw new SceneFileError(tl('{0}：宽高必须大于 0', [b.name]))
     if (b.shape.type === 'polygon' && b.shape.points.length < 3) throw new SceneFileError(tl('{0}：多边形至少需要 3 个顶点', [b.name]))
     // 26.52 (D35): concave polygons are allowed, self-intersecting ones are not; compound parts are checked one by one
     if (b.shape.type === 'polygon' && !polygonIsSimple(b.shape.points)) throw new SceneFileError(tl('{0}：多边形的边不能相交，面积不能为零', [b.name]))
-    if (b.shape.type === 'arc' && !(b.shape.radius > 0 && b.shape.thickness > 0 && b.shape.sweep > 0 && b.shape.sweep <= 2 * Math.PI + 1e-12)) {
+    if (b.shape.type === 'arc' && !arcValid(b.shape)) {
       throw new SceneFileError(tl('{0}：圆弧的半径和厚度须大于 0，圆心角须在 0…360° 之间', [b.name]))
     }
     if (b.shape.type === 'compound') {
       if (b.shape.parts.length === 0) throw new SceneFileError(tl('{0}：复合体至少需要一个部分', [b.name]))
       for (const p of b.shape.parts) {
         const ps = p.shape
-        if ((ps.type === 'circle' && !(ps.radius > 0)) || (ps.type === 'box' && !(ps.width > 0 && ps.height > 0)) || (ps.type === 'polygon' && !polygonIsSimple(ps.points))) {
+        if ((ps.type === 'circle' && !(ps.radius > 0)) || (ps.type === 'box' && !(ps.width > 0 && ps.height > 0)) || (ps.type === 'polygon' && !polygonIsSimple(ps.points)) || (ps.type === 'arc' && !arcValid(ps))) {
           throw new SceneFileError(tl('{0}：复合体的部分无效（半径、宽高须大于 0，多边形须为简单多边形）', [b.name]))
         }
       }

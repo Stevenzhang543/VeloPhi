@@ -17,9 +17,15 @@ export const DEFAULT_STYLE: RenderStyle = { font: 1, line: 1 }
 export const PROJECTOR_STYLE: RenderStyle = { font: 1.4, line: 1.75 }
 
 /** UI font stack of the canvas. */
-export const FONT = '"Segoe UI Variable Text","Segoe UI","Noto Sans SC Variable","Microsoft YaHei UI",system-ui,sans-serif'
+export let FONT = '"Segoe UI Variable Text","Segoe UI","Noto Sans SC Variable","Microsoft YaHei UI",system-ui,sans-serif'
 /** Monospace font stack of the canvas (numbers). */
-export const MONO = '"JetBrains Mono Variable","Cascadia Code",Consolas,monospace'
+export let MONO = '"JetBrains Mono Variable","Cascadia Code",Consolas,monospace'
+
+/** 26.60 r2: draw with the system's fonts (Android; platform/device.ts) instead of the bundled ones. */
+export function useSystemFonts() {
+  FONT = 'system-ui,Roboto,"Noto Sans CJK SC",sans-serif'
+  MONO = 'ui-monospace,"Droid Sans Mono",monospace'
+}
 
 const SI = defaultChoice()
 let style: RenderStyle = DEFAULT_STYLE

@@ -58,6 +58,9 @@ export const LEVELS: Record<string, readonly [CnLevel, IbLevel]> = {
   // Connected bodies
   'pu.a': ['s1', 'sl'], 'pu.T2': ['s1', 'sl'], 'pu.T1': ['s1', 'sl'], 'at.a': ['s1', 'sl'], 'at.T': ['s1', 'sl'],
   // Vertical circles; the time of slack needs elliptic integrals
+  // 26.62 (D220): circular tracks inside (loop, arc) and outside (hump bridge, dome)
+  'arc.in.Nb': ['s1', 'sl'], 'arc.in.vtop': ['s1', 'sl'], 'arc.in.Ntop': ['s1', 'sl'], 'arc.in.crit': ['s1', 'sl'], 'arc.in.hS': ['s1', 'sl'], 'arc.in.vS': ['s1', 'sl'],
+  'arc.out.Ntop': ['s1', 'sl'], 'arc.out.crit': ['s1', 'sl'], 'arc.out.theta': ['s1', 'sl'], 'arc.out.h': ['s1', 'sl'], 'arc.out.v': ['s1', 'sl'],
   'vc.r.T0': ['s1', 'sl'], 'vc.r.vtop': ['s1', 'sl'], 'vc.r.Ttop': ['s1', 'sl'], 'vc.r.crit': ['s1', 'sl'], 'vc.r.slackv': ['s1', 'sl'],
   'vc.r.phiS': ['s1', 'sl'], 'vc.r.hS': ['s1', 'sl'], 'vc.r.vS': ['s1', 'sl'], 'vc.r.tS': ['a', 'a'],
   'vc.d.F0': ['s1', 'sl'], 'vc.d.vtop': ['s1', 'sl'], 'vc.d.Ftop': ['s1', 'sl'], 'vc.d.zero': ['s1', 'sl'],

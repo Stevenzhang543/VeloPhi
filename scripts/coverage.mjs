@@ -1,5 +1,6 @@
 /**
- * Coverage matrix of 26.56 (ENG, FOR, EDU, UX requirements and the 180 model families of the blueprint), generated
+ * Coverage matrix of 26.56 (ENG, FOR, EDU, UX requirements and the 180 model families of the blueprint; since 26.62
+ * also the 32 curriculum families K01–K32 that the 26.55 baseline does not list), generated
  * from the registry data — not written by hand — and checked against the repository:
  *
  *   node scripts/coverage.mjs [--check]
@@ -108,7 +109,8 @@ const actById = new Map(ACTIVITIES.map(a => [a.id, a]))
 
 const rows = MODELS.map(m => {
   const base = baseModel.get(m.id)
-  if (!base) problems.push(`${m.id}: not in the baseline`)
+  // 26.62 (D221): the curriculum families K are new since the 26.55 baseline (src/content/models/k.ts)
+  if (!base && !/^K\d\d$/.test(m.id)) problems.push(`${m.id}: not in the baseline`)
   const links = linksOf(m)
   const refs = m.benchmarks.map(b => ({ ref: b, ...resolveRef(b, m.id) }))
   const oracle = refs.find(r => r.kind === 'oracle')

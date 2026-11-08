@@ -38,13 +38,20 @@ pub fn touching_features(sys: &System, poses: &[Pose]) -> Vec<Touch> {
         if !pair_may_touch(sys, pair, poses, 1e-6) {
             continue;
         }
+        // 26.60 r2: with arcs (Rust-only scenes) a point at the seam of two parts — the end of an arc and the flat part
+        // that continues it — keeps the feature it is inside of, not the one whose end it has just reached
+        let arcs = has_hollows(&sys.model, pair.x) || has_hollows(&sys.model, pair.y);
         let start = out.len();
         for (fi, f) in pair.features.iter().enumerate() {
             let k = contact_kin(&sys.model, f, poses);
             if !in_region(&k) || k.gap > tol::TOUCH || k.gap < -tol::DEEP {
                 continue;
             }
-            if out[start..].iter().any(|t| (t.kin.cx - k.cx).abs() <= 1e-9 && (t.kin.cy - k.cy).abs() <= 1e-9) {
+            if let Some(j) = out[start..].iter().position(|t| (t.kin.cx - k.cx).abs() <= 1e-9 && (t.kin.cy - k.cy).abs() <= 1e-9) {
+                let j = start + j;
+                if arcs && k.m1.min(k.m2) > out[j].kin.m1.min(out[j].kin.m2) {
+                    out[j] = Touch { pair: pair.index, feature: fi, kin: k };
+                }
                 continue;
             }
             out.push(Touch { pair: pair.index, feature: fi, kin: k });
@@ -52,6 +59,11 @@ pub fn touching_features(sys: &System, poses: &[Pose]) -> Vec<Touch> {
         drop_corner_pinch(sys, pair, &mut out, start);
     }
     out
+}
+
+/// Whether body g has a concave circular side (an arc, or a compound with an arc part).
+fn has_hollows(model: &crate::model::Model, g: usize) -> bool {
+    matches!(&model.bodies[g].shape, ShapeModel::Complex(c) if !c.hollows.is_empty())
 }
 
 /// Normals (as forces on one body) whose dot product is below this point against each other (more than 120° apart).

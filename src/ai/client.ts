@@ -14,6 +14,7 @@
  * list in the system prompt, the call as a JSON object in the answer); one that rejects `response_format` gets the
  * request without it; `max_tokens` → `max_completion_tokens` and no `temperature` for providers that ask for that.
  */
+import { extractJsonObject, parseLoose } from './looseJson'
 import { BREVITY, jsonProtocol, toolLine, toolResult } from './aiText'
 import { settings } from '../app/settings'
 import { tl } from '../i18n'
@@ -245,13 +246,7 @@ export function toJsonProtocol(req: ChatRequest): ChatRequest {
   return { ...req, messages, tools: undefined, tool_choice: undefined, response_format: caps[connKey()]?.noJsonFormat ? undefined : { type: 'json_object' } }
 }
 
-function safeJson(s: string): unknown { try { return JSON.parse(s) } catch { return {} } }
-
-/** JSON.parse that returns undefined instead of throwing. */
-function tryParse(s: string): unknown {
-  try { return JSON.parse(s) } catch { return undefined }
-}
-const isPlainObject = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v)
+function safeJson(s: string): unknown { try { return JSON.parse(s) } catch { const r = parseLoose(s); return r.ok ? r.value : {} } }
 
 /**
  * Small repairs of almost-JSON that models write (26.59 fix): comments, trailing commas, and full-width or curly
@@ -282,49 +277,15 @@ export function relaxJson(src: string): string {
   return out
 }
 
-/** The first balanced {…} in a text, parsed (strictly, then relaxed); null when there is none or it is cut off. */
-function scanObject(src: string): Record<string, unknown> | null {
-  let start = src.indexOf('{')
-  while (start >= 0) {
-    let depth = 0, inStr = false, esc = false
-    for (let i = start; i < src.length; i++) {
-      const ch = src[i]
-      if (inStr) { if (esc) esc = false; else if (ch === '\\') esc = true; else if (ch === '"') inStr = false; continue }
-      if (ch === '"') inStr = true
-      else if (ch === '{') depth++
-      else if (ch === '}') {
-        depth--
-        if (depth === 0) {
-          const slice = src.slice(start, i + 1)
-          const v = tryParse(slice) ?? tryParse(relaxJson(slice))
-          if (isPlainObject(v)) return v
-          break
-        }
-      }
-    }
-    start = src.indexOf('{', start + 1)
-    if (depth !== 0) return null
-  }
-  return null
-}
-
 /**
- * The JSON object of an answer (26.59 fix: more forgiving). The whole text, then each fenced block, then the first
- * balanced object in the prose; an array whose first item is an object gives that object. Null when the answer has
- * no complete object (empty, or cut off by the token limit).
+ * The JSON object of an answer (26.59 fix: more forgiving; 26.61: the tolerant reader of looseJson.ts). Fenced
+ * blocks, the text, objects in the prose; an array whose first item is an object gives that object; tool calls and
+ * replies of the JSON protocol are preferred. Null when the answer has no object.
  */
 export function extractJson(text: string): unknown {
-  if (!text) return null
-  const t = text.replace(/^\uFEFF/, '').trim()
-  if (!t) return null
-  const whole = tryParse(t) ?? (t.startsWith('{') || t.startsWith('[') ? tryParse(relaxJson(t)) : undefined)
-  if (isPlainObject(whole)) return whole
-  if (Array.isArray(whole) && isPlainObject(whole[0])) return whole[0]
-  for (const m of t.matchAll(/```[a-zA-Z]*\s*([\s\S]*?)```/g)) {
-    const v = scanObject(m[1])
-    if (v) return v
-  }
-  return scanObject(t)
+  const r = extractJsonObject(text, o => (Array.isArray(o.tool_calls) ? 10 : 0) + (typeof o.reply === 'string' ? 5 : 0))
+  // A cut-off object is null: the caller asks again with more room
+  return r && !r.truncated ? r.value : null
 }
 
 let jsonCallId = 0

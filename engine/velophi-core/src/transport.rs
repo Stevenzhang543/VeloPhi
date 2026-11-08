@@ -580,6 +580,8 @@ impl ChangeType {
             "rollStart" => RollStart,
             "zoneEnter" => ZoneEnter,
             "zoneLeave" => ZoneLeave,
+            "springRelease" => SpringRelease,
+            "springPress" => SpringPress,
             _ => return None,
         })
     }
@@ -606,6 +608,7 @@ impl EventType {
             "rollStart" => RollStart,
             "rollStop" => RollStop,
             "zone" => Zone,
+            "push" => Push,
             _ => return None,
         })
     }

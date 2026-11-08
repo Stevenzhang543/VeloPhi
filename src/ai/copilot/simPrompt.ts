@@ -8,7 +8,7 @@
 import { EVENTS } from '../import/catalog'
 
 /** Complete example files (with their questions) — shown to the model and loaded by the tests. */
-export const SIM_EXAMPLES: Array<{ title: string; file: Record<string, unknown> }> = [
+export const SIM_EXAMPLES: Array<{ title: string; file: Record<string, unknown>; assumptions?: string[] }> = [
   {
     title: '例 1：质量 2 kg 的物块从倾角 30° 的斜面（μ = 0.2）上由静止下滑，g 取 10 m/s²，求 1 s 末的速度和下滑的加速度。',
     file: {
@@ -45,17 +45,41 @@ export const SIM_EXAMPLES: Array<{ title: string; file: Record<string, unknown> 
   },
   {
     title: '例 3：半径 R = 0.8 m 的光滑四分之一圆弧轨道竖直固定，底端与光滑水平面相切。质量 0.1 kg 的小球从轨道顶端由静止滑下，求到达底端时的速度和对轨道的压力。',
+    assumptions: ['小球半径取 0.03 m；圆弧内半径取 R + r = 0.83 m，使球心沿半径 R = 0.8 m 的圆运动（与质点的答案一致）'],
     file: {
       format: 'velophi-scene', name: '四分之一圆弧轨道',
       settings: { gravity: { x: 0, y: -9.8 }, duration: 1.5 },
       bodies: [
-        { id: 'track', name: '圆弧轨道', kind: 'static', shape: { type: 'arc', radius: 0.8, thickness: 0.1, start: 3.14159265, sweep: 1.57079633 }, position: { x: 0, y: 0.8 }, material: { muS: 0, muK: 0, restitution: 0 } },
+        { id: 'track', name: '圆弧轨道', kind: 'static', shape: { type: 'arc', radius: 0.83, thickness: 0.1, start: 3.14159265, sweep: 1.57079633 }, position: { x: 0, y: 0.83 }, material: { muS: 0, muK: 0, restitution: 0 } },
         { id: 'floor', name: '水平面', kind: 'static', shape: { type: 'box', width: 6, height: 0.4 }, position: { x: 3, y: -0.2 }, material: { muS: 0, muK: 0, restitution: 0 } },
-        { id: 'ball', name: '小球', kind: 'particle', shape: { type: 'circle', radius: 0.03 }, position: { x: -0.7695, y: 0.7731 }, mass: 0.1, material: { muS: 0, muK: 0, restitution: 0 } }
+        { id: 'ball', name: '小球', kind: 'particle', shape: { type: 'circle', radius: 0.03 }, position: { x: -0.8, y: 0.83 }, mass: 0.1, material: { muS: 0, muK: 0, restitution: 0 } }
       ],
       questions: [
         { prompt: '到达底端时的速度', target: { kind: 'extreme', id: 'ball.v', which: 'max' }, unit: 'm/s' },
         { prompt: '在底端时轨道对小球的支持力', target: { kind: 'extreme', id: 'contact.ball|track.N', which: 'max' }, unit: 'N' }
+      ]
+    }
+  },
+  {
+    title: '例 4：光滑水平面上静止放着质量 M = 3 kg 的滑块，滑块左侧是半径 R = 0.5 m 的光滑四分之一圆弧，圆弧底端与滑块上表面的光滑水平段相切。质量 m = 1 kg 的小球从圆弧顶端由静止释放，求小球滑到圆弧底端时小球和滑块的速度。',
+    assumptions: ['小球半径取 0.02 m，圆弧内半径取 R + r = 0.52 m；滑块水平段长 1 m，厚 0.1 m；滑块不翻转（fixedRotation）'],
+    file: {
+      format: 'velophi-scene', name: '带圆弧的滑块',
+      settings: { gravity: { x: 0, y: -9.8 }, duration: 1.2 },
+      bodies: [
+        { id: 'floor', name: '水平面', kind: 'static', shape: { type: 'box', width: 8, height: 0.4 }, position: { x: 0, y: -0.2 }, material: { muS: 0, muK: 0, restitution: 0 } },
+        {
+          id: 'slide', name: '滑块', kind: 'rigid', mass: 3, fixedRotation: true, position: { x: 0, y: 0.62 }, material: { muS: 0, muK: 0, restitution: 0 },
+          shape: { type: 'compound', parts: [
+            { shape: { type: 'arc', radius: 0.52, thickness: 0.1, start: 3.14159265, sweep: 1.57079633 }, position: { x: 0, y: 0 }, angle: 0 },
+            { shape: { type: 'box', width: 1, height: 0.1 }, position: { x: 0.5, y: -0.57 }, angle: 0 }
+          ] }
+        },
+        { id: 'ball', name: '小球', kind: 'particle', shape: { type: 'circle', radius: 0.02 }, position: { x: -0.5, y: 0.62 }, mass: 1, material: { muS: 0, muK: 0, restitution: 0 } }
+      ],
+      questions: [
+        { prompt: '小球到达圆弧底端时的速度', target: { kind: 'extreme', id: 'ball.vx', which: 'max' }, unit: 'm/s' },
+        { prompt: '此时滑块的速度', target: { kind: 'extreme', id: 'slide.vx', which: 'min' }, unit: 'm/s' }
       ]
     }
   }
@@ -82,7 +106,8 @@ export function builderSystem(): string {
 只输出一个 JSON 对象，不要任何解释、Markdown、代码块标记或注释，第一个字符是 {，最后一个字符是 }：
 {"title": "简短标题", "stem": "题目原文（或情景描述）", "assumptions": ["所作的假设或取的尺寸", …], "scene": 场景文件, "questions": [问题…]}
 - 标准 JSON：键用双引号；没有注释、没有尾随逗号；数值只能是数字（不能写 2*sin(30)、√3、1/2 这样的表达式，先算出来，保留 6 位有效数字）。
-- 输出前逐条自查：① 所有 id 唯一且被引用的物体/滑轮都存在；② 可动物体 mass > 0；③ 物体起始时不互相重叠（可以接触）；④ 读数 id 与 target 合法；⑤ 单位全部是 SI。
+- 输出前逐条自查：① 所有 id 唯一且被引用的物体/滑轮都存在；② 可动物体 mass > 0；③ 物体起始时不互相重叠（可以接触），相接的部件严丝合缝；④ 每个 shape 都有 type 和全部尺寸，compound 的每个部件都是 {"shape", "position", "angle"}；⑤ 读数 id 与 target 合法；⑥ 单位全部是 SI，角度是弧度。
+- 尽量用最简单的模型：能用一个固定物体表示的就不要用可动物体，能用几个独立物体表示的就不要强行组合；但同一个可动物体的几部分（带圆弧的滑块、L 形木板）必须是一个 compound。
 
 # 读题与建模
 1. 研究对象、运动过程（分几段、何时碰撞/脱离/共速）、全部已知量（统一换算为 SI：cm→m、g→kg、km/h→m/s；角度写成弧度或用 *Deg 键）、所求。题目说“光滑”就把摩擦因数设为 0；没给 g 用 9.8（题目说取 10 就用 10）。
@@ -121,12 +146,12 @@ gravitation {"G": 6.674e-11}（物体间万有引力）；integrator 默认 "dop
   "charge": 1e-6, "fixedRotation": true, "drag": {"linear": b, "quadratic": c}, "beltSpeed": 2, "rest": true }   // 后五项可选
 id 字母开头，只含字母、数字、_；读数 id 用它（block.v）。接触时取两物体中较小的 μ 和 e（要精确指定某一对，用 settings.contactPairs: [{"a": id, "b": id, "muS", "muK", "restitution"}]）。
 形状 shape：
-- {"type": "circle", "radius": r}
+- {"type": "circle", "radius": r}；质点（kind particle）可以取 radius 0：没有体积的“绝对质点”，与教材的质点完全一致（不用考虑小球半径）
 - {"type": "box", "width": w, "height": h}（position 是中心）
 - {"type": "polygon", "points": [{"x": …, "y": …}, …]}：逆时针，不自交；固定物的顶点相对 position（通常 position 为 {0,0}，顶点直接写世界坐标）；可动物体的顶点相对质心（App 会自动移到质心）
-- {"type": "compound", "parts": [{"shape": 部件形状, "position": {x, y}, "angle": 0}, …]}：一个刚体由几部分组成（带轮小车、L 形）
-- {"type": "arc", "radius": 内半径, "thickness": 厚度, "start": 起始角, "sweep": 圆心角}：圆弧轨道（圆环扇形）；内侧是精确的凹圆面（槽、竖直圆轨道、凹形桥），外侧是精确的凸圆面（拱形桥）；0 指向右、π/2 指向上，从 start 逆时针转过 sweep（≤ 2π）。固定圆弧：position 就是圆心。可动圆弧槽：position 写圆心，App 换算到质心。
-角度也可以写成度：angleDeg、startDeg、sweepDeg。
+- {"type": "arc", "radius": 内半径, "thickness": 厚度, "start": 起始角, "sweep": 圆心角}：圆弧轨道（圆环扇形）；内侧是精确的凹圆面（槽、竖直圆轨道、凹形桥），外侧是精确的凸圆面（拱形桥）；0 指向右、π/2 指向上，从 start 逆时针转过 sweep（≤ 2π）。单独的圆弧物体：position 就是圆心（可动圆弧也写圆心，App 换算到质心）。
+- {"type": "compound", "parts": [{"shape": 部件形状, "position": {x, y}, "angle": 0}, …]}：一个刚体由几部分组成（带轮小车、L 形、带圆弧的滑块或木板）。部件形状可以是 circle、box、polygon、arc；每个部件都写成 {"shape": {…}, "position": …, "angle": 0}，position 是部件相对物体 position 的位置（box、circle：部件中心；arc：圆心；polygon：顶点坐标的原点）。物体的 position 可以取任意方便的点（例如圆弧的圆心），App 会把可动复合体换算到质心，形状在世界中的位置不变。同一物体的部件之间不碰撞；相接的部件要严丝合缝（例如水平段的上表面 = 圆弧内侧最低点）。
+角度用弧度；也可以写成度：angleDeg、startDeg、sweepDeg（不要把度数写进 angle、start、sweep）。
 
 ## 滑轮 pulleys[]
 {"id": "wheel", "position": {x, y}, "radius": 0.05}（固定在世界中）；动滑轮加 "body": "物体 id"，position 为相对该物体质心的坐标。滑轮无质量、光滑。
@@ -135,7 +160,7 @@ id 字母开头，只含字母、数字、_；读数 id 用它（block.v）。�
 锚点 a/b："物体 id"（质心）、{"body": id, "local": {x, y}}（物体上相对质心的点）或 {"body": null, "local": {x, y}}（世界中的固定点）。每个连接件要有唯一 id。
 - 绳 {"id": "rope", "type": "rope", "a": 锚点, "b": 锚点, "pulleys": [{"pulley": "wheel", "wrap": "cw"}], "length": null}：pulleys 按从 a 到 b 的顺序；wrap 可省略（App 按几何判断）；length null 为初始拉直。读数 rope.T。
 - 轻杆 {"type": "rod", "a", "b", "length": null}；铰链 {"type": "hinge", "a", "b"}（两点重合；绕固定轴转动时 b 用世界固定点）；焊接 {"type": "weld", "a", "b"}。
-- 弹簧 {"type": "spring", "a", "b", "stiffness": k, "restLength": 原长（null 为初始长度）, "damping": 0}。读数 spring.F、spring.x。
+- 弹簧 {"type": "spring", "a", "b", "stiffness": k, "restLength": 原长（null 为初始长度）, "damping": 0}。读数 spring.F、spring.x。物块与弹簧不粘连（“不拴接”“弹簧把物块弹出”）时加 "pushOnly": true：弹簧只推不拉，恢复原长时物块与它分离（事件 springRelease），之后弹簧停在原长；b 端接物块与弹簧接触的那一点。
 - 恒力 {"type": "force", "a": "block", "force": {"x": Fx, "y": Fy}}；随时间变化加 "expr": {"x": "10*sin(2*pi*t)", "y": "0"}。读数 <力 id>.F。
 - 阻尼器 {"type": "damper", "a", "b", "damping": c}；滑轨 {"type": "slider", "a", "b", "axis": {x, y}}；电动机 {"type": "motor", "a", "b", "mode": "speed"|"torque", "speed": ω, "torque": M}；齿轮 {"type": "gear", "a", "b", "ratio": r}；有心力 {"type": "central", "a": 中心锚点, "k": 强度, "n": 指数, "targets": null}。
 
@@ -145,8 +170,12 @@ id 字母开头，只含字母、数字、_；读数 id 用它（block.v）。�
 - 板块模型：地面上放木板（box），板上放物块（"rest": true，或 y = 板顶 + h/2），初速度写在 velocity。
 - 定滑轮：被绳竖直吊着的物体 x = 滑轮中心 x ± 半径；水平段的绳高度 = 滑轮中心 y + 半径。
 - 单摆 / 绳拉小球做圆周运动：绳的一端为世界固定点 {"body": null, "local": 悬点}；杆模型用 rod。
+- 弹簧弹出物块：墙（固定 box）上固定一根不粘连的弹簧 {"type": "spring", "a": {"body": null, "local": 墙面上的点}, "b": {"body": "block", "local": 物块贴着弹簧那一面的中点（相对质心）}, "stiffness": k, "restLength": 原长, "pushOnly": true}，起始时物块把弹簧压缩 x（两锚点距离 = 原长 − x）；问“物块离开弹簧时的速度”用 {"kind": "atEvent", "id": "block.v", "event": "springRelease", "side": "after"}。
 - 碰撞：velocity 写初速度，restitution 决定弹性（1 弹性、0 完全非弹性）。抛体：小球 velocity；问到“落地”就放地面并用 impact 事件。
-- 圆弧轨道：四分之一圆弧（左侧顶端到底端，底端与水平面相切）：圆心在切点正上方 R，start π、sweep π/2；半圆槽 start π、sweep π；竖直圆轨道 start 0、sweep 2π；拱形桥：radius = R − thickness，start π/6、sweep 2π/3。小球（半径 r）在内侧角 φ：圆心 + (R − r)(cos φ, sin φ)；在外侧：圆心 + (R + r)(cos φ, sin φ)；不要放在端点上，往里 1–2°。
+- 圆弧轨道：四分之一圆弧（左侧顶端到底端，底端与水平面相切）：圆心在切点正上方，start π、sweep π/2；半圆槽 start π、sweep π；竖直圆轨道 start 0、sweep 2π；拱形桥：start π/6、sweep 2π/3，小球在外侧。
+- 质点沿圆弧运动：用 radius 0 的质点，圆弧 radius 就取题目的 R；从顶端（与圆心等高处）释放时让圆弧在顶端多出一点（四分之一圆弧 start = π − 0.05、sweep = π/2 + 0.05），质点放在圆心 + R(−1, 0)，否则它会停在圆弧端面的棱上。
+- 小球沿圆弧运动（题目半径 R，小球半径 r）：在内侧时把圆弧 radius 取 R + r，球心就沿半径 R 的圆运动，答案与题目的质点答案一致；在外侧（拱形桥）时外表面半径是 radius + thickness，取 radius = R − r − thickness，使外表面半径为 R − r，球心同样沿半径 R 运动。球心在角 φ 处：圆心 + R(cos φ, sin φ)。从顶端释放就放在端点（φ = π 时与圆心等高），不用往里挪。
+- 圆弧接水平段：固定轨道可以写成两个固定物体（arc 与 box，box 的上表面 = 圆弧内侧最低点，左端接在切点）；可动的“带圆弧的滑块 / 木板 / 小车”写成一个 compound（arc 部件 + box 部件，见例 4），题目没说转动时加 "fixedRotation": true。
 - 带电粒子：kind particle、charge、velocity；匀强场写在 settings.electric / magnetic，有界场用 regions；题目说重力不计时 gravity 为 {"x": 0, "y": 0}。
 - 浮力：settings.regions 里的液体（kind liquid），物体的 depth 为垂直纸面的厚度。
 
@@ -162,9 +191,9 @@ ${JSON.stringify(builderOutput(e))}`).join('\n\n')}`
 }
 
 /** An example of the prompt as the builder's whole output. */
-function builderOutput(e: { title: string; file: Record<string, unknown> }) {
+function builderOutput(e: { title: string; file: Record<string, unknown>; assumptions?: string[] }) {
   const { questions, ...scene } = e.file
-  return { title: String(scene.name), stem: e.title.replace(/^例 \d+：/, ''), assumptions: [], scene, questions }
+  return { title: String(scene.name), stem: e.title.replace(/^例 \d+：/, ''), assumptions: e.assumptions ?? [], scene, questions }
 }
 
 /** What the builder is asked: the problem, the Copilot's explanation (to read it right), a change of the current scene. */
@@ -180,7 +209,10 @@ export function builderAsk(a: BuildAsk): string {
 }
 
 /** Sent back when the builder's object could not be loaded. */
-export const repairNote = (errors: string[]) => `App 没能载入这个场景：\n- ${errors.join('\n- ')}\n请逐条改正，重新输出完整的 JSON 对象（只输出 JSON）。`
+export const repairNote = (errors: string[]) => `App 没能载入这个场景：\n- ${errors.join('\n- ')}\n请逐条改正，重新输出完整的 JSON 对象（只输出 JSON：双引号、无注释、无算式、数值用 SI 单位的纯数字）。`
+
+/** 26.61: the builder's answer was cut off — continue it. */
+export const continueNote = () => '你的回答在中途被截断了。请从断开的位置直接接着输出剩余部分（不要重复已经输出的内容，不要加任何说明或代码块标记）。'
 
 /** The engine's answers of a built scene, as context for the Copilot's explanation. */
 export function simResultsText(name: string, answers: Array<{ prompt: string; text: string; note?: string }> | null, hidden: boolean): string {

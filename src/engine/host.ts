@@ -226,15 +226,19 @@ let chosen: SimHost | null = null
 let engineInfo: { core: string; abi: number; threads: number } | null = null
 
 /**
- * Choose the host once: the native engine when the desktop commands answer, else a Web Worker, else this thread.
- * `preferWasm` (settings, diagnostics) keeps the WebAssembly worker on the desktop.
+ * Choose the host once: the native engine when the desktop commands answer (within 4 s), else a Web Worker, else this
+ * thread. `preferWasm` (settings, diagnostics; the Android app since 26.60 r2) keeps the WebAssembly worker.
  */
 export async function initHost(preferWasm = false): Promise<SimHost> {
   if (chosen) return chosen
   const api = await tauri()
   if (api && !preferWasm) {
     try {
-      engineInfo = await api.invoke<{ core: string; abi: number; threads: number }>('engine_info')
+      // 26.60 r2: a bridge that does not answer must not hold the start (WebAssembly then)
+      engineInfo = await Promise.race([
+        api.invoke<{ core: string; abi: number; threads: number }>('engine_info'),
+        new Promise<null>(resolve => setTimeout(() => resolve(null), 4000))
+      ])
       if (engineInfo && engineInfo.abi === 2) return (chosen = nativeHost(api))
     } catch { /* No native engine: WebAssembly */ }
   }

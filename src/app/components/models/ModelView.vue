@@ -6,7 +6,9 @@
  * benchmarks), solving for an unknown input, links to templates, labs, problems and activities, and the teacher's
  * parameterized problems. Every number comes from the Rust core (modelEval, modelSolve).
  */
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, reactive, ref, shallowRef, watch } from 'vue'
+import { curriculumIfLoaded, loadCurriculum } from '../../../curriculum'
+import type { Curriculum } from '../../../curriculum'
 import { tl, activeLang } from '../../../i18n'
 import { ptext } from '../../../teaching/problems'
 import { state } from '../../store'
@@ -55,6 +57,15 @@ const outputs = computed(() => {
 const condLabel = (id: string) => T3(model.value.conditions?.find(c => c.id === id)?.label) || id
 const inputSpec = (id: string) => model.value.inputs.find(i => i.id === id)
 const links = computed(() => linksOf(model.value))
+// 26.62 (D222): the curriculum topics that open this family (the curriculum map loads on demand)
+const curriculum = shallowRef<Curriculum | null>(curriculumIfLoaded())
+if (!curriculum.value) void loadCurriculum().then(c => { curriculum.value = c }).catch(() => null)
+const curTopics = computed(() => {
+  const c = curriculum.value
+  if (!c) return []
+  return c.topics.filter(t => t.resources.some(r => r.kind === 'model' && r.id === model.value.id)).map(t => ({ id: t.id, title: c.tr(t.name, activeLang()) }))
+})
+function openCurriculum(id: string) { state.curriculumTopic = id; state.showModels = false; state.showCurriculum = true }
 
 // ---- Solve for an unknown input ----
 const solve = reactive({ unknown: '', target: '', value: 0, lo: 0, hi: 1, log: false })
@@ -218,6 +229,12 @@ const hasPractice = computed(() => !!pkg.value && !!practiceOf(pkg.value))
         <button v-for="t in links.topics ?? []" :key="t" class="btn ghost" @click="go(() => openTopic(t))"><Icon name="book" :size="13" />{{ t }}</button>
         <span v-if="!(links.activities?.length || links.templates?.length || links.labs?.length || links.problems?.length || links.topics?.length)" class="muted">{{ tl('暂无关联内容。') }}</span>
       </div>
+      <template v-if="curTopics.length">
+        <h4>{{ tl('课程知识点') }}</h4>
+        <div class="links small">
+          <button v-for="t in curTopics" :key="t.id" class="btn ghost" @click="openCurriculum(t.id)"><Icon name="graduation" :size="13" /><span class="tiny muted">{{ t.id }}</span> {{ t.title }}</button>
+        </div>
+      </template>
     </section>
 
     <ParamProblemPanel v-if="model.inputs.length" :model="model" :constants-set="constantsSet" />

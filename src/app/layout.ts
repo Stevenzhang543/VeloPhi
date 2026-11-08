@@ -35,6 +35,9 @@ export type StudioMode = 'build' | 'simulate' | 'analyze'
 export type SideTab = 'inspect' | 'analysis' | 'problem' | 'ai'
 export type SheetId = 'tools' | 'inspect' | 'analysis' | 'ai' | 'timeline'
 
+/** Heights of the phone sheets as fractions of the room between the top bar and the tab bar (D206). */
+export const SHEET_STOPS: Record<1 | 2 | 3, number> = { 1: 0.36, 2: 0.64, 3: 1 }
+
 interface ModeLayout { sideOpen: boolean; sideTab: SideTab; drawerOpen: boolean; tools: boolean }
 
 /** What each mode shows by default. */

@@ -52,7 +52,8 @@ import type { DragFeedback, Handle, HandleDrag, HandleId } from '../editor/handl
 import { applyHandleDrag, bodyHandles, deleteVertex, edgeAt, handleKey, hitHandle, insertVertex, pulleyHandles, rotateStemFrom, startHandleDrag } from '../editor/handles'
 import type { DragTool } from '../editor/create'
 import { createFromDrag, createPolygon, dragPreview, isDragTool, polygonPreview } from '../editor/create'
-import { shell } from '../layout'
+import { SHEET_STOPS, phone, shell } from '../layout'
+import { canvasDpr } from '../../platform/device'
 import { isPresetTool } from '../editor/presets'
 import { addAnnotation, annotationPointAt, deleteAnnotation, editAnnotations, hitAnnotation, placeMoved, pushHistory, setAnnotationPoint } from '../editor/annotations'
 import {
@@ -154,7 +155,7 @@ function draw() {
 }
 
 function paint(ctx: CanvasRenderingContext2D) {
-  const dpr = window.devicePixelRatio || 1
+  const dpr = canvasDpr()
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
   const palette = state.theme === 'dark' ? DARK : LIGHT
   Object.assign(viewCamera, cam.value)
@@ -205,6 +206,23 @@ function paint(ctx: CanvasRenderingContext2D) {
   }
 }
 
+/**
+ * 26.60 r2: the height of the canvas a phone sheet covers (px; none at full height, where the canvas is hidden). The
+ * view keeps the scene in the part left above the sheet: opening or resizing a sheet pans by half the change.
+ */
+const sheetCover = computed(() => (phone.value && shell.sheet && shell.sheetSize < 3 ? SHEET_STOPS[shell.sheetSize] * cam.value.height : 0))
+watch(sheetCover, (now, before) => {
+  const d = now - (before ?? 0)
+  if (!d || !(cam.value.ppm > 0) || !Number.isFinite(d)) return
+  // A view the user has not moved since it was fitted is fitted again (to the room left); else it only pans
+  const c = cam.value, f = lastFit
+  if (f && Math.abs(c.cx - f.cx) < 1e-9 && Math.abs(c.cy - f.cy) < 1e-9 && Math.abs(c.ppm - f.ppm) < 1e-9) { fitView(); return }
+  cam.value = { ...cam.value, cy: cam.value.cy - d / 2 / cam.value.ppm }
+  requestDraw()
+})
+/** The camera as the last fit left it. */
+let lastFit: { cx: number; cy: number; ppm: number } | null = null
+
 let fittedVisible = false
 function resize() {
   const h = host.value, c = canvas.value
@@ -212,7 +230,7 @@ function resize() {
   const r = h.getBoundingClientRect()
   hostW = r.width; hostH = r.height
   if (r.width < 1 || r.height < 1) return // Hidden: keep the last size, draw nothing
-  const dpr = window.devicePixelRatio || 1
+  const dpr = canvasDpr()
   c.width = Math.max(1, Math.round(r.width * dpr))
   c.height = Math.max(1, Math.round(r.height * dpr))
   c.style.width = `${r.width}px`
@@ -270,6 +288,23 @@ function fitView() {
       }
     }
   }
+  // 26.60 r2: the fixed bodies the motion happens on or next to (an incline, a track, steps) are shown too, as far as
+  // they reach near the motion — not grounds, which reach much further than anything happens on them
+  if (!many && Number.isFinite(minX)) {
+    const m = Math.max(1, 0.5 * Math.max(maxX - minX, maxY - minY))
+    const ex0 = minX - m, ex1 = maxX + m, ey0 = minY - m, ey1 = maxY + m
+    const near: Array<[number, number, number, number]> = []
+    for (const b of state.scene.bodies) {
+      if (b.kind !== 'static' || b.role === 'ground') continue
+      let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity
+      try {
+        for (const o of outlineWorld(b)) for (const q of o.kind === 'poly' ? o.pts : [{ x: o.c.x - o.r, y: o.c.y - o.r }, { x: o.c.x + o.r, y: o.c.y + o.r }]) { bx0 = Math.min(bx0, q.x); bx1 = Math.max(bx1, q.x); by0 = Math.min(by0, q.y); by1 = Math.max(by1, q.y) }
+      } catch { continue }
+      if (bx1 < ex0 || bx0 > ex1 || by1 < ey0 || by0 > ey1) continue
+      near.push([Math.max(bx0, ex0), Math.max(by0, ey0), Math.min(bx1, ex1), Math.min(by1, ey1)])
+    }
+    for (const [a, b, c, d] of near) { grow(a, b); grow(c, d) }
+  }
   for (const p of state.scene.pulleys) {
     const carrier = p.body && rec && !state.stale ? rec.system.model.byId.get(p.body) : null
     if (carrier && carrier.dynamic) {
@@ -300,10 +335,13 @@ function fitView() {
   // 26.58 (D146): the Galton histogram is drawn under the board in screen pixels (40–140 px, three bin widths, and
   // its caption): leave that much room below
   const hist = many ? histogramOf(state.scene) : null
-  const fit = (reserve: number) => Math.max(10, Math.min(2000, Math.min((cam.value.width * 0.8) / w, (cam.value.height * (hist ? 0.9 : 0.72) - reserve) / h)))
+  // 26.60 r2: on a phone the part under an open sheet does not count; the scene goes in the middle of the rest
+  const cover = sheetCover.value
+  const fit = (reserve: number) => Math.max(10, Math.min(2000, Math.min((cam.value.width * 0.8) / w, ((cam.value.height - cover) * (hist ? 0.9 : 0.72) - reserve) / h)))
   let ppm = fit(0), reserve = 0
   if (hist) for (let k = 0; k < 2; k++) { reserve = Math.max(40, Math.min(140, 3 * hist.binWidth * ppm)) + 44; ppm = fit(reserve) }
-  cam.value = { ...cam.value, cx: (minX + maxX) / 2, cy: (minY + maxY) / 2 - reserve / 2 / ppm, ppm }
+  cam.value = { ...cam.value, cx: (minX + maxX) / 2, cy: (minY + maxY) / 2 - (reserve + cover) / 2 / ppm, ppm }
+  lastFit = { cx: cam.value.cx, cy: cam.value.cy, ppm }
   requestDraw()
 }
 

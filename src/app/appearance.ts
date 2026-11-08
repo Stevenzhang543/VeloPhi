@@ -57,8 +57,14 @@ function onPointerMove(e: PointerEvent) {
 
 function onPointerLeave() { unlight() }
 
-/** The Android diagnosis switch "noglass" (26.59 fix 3, compat.ts). */
-function compatNoGlass(): boolean { return compatFlags().includes('noglass') }
+/**
+ * The Android diagnosis switch "noglass" (26.59 fix 3, compat.ts); 26.60 r2: also the Android app's safe mode after
+ * repeated restarts (window.__velophiSafe, MainActivity).
+ */
+function compatNoGlass(): boolean { return compatFlags().includes('noglass') || safeMode() }
+
+/** The Android app opened in safe mode (repeated restarts of its WebView, 26.60 r2). */
+export function safeMode(): boolean { return typeof window !== 'undefined' && (window as unknown as { __velophiSafe?: boolean }).__velophiSafe === true }
 
 /** Start the appearance driver (once, before mounting). */
 export function initAppearance() {
@@ -83,7 +89,7 @@ export function initAppearance() {
     toggle('fx-smooth', fx.ambient && settings.effects.quality === 'high')
     toggle('fx-still', still)
     toggle('fx-calm', calmMotion())
-    toggle('fx-off', settings.effects.quality === 'off')
+    toggle('fx-off', settings.effects.quality === 'off' || safeMode())
     toggle('projector', settings.projector)
     toggle('density-compact', settings.density === 'compact' && !settings.projector)
     // 26.58 (D139): colour-vision-friendly palettes of the canvas and the charts

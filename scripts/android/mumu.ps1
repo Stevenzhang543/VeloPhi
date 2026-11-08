@@ -1,7 +1,7 @@
 # VeloPhi APK checks on the MuMu Android emulator (26.59 fix 3). Finds adb (the Android SDK of build-apk, or
 # MuMu's own), connects to the running MuMu instance, and runs one step:
 #   probe    - where adb and MuMu are, which devices answer, Android version, screen size
-#   install  - install releases\v26.60\VeloPhi-v26.60-android.apk (or -Apk <path>) and start it
+#   install  - install releases\v26.62\VeloPhi-v26.62-android.apk (or -Apk <path>) and start it
 #   rotate   - start the app, then turn the screen landscape / portrait N times (-Times), with logcat
 #   logcat   - the last crash buffer and the app's log
 #   cdp      - (test APK) rotation checks through the WebView's DevTools protocol: scripts\android\mumu-cdp.mjs
@@ -77,7 +77,7 @@ switch ($Step) {
     Log "accessibility services running: $(Sh "dumpsys accessibility" | Select-String -Pattern 'Bound services|Enabled services|installed' | Out-String)"
   }
   'install' {
-    if (-not $Apk) { $Apk = Join-Path $root 'releases\v26.60\VeloPhi-v26.60-android.apk' }
+    if (-not $Apk) { $Apk = Join-Path $root 'releases\v26.62\VeloPhi-v26.62-android.apk' }
     Log "apk: $Apk ($((Get-Item $Apk).Length) bytes)"
     Log (Adb -s $serial install -r -g $Apk)
     Log (Sh "monkey -p $pkg -c android.intent.category.LAUNCHER 1")

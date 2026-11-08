@@ -44,7 +44,8 @@ pub enum ShapeDef {
     },
     /// Circular arc track (26.59 fix 3, D193): the annular sector between `radius` and `radius + thickness` about
     /// `center` (body coordinates), from angle `start` counter-clockwise over `sweep` (rad, 0 < sweep ≤ 2π). Its
-    /// inner side is an exact concave circle, its outer side an exact convex one. Not a part of a compound shape.
+    /// inner side is an exact concave circle, its outer side an exact convex one. Since 26.60 r2 (D207) also a part
+    /// of a compound shape (a board with a curved end, a slide with a flat run-out).
     Arc {
         radius: f64,
         thickness: f64,
@@ -147,7 +148,8 @@ pub enum ConnectorKind {
         b: Anchor,
         length: Option<f64>,
     },
-    /// `cubic`: k₃ of a nonlinear spring (26.51; 0: linear).
+    /// `cubic`: k₃ of a nonlinear spring (26.51; 0: linear). `push_only` (26.60 r2, D208): the spring is not fastened
+    /// to body b — it only pushes, and b leaves its free end when the spring reaches its rest length.
     Spring {
         a: Anchor,
         b: Anchor,
@@ -155,6 +157,7 @@ pub enum ConnectorKind {
         rest_length: Option<f64>,
         damping: f64,
         cubic: f64,
+        push_only: bool,
     },
     Hinge {
         a: Anchor,
@@ -668,7 +671,8 @@ fn parse_part_shape(shape: &serde_json::Map<String, Value>, path: &str) -> PResu
             width: num(shape.get("width"), &format!("{path}.width"), None)?,
             height: num(shape.get("height"), &format!("{path}.height"), None)?,
         },
-        Some("arc") if !path.contains("parts[") => ShapeDef::Arc {
+        // 26.60 r2 (D207): an arc may also be a part of a compound shape
+        Some("arc") => ShapeDef::Arc {
             radius: num(shape.get("radius"), &format!("{path}.radius"), None)?,
             thickness: num(shape.get("thickness"), &format!("{path}.thickness"), None)?,
             start: num(shape.get("start"), &format!("{path}.start"), Some(0.0))?,
@@ -915,6 +919,7 @@ fn parse_connector(v: &Value, path: &str) -> PResult<ConnectorDef> {
                 None => 0.0,
                 Some(v) => as_number(v).filter(|x| x.is_finite()).ok_or_else(|| Message::new("scene.cubicNotFinite").text("connector", name.clone()))?,
             },
+            push_only: c.get("pushOnly").and_then(|v| v.as_bool()).unwrap_or(false),
         },
         Some("damper") => ConnectorKind::Damper {
             a: parse_anchor(c.get("a"), &format!("{path}.a"))?,
@@ -992,7 +997,8 @@ pub fn validate_scene(scene: &Scene) -> PResult<()> {
             return Err(Message::new("scene.massNotPositive").text("body", b.name.clone()));
         }
         match &b.shape {
-            ShapeDef::Circle { radius } if !(*radius > 0.0) => {
+            // 26.60 r2 (D209): a particle may be a point without volume (radius 0); every other body has a size
+            ShapeDef::Circle { radius } if !(*radius > 0.0 || (*radius == 0.0 && b.kind == BodyKind::Particle)) => {
                 return Err(Message::new("scene.radiusNotPositive").text("body", b.name.clone()));
             }
             ShapeDef::Box { width, height } if !(*width > 0.0 && *height > 0.0) => {
@@ -1020,7 +1026,10 @@ pub fn validate_scene(scene: &Scene) -> PResult<()> {
                         ShapeDef::Circle { radius } => !(*radius > 0.0),
                         ShapeDef::Box { width, height } => !(*width > 0.0 && *height > 0.0),
                         ShapeDef::Polygon { points } => !polygon_is_simple(points),
-                        ShapeDef::Compound { .. } | ShapeDef::Arc { .. } => true,
+                        ShapeDef::Arc { radius, thickness, sweep, .. } => {
+                            !(*radius > 0.0 && *thickness > 0.0 && *sweep > 0.0 && *sweep <= 2.0 * std::f64::consts::PI + 1e-12)
+                        }
+                        ShapeDef::Compound { .. } => true,
                     };
                     if bad {
                         return Err(Message::new("scene.compoundPartInvalid").text("body", b.name.clone()));

@@ -1,4 +1,4 @@
-# VeloΦ (VeloPhi) 26.60
+# VeloΦ (VeloPhi) 26.62
 
 [English](README.md) · [简体中文](README.zh-CN.md) · **Deutsch**
 
@@ -18,23 +18,21 @@ VeloΦ ist eine 2D-Physiksimulation und Lernumgebung für Schülerinnen und Sch�
 - **Ein Arbeitsbereich, in dem die Zeichenfläche zählt (neu in 26.60).** Eine schmale obere Leiste mit den Modi *Aufbauen / Simulation / Analyse*, eine schwebende Werkzeugleiste, eine schwebende Zeitleiste und eine Seitenleiste; auf dem Smartphone eine untere Tableiste mit Bereichen, die von unten aufgehen.
 - **Copilot und KI-Aufgabenlesen.** Eine Aufgabe als Text oder Foto senden: Copilot antwortet mit Antwort, Lösungsweg und Erklärung und erzeugt auf Wunsch die Simulationsszene (eine JSON-Szenendatei), mit der die Engine die Antworten berechnet und prüft; außerdem beantwortet er Fragen und bedient die App für Sie. Die Arbeitsteilung ist strikt: Die KI *liest* und *handelt*, jede Zahlenantwort berechnet der Rechenkern.
 - **Ein Mehrkörper-Löser.** Stapel, Schüttgut, Dominosteine und Galtonbretter mit Hunderten von Körpern, berechnet mit einem Soft-Step-Löser, der nach den zu Box2D v3 und Rapier veröffentlichten Verfahren neu implementiert wurde — und ein **Löservergleich**, der zeigt, wie weit er vom exakten Löser entfernt ist.
-- **Formeln, die geprüft und nicht behauptet werden.** Rund 180 Modellfamilien mit Bedingungen in vier Zuständen, unabhängigen Referenzen und schrittweisen Herleitungen; Formeln sind nach Lehrplanstufe gestuft (chinesischer Lehrplan oder IB).
+- **Formeln, die geprüft und nicht behauptet werden.** 212 Modellfamilien (180 aus dem Fähigkeitsbauplan, 32 für den Lehrplan) mit Bedingungen in vier Zuständen, unabhängigen Referenzen und schrittweisen Herleitungen; Formeln sind nach Lehrplanstufe gestuft (chinesischer Lehrplan oder IB).
 - **Labor.** Gleich- und Wechselstromkreise, elektrische und magnetische Felder, Linsen und Strahlenoptik, Wellenoptik, Wellen und Schall, 1D-Quantenmechanik, Gase und Wärmekraftmaschinen, radioaktiver Zerfall und Kernreaktionen, spezielle Relativitätstheorie.
 - **Werkzeuge für den Unterricht.** Vorhersagen mit Sicherheitsangabe, Aufgaben aus eingefügtem Text, Lernpakete, Lernaktivitäten, Kräftepläne, Papierstreifen, Aufgabensammlungen, Versuchsberichte und Unterrichtsmaterial als Export.
 - **Reproduzierbar.** Deterministische Mathematik: dieselbe Szene ergibt denselben SHA-256-Fingerabdruck in der Desktop-App, im Browser und in Node; ausgelagerte Bilder werden aus Prüfpunkten bitgenau neu berechnet.
 - **Offen und offline.** Eine portable `.exe`, eine APK oder eine statische Web-Version; Simulation und Unterrichtswerkzeuge brauchen kein Konto, keinen Server und keine Plug-ins. Die KI-Funktionen arbeiten mit einem eigenen API-Schlüssel (OpenAI-kompatibel oder Anthropic) oder nach der Anmeldung mit einem whitelists.top-Konto mit der offiziellen KI.
 
-## Neu in 26.60
+## Neu in 26.62
 
 | Bereich | Änderung |
 | --- | --- |
-| Arbeitsbereich (Desktop) | Die Zeichenfläche füllt das Fenster. Eine schmale obere Leiste enthält das Menü (Datei und Export, Vorlagen und Aufgaben, Unterrichtswerkzeuge, Seiten, Hilfe), die drei Modi **Aufbauen / Simulation / Analyse**, Rückgängig/Wiederholen, Suche, Vorlagen, Aufgaben, Ansicht, Starten und KI. Die Modi sind Voreinstellungen dessen, was angezeigt wird — Werkzeuge und Eigenschaften; Wiedergabe mit Diagrammen und Ereignissen; Formeln, Werte und Diagramme —, und Ihre Änderungen werden je Modus gemerkt. Links an der Zeichenfläche schwebt eine **Werkzeugleiste** (häufige Werkzeuge, *Alle Werkzeuge*, Objektliste, Fangschalter), unten eine **Zeitleiste** (ihre Schublade öffnet sich nach oben mit Diagrammen und Ereignissen), rechts **eine Seitenleiste** mit vier Tabs: Objekt, Analyse, Aufgaben und KI; sie lässt sich verbreitern oder zu einer Symbolspalte einklappen. |
-| Smartphone und Android | Zeichenfläche bildschirmfüllend, eine **untere Tableiste** (Werkzeuge · Eigenschaften · Starten/Abspielen · Analyse · KI) und **Bereiche von unten**, die bei einem Drittel, zwei Dritteln oder voller Höhe einrasten und sich nach unten wegziehen lassen; eine schmale Zeitleiste über der Tableiste; zweistufige Einstellungen. |
-| Copilot | Wieder ein einziger Copilot. Eine Aufgabe (Text oder Bild) wird als **Antwort → Lösungsweg → Erklärung** beantwortet; darunter bietet die App an, die **Simulationsszene zu erzeugen**. Das übernimmt eine eigene Builder-Anfrage, die genau ein JSON-Objekt liefert (die VeloΦ-Szenendatei, die Fragen und ihre Annahmen); die App liest es tolerant, prüft, platziert und lädt es und schickt Fehler zur Korrektur zurück — höchstens drei Versuche. Die Szenenkarte zeigt die Antworten der Engine, die Annahmen und die JSON-Datei (ansehen, kopieren, speichern, neu laden), und **Erklärung mit der Simulation vergleichen** lässt Copilot seinen Lösungsweg an der Engine prüfen. „Bau …“ oder „Ändere die Masse auf 3 kg“ baut oder ändert eine Szene direkt. |
-| Zeitleiste | Berechnungen enden nicht mehr zu einer festen Zeit: Sie laufen, solange sich etwas bewegt, und enden nur in Ruhe, an einer Abbruchbedingung oder wenn Sie anhalten (die Dauer einer Szene gibt jetzt an, wie weit mindestens gerechnet wird). Die Berechnung bleibt der Wiedergabe voraus und pausiert, wenn sie weit genug voraus ist; eine angehaltene Berechnung lässt sich fortsetzen. |
-| Bearbeiten | Der Fang beruht auf exakten vorzeichenbehafteten Abständen zwischen den konvexen Teilen und Bogenbändern der Formen: Ein auf einen anderen gesetzter Klotz behält seine seitliche Lage, Kanten werden innerhalb von 6 px bündig, ein schnell in eine Seite gezogener Körper wird seitlich herausgeschoben. Der Rasterfang legt eine Kante, Ecke oder ein Bogenende aufs Raster, Berührungen behalten Vorrang (der Viertelbogen schließt jetzt bündig an den Boden an). Kombinieren endet per Doppelklick (der doppelt geklickte Körper gehört dazu) oder Enter, die Zeichenfläche zeigt ihren Fokusrahmen nur bei Tastaturfokus, und Ziehen geht außerhalb der Zeichenfläche weiter. |
+| Formelkarten für Kreisbahnen | Bewegungen auf einem Looping, einem Kreisbogen, einer Brücke oder einer Halbkugel werden als Bewegung **innen** oder **außen** an einer Kreisbahn erkannt. Elf geprüfte Karten: Normalkraft unten und oben, Geschwindigkeit oben, Grenzgeschwindigkeit √(5gρ) (innen) bzw. √(gρ) (außen), wo, wie hoch und wie schnell sich der Körper ablöst (cos θ = (v²/gρ + 2)/3). ρ ist der Bahnradius (Mittelpunkt bis Körpermitte); nicht zutreffende Karten sagen, warum. Jede Karte hat eine Herleitung, das Handbuchthema *Kreisbewegung* elf neue Beispiele. |
+| Lehrplanübersicht | Ressourcen › Lehrplanübersicht: die **283 Themen** des Lehrplan-Bauplans von der Sekundarstufe I bis zur Universität, gefiltert nach Lehrplan (China 2022 und 2017/2020, IGCSE 0625, IB MYP, IB DP 2025, Cambridge 9702, Universität), Stufe, Gebiet und Abdeckung. Jedes Thema öffnet, was VeloPhi dafür hat, und sagt ehrlich, wie es abgedeckt ist: **simuliert** (146), **Modell** (120), **Konzept** (13) oder **Begleitung realer Versuche** (4). Dazu die **310 Komponenten** (vorhanden 194, teilweise 48, nur Modell 50, noch nicht 18 mit Grund), die **21 Pflichtversuche** des chinesischen Lehrplans 2022, die **168 Lehrplankapitel** mit ihren Themen und die **30 Abnahmetests** des Bauplans mit den automatischen Tests. |
+| 32 neue Modellfamilien | K01–K32 ergänzen, was der Bauplan braucht (signifikante Stellen, Messschieber, AIC/BIC, Vektoroperatoren, Π-Theorem, t-Test, rotierende Systeme, Lagrange-Punkte, Elastizitätskonstanten, Fließen, Knicken, Viskoelastizität, Flachwasserwellen, Treibhausbilanz, Wärmewiderstände, Wärmepumpen, Bestrahlungsstärke, Gaußstrahlen, Aberrationen, Operationsverstärker, Logikgatter, Akkulaufzeit, Sonnenhöhe, Mondphasen und Finsternisse, Rotverschiebung, Skalenfaktor, Gezeiten, Erdbebenwellen, Membranschwingungen, steife Gleichungen, Sensitivität, Schwerpunktsystem), jede mit mindestens drei unabhängigen Referenzwerten. Insgesamt 212 Modellfamilien. |
 
-26.59 brachte das KI-Aufgabenlesen, die offizielle KI mit einem whitelists.top-Konto, 82 Aufgaben, exakte Kreisbogenbahnen und die erste Android-APK — siehe deren Versionshinweise.
+26.61 brachte prüfbare Copilot-Zahlen, Rückgängig per Schnappschuss-ID, den toleranten JSON-Leser, drei Unterrichtsversuche, Extremwerte zwischen Bildern und die Research Preview Q08 — siehe deren Versionshinweise.
 
 ![Copilot: Antwort, Lösungsweg und Erklärung, darunter das Angebot, die Simulationsszene zu erzeugen](assets/readme/copilot.jpg)
 
@@ -46,12 +44,12 @@ VeloΦ ist eine 2D-Physiksimulation und Lernumgebung für Schülerinnen und Sch�
 
 | Datei | Inhalt |
 | --- | --- |
-| `VeloPhi-v26.60-windows-x64-portable.exe` | Portable Desktop-App: doppelklicken, es wird nichts installiert. |
-| `VeloPhi-v26.60-windows-x64-setup.exe` | Installer derselben App (Startmenü, Deinstallation). |
-| `VeloPhi-v26.60-android.apk` | Android-App (Android 8.0 oder neuer): auf dem Telefon öffnen und installieren (dem Browser oder Dateimanager das Installieren unbekannter Apps erlauben). |
-| `VeloPhi-v26.60-web.zip` | Statische Web-Version: entpacken und den Ordner mit einem beliebigen statischen Webserver bereitstellen (sie braucht WebAssembly und läuft nicht über `file://`), z. B. `npx serve dist` oder `python -m http.server`. |
-| `VeloPhi-v26.60-source.zip` | Quellcode dieser Version. |
-| `VeloPhi-v26.60-release-evidence.zip` | Protokolle und Testberichte des Release-Builds. |
+| `VeloPhi-v26.62-windows-x64-portable.exe` | Portable Desktop-App: doppelklicken, es wird nichts installiert. |
+| `VeloPhi-v26.62-windows-x64-setup.exe` | Installer derselben App (Startmenü, Deinstallation). |
+| `VeloPhi-v26.62-android.apk` | Android-App (Android 8.0 oder neuer): auf dem Telefon öffnen und installieren (dem Browser oder Dateimanager das Installieren unbekannter Apps erlauben). |
+| `VeloPhi-v26.62-web.zip` | Statische Web-Version: entpacken und den Ordner mit einem beliebigen statischen Webserver bereitstellen (sie braucht WebAssembly und läuft nicht über `file://`), z. B. `npx serve dist` oder `python -m http.server`. |
+| `VeloPhi-v26.62-source.zip` | Quellcode dieser Version. |
+| `VeloPhi-v26.62-release-evidence.zip` | Protokolle und Testberichte des Release-Builds. |
 
 Voraussetzungen: Windows 10 oder 11 (x64) mit Microsoft Edge WebView2 (in aktuellen Windows-Versionen enthalten) Android 8.0 oder neuer mit System-WebView für die APK oder ein aktueller Desktop-Browser für die Web-Version. Downloads lassen sich mit `SHA256SUMS.txt` prüfen: `certutil -hashfile <Datei> SHA256`.
 

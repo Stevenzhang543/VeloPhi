@@ -321,7 +321,6 @@ export const TEXTS_2659: Record<string, readonly [string, string]> = {
   "水泥地面": ["Concrete floor", "Betonboden"],
   "橡皮泥（完全非弹性）": ["Modelling clay (perfectly inelastic)", "Knetmasse (vollkommen unelastisch)"],
   "弹力球": ["Bouncy ball", "Flummi"],
-  "系统的网页组件在旋转屏幕时出错，VeloΦ 已自动重新打开并恢复了刚才的场景": ["The system's web view failed while the screen turned; VeloΦ reopened by itself and restored your scene", "Die Webansicht des Systems ist beim Drehen des Bildschirms ausgefallen; VeloΦ hat sich neu geöffnet und Ihre Szene wiederhergestellt"],
   "固定的光滑四分之一圆弧轨道（半径 1 m）：单击放在地面上，底端与地面相切": ["Fixed smooth quarter arc track (radius 1 m): click to place it on the ground, its lower end tangent to the ground", "Feste glatte Viertelkreisbahn (Radius 1 m): Klicken stellt sie auf den Boden, ihr unteres Ende berührt ihn tangential"],
   "固定的光滑半圆槽（半径 1 m）：单击放置，槽底在单击处": ["Fixed smooth semicircular groove (radius 1 m): click to place, its bottom at the click", "Feste glatte Halbkreisrinne (Radius 1 m): Klicken platziert sie, ihr Boden liegt am Klickpunkt"],
   "固定的光滑圆环轨道（半径 1 m）：把小球放在环内侧，研究竖直面内的圆周运动": ["Fixed smooth ring track (radius 1 m): put a ball inside the ring to study circular motion in a vertical plane", "Feste glatte Ringbahn (Radius 1 m): Eine Kugel innen in den Ring setzen, um die Kreisbewegung in der senkrechten Ebene zu untersuchen"],

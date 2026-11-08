@@ -20,6 +20,7 @@ import { TEMPLATES_2655 } from './t2655'
 import { TEMPLATES_2657 } from './t2657'
 import { TEMPLATES_2658 } from './t2658'
 import { TEMPLATES_2659 } from './t2659'
+import { TEMPLATES_2661 } from './t2661'
 import type { TemplatePreset } from './t2657'
 
 /** A template parameter: key, label, display unit ('°' for angles), default value and limits. */
@@ -676,7 +677,9 @@ export const TEMPLATES: TemplateInfo[] = trDeep([
   // 26.58: many bodies with the many-body solver (D142)
   ...TEMPLATES_2658,
   // 26.59 fix: a ball thrown horizontally lands on the incline (D185)
-  ...TEMPLATES_2659
+  ...TEMPLATES_2659,
+  // 26.61: push-only springs, a point mass, a projectile against a wall
+  ...TEMPLATES_2661
 ])
 
 /**
@@ -685,10 +688,18 @@ export const TEMPLATES: TemplateInfo[] = trDeep([
  * (Field templates run there too, without their fields, as before; `referenceTemplates` is the stricter list.)
  * 26.59 fix 3 (D193): arc tracks are not in the reference either.
  */
-export function exactTemplates(): TemplateInfo[] { return TEMPLATES.filter(t => { const s = t.build(Object.fromEntries(t.params.map(p => [p.key, p.value]))); return !usesSoftStep(s) && !usesArcs(s) }) }
+export function exactTemplates(): TemplateInfo[] { return TEMPLATES.filter(t => { const s = t.build(Object.fromEntries(t.params.map(p => [p.key, p.value]))); return !usesSoftStep(s) && !usesArcs(s) && !usesNewer(s) }) }
+
+/**
+ * 26.61: features the TypeScript reference engine does not know (26.60 r2, D208/D209): springs that only push and
+ * point masses without volume. Their templates are checked against closed-form answers instead (problems2661).
+ */
+export function usesNewer(s: Scene): boolean {
+  return s.connectors.some(c => c.type === 'spring' && (c as { pushOnly?: boolean }).pushOnly === true) || s.bodies.some(b => b.kind === 'particle' && b.shape.type === 'circle' && b.shape.radius === 0)
+}
 
 /** Templates the TypeScript reference can run (D77): the ones without charges or fields. */
-export function referenceTemplates(): TemplateInfo[] { return TEMPLATES.filter(t => !usesFields(t.build(Object.fromEntries(t.params.map(p => [p.key, p.value]))))) }
+export function referenceTemplates(): TemplateInfo[] { return TEMPLATES.filter(t => { const s = t.build(Object.fromEntries(t.params.map(p => [p.key, p.value]))); return !usesFields(s) && !usesNewer(s) }) }
 
 // ---- 26.51 models (graded formula library, D44; fields and connectors, D50/D51) ----
 function uniformMotion(v: Record<string, number>): Scene {

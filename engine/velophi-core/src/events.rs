@@ -28,6 +28,8 @@ pub enum EventType {
     RollStop,
     /// 26.55 (D90): a charged body's centre crosses the boundary of a field region.
     Zone,
+    /// 26.60 r2 (D208): a spring that only pushes reaches its rest length (or is pressed again).
+    Push,
 }
 
 /// A rope end closer than this to the pulley it runs onto has reached it (m).
@@ -53,6 +55,7 @@ impl EventType {
             EventType::RollStart => "rollStart",
             EventType::RollStop => "rollStop",
             EventType::Zone => "zone",
+            EventType::Push => "push",
         }
     }
 }
@@ -127,6 +130,11 @@ pub enum EventValue {
         pair: usize,
         b: i8,
     },
+    /// 26.60 r2 (D208): push-only spring slot `slot`, frozen pressed (b = 1) or free (b = −1): b × how far it is pressed.
+    Push {
+        slot: usize,
+        b: i8,
+    },
 }
 
 /// An event function of the current mode with its hysteresis state.
@@ -190,6 +198,7 @@ pub fn event_value(sys: &System, mode: &Mode, f: &EventFn, poses: &[Pose], s: &M
         EventValue::RollStart { unit, cap } => cap * s.units[unit].normal - s.units[unit].roll.abs(),
         EventValue::RollStop { unit, r } => f64::from(r) * s.units[unit].wr,
         EventValue::Zone { pair, b } => f64::from(b) * crate::regions::zone_value(&sys.model, pair, poses),
+        EventValue::Push { slot, b } => f64::from(b) * crate::dynamics::push_depth(&sys.model, poses, sys.model.push_springs[slot]).0,
     }
 }
 
@@ -266,12 +275,16 @@ pub fn build_event_fns(sys: &System, mode: &Mode, poses: &[Pose], sol: &ModeSolu
     if let Some(sw) = &mode.sw {
         if sw.len() == crate::dynamics::branch_count(model) {
             let ns = model.arena.switches.len();
+            let nz = model.zone_pairs.len();
             for (k, &b) in sw.iter().enumerate() {
                 if k < ns {
                     add(EventType::Switch, SWITCH_EPS, EventValue::Switch { k, b }, -1);
-                } else {
+                } else if k < ns + nz {
                     // 26.55 (D90): entering or leaving a field region
                     add(EventType::Zone, tol::EXT, EventValue::Zone { pair: k - ns, b }, -1);
+                } else {
+                    // 26.60 r2 (D208): a spring that only pushes lets go of the body, or is pressed again
+                    add(EventType::Push, tol::EXT, EventValue::Push { slot: k - ns - nz, b }, -1);
                 }
             }
         }

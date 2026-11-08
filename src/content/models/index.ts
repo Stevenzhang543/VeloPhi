@@ -16,10 +16,11 @@ import { MODELS_W } from './w'
 import { MODELS_O } from './o'
 import { MODELS_R } from './r'
 import { MODELS_X } from './x'
+import { MODELS_K } from './k'
 import { LAB_MODELS, PROBLEM_MODELS, TEMPLATE_MODELS } from './links'
 
 /** Every model family, in the order of the blueprint (doc 02: G M F W T E B O Q N R X). */
-export const MODELS: ModelSpec[] = [...MODELS_G, ...MODELS_M1, ...MODELS_M2, ...MODELS_F, ...MODELS_W, ...MODELS_T, ...MODELS_E, ...MODELS_B, ...MODELS_O, ...MODELS_Q, ...MODELS_N, ...MODELS_R, ...MODELS_X]
+export const MODELS: ModelSpec[] = [...MODELS_G, ...MODELS_M1, ...MODELS_M2, ...MODELS_F, ...MODELS_W, ...MODELS_T, ...MODELS_E, ...MODELS_B, ...MODELS_O, ...MODELS_Q, ...MODELS_N, ...MODELS_R, ...MODELS_X, ...MODELS_K]
 
 const BY_ID = new Map(MODELS.map(m => [m.id, m]))
 

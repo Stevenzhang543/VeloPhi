@@ -3,6 +3,7 @@
  * change (direct or asked first, per the setting; undoable), confirm (always asked). Every tool checks its arguments
  * and either does all of its work or none; the results are short JSON the model reads back.
  */
+import { curriculumIfLoaded, loadCurriculum, TOPIC_LINKS } from '../../curriculum'
 import type { JsonSchema, ToolDef } from '../types'
 import { tl } from '../../i18n'
 import { state, play, pause, rewind, seekTime, loadScene } from '../../app/store'
@@ -10,6 +11,7 @@ import { settings } from '../../app/settings'
 import { BUILTIN_PROBLEMS, builtinById } from '../../teaching/problemBank'
 import { CHAPTERS, evaluateProblemTarget, ptext } from '../../teaching/problems'
 import type { ProblemTarget } from '../../teaching/problems'
+import type { Recording } from '../../engine/recording'
 import { openBuiltin, reveal } from '../../app/problemMode'
 import { TEMPLATES, templateById, buildTemplate } from '../../templates'
 import { MODELS, modelById } from '../../content/models'
@@ -105,9 +107,32 @@ export function sceneSummary() {
   }
 }
 
-function evalTarget(target: ProblemTarget) {
-  const rec = state.recording
-  if (!rec) throw new ToolError('no simulation result yet (the scene has not been computed)')
+/**
+ * 26.61 (R2, C): the recording a reading tool may use — the one of the scene as it is now. While the scene was changed
+ * and the new run has not delivered yet, wait up to `ms`; an out-of-date recording is never read (it belongs to
+ * another scene or another version of this one).
+ */
+export async function freshRecording(ms = 8000): Promise<Recording> {
+  // Learning mode: what the app hides from the student is not read out by the Copilot either (the app decides)
+  const p = state.problem
+  if (settings.ai.learningMode && p && !p.revealed && !p.editing) throw new ToolError('learning mode: the results of this problem stay hidden until the student has answered and revealed them; guide the student instead')
+  const t0 = Date.now()
+  for (;;) {
+    const rec = state.recording
+    if (rec && !state.stale) return rec
+    if (!state.computing && !state.stale && !rec) throw new ToolError('no simulation result yet (the scene has not been computed)')
+    if (Date.now() - t0 >= ms) throw new ToolError(state.stale ? 'the results are out of date: the scene was changed and the new run has not delivered yet (read again shortly)' : 'no simulation result yet (the scene has not been computed)')
+    await new Promise(r => setTimeout(r, 150))
+  }
+}
+
+/** Where a reading comes from (26.61, C): the run, the scene and the solver — the panel marks it stale when they change. */
+export function evidence(rec: Recording) {
+  return { run: state.runId ?? 0, scene: rec.scene.name, solver: rec.scene.settings.integrator ?? 'auto', complete: rec.completed !== false, computedTo: round((rec.frameCount - 1) * rec.dt, 4) }
+}
+
+function evalTarget(target: ProblemTarget, rec: Recording | null = state.stale ? null : state.recording) {
+  if (!rec) throw new ToolError('no up-to-date simulation result (the scene has not been computed since it changed)')
   const v = evaluateProblemTarget(rec, state.situations, target)
   return { value: round(v.sim), unit: v.unit, formula: round(v.formula), note: v.simNote ?? v.formulaNote ?? undefined }
 }
@@ -126,7 +151,9 @@ export function readResults() {
       computation: r.computation, checks: r.checks.map(c => ({ kind: c.kind, pass: c.pass })), reason: r.reason
     }))
   }
-  out.formulas = state.situations.slice(0, 6).map(s => ({ situation: s.title, t: [round(s.t0, 4), round(s.t1, 4)] }))
+  out.formulas = state.stale ? [] : state.situations.slice(0, 6).map(s => ({ situation: s.title, t: [round(s.t0, 4), round(s.t1, 4)] }))
+  if (state.recording && !state.stale) out.evidence = evidence(state.recording)
+  else if (p || state.recording) out.note = 'the simulation results are out of date or still computing; read again shortly'
   return out
 }
 
@@ -153,6 +180,9 @@ export function searchCatalog(query: string, kind?: string, limit = 8) {
   for (const m of MODELS) add('model', m.id, m.title.zh, `${m.id} ${m.point.zh}`)
   for (const l of LABS) if (!l.planned) add('lab', l.id, l.title, l.summary)
   for (const t of TOPICS) add('handbook', t.id, ptext(t.title, lang()), t.principle.map(x => ptext(x, lang())).join(' ').slice(0, 300))
+  // 26.62 (D222): curriculum topics (once the curriculum map is loaded); the detail lists what opens them
+  const cur = curriculumIfLoaded()
+  if (cur) for (const t of cur.topics) add('curriculum', t.id, cur.tr(t.name, lang()), `${t.name} ${cur.tr(t.name, 'en')} ${t.scene} ${t.equation} ${t.solver}`, `${t.coverage}: ${TOPIC_LINKS[t.id]}`)
   return items.sort((a, b) => b.s - a.s).slice(0, limit).map(({ s: _s, ...x }) => x)
 }
 
@@ -177,9 +207,8 @@ function numbersOf(v: unknown, where: string): Record<string, number> {
  * rope tension, spring force, applied forces, Coulomb force — the readable quantities in newtons that belong to the
  * body, with their names, read from the simulation like read_quantity.
  */
-export function readForces(bodyId: string, when: { t?: number; event?: string; side?: 'before' | 'after' }) {
-  const rec = state.recording
-  if (!rec) throw new ToolError('no simulation result yet (the scene has not been computed)')
+export async function readForces(bodyId: string, when: { t?: number; event?: string; side?: 'before' | 'after' }) {
+  const rec = await freshRecording()
   const body = state.scene.bodies.find(b => b.id === bodyId)
   if (!body) throw new ToolError(`no body ${bodyId}; bodies: ${state.scene.bodies.map(b => b.id).join(', ')}`)
   const attached = new Set(state.scene.connectors.filter(c => c.a.body === bodyId || ('b' in c && (c as { b?: { body: string | null } }).b?.body === bodyId)).map(c => c.id))
@@ -189,10 +218,10 @@ export function readForces(bodyId: string, when: { t?: number; event?: string; s
   const g = Math.hypot(state.scene.settings.gravity.x, state.scene.settings.gravity.y)
   if (body.kind !== 'static' && g > 0) forces.push({ id: 'gravity', name: tl('重力 G = mg'), value: round(body.mass * g), unit: 'N' })
   for (const q of qs) {
-    const v = safe(() => evalTarget(at(q.id)))
+    const v = safe(() => evalTarget(at(q.id), rec))
     forces.push({ id: q.id, name: q.label, value: 'value' in v ? v.value : null, unit: 'N' })
   }
-  return { body: bodyId, at: when.event ? `${when.side ?? 'before'} ${when.event}` : `t = ${round(when.t ?? state.time, 4)} s`, forces, note: 'computed by the engine from the scene (contacts, ropes, springs, fields); a contact force of 0 means no contact at that moment' }
+  return { body: bodyId, at: when.event ? `${when.side ?? 'before'} ${when.event}` : `t = ${round(when.t ?? state.time, 4)} s`, forces, note: 'computed by the engine from the scene (contacts, ropes, springs, fields); a contact force of 0 means no contact at that moment', evidence: evidence(rec) }
 }
 
 const SHOW_TARGETS = ['studio', 'lab', 'monitor', 'settings', 'settings-ai', 'task', 'problem', 'formulas', 'watch', 'predict', 'inspector', 'scene-settings', 'curves', 'events', 'templates', 'problems', 'models', 'learning', 'fbd', 'handbook'] as const
@@ -211,17 +240,16 @@ export const TOOLS: Tool[] = [
   {
     name: 'read_results', level: 'read', label: () => tl('读取结果'),
     description: 'Computed results now: the open problem\'s answers from the simulation (with the formula value), the task results with their independent checks, the recognised situations. Use these numbers; never invent numbers.',
-    parameters: obj({}), run: () => readResults()
+    parameters: obj({}), run: async () => { if (state.problem || state.recording) await freshRecording().catch(() => null); return readResults() }
   },
   {
     name: 'read_quantity', level: 'read', label: a => tl('读取 {0}', [str(a.id) || str(a.event)]),
     description: 'Read one quantity from the simulation: at time t, just before/after the first event of a kind, the time of an event, the end value, or the max/min over the run. Quantity ids: <body>.x .y .vx .vy .v .ax .ay .a .ek .angle .omega, contact.<a>|<b>.N .f, <rope>.T, system.*. Use list_quantities to see them.',
     parameters: obj({ kind: S('quantity | atEvent | event | end | extreme', { enum: ['quantity', 'atEvent', 'event', 'end', 'extreme'] }), id: S('quantity id'), t: N('time (s) for kind quantity'), event: S(`event: ${Object.keys(EVENTS).join(', ')}`), side: S('before | after', { enum: ['before', 'after'] }), body: S('body id taking part in the event (optional)'), which: S('max | min', { enum: ['max', 'min'] }) }, ['kind']),
-    run: a => {
+    run: async a => {
       const kind = str(a.kind)
       const id = a.id ? canonicalQuantityId(str(a.id)) : ''
-      const rec = state.recording
-      if (!rec) throw new ToolError('no simulation result yet')
+      const rec = await freshRecording()
       if (id && !listQuantities(rec).some(q => q.id === id)) throw new ToolError(`unknown quantity id ${id}; call list_quantities`)
       let target: ProblemTarget
       if (kind === 'quantity') { const t = Number(a.t); if (!(t >= 0)) throw new ToolError('t must be ≥ 0'); target = { kind: 'quantity', id, t } }
@@ -230,25 +258,24 @@ export const TOOLS: Tool[] = [
       else if (kind === 'end') target = { kind: 'end', id }
       else if (kind === 'extreme') target = { kind: 'extreme', id, which: a.which === 'min' ? 'min' : 'max' }
       else throw new ToolError('kind must be quantity, atEvent, event, end or extreme')
-      return evalTarget(target)
+      return { ...evalTarget(target, rec), at: kind === 'quantity' ? { t: target.kind === 'quantity' ? target.t : undefined } : kind === 'atEvent' ? { event: str(a.event), side: a.side === 'after' ? 'after' : 'before' } : undefined, evidence: evidence(rec) }
     }
   },
   {
     name: 'list_quantities', level: 'read', label: () => tl('查看可读的量'),
     description: 'The readable quantity ids of the current scene (id, label, SI unit), at most 120.',
     parameters: obj({ filter: S('optional text to filter ids or labels') }),
-    run: a => {
-      const rec = state.recording
-      if (!rec) throw new ToolError('no simulation result yet')
+    run: async a => {
+      const rec = await freshRecording()
       const f = str(a.filter).toLowerCase()
       return listQuantities(rec).filter(q => !f || q.id.toLowerCase().includes(f) || q.label.toLowerCase().includes(f)).slice(0, 120).map(q => `${q.id} | ${q.label} | ${q.unit}`)
     }
   },
   {
     name: 'search_catalog', level: 'read', label: a => tl('搜索“{0}”', [str(a.query)]),
-    description: 'Search built-in examples (kind example), the user\'s saved problems (my), simulation templates (template), analytic models (model), labs (lab) and handbook topics (handbook). Returns ids to open.',
-    parameters: obj({ query: S('search words (any language)'), kind: S('optional: example | my | template | model | lab | handbook', { enum: ['example', 'my', 'template', 'model', 'lab', 'handbook'] }) }, ['query']),
-    run: a => searchCatalog(str(a.query), str(a.kind) || undefined)
+    description: 'Search built-in examples (kind example), the user\'s saved problems (my), simulation templates (template), analytic models (model), labs (lab), handbook topics (handbook) and curriculum topics from lower secondary to university (curriculum; the detail lists the model ids, t:template, l:lab/preset, a:activity that open it). Returns ids to open.',
+    parameters: obj({ query: S('search words (any language)'), kind: S('optional: example | my | template | model | lab | handbook | curriculum', { enum: ['example', 'my', 'template', 'model', 'lab', 'handbook', 'curriculum'] }) }, ['query']),
+    run: async a => { if (!a.kind || a.kind === 'curriculum') await loadCurriculum().catch(() => null); return searchCatalog(str(a.query), str(a.kind) || undefined) }
   },
   {
     name: 'list_examples', level: 'read', label: () => tl('列出例题'),

@@ -23,6 +23,15 @@ import { ensureLibrary } from '../formula/match'
 import { initRecords } from './learn/records'
 import { loadAccount, refreshAccount } from '../ai/account'
 import { loadMyProblems } from '../teaching/myProblems'
+import { isAndroid } from '../platform/device'
+import { useSystemFonts } from '../render/style'
+import { installUiTestHooks } from './uitest'
+
+// 26.60 r2: Android uses the system's fonts (the diagnosis switch "appfont" keeps the bundled ones)
+if (isAndroid() && !((window as unknown as { __velophiCompat?: string }).__velophiCompat ?? '').split(',').includes('appfont')) {
+  document.documentElement.classList.add('sysfont')
+  useSystemFonts()
+}
 
 loadSettings()
 // 26.59 (D151, D166): the account token and "my problems" from this computer; the account is checked in the
@@ -57,7 +66,10 @@ async function start() {
     void revealInterface()
     return
   }
-  await initHost(settings.sim.engine === 'wasm')
+  // 26.60 r2: the Android app computes in a Web Worker too — on Android every call to the native engine and every
+  // streamed chunk passes through the WebView bridge on the interface thread (postMessage and script evaluation),
+  // which competes with drawing and touch; the worker hands chunks over without copying
+  await initHost(settings.sim.engine === 'wasm' || isAndroid())
   // 26.59 fix 3 (D192): rendering switches for diagnosing Android WebViews (only when set over adb)
   const { applyCompat, compatFlags } = await import('./compat')
   applyCompat()
@@ -67,6 +79,9 @@ async function start() {
   state.scene = buildTemplate('incline')
   state.chart = defaultChart(state.scene)
   createApp(App).mount('#app')
+  installUiTestHooks()
+  // 26.60 r2: Android — take the interface out of layout while the screen turns (rotateGuard.ts)
+  void import('./rotateGuard').then(m => m.initRotateGuard()).catch(() => {})
   runSimulation()
   // 26.59 fix 3 (D192): Android — reopen the scene after the app restarted itself, keep snapshots
   void import('./recovery').then(m => m.initRecovery()).catch(() => {})

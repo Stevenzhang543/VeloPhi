@@ -980,6 +980,10 @@ impl<'a> Observation<'a> {
         if let Some(sp) = model.springs.iter().find(|s| s.id == head) {
             let (d, ux, uy) = distance_kin(model, poses, &sp.a, &sp.b);
             let ext = d.value - sp.rest_length;
+            // 26.60 r2 (D208): a spring that only pushes stays at its rest length once the body has left it
+            if sp.push_only && ext > 0.0 {
+                return 0.0;
+            }
             if q == "x" {
                 return ext;
             }

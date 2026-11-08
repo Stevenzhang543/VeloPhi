@@ -1,5 +1,6 @@
 /**
- * The model registry (26.56, D98, D106): the 180 model families of the capability blueprint as data. A model names
+ * The model registry (26.56, D98, D106): the 180 model families of the capability blueprint (and, since 26.62, the
+ * 32 curriculum families K01–K32) as data. A model names
  * its typed inputs (SI unit, semantic quantity, display kind, domain, the value of its worked example), its
  * intermediate quantities, its conditions (four states), its outputs (formula, branch or roots) in the formula
  * language, and what it is: geometry, assumptions, validity, sources, maturity, links to the templates, labs and

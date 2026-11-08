@@ -279,3 +279,124 @@ fn many_body_world_keeps_balls_in_a_bowl() {
         assert!(d < 1.0 - 0.08 + 0.01 && y < 1.0, "ball {i} at ({x}, {y}), {d} from the centre");
     }
 }
+
+/// 26.60 r2 (D207): a slide made of a quarter-arc part (inner radius `rr`, centre (0, rr)) and a flat box part (top at
+/// y = 0, from x = 0 to `len`), both `t` thick, its parts placed relative to `origin` (the body position).
+fn slide(id: &str, kind: &str, origin: (f64, f64), rr: f64, t: f64, len: f64, mass: f64) -> Value {
+    let (ox, oy) = origin;
+    json!({
+        "id": id, "name": id, "kind": kind, "role": "block",
+        "shape": {"type": "compound", "parts": [
+            {"shape": {"type": "arc", "radius": rr, "thickness": t, "start": PI, "sweep": PI / 2.0}, "position": {"x": -ox, "y": rr - oy}, "angle": 0},
+            {"shape": {"type": "box", "width": len, "height": t}, "position": {"x": len / 2.0 - ox, "y": -t / 2.0 - oy}, "angle": 0}
+        ]},
+        "position": {"x": ox, "y": oy}, "angle": 0, "velocity": {"x": 0, "y": 0}, "angularVelocity": 0,
+        "mass": mass, "inertia": null, "fixedRotation": true,
+        "material": {"muS": 0, "muK": 0, "restitution": 0}, "beltSpeed": 0, "color": "#a16207"
+    })
+}
+
+#[test]
+fn compound_with_an_arc_part_runs_onto_its_flat_part() {
+    // A fixed slide: the ball leaves the quarter arc at the bottom with v = √(2g(R − r)) and keeps it on the flat part,
+    // its centre at height r (no bump where the two parts meet).
+    let (rr, r, t, len) = (1.0, 0.05, 0.1, 2.0);
+    let text = scene(vec![slide("s", "static", (0.0, 0.0), rr, t, len, 0.0), ball("b", -(rr - r), rr, 0.0, 0.0, r, "particle")], 1.6);
+    let run = run(&text);
+    let st = states(&run);
+    let v0 = (2.0 * G * (rr - r)).sqrt();
+    let mut on_flat = 0;
+    for (_, x) in &st {
+        if x[0] > 0.05 && x[0] < len - 0.1 {
+            on_flat += 1;
+            assert!((x[1] - r).abs() < 1e-6, "ball centre at {} on the flat (r = {r})", x[1]);
+            assert!((x[3] - v0).abs() < 1e-4 && x[4].abs() < 1e-5, "velocity ({}, {}) vs {v0}", x[3], x[4]);
+        }
+    }
+    assert!(on_flat > 50, "ball reached the flat part ({on_flat} frames)");
+}
+
+#[test]
+fn movable_slide_with_an_arc_part_keeps_momentum_and_energy() {
+    // The same slide (mass M) free on a smooth floor and a ball (mass 1) released at the arc's rim: horizontal momentum
+    // stays zero; on the flat part the ball moves at v = √(2gh·M/(M+m)) and the slide at −v·m/M.
+    let (rr, r, t, len, big): (f64, f64, f64, f64, f64) = (1.0, 0.05, 0.1, 2.0, 3.0);
+    // Centre of mass of the two parts (uniform density) in the slide's own frame
+    let a: f64 = PI / 4.0;
+    let arc_area = a * ((rr + t).powi(2) - rr * rr);
+    let d = 2.0 / 3.0 * ((rr + t).powi(3) - rr.powi(3)) / ((rr + t).powi(2) - rr * rr) * a.sin() / a;
+    let arc_c = (-d * (PI / 4.0).cos(), rr - d * (PI / 4.0).sin());
+    let box_area = len * t;
+    let box_c = (len / 2.0, -t / 2.0);
+    let total = arc_area + box_area;
+    let c = ((arc_area * arc_c.0 + box_area * box_c.0) / total, (arc_area * arc_c.1 + box_area * box_c.1) / total);
+    let floor = json!({
+        "id": "floor", "name": "floor", "kind": "static", "role": "ground",
+        "shape": {"type": "box", "width": 40, "height": 1}, "position": {"x": 0, "y": -t - 0.5}, "angle": 0,
+        "velocity": {"x": 0, "y": 0}, "angularVelocity": 0, "mass": 0, "inertia": null, "fixedRotation": false,
+        "material": {"muS": 0, "muK": 0, "restitution": 0}, "beltSpeed": 0, "color": "#94a3b8"
+    });
+    let text = scene(vec![floor, slide("s", "rigid", c, rr, t, len, big), ball("b", -(rr - r), rr, 0.0, 0.0, r, "particle")], 1.6);
+    let (sc, warnings) = parse_scene(&text).expect("scene");
+    assert!(warnings.is_empty(), "{warnings:?}");
+    let run = simulate(&sc, SimOptions::default()).expect("run");
+    let st = states(&run);
+    let n = run.system.n;
+    let (si, bi) = (0, 1);
+    let v_ball = (2.0 * G * (rr - r) * big / (big + 1.0)).sqrt();
+    let mut on_flat = 0;
+    for (_, x) in &st {
+        let p = big * x[3 * n + 3 * si] + x[3 * n + 3 * bi];
+        assert!(p.abs() < 1e-7, "horizontal momentum {p}");
+        assert!((x[3 * si + 1] - c.1).abs() < 1e-7, "slide lifted to {}", x[3 * si + 1]);
+        let rel = x[3 * bi] - (x[3 * si] - c.0);
+        if rel > 0.05 && rel < len - 0.1 {
+            on_flat += 1;
+            assert!((x[3 * n + 3 * bi] - v_ball).abs() < 1e-4, "ball {} vs {v_ball}", x[3 * n + 3 * bi]);
+            assert!((x[3 * n + 3 * si] + v_ball / big).abs() < 1e-4, "slide {} vs {}", x[3 * n + 3 * si], -v_ball / big);
+        }
+    }
+    assert!(on_flat > 20, "ball reached the flat part ({on_flat} frames)");
+}
+
+#[test]
+fn point_mass_without_volume_follows_the_textbook_exactly() {
+    // 26.60 r2 (D209): a particle of radius 0 on a smooth quarter arc of radius R from the height of its centre:
+    // v = √(2gR) at the bottom (no R − r correction), then on along the flat floor at that speed. The arc reaches a
+    // little above the start (a point exactly on the rim's corner would rest on its end face).
+    let rr: f64 = 0.8;
+    let floor = json!({
+        "id": "floor", "name": "floor", "kind": "static", "role": "ground",
+        "shape": {"type": "box", "width": 20, "height": 1}, "position": {"x": 5, "y": -0.5}, "angle": 0,
+        "velocity": {"x": 0, "y": 0}, "angularVelocity": 0, "mass": 0, "inertia": null, "fixedRotation": false,
+        "material": {"muS": 0, "muK": 0, "restitution": 0}, "beltSpeed": 0, "color": "#94a3b8"
+    });
+    let track = arc("track", "static", 0.0, rr, rr, 0.1, PI - 0.05, PI / 2.0 + 0.05, (0.0, 0.0), 0.0, false);
+    let text = scene(vec![floor, track, ball("p", -rr, rr, 0.0, 0.0, 0.0, "particle")], 1.2);
+    let run = run(&text);
+    let st = states(&run);
+    let n = run.system.n;
+    let v0 = (2.0 * G * rr).sqrt();
+    let last = &st.last().unwrap().1;
+    assert!((last[3 * n] - v0).abs() < 1e-7, "speed on the floor {} vs {v0}", last[3 * n]);
+    assert!(last[1].abs() < 1e-9, "the point runs on the floor surface, y = {}", last[1]);
+    // Two points without volume pass through each other; a rigid body of radius 0 is refused
+    let two = scene(vec![ball("p", 0.0, 1.0, 1.0, 0.0, 0.0, "particle"), ball("q", 1.0, 1.0, -1.0, 0.0, 0.0, "particle")], 1.0);
+    let r2 = velophi_core::simulation::simulate(&parse_scene(&two).expect("scene").0, SimOptions::default()).expect("run");
+    assert!(has(&r2, ChangeType::Impact).is_empty());
+    assert!(parse_scene(&scene(vec![ball("p", 0.0, 1.0, 0.0, 0.0, 0.0, "rigid")], 1.0)).is_err());
+}
+
+#[test]
+fn point_mass_passes_the_seam_of_an_arc_and_a_flat_part_smoothly() {
+    // 26.60 r2: at the seam the flat part takes over from the arc (no separation, no impact)
+    let (rr, t, len) = (0.5, 0.1, 2.0);
+    let a: f64 = 0.2;
+    let text = scene(vec![slide("s", "static", (0.0, 0.0), rr, t, len, 0.0), ball("p", -rr * a.cos(), rr - rr * a.sin(), 0.0, 0.0, 0.0, "particle")], 1.0);
+    let run = run(&text);
+    assert!(has(&run, ChangeType::Separate).is_empty() && has(&run, ChangeType::Impact).is_empty(), "{:?}", run.events.iter().map(|e| (e.t, e.changes.iter().map(|c| c.ty).collect::<Vec<_>>())).collect::<Vec<_>>());
+    let st = states(&run);
+    let last = &st.last().unwrap().1;
+    let v = (2.0 * G * rr * (1.0 - a.sin())).sqrt();
+    assert!((last[3] - v).abs() < 1e-7 && last[1].abs() < 1e-9, "v {} vs {v}, y {}", last[3], last[1]);
+}

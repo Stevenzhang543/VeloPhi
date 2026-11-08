@@ -22,12 +22,12 @@ import type { Recording } from '../engine/recording'
 import type { DetailBlock, DetailCell, DetailSection, DetailView, Tone } from './detailTypes'
 
 /** Kind of event function (engine EventType). */
-export type EventType = 'contact' | 'liftoff' | 'leave' | 'slip' | 'stop' | 'slack' | 'taut' | 'switch' | 'pulley' | 'limit' | 'unlimit' | 'mslip' | 'mlock' | 'rollStart' | 'rollStop' | 'zone'
+export type EventType = 'contact' | 'liftoff' | 'leave' | 'slip' | 'stop' | 'slack' | 'taut' | 'switch' | 'pulley' | 'limit' | 'unlimit' | 'mslip' | 'mlock' | 'rollStart' | 'rollStop' | 'zone' | 'push'
 
 /** Kind of a state change reported at an event (engine ChangeType). */
 export type ChangeType =
   | 'impact' | 'touch' | 'separate' | 'stick' | 'slip' | 'reverse' | 'leave' | 'slack' | 'taut' | 'switch' | 'timestep' | 'pulley'
-  | 'limit' | 'unlimit' | 'motorSlip' | 'motorLock' | 'rollStop' | 'rollStart' | 'zoneEnter' | 'zoneLeave'
+  | 'limit' | 'unlimit' | 'motorSlip' | 'motorLock' | 'rollStop' | 'rollStart' | 'zoneEnter' | 'zoneLeave' | 'springRelease' | 'springPress'
 
 /** One change at an event (engine ChangeDetail). */
 export interface ChangeDetail {
@@ -273,6 +273,17 @@ export const TRIGGER_TEXT: Record<EventType, TriggerTemplate> = {
       'd ist der vorzeichenbehaftete Abstand des Ladungsmittelpunkts vom Rand des Gebiets (innen positiv); b = +1, wenn er innen war, −1 außen, sodass g > 0 vor dem Ereignis. Fällt g auf 0, überquert der Körper den Rand, und die elektrische Kraft und die Lorentzkraft des Gebiets setzen ein oder hören auf.'
     ),
     unit: 'm'
+  },
+  // 26.60 r2 (D208)
+  push: {
+    name: T('弹簧分离与压上检测', 'A spring letting go or being pressed', 'Feder löst sich oder wird gedrückt'),
+    g: 'g(t) = b\,(L_0 - L)',
+    meaning: T(
+      'L 为不粘连弹簧的长度，L₀ 为原长，L₀ − L 是压缩量；b = +1 表示此前被压着、−1 表示已经分离，使 g 在事件前为正。g 减小到 0，弹簧恢复原长、物体与它分离（或物体重新压上弹簧）。',
+      'L is the length of the spring that is not fastened and L₀ its rest length, so L₀ − L is the compression; b = +1 when it was pressed, −1 when the body had left it, so that g > 0 before the event. When g falls to 0 the spring is back at its rest length and the body leaves it (or presses on it again).',
+      'L ist die Länge der nicht befestigten Feder, L₀ ihre Ruhelänge, also ist L₀ − L die Stauchung; b = +1, wenn sie gedrückt war, −1, wenn der Körper sich gelöst hatte, sodass g > 0 vor dem Ereignis. Fällt g auf 0, hat die Feder ihre Ruhelänge erreicht, und der Körper löst sich (oder drückt wieder auf sie).'
+    ),
+    unit: 'm'
   }
 }
 
@@ -461,6 +472,25 @@ export const CHANGE_TEXT: Record<ChangeType, ChangeTemplate> = {
       'Der Mittelpunkt des geladenen Körpers verlässt das Gebiet: Die elektrische Kraft und die Lorentzkraft des Gebiets entfallen, er bewegt sich nur unter den übrigen Kräften weiter.'
     ),
     law: T('区外：F = 0（场区的力）', 'Outside: no force of the region', 'Außerhalb: keine Kraft des Gebiets')
+  },
+  // 26.60 r2 (D208)
+  springRelease: {
+    name: T('与弹簧分离', 'Leaves the spring', 'Löst sich von der Feder'),
+    text: T(
+      '不粘连的轻弹簧恢复到原长，弹力减小到零，物体与弹簧的自由端分离。此后弹簧不再对物体施力，弹簧的弹性势能已全部转化（光滑时转化为物体的动能）。',
+      'The spring, which is not fastened to the body, is back at its rest length: its force has fallen to zero and the body leaves its free end. From now on the spring exerts no force; its elastic energy has been handed over (to the body\'s kinetic energy when everything is smooth).',
+      'Die nicht befestigte Feder hat ihre Ruhelänge erreicht: Ihre Kraft ist auf null gesunken, und der Körper löst sich von ihrem freien Ende. Ab jetzt übt die Feder keine Kraft mehr aus; ihre Spannenergie ist abgegeben (bei glatten Flächen an die kinetische Energie des Körpers).'
+    ),
+    law: T('轻弹簧只能推：F = k(L₀ − L) ≥ 0；L = L₀ 时分离', 'A spring that only pushes: F = k(L₀ − L) ≥ 0; it lets go at L = L₀', 'Eine Feder, die nur drückt: F = k(L₀ − L) ≥ 0; bei L = L₀ löst sie sich')
+  },
+  springPress: {
+    name: T('压上弹簧', 'Presses on the spring', 'Drückt auf die Feder'),
+    text: T(
+      '物体碰到不粘连弹簧的自由端并开始压缩它，从这一刻起受到弹簧的弹力 F = k(L₀ − L)。轻弹簧没有质量，接触时没有碰撞冲量。',
+      'The body reaches the free end of the spring and starts to compress it: from now on the spring pushes with F = k(L₀ − L). A light spring has no mass, so there is no impact impulse.',
+      'Der Körper erreicht das freie Ende der Feder und beginnt sie zusammenzudrücken: Ab jetzt drückt die Feder mit F = k(L₀ − L). Eine leichte Feder hat keine Masse, daher gibt es keinen Kraftstoß.'
+    ),
+    law: T('F = k(L₀ − L)，L < L₀', 'F = k(L₀ − L) for L < L₀', 'F = k(L₀ − L) für L < L₀')
   }
 }
 

@@ -18,10 +18,10 @@ export const TEMPLATE_MODELS: Array<[string, string[]]> = [
   ['board-block', ['M13']],
   ['conveyor', ['M14']],
   ['conveyor-incline', ['M07', 'M14']],
-  ['collision-1d', ['M17', 'M18']],
+  ['collision-1d', ['M17', 'M18', 'K32']],
   ['collision-2d', ['M19']],
-  ['projectile', ['M04']],
-  ['pendulum', ['W02', 'M31']],
+  ['projectile', ['M04', 'K31']],
+  ['pendulum', ['W02', 'M31', 'K05']],
   ['spring', ['M16', 'W01']],
   ['hinged-rod', ['M20']],
   ['rolling', ['M22']],
@@ -55,7 +55,7 @@ export const TEMPLATE_MODELS: Array<[string, string[]]> = [
   ['two-charges', ['E01', 'E02']],
   ['alpha-scattering', ['N05']],
   ['inertia', ['M01', 'M13']],
-  ['elevator', ['M10', 'W03']],
+  ['elevator', ['M10', 'W03', 'K07']],
   ['cosmic-velocity', ['M27']],
   ['resonance', ['W04']],
   ['incline-efficiency', ['M07', 'M09']],
@@ -89,7 +89,7 @@ export const TEMPLATE_MODELS: Array<[string, string[]]> = [
   ['physical-pendulum', ['W02', 'M20']],
   ['double-pendulum', ['W06']],
   ['coupled-oscillators', ['W05']],
-  ['binary-star', ['M26']],
+  ['binary-star', ['M26', 'K08']],
   ['kepler', ['M26']],
   // 26.59 fix (D185): a horizontal throw landing on an incline
   ['projectile-slope', ['M04']],
@@ -98,7 +98,12 @@ export const TEMPLATE_MODELS: Array<[string, string[]]> = [
   ['vertical-loop', ['M24', 'M09']],
   ['hump-bridge', ['M24', 'M04']],
   ['groove-momentum', ['M15', 'M09']],
-  ['hoop-disc', ['M22', 'M20']]
+  ['hoop-disc', ['M22', 'M20']],
+  // 26.61: push-only springs, a point mass on a dome, a throw against a wall
+  ['spring-drop', ['W01', 'M09']],
+  ['spring-launcher', ['W01', 'M09']],
+  ['dome-slide', ['M24', 'M09']],
+  ['projectile-wall', ['M04']]
 ]
 
 export const LAB_MODELS: Array<[string, string[]]> = [

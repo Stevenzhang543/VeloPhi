@@ -12,11 +12,17 @@ export const EDITOR_ICONS: Record<string, string> = {
   arcHump: 'M3 17a10 10 0 0 1 18 0M2 19h20M12 7v.01',
   arcDip: 'M3 7a10 10 0 0 0 18 0M2 5h20M12 17v.01',
   arcGroove: 'M5 8a7 7 0 0 0 14 0M5 8h-1.5M19 8h1.5M2 20h20M12 13m-1.5 0a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0-3 0',
+  // 26.60 r2 (D209): a point mass without volume
+  pointMass: 'M12 12m-2.2 0a2.2 2.2 0 1 0 4.4 0a2.2 2.2 0 1 0-4.4 0M12 3.5v4.5M12 16v4.5M3.5 12h4.5M16 12h4.5',
+  // 26.60 r2 (D207): a slide with a quarter arc and a flat run-out (one body)
+  arcSlide: 'M4 6a8 8 0 0 0 8 8h8M4 6v12h16v-4M2 20.5h20M6.6 7.4m-1.5 0a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0-3 0',
   hoop: 'M12 12m-7 0a7 7 0 1 0 14 0a7 7 0 1 0-14 0M12 12m-5 0a5 5 0 1 0 10 0a5 5 0 1 0-10 0M3 21h18',
   board: 'M2 13h20v3H2zM9 13V9h6v4',
   cart: 'M4 9h16v6H4zM8 17.5m-2 0a2 2 0 1 0 4 0a2 2 0 1 0-4 0M16 17.5m-2 0a2 2 0 1 0 4 0a2 2 0 1 0-4 0',
   steps: 'M3 20h18V6h-5v5h-5v5H6v4',
   pendulum: 'M4 3h16M12 3l5 13M17 18m-2 0a2 2 0 1 0 4 0a2 2 0 1 0-4 0',
+  // 26.60 r2 (D208): wall, a spring that only pushes, a block
+  launcher: 'M3 6v14M3 14h2l1-2 2 4 2-4 2 4 1-2M13 11v6M15 11h6v6h-6zM2 20h20',
   // Measuring and annotation tools
   ruler: 'M3 16L16 3l5 5L8 21zM7 12l2 2M10 9l1.5 1.5M12 7l2 2M15 4l1.5 1.5M5 14l1.5 1.5',
   protractor: 'M4 20h16M4 20L15 6M11 20a7 7 0 0 0-2.6-5.5',

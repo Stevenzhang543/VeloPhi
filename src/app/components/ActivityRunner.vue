@@ -8,6 +8,8 @@
  *
  * Mounted by App.vue while `state.activity` names an activity.
  */
+import { lessonOfActivity } from '../../teaching/lessons/defs'
+import { openLesson } from '../lessons'
 import { PACKAGE_CONTENT_VERSION } from '../../content/packages'
 import { ENGINE_VERSION } from '../../core/scene/types'
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
@@ -212,6 +214,7 @@ const verdictList = (g: ItemGrade) => (Object.entries(g.verdicts) as Array<[Dime
           <p class="small muted">{{ tl('模型：{0}。所有参考答案由计算核心按该模型算出；评分分概念、单位、方向、建模、计算、解释六个维度，提示照记不扣分。', [act.models.map(m => `${m} ${T(modelById(m)?.title)}`).join('；')]) }}</p>
           <p class="small muted">{{ tl('本活动已完成 {0} 次；{1}', [progress.attempts, progress.mastery ? tl('已有掌握证据。') : tl('尚无掌握证据。')]) }}</p>
           <button v-if="act.open" class="btn ghost" @click="openScene"><Icon name="play" :size="13" />{{ tl('打开相关场景（离开活动）') }}</button>
+          <button v-if="lessonOfActivity(act.id)" class="btn" data-ui="open-lesson" @click="openLesson(lessonOfActivity(act.id)!.id)"><Icon name="graduation" :size="13" />{{ tl('课堂实验（场景 + 证据 + 教师视图）') }}</button>
         </section>
 
         <section v-if="step === 'diagnose'">

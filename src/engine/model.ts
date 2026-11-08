@@ -58,7 +58,8 @@ export interface AnchorModel { body: BodyModel | null; local: Vec2 }
 export interface PulleyModel { id: string; name: string; position: Vec2; radius: number; body: BodyModel | null }
 export interface RopeModel { id: string; name: string; a: AnchorModel; b: AnchorModel; pulleys: Array<{ pulley: PulleyModel; wrap: 1 | -1 }>; length: number; movable: boolean }
 export interface RodModel { id: string; name: string; a: AnchorModel; b: AnchorModel; length: number }
-export interface SpringModel { id: string; name: string; a: AnchorModel; b: AnchorModel; stiffness: number; restLength: number; damping: number; cubic: number; damper: boolean }
+/** `pushOnly` (26.60 r2, D208): not fastened to b — it only pushes, and b leaves its free end at the rest length. */
+export interface SpringModel { id: string; name: string; a: AnchorModel; b: AnchorModel; stiffness: number; restLength: number; damping: number; cubic: number; damper: boolean; pushOnly: boolean }
 export interface WeldModel { id: string; name: string; a: AnchorModel; b: AnchorModel; angle0: number }
 export interface SliderModel { id: string; name: string; a: AnchorModel; b: AnchorModel; axis: Vec2; free: boolean; angle0: number; limited: boolean; lo: number; hi: number; e: number }
 export interface MotorModel { id: string; name: string; a: AnchorModel; b: AnchorModel; mode: 'speed' | 'torque'; speed: number; torque: number; maxTorque: number; limited: boolean }
@@ -177,7 +178,7 @@ export function linkSystem(info: Raw, scene: Scene): System {
     pulleys,
     ropes: two(info.ropes, c => ({ pulleys: (c.pulleys as Raw[]).map(p => ({ pulley: pulleys[p.pulley], wrap: (p.wrap < 0 ? -1 : 1) as 1 | -1 })), length: c.length, movable: c.movable })),
     rods: two(info.rods, c => ({ length: c.length })),
-    springs: two(info.springs, c => ({ stiffness: c.stiffness, restLength: c.restLength, damping: c.damping, cubic: c.cubic, damper: c.damper })),
+    springs: two(info.springs, c => ({ stiffness: c.stiffness, restLength: c.restLength, damping: c.damping, cubic: c.cubic, damper: c.damper, pushOnly: c.pushOnly === true })),
     hinges: two(info.hinges, () => ({})),
     forces: (info.forces as Raw[]).map(f => ({ id: f.id, name: f.name, a: anchor(f.a), force: f.force, expr: !!f.expr })),
     welds: two(info.welds, c => ({ angle0: c.angle0 })),

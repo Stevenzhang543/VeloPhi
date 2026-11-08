@@ -27,6 +27,8 @@ import { openBuiltin } from '../problemMode'
 import { openHandbook } from '../handbook'
 import { PATHS } from '../learn/paths'
 import { openLab, openTemplate, openTopic, openActivity } from '../learn/actions'
+import { LESSONS } from '../../teaching/lessons/defs'
+import { openLesson } from '../lessons'
 import { MODELS } from '../../content/models'
 import { ACTIVITIES } from '../../teaching/activities'
 import { LEVEL_TEXT } from '../models/labels'
@@ -70,9 +72,13 @@ function buildIndex(): Item[] {
   for (const t of TOPICS) add('handbook', t.icon, T(t.title), tl('学习手册的主题'), t.id, () => openTopic(t.id))
   for (const c of CONCEPTS) add('handbook', c.icon, T(c.title), tl('学习手册的概念页'), `${c.id} ${c.sections.map(s => T(s.heading)).join(' ')}`, () => openTopic(`concept:${c.id}`))
   // 26.56 (D105): the model families (with their maturity) and the teaching activities
-  add('page', 'layers', tl('模型目录'), tl('180 个模型族：条件、分支、常数与核验'), 'models catalogue', () => { state.showModels = true })
+  add('page', 'layers', tl('模型目录'), tl('{0} 个模型族：条件、分支、常数与核验', [MODELS.length]), 'models catalogue', () => { state.showModels = true })
+  // 26.62 (D222): the curriculum map (283 topics, 310 components, the syllabus index and the 21 required experiments)
+  add('page', 'graduation', tl('课程对照'), tl('从初中到大学的知识点、组件与课程章节对照'), 'curriculum syllabus igcse ib dp myp 9702 university topics components', () => { state.showCurriculum = true })
   for (const m of MODELS) add('model', 'layers', `${m.id} ${T(m.title)}`, LEVEL_TEXT[m.level], `${m.title.zh} ${m.title.en} ${m.title.de}`, () => { state.modelId = m.id; state.showModels = true })
   for (const a of ACTIVITIES) add('activity', 'graduation', T(a.title), a.models.join(' '), `${a.id} ${a.title.zh} ${a.title.en}`, () => openActivity(a.id))
+  // 26.61 (B): the classroom experiments (scene, evidence, teacher view)
+  for (const l of LESSONS) add('activity', 'graduation', tl('课堂实验：{0}', [T(l.title)]), T(l.goal), `${l.id} ${l.activity} lesson classroom ${tl('课堂实验')} ${l.title.zh} ${l.title.en} ${l.title.de}`, () => openLesson(l.id))
   for (const p of BUILTIN_PROBLEMS) add('problem', 'problem', ptext(p.title, lang), CHAPTERS.find(c => c.id === p.chapter)?.label[lang] ?? p.chapter, p.id, () => openBuiltin(p))
   for (const s of PATHS) for (const u of s.units) add('path', 'graduation', u.title, s.title, `${s.id} ${u.id}`, () => { settings.ui.learnStage = s.id; state.showLearning = true })
   // 26.57 (D122, T26): search by what is asked — the targets of the six task kinds and the goal words of the teaching

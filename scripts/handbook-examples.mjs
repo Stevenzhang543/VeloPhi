@@ -27,7 +27,8 @@ await build({
       "export { cardsAt } from './tests/reference/formula/match.ts'",
       "export { FORMULAS } from './src/formula/library.ts'",
       "export { HANDBOOK_VARIANTS, PREFERRED_TEMPLATE } from './src/handbook/variants.ts'",
-      "export { usesFields } from './src/core/scene/types.ts'",
+      "export { usesFields, usesArcs } from './src/core/scene/types.ts'",
+      "export { usesNewer } from './src/templates/index.ts'",
       "export { simulate as simulateCore } from './src/engine/recording.ts'",
       "export { recognize as recognizeCore } from './src/formula/recognize.ts'",
       "export { cardsAt as cardsAtCore } from './src/formula/match.ts'",
@@ -42,7 +43,8 @@ await V.loadTestCore(repo)
 
 /** Situations of a template and the cards of one situation at time t: the reference, or the Rust core for field scenes. */
 function runOf(scene) {
-  if (!V.usesFields(scene)) {
+  // 26.62: arcs and the features of 26.60 are computed by the core only (the TypeScript reference lacks them)
+  if (!V.usesFields(scene) && !V.usesArcs(scene) && !V.usesNewer(scene)) {
     const rec = V.simulate(scene)
     return { sits: V.recognize(rec), cards: (s, t) => V.cardsAt([s], t) }
   }

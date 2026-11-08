@@ -12,7 +12,7 @@ import NumField from './NumField.vue'
 import TemplateParams from './TemplateParams.vue'
 import Icon from './Icon.vue'
 import Section from './Section.vue'
-import type { BodyDef, CentralDef, ConnectorDef, ForceDef, PulleyDef, Scene, SliderDef } from '../../core/scene/types'
+import type { BodyDef, CentralDef, ConnectorDef, ForceDef, PulleyDef, Scene, ShapePart, SliderDef } from '../../core/scene/types'
 import { shapeInertia } from '../../engine/calc'
 import { checkForceExpr } from '../../engine/calc'
 import { FORCE_EXPR_HELP } from '../../core/scene/forceHelp'
@@ -85,6 +85,11 @@ function toggleTarget(id: string, on: boolean) {
 const centralTargets = computed(() => (central.value ? state.scene.bodies.filter(b => b.kind !== 'static' && b.id !== central.value!.a.body) : []))
 
 // ---- 26.52: compound bodies, rolling resistance ----
+/** Counts of the part kinds of a compound body (arc parts since 26.60 r2, D207). */
+function partSummary(parts: ShapePart[]): string {
+  const n = (t: ShapePart['shape']['type']) => parts.filter(p => p.shape.type === t).length
+  return n('arc') ? tl('（圆 {0}、矩形 {1}、多边形 {2}、圆弧 {3}）', [n('circle'), n('box'), n('polygon'), n('arc')]) : tl('（圆 {0}、矩形 {1}、多边形 {2}）', [n('circle'), n('box'), n('polygon')])
+}
 function explode() {
   const id = body.value?.id
   if (!id) return
@@ -138,6 +143,8 @@ function changeKind(kind: BodyDef['kind']) {
     if (kind === 'static') { b.velocity = { x: 0, y: 0 }; b.angularVelocity = 0 }
     if (kind !== 'static' && !(b.mass > 0)) b.mass = 1
     if (kind === 'particle') b.angularVelocity = 0
+    // 26.60 r2 (D209): only a particle may be a point without volume
+    if (kind !== 'particle' && b.shape.type === 'circle' && b.shape.radius === 0) b.shape.radius = 0.05
     // 26.59 fix 3: an arc turns about its centre of mass when it moves; it stays where it is
     placeArc(b)
   })
@@ -292,11 +299,12 @@ function setPulleyBody(bodyId: string) {
           <div class="tiny muted note">{{ tl('圆弧的内侧（凹面）和外侧（凸面）都是精确的圆，由物理核心精确计算接触：小球在圆弧槽、竖直圆轨道或拱形桥上的运动与教材结果一致。从起始角开始逆时针转过圆心角（0° 指向右，90° 指向上）。') }}</div>
         </template>
         <template v-if="body.shape.type === 'compound'">
-          <div class="row"><label>{{ tl('组成部分') }}</label><span class="grow small"><b>{{ body.shape.parts.length }}</b> {{ tl('个') }}<span class="muted">{{ tl('（圆 {0}、矩形 {1}、多边形 {2}）', [body.shape.parts.filter(p => p.shape.type === 'circle').length, body.shape.parts.filter(p => p.shape.type === 'box').length, body.shape.parts.filter(p => p.shape.type === 'polygon').length]) }}</span></span></div>
+          <div class="row"><label>{{ tl('组成部分') }}</label><span class="grow small"><b>{{ body.shape.parts.length }}</b> {{ tl('个') }}<span class="muted">{{ partSummary(body.shape.parts) }}</span></span></div>
           <div class="tiny muted note">{{ tl('复合体是一个刚体：各部分密度相同，质量按面积分配，质心与转动惯量由各部分合成（平行轴定理）；部分之间不碰撞。') }}</div>
           <div class="row"><span class="grow" /><button class="btn small" @click="explode"><Icon name="compound" :size="14" />{{ tl('拆分为独立物体') }}</button></div>
         </template>
-        <div v-if="body.shape.type === 'circle'" class="row"><label>{{ tl('半径 r') }}</label><NumField class="grow" :model-value="body.shape.radius" unit="m" :min="1e-4" @update:model-value="v => setBody(b => { if (b.shape.type === 'circle') b.shape.radius = v })" /></div>
+        <div v-if="body.shape.type === 'circle'" class="row"><label>{{ tl('半径 r') }}</label><NumField class="grow" :model-value="body.shape.radius" unit="m" :min="body.kind === 'particle' ? 0 : 1e-4" @update:model-value="v => setBody(b => { if (b.shape.type === 'circle') b.shape.radius = b.kind === 'particle' ? Math.max(0, v) : Math.max(1e-4, v) })" /></div>
+        <div v-if="body.shape.type === 'circle' && body.kind === 'particle'" class="row"><label>{{ tl('无体积') }}</label><label class="check grow"><input type="checkbox" :checked="body.shape.radius === 0" @change="setBody(b => { if (b.shape.type === 'circle') b.shape.radius = ($event.target as HTMLInputElement).checked ? 0 : 0.05 })" />{{ tl('绝对质点：半径为 0，只在表面上的一点接触') }}</label></div>
         <template v-if="body.shape.type === 'box'">
           <div class="row"><label>{{ tl('宽 w') }}</label><NumField class="grow" :model-value="body.shape.width" unit="m" :min="1e-4" @update:model-value="v => setBody(b => { if (b.shape.type === 'box') b.shape.width = v })" /></div>
           <div class="row"><label>{{ tl('高 h') }}</label><NumField class="grow" :model-value="body.shape.height" unit="m" :min="1e-4" @update:model-value="v => setBody(b => { if (b.shape.type === 'box') b.shape.height = v })" /></div>
@@ -482,6 +490,7 @@ function setPulleyBody(bodyId: string) {
         <div v-if="conn.restLength !== null" class="row"><label>L₀</label><NumField class="grow" :model-value="conn.restLength" unit="m" :min="0" @update:model-value="v => setConn(c => { if (c.type === 'spring') c.restLength = v })" /></div>
         <div class="row"><label>{{ tl('阻尼 c') }}</label><NumField class="grow" :model-value="conn.damping" unit="N·s/m" :min="0" @update:model-value="v => setConn(c => { if (c.type === 'spring') c.damping = v })" /></div>
         <div class="row"><label>{{ tl('非线性 k₃') }}</label><NumField class="grow" :model-value="conn.cubic ?? 0" unit="N/m³" @update:model-value="v => setConn(c => { if (c.type === 'spring') { if (v === 0) delete c.cubic; else c.cubic = v } })" /></div>
+        <div class="row"><label>{{ tl('不粘连') }}</label><label class="check grow"><input type="checkbox" :checked="!!conn.pushOnly" @change="setConn(c => { if (c.type === 'spring') { if (($event.target as HTMLInputElement).checked) c.pushOnly = true; else delete c.pushOnly } })" />{{ tl('只推不拉：恢复原长时与 B 端的物体分离') }}</label></div>
         <div class="tiny muted note">{{ tl('弹力 F = −kx − k₃x³ − cv（x 为形变量，v 为伸长速度）；k₃ = 0 时就是胡克弹簧。弹性势能 ½kx² + ¼k₃x⁴。') }}</div>
       </div>
       <div v-if="conn.type === 'damper'" class="group">

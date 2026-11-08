@@ -66,6 +66,11 @@ export function placeObject(scene: Scene, cp: EditView, tool: Tool, p: Pt): stri
       const r = 0.08, at = onSurface(r)
       return addBody(scene, { name: nextName(scene, tl('小球')), kind: 'particle', role: 'ball', shape: { type: 'circle', radius: r }, position: { x: at.x, y: at.y }, mass: 0.5, material: { ...DYN_MATERIAL, restitution: 0.6 } }).id
     }
+    case 'add-point': {
+      // 26.60 r2 (D209): a point mass without volume, on the surface under the click
+      const at = onSurface(0)
+      return addBody(scene, { name: nextName(scene, tl('质点')), kind: 'particle', role: 'ball', shape: { type: 'circle', radius: 0 }, position: { x: at.x, y: at.y }, mass: 1, material: { ...DYN_MATERIAL }, color: '#e11d48' }).id
+    }
     case 'add-block': {
       const w = 0.3, h = 0.2, at = onSurface(h / 2)
       return addBody(scene, { name: nextName(scene, tl('物块')), role: 'block', shape: { type: 'box', width: w, height: h }, position: { x: at.x, y: at.y }, angle: at.angle, mass: 1, material: DYN_MATERIAL }).id
@@ -95,8 +100,8 @@ export function placeObject(scene: Scene, cp: EditView, tool: Tool, p: Pt): stri
     case 'add-charge': case 'add-fixed-charge':
       return addCharge(scene, tool === 'add-fixed-charge', p, 0.05)
     // 26.59 fix 3 (D194): ready-made parts
-    case 'add-arc-quarter': case 'add-arc-half': case 'add-arc-loop': case 'add-arc-hump': case 'add-arc-dip': case 'add-arc-groove':
-    case 'add-hoop': case 'add-board': case 'add-cart': case 'add-steps': case 'add-pendulum':
+    case 'add-arc-quarter': case 'add-arc-half': case 'add-arc-loop': case 'add-arc-hump': case 'add-arc-dip': case 'add-arc-groove': case 'add-arc-slide':
+    case 'add-hoop': case 'add-board': case 'add-cart': case 'add-steps': case 'add-pendulum': case 'add-launcher':
       return placePreset(scene, tool, p, snap)
     case 'add-polygon': {
       // Regular pentagon, a dynamic polygon about its centre of mass

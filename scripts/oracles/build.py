@@ -9,7 +9,7 @@ here = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, here)
 import common
 
-MODULES = ['g', 'm1', 'm2', 'e', 'b', 't', 'q', 'n', 'f', 'w', 'o', 'r', 'x']
+MODULES = ['g', 'm1', 'm2', 'e', 'b', 't', 'q', 'n', 'f', 'w', 'o', 'r', 'x', 'k']
 cache = os.path.join(tempfile.gettempdir(), 'velophi-oracles')
 os.makedirs(cache, exist_ok=True)
 only = [a for a in sys.argv[1:] if a in MODULES]

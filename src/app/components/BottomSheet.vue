@@ -5,12 +5,12 @@
  */
 import { computed, ref } from 'vue'
 import { tl } from '../../i18n'
-import { shell } from '../layout'
+import { SHEET_STOPS, shell } from '../layout'
 import Icon from './Icon.vue'
 
 const props = defineProps<{ title: string }>()
 const emit = defineEmits<{ close: [] }>()
-const STOPS: Record<1 | 2 | 3, number> = { 1: 0.36, 2: 0.64, 3: 1 }
+const STOPS = SHEET_STOPS
 const drag = ref<{ y0: number; h0: number; h: number } | null>(null)
 const sheet = ref<HTMLElement | null>(null)
 /** Room the sheet may use (between the top bar and the tab bar). */

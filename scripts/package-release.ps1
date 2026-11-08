@@ -1,9 +1,9 @@
-# Packages a finished build into releases\v26.60 (no rebuild). Run from the repository root.
-# Never deletes: an existing releases\v26.60 is moved aside to .cache\superseded-<time> first.
+# Packages a finished build into releases\v26.62 (no rebuild). Run from the repository root.
+# Never deletes: an existing releases\v26.62 is moved aside to .cache\superseded-<time> first.
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
-$Version = '26.60'
-$Full = '26.60.0'
+$Version = '26.62'
+$Full = '26.62.0'
 $Root = (Get-Location).Path
 $Out = Join-Path $Root "releases\v$Version"
 $Ev = Join-Path $Root ".cache\evidence-$Version"
@@ -37,7 +37,7 @@ New-Item -ItemType Directory -Force -Path $Ev | Out-Null
 Copy-Item $exe (Join-Path $Out "VeloPhi-v$Version-windows-x64-portable.exe")
 Copy-Item $setup (Join-Path $Out "VeloPhi-v$Version-windows-x64-setup.exe")
 
-# Android APK (26.59, D176): built by scripts\android\build-apk.ps1 into .cache\android-26.59
+# Android APK (26.59, D176): built by scripts\android\build-apk.ps1 into .cache\android-<version>
 $android = Join-Path $Root ".cache\android-$Version"
 $apk = Join-Path $android "VeloPhi-v$Version-android.apk"
 if (-not (Test-Path $apk)) { Fail "missing $apk (run scripts\android\build-apk.cmd)" }

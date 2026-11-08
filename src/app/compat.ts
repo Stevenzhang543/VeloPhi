@@ -5,9 +5,10 @@
  * sheets, so a crashing WebView can be narrowed down without DevTools (which change how it renders). Without the
  * property nothing happens. scripts/android/mumu.ps1 -Step rotate -Compat … uses it on the MuMu emulator. "blank" stops
  * before the interface is built, "nocore" before the computing core loads; "bare", "noedge" and "sw" are handled by
- * MainActivity (a bare page instead of the app, no edge-to-edge window, a software-drawn WebView).
+ * MainActivity (a bare page instead of the app, no edge-to-edge window, a software-drawn WebView). 26.60 r2: "appfont" keeps
+ * the bundled variable fonts on Android (by default the system's fonts are used there, main.ts).
  */
-export const COMPAT_FLAGS = ['blank', 'simonly', 'nosim', 'nocore', 'bare', 'noedge', 'sw', 'nowelcome', 'noinert', 'h-left', 'h-right', 'h-center', 'h-bottom', 'h-top', 'h-ambient', 'h-dialog', 'h-pages', 'h-dock', 'h-canvas', 'nocv', 'nocq', 'nohas', 'nobackdrop', 'noglass', 'noclip', 'nocontain', 'noanim', 'nofixed', 'nogrid', 'notransform', 'nofilter', 'nosticky', 'nooverflow'] as const
+export const COMPAT_FLAGS = ['appfont', 'norotguard', 'blank', 'simonly', 'nosim', 'nocore', 'bare', 'noedge', 'sw', 'nowelcome', 'noinert', 'h-left', 'h-right', 'h-center', 'h-bottom', 'h-top', 'h-ambient', 'h-dialog', 'h-pages', 'h-dock', 'h-canvas', 'nocv', 'nocq', 'nohas', 'nobackdrop', 'noglass', 'noclip', 'nocontain', 'noanim', 'nofixed', 'nogrid', 'notransform', 'nofilter', 'nosticky', 'nooverflow'] as const
 
 /** The flags asked for (none on a normal start). */
 export function compatFlags(): string[] {

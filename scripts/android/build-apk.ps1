@@ -12,13 +12,13 @@
 #    26.59 fix 3 (D192): copies VeloPhi's own Android code (src-tauri\mobile\android: renderer recovery, the adb
 #    devtools switch) over the template and declares RecoverActivity in AndroidManifest.xml.
 # 4. tauri android build --apk (arm64 + armv7 in one universal APK), checks the signature with apksigner and copies
-#    the APK to .cache\android-26.60\ for package-release.ps1, with the certificate fingerprint as evidence.
+#    the APK to .cache\android-26.62\ for package-release.ps1, with the certificate fingerprint as evidence.
 #    -Test builds for the MuMu emulator (-Targets x86_64) go to .cache\android-test\ instead and leave the release
 #    APK alone.
 param([string[]]$Targets = @('aarch64', 'armv7'), [switch]$Test)
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
-$Version = '26.60'
+$Version = '26.62'
 $Repo = (Get-Location).Path
 if (-not (Test-Path (Join-Path $Repo 'src-tauri\tauri.conf.json'))) { throw 'run this from the repository root' }
 $Out = Join-Path $Repo $(if ($Test) { '.cache\android-test' } else { ".cache\android-$Version" })

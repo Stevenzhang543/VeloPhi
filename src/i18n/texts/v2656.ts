@@ -91,7 +91,7 @@ export const TEXTS_2656: Record<string, readonly [string, string]> = {
   '模型': ['Models', 'Modelle'],
   '活动': ['Activities', 'Lernaufgaben'],
   '模型目录': ['Model catalogue', 'Modellkatalog'],
-  '180 个模型族：条件、分支、常数与核验': ['180 model families: conditions, branches, constants and checks', '180 Modellfamilien: Bedingungen, Zweige, Konstanten und Prüfungen'],
+  '{0} 个模型族：条件、分支、常数与核验': ['{0} model families: conditions, branches, constants and checks', '{0} Modellfamilien: Bedingungen, Zweige, Konstanten und Prüfungen'],
   '独立解析': ['Independent analytic', 'Unabhängig analytisch'],
   '守恒/定理检验': ['Conservation / theorem check', 'Erhaltungs- / Satzprüfung'],
   '同源一致性': ['Same-source consistency', 'Konsistenz aus gleicher Quelle'],

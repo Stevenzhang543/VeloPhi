@@ -4,8 +4,8 @@
   "t": 0.3
  },
  "incline.a.up": {
-  "template": "slope-up",
-  "t": 6.25000596333339e-11
+  "template": "conveyor-incline",
+  "t": 0.05096267875313283
  },
  "incline.a.stick": {
   "template": "incline",
@@ -323,6 +323,56 @@
  "at.T": {
   "template": "atwood",
   "t": 0.23944557559802626
+ },
+ "arc.in.Nb": {
+  "template": "vertical-loop",
+  "t": 0.75
+ },
+ "arc.in.vtop": {
+  "template": "vertical-loop",
+  "t": 0.75
+ },
+ "arc.in.Ntop": {
+  "template": "vertical-loop",
+  "t": 0.75
+ },
+ "arc.in.crit": {
+  "template": "vertical-loop",
+  "t": 0.75
+ },
+ "arc.in.hS": {
+  "template": "vertical-loop",
+  "params": {
+   "v0": 4
+  },
+  "t": 0.08260542261696953
+ },
+ "arc.in.vS": {
+  "template": "vertical-loop",
+  "params": {
+   "v0": 4
+  },
+  "t": 0.08260542261696953
+ },
+ "arc.out.Ntop": {
+  "template": "hump-bridge",
+  "t": 0.24097385283886394
+ },
+ "arc.out.crit": {
+  "template": "hump-bridge",
+  "t": 0.24097385283886394
+ },
+ "arc.out.theta": {
+  "template": "hump-bridge",
+  "t": 0.24097385283886394
+ },
+ "arc.out.h": {
+  "template": "hump-bridge",
+  "t": 0.24097385283886394
+ },
+ "arc.out.v": {
+  "template": "hump-bridge",
+  "t": 0.24097385283886394
  },
  "vc.r.T0": {
   "template": "vertical-circle-rope",

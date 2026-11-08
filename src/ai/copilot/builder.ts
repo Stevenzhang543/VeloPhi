@@ -7,9 +7,12 @@
 import { tl } from '../../i18n'
 import { chat } from '../client'
 import type { ChatMessage } from '../types'
-import { builderAsk, builderSystem, repairNote } from './simPrompt'
+import { builderAsk, builderSystem, continueNote, repairNote } from './simPrompt'
+import { extractJsonObject } from '../looseJson'
 import type { BuildAsk } from './simPrompt'
 import { applyAiScene } from './simTools'
+import { ToolError } from './tools'
+import { AiError } from '../types'
 import type { SceneCard } from './simTools'
 import { logEvent } from '../../app/trialLog'
 
@@ -22,50 +25,49 @@ export type BuildResult =
 
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v)
 
-/**
- * The JSON object of an answer: the whole text, a fenced block, or the outermost braces; trailing commas and
- * comments are forgiven. Null when there is none.
- */
-export function jsonOf(text: string): Record<string, unknown> | null {
-  const tries: string[] = [text.trim()]
-  const fence = /```(?:json|jsonc|velophi)?\s*\n?([\s\S]*?)```/i.exec(text)
-  if (fence) tries.push(fence[1].trim())
-  const a = text.indexOf('{'), b = text.lastIndexOf('}')
-  if (a >= 0 && b > a) tries.push(text.slice(a, b + 1))
-  for (const t of tries) {
-    for (const s of [t, lenient(t)]) {
-      try { const v = JSON.parse(s) as unknown; if (isObj(v)) return v } catch { /* next */ }
-    }
-  }
-  return null
-}
+/** How much an object looks like the builder's answer (the scene file or {scene, questions}). */
+const sceneScore = (o: Record<string, unknown>) => (isObj(o.scene) ? 20 : 0) + (Array.isArray(o.bodies) ? 15 : 0) + (Array.isArray(o.questions) ? 3 : 0) + (typeof o.error === 'string' ? 5 : 0)
 
-/** Remove comments and trailing commas (outside strings). */
-function lenient(s: string): string {
-  let out = '', inStr = false
-  for (let i = 0; i < s.length; i++) {
-    const c = s[i]
-    if (inStr) { out += c; if (c === '\\') { out += s[++i] ?? '' } else if (c === '"') inStr = false; continue }
-    if (c === '"') { inStr = true; out += c; continue }
-    if (c === '/' && s[i + 1] === '/') { while (i < s.length && s[i] !== '\n') i++; continue }
-    if (c === '/' && s[i + 1] === '*') { i += 2; while (i < s.length && !(s[i] === '*' && s[i + 1] === '/')) i++; i++; continue }
-    if (c === ',') { let j = i + 1; while (j < s.length && /\s/.test(s[j])) j++; if (s[j] === '}' || s[j] === ']') continue }
-    out += c
-  }
-  return out
-}
+/**
+ * The JSON object of an answer (26.61: the tolerant reader of looseJson.ts — fences, prose, thinking, almost-JSON,
+ * a cut-off end); null when there is none.
+ */
+export function jsonOf(text: string): Record<string, unknown> | null { return extractJsonObject(text, sceneScore)?.value ?? null }
+
+/** Most continuations of one cut-off answer. */
+const CONTINUATIONS = 2
 
 /** Build a scene with the builder and load it; `onStatus` reports the steps. */
-export async function buildScene(ask: BuildAsk, opts: { signal?: AbortSignal; onStatus?: (s: string) => void; title?: string } = {}): Promise<BuildResult> {
+export async function buildScene(ask: BuildAsk, opts: { signal?: AbortSignal; onStatus?: (s: string) => void; title?: string; think?: boolean } = {}): Promise<BuildResult> {
   const messages: ChatMessage[] = [{ role: 'system', content: builderSystem() }, { role: 'user', content: builderAsk(ask) }]
   let errors: string[] = []
   let raw = ''
   for (let k = 1; k <= BUILD_TRIES; k++) {
     opts.onStatus?.(k === 1 ? tl('正在写场景文件（JSON）') : tl('正在修正场景文件（第 {0} 次）', [k - 1]))
-    const res = await chat({ messages, temperature: 0.1, max_tokens: 12000, reasoning: 'off', purpose: 'copilot-build' }, { signal: opts.signal })
+    // 26.60 r2: with "深度思考" on the builder thinks too (harder set-ups: compounds, arcs, several stages)
+    // 26.61: JSON mode where the connection has it (the client learns when it does not)
+    const res = await chat({ messages, temperature: 0.1, max_tokens: opts.think ? 24000 : 12000, reasoning: opts.think ? 'on' : 'off', purpose: 'copilot-build', response_format: { type: 'json_object' } }, { signal: opts.signal })
     raw = typeof res.message.content === 'string' ? res.message.content : ''
-    const obj = jsonOf(raw)
-    if (!obj) errors = [res.truncated ? 'the answer was cut off before the JSON object ended: keep it shorter (fewer bodies, no comments)' : 'the answer is not one JSON object: output only the JSON object, starting with { and ending with }']
+    let reasoning = res.message.reasoning_content
+    // 26.61: an answer cut off by the token limit is continued (at most twice) instead of being rejected
+    let cut = res.truncated
+    for (let c = 0; c < CONTINUATIONS && (cut || extractJsonObject(raw, sceneScore)?.truncated === true) && raw.trim(); c++) {
+      opts.onStatus?.(tl('场景文件太长被截断，正在续写'))
+      const more = await chat({ messages: [...messages, { role: 'assistant', content: raw }, { role: 'user', content: continueNote() }], temperature: 0.1, max_tokens: opts.think ? 24000 : 12000, reasoning: 'off', purpose: 'copilot-build' }, { signal: opts.signal })
+      const tail = typeof more.message.content === 'string' ? more.message.content : ''
+      // A model that starts again from the beginning: its new answer replaces the old one
+      const fresh = extractJsonObject(tail, sceneScore)
+      raw = fresh && !fresh.truncated && /^\s*(```|\{)/.test(tail) ? tail : raw + tail.replace(/^\s*```(?:json)?\s*/i, '')
+      cut = more.truncated
+      if (opts.think && more.message.reasoning_content) reasoning = more.message.reasoning_content
+      logEvent('copilot.build.continue', { tries: k, n: c + 1 })
+    }
+    let parseError = ''
+    const got = extractJsonObject(raw, sceneScore, e => { parseError = `JSON syntax error at line ${e.line}, column ${e.column} (${e.error}): …${e.context}…` })
+    const obj = got?.value ?? null
+    const repaired = got?.repairs.length ? [tl('JSON 已自动修复：{0}', [got.repairs.slice(0, 6).join('；')])] : []
+    if (!obj) errors = [cut ? 'the answer was cut off before the JSON object ended, also after continuing: keep it shorter (fewer bodies, no comments, no explanations)' : parseError || 'the answer is not one JSON object: output only the JSON object, starting with { and ending with }']
+    else if (got?.truncated) errors = ['the JSON object was cut off (it ends before all brackets are closed): write the complete file again, shorter (fewer bodies, no comments)']
     else if (typeof obj.error === 'string' && !obj.scene && !obj.bodies) {
       logEvent('copilot.build', { ok: false, refused: true, tries: k })
       return { ok: false, errors: [], tries: k, raw, refused: obj.error }
@@ -73,15 +75,21 @@ export async function buildScene(ask: BuildAsk, opts: { signal?: AbortSignal; on
       opts.onStatus?.(tl('检查并载入场景'))
       const title = typeof obj.title === 'string' ? obj.title : opts.title
       const stem = typeof obj.stem === 'string' ? obj.stem : ask.problem
-      const r = await applyAiScene(obj.scene ?? obj, obj.questions, { title, stem })
+      // 26.60 r2: an unexpected failure while loading goes back to the builder as a problem, not to the user as a crash
+      const r = await applyAiScene(obj.scene ?? obj, obj.questions, { title, stem, signal: opts.signal }).catch((e: unknown) => {
+        // The user's choices (keeping unsaved changes, declining) and a stop are not the file's fault
+        if (opts.signal?.aborted || e instanceof ToolError || e instanceof AiError) throw e
+        return { ok: false as const, errors: [`the app could not load this file: ${(e as Error)?.message ?? String(e)}`], notes: [] }
+      })
       if (r.ok) {
+        if (repaired.length) r.card.notes = [...repaired, ...r.card.notes]
         const assumptions = Array.isArray(obj.assumptions) ? obj.assumptions.filter((x): x is string => typeof x === 'string').slice(0, 8) : []
         logEvent('copilot.build', { ok: true, tries: k })
         return { ok: true, card: r.card, result: r.result, tries: k, assumptions }
       }
       errors = r.errors
     }
-    if (k < BUILD_TRIES) messages.push({ role: 'assistant', content: raw }, { role: 'user', content: repairNote(errors) })
+    if (k < BUILD_TRIES) messages.push({ role: 'assistant', content: raw, ...(opts.think && reasoning ? { reasoning_content: reasoning } : {}) }, { role: 'user', content: repairNote(errors) })
   }
   logEvent('copilot.build', { ok: false, tries: BUILD_TRIES })
   return { ok: false, errors, tries: BUILD_TRIES, raw }

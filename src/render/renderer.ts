@@ -269,12 +269,16 @@ function drawScaleBar(ctx: CanvasRenderingContext2D, cam: Camera, P: Palette) {
   ctx.restore()
 }
 
+/** Screen radius of a point mass without volume (px). */
+export const POINT_DOT = 4.5
+
 /** Outline path of a body at a pose (screen coordinates). */
 export function bodyPath(ctx: CanvasRenderingContext2D, cam: Camera, b: BodyModel, pose: Pose) {
   ctx.beginPath()
   if (b.shape.kind === 'circle') {
     const [sx, sy] = toScreen(cam, pose.x, pose.y)
-    ctx.arc(sx, sy, b.shape.radius * cam.ppm, 0, Math.PI * 2)
+    // 26.60 r2 (D209): a point mass without volume is drawn as a dot
+    ctx.arc(sx, sy, b.shape.radius > 0 ? b.shape.radius * cam.ppm : POINT_DOT, 0, Math.PI * 2)
     return
   }
   // 26.52 (D35): a concave polygon or compound body is drawn part by part (the seams of a compound show)
@@ -753,13 +757,24 @@ export function drawScene(ctx: CanvasRenderingContext2D, cam: Camera, input: Dra
     ctx.restore()
   })
   model.springs.forEach((s, i) => {
-    const [x0, y0] = toScreen(cam, A.springs[4 * i], A.springs[4 * i + 1]), [x1, y1] = toScreen(cam, A.springs[4 * i + 2], A.springs[4 * i + 3])
+    let wx1 = A.springs[4 * i + 2], wy1 = A.springs[4 * i + 3]
+    const wx0 = A.springs[4 * i], wy0 = A.springs[4 * i + 1]
+    // 26.60 r2 (D208): a spring that only pushes keeps its rest length once the body has left its free end
+    const len = Math.hypot(wx1 - wx0, wy1 - wy0)
+    if (s.pushOnly && len > s.restLength && len > 0) { wx1 = wx0 + ((wx1 - wx0) * s.restLength) / len; wy1 = wy0 + ((wy1 - wy0) * s.restLength) / len }
+    const [x0, y0] = toScreen(cam, wx0, wy0), [x1, y1] = toScreen(cam, wx1, wy1)
     const lit = !!hl && hl.connectors.includes('spring')
     const color = s.id === input.selectedId || lit ? P.accent : P.rope
     ctx.save()
     if (lit) { ctx.shadowColor = P.accent; ctx.shadowBlur = 10 }
     if (s.damper) drawDamper(ctx, x0, y0, x1, y1, color, cam.ppm)
     else drawSpring(ctx, x0, y0, x1, y1, color, cam.ppm)
+    if (s.pushOnly && !s.damper) {
+      // The free end: a small plate across the spring
+      const d = Math.hypot(x1 - x0, y1 - y0) || 1, nx = -(y1 - y0) / d, ny = (x1 - x0) / d, h = Math.max(6, Math.min(12, 0.06 * cam.ppm))
+      ctx.lineWidth = lw(3); ctx.lineCap = 'round'
+      ctx.beginPath(); ctx.moveTo(x1 - nx * h, y1 - ny * h); ctx.lineTo(x1 + nx * h, y1 + ny * h); ctx.stroke()
+    }
     ctx.restore()
   })
   model.rods.forEach((r, i) => {
@@ -1058,7 +1073,8 @@ function drawBelt(ctx: CanvasRenderingContext2D, cam: Camera, b: BodyModel, pose
 const CHANGE_TEXT: Record<string, string> = {
   impact: '碰撞', touch: '接触', separate: '分离', stick: '相对静止（共速）', slip: '开始相对滑动', reverse: '相对滑动反向', slack: '绳松弛', taut: '绳绷紧', leave: '离开',
   switch: '变力切换', timestep: '改用时间步进（精度降级）', pulley: '到达滑轮', limit: '到达限位', unlimit: '离开限位',
-  motorSlip: '马达打滑', motorLock: '马达恢复转速', rollStop: '滚动停止', rollStart: '开始滚动', zoneEnter: '进入场区', zoneLeave: '离开场区'
+  motorSlip: '马达打滑', motorLock: '马达恢复转速', rollStop: '滚动停止', rollStart: '开始滚动', zoneEnter: '进入场区', zoneLeave: '离开场区',
+  springRelease: '与弹簧分离', springPress: '压上弹簧'
 }
 
 /** Display text of a change (a switch that is a kink has its own text). */

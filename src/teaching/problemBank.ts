@@ -11,6 +11,7 @@ import type { Tri } from '../i18n/tri'
 import { buildTemplate } from '../templates'
 import type { ChapterId, ChoiceQuestion, NumericQuestion, Problem, ProblemQuestion, ProblemTarget } from './problems'
 import { PROBLEMS_2659 } from './problemBank2659'
+import { PROBLEMS_2661 } from './problemBank2661'
 
 /** A built-in problem: a template with parameters, its texts and questions. */
 export interface BuiltinProblem {
@@ -400,7 +401,9 @@ export const BUILTIN_PROBLEMS: BuiltinProblem[] = [
     ]
   },
   // 26.59 (D171): 51 more problems, four new chapters
-  ...PROBLEMS_2659
+  ...PROBLEMS_2659,
+  // 26.61: push-only springs, a point mass, a wall and the arc tracks
+  ...PROBLEMS_2661
 ]
 
 /** Id of each built-in problem (problem ids are stable across versions). */

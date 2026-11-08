@@ -67,6 +67,8 @@ fn fired_values(sys: &System, ev: &SimEvent, prev: &Segment) -> SimResult<Vec<Va
             }
             EventValue::Slack { rope } | EventValue::Taut { rope } | EventValue::Pulley { rope, .. } => model.ropes[rope].name.clone(),
             EventValue::Switch { k, .. } => model.forces[model.switch_force[k]].name.clone(),
+            // 26.60 r2 (D208)
+            EventValue::Push { slot, .. } => model.springs[model.push_springs[slot]].name.clone(),
             _ => String::new(),
         }
     };

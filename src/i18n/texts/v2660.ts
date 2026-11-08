@@ -129,5 +129,25 @@ export const TEXTS_2660: Record<string, readonly [string, string]> = {
   "“题目”（作答与揭晓）": ["“Problems” (answering and revealing)", "„Aufgaben“ (Antworten und Auflösen)"],
   "“对象”（选中物体的参数、题目参数）": ["“Bodies” (parameters of the selected body, problem parameters)", "„Körper“ (Parameter des ausgewählten Körpers, Aufgabenparameter)"],
   "“场景”（重力、时长、计算方式）": ["“Scene” (gravity, duration, computation)", "„Szene“ (Schwerkraft, Dauer, Berechnung)"],
-  "从此刻分支（展开时间轴后可见）": ["Branch from this moment (shown when the timeline is expanded)", "Ab diesem Zeitpunkt verzweigen (sichtbar bei ausgeklappter Zeitleiste)"]
+  "从此刻分支（展开时间轴后可见）": ["Branch from this moment (shown when the timeline is expanded)", "Ab diesem Zeitpunkt verzweigen (sichtbar bei ausgeklappter Zeitleiste)"],
+  // ---- 26.60 r2: Copilot builder, arc parts, phone and stability ----
+  "（圆 {0}、矩形 {1}、多边形 {2}、圆弧 {3}）": ["({0} circles, {1} rectangles, {2} polygons, {3} arcs)", "({0} Kreise, {1} Rechtecke, {2} Vielecke, {3} Bögen)"],
+  "恢复刚才的场景": ["Restore the scene", "Szene wiederherstellen"],
+  "已恢复": ["Restored", "Wiederhergestellt"],
+  "系统回收了网页组件的内存，VeloΦ 已重新打开并恢复了刚才的场景": ["The system reclaimed the web view's memory; VeloΦ reopened and restored your scene", "Das System hat den Speicher der Webansicht freigegeben; VeloΦ wurde neu geöffnet und Ihre Szene wiederhergestellt"],
+  "系统的网页组件意外退出（旧版 WebView 常在旋转屏幕时出错），VeloΦ 已自动重新打开并恢复了刚才的场景": ["The system's web view stopped unexpectedly (older WebViews often fail while the screen turns); VeloΦ reopened by itself and restored your scene", "Die Webansicht des Systems wurde unerwartet beendet (ältere WebViews fallen oft beim Drehen des Bildschirms aus); VeloΦ hat sich neu geöffnet und Ihre Szene wiederhergestellt"],
+  "VeloΦ 多次意外重启，已用安全模式打开（关闭了界面特效）；刚才的场景没有自动打开": ["VeloΦ restarted unexpectedly several times and opened in safe mode (interface effects off); your scene was not reopened automatically", "VeloΦ wurde mehrmals unerwartet neu gestartet und im abgesicherten Modus geöffnet (Oberflächeneffekte aus); Ihre Szene wurde nicht automatisch geöffnet"],
+  "VeloΦ 多次意外重启，已用安全模式打开（关闭了界面特效）": ["VeloΦ restarted unexpectedly several times and opened in safe mode (interface effects off)", "VeloΦ wurde mehrmals unerwartet neu gestartet und im abgesicherten Modus geöffnet (Oberflächeneffekte aus)"],
+  "VeloΦ 上次意外退出": ["VeloΦ ended unexpectedly last time", "VeloΦ wurde beim letzten Mal unerwartet beendet"],
+  "圆弧滑块": ["Arc slide", "Bogenschlitten"],
+  "光滑水平面上的滑块（3 kg，不翻转）：左侧是半径 0.5 m 的四分之一圆弧，底端与 0.6 m 长的水平段相切": ["A slide on a smooth floor (3 kg, does not tip): a quarter arc of radius 0.5 m on its left, its lower end tangent to a flat part 0.6 m long", "Ein Schlitten auf glattem Boden (3 kg, kippt nicht): links ein Viertelkreisbogen mit Radius 0,5 m, dessen unteres Ende tangential in ein 0,6 m langes ebenes Stück übergeht"],
+  "不粘连": ["Not fastened", "Nicht befestigt"],
+  "只推不拉：恢复原长时与 B 端的物体分离": ["Pushes only: the body at end B leaves it when the spring is back at its rest length", "Drückt nur: Der Körper am Ende B löst sich, sobald die Feder ihre Ruhelänge erreicht"],
+  "无体积": ["No volume", "Ohne Volumen"],
+  "绝对质点：半径为 0，只在表面上的一点接触": ["Ideal point mass: radius 0, touching surfaces at a single point", "Idealer Massenpunkt: Radius 0, berührt Flächen in einem einzigen Punkt"],
+  "绝对质点（没有体积，只平动）：单击放在表面上，与教材的“质点”完全一致": ["Ideal point mass (no volume, translation only): click to put it on a surface — exactly the textbook's point mass", "Idealer Massenpunkt (ohne Volumen, nur Translation): Klicken setzt ihn auf eine Fläche — genau der Massenpunkt des Lehrbuchs"],
+  "与弹簧分离": ["Leaves the spring", "Löst sich von der Feder"],
+  "压上弹簧": ["Presses on the spring", "Drückt auf die Feder"],
+  "弹簧弹射": ["Spring launcher", "Federabschuss"],
+  "墙、不粘连的弹簧（200 N/m，原长 0.4 m）和被它压缩 0.1 m 的物块（1 kg）；光滑。释放后弹簧恢复原长时物块离开弹簧": ["A wall, a spring not fastened to the block (200 N/m, rest length 0.4 m) and a block (1 kg) compressing it by 0.1 m; smooth. Released, the block leaves the spring when it is back at its rest length", "Eine Wand, eine nicht am Klotz befestigte Feder (200 N/m, Ruhelänge 0,4 m) und ein Klotz (1 kg), der sie um 0,1 m zusammendrückt; glatt. Losgelassen löst sich der Klotz, sobald die Feder ihre Ruhelänge erreicht"]
 }

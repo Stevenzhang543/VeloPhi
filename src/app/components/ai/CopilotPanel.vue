@@ -11,8 +11,10 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { tl } from '../../../i18n'
 import { state, showToast } from '../../store'
 import { settings } from '../../settings'
-import { copilot, sendToCopilot, stopCopilot, clearCopilot, undoAction, recognizeInCopilot, copilotThinks, STARTERS, reloadScene, buildFromAnswer, declineOffer, compareWithSim } from '../../../ai/copilot/session'
-import type { Bubble, SceneCard } from '../../../ai/copilot/session'
+import { copilot, sendToCopilot, stopCopilot, clearCopilot, undoAction, SNAPSHOT_LIMIT, recognizeInCopilot, copilotThinks, STARTERS, reloadScene, buildFromAnswer, declineOffer, compareWithSim } from '../../../ai/copilot/session'
+import type { Action, Bubble, Reading, SceneCard } from '../../../ai/copilot/session'
+import { compareAnswers } from '../../../ai/copilot/verify'
+import type { AnswerCheck } from '../../../ai/copilot/verify'
 import { problemAnswers } from '../../../ai/import/answers'
 import type { AnswerLine } from '../../../ai/import/answers'
 import { saveFile, sceneFilter } from '../../../platform/files'
@@ -49,6 +51,30 @@ function cardAnswers(c: SceneCard): AnswerLine[] | null {
   if (c.problemId && state.problem?.problem.id === c.problemId) return problemAnswers(c.problemId) ?? c.answers
   return c.answers
 }
+/**
+ * 26.61 (C): the state of a card's numbers — computed by the app, never by the model: 计算中 (the run has not reached
+ * the answers), 引擎读数 (from the run of this card's problem, open now), 之前的运行 (the problem was closed; the values
+ * are those read then), 无法核验 (no value could be read), 学习模式 (hidden until revealed).
+ */
+function cardStatus(c: SceneCard): { key: 'computing' | 'engine' | 'earlier' | 'unverifiable' | 'hidden' | 'none'; text: string } {
+  if (!c.problemId || !c.questions.length) return { key: 'none', text: '' }
+  if (cardHidden(c)) return { key: 'hidden', text: tl('学习模式：作答后揭晓') }
+  const open = state.problem?.problem.id === c.problemId
+  const a = cardAnswers(c)
+  if (open && !a) return { key: 'computing', text: tl('计算中') }
+  if (!a) return { key: 'unverifiable', text: tl('无法核验：没有取得引擎读数') }
+  if (a.every(x => x.value === null)) return { key: 'unverifiable', text: tl('无法核验：读数不可用') }
+  return open ? { key: 'engine', text: tl('引擎读数 · 运行 #{0}', [state.runId]) } : { key: 'earlier', text: tl('引擎读数（之前的运行；题目已关闭）') }
+}
+/** The explanation's numbers against the engine's (verify.ts); only once the answers are shown. */
+function cardChecks(b: Bubble): AnswerCheck[] {
+  if (!b.scene || !b.explanation || cardHidden(b.scene)) return []
+  const a = cardAnswers(b.scene)
+  return a ? compareAnswers(b.explanation, a) : []
+}
+const CHECK_TEXT: Record<AnswerCheck['verdict'], string> = { match: '一致', mismatch: '条件不匹配', unverifiable: '无法核验' }
+/** A reading taken by the Copilot is stale once the scene was changed or computed again. */
+const readingStale = (r: Reading) => state.stale || state.runId !== r.run
 function cardHidden(c: SceneCard): boolean { return c.hidden && !(c.problemId && state.problem?.problem.id === c.problemId && state.problem.revealed) }
 async function saveJson(c: SceneCard) {
   try { if (await saveFile(c.json, `${safeName(c.name)}.velophi.json`, sceneFilter())) showToast(tl('已保存')) } catch (e) { showToast((e as Error).message, true) }
@@ -101,6 +127,13 @@ function focusBox() { setCopilotOpen(true); void nextTick(() => box.value?.focus
 onMounted(() => { window.addEventListener('velophi:focus-import', focusBox); if (!phone.value) void nextTick(() => box.value?.focus()) })
 onBeforeUnmount(() => window.removeEventListener('velophi:focus-import', focusBox))
 watch(() => [copilot.bubbles.length, copilot.status, aiImport.stage], () => nextTick(() => { list.value?.scrollTo({ top: list.value.scrollHeight, behavior: 'smooth' }) }))
+/** "撤销" on a change (26.61, R1): an expired or failed undo says so instead of restoring another state. */
+async function onUndo(a: Action) {
+  const r = await undoAction(a)
+  if (r === 'done') showToast(tl('已撤销 Copilot 的改动'))
+  else if (r === 'expired') showToast(tl('这一步已超出保留期，不能撤销'), true)
+  else if (r === 'failed') showToast(tl('撤销失败：快照无法读取'), true)
+}
 /** A built scene that failed (the template reader is offered then). */
 const buildFailed = (b: Bubble) => b.offer?.state === 'failed'
 </script>
@@ -131,13 +164,24 @@ const buildFailed = (b: Bubble) => b.offer?.state === 'failed'
             <li v-for="a in b.actions" :key="a.id" :class="{ fail: !a.ok, undone: a.undone }">
               <Icon :name="a.ok ? 'check2' : 'cross'" :size="12" /><span>{{ a.label }}</span>
               <span v-if="a.error" class="err">{{ a.error }}</span>
-              <button v-if="a.ok && a.undo !== undefined && !a.undone" type="button" class="btn small ghost" @click="undoAction(a)">{{ tl('撤销') }}</button>
+              <button v-if="a.ok && a.undo !== undefined && !a.undone && !a.expired" type="button" class="btn small ghost" data-ui="copilot-undo" :disabled="copilot.busy" @click="onUndo(a)">{{ tl('撤销') }}</button>
               <span v-if="a.undone" class="muted">{{ tl('已撤销') }}</span>
+              <span v-else-if="a.expired" class="muted" :title="tl('只保留最近 {0} 次改动的快照', [SNAPSHOT_LIMIT])">{{ tl('已超出保留期，不能撤销') }}</span>
+              <details v-if="a.ok && a.diff" class="diff" data-ui="copilot-diff">
+                <summary>{{ a.diff.replaced ? tl('替换了整个场景') : tl('改动 {0} 处', [a.diff.lines.length + a.diff.more]) }}</summary>
+                <ul><li v-for="(l, i) in a.diff.lines" :key="i"><code>{{ l }}</code></li><li v-if="a.diff.more" class="muted">{{ tl('另有 {0} 处', [a.diff.more]) }}</li></ul>
+              </details>
+            </li>
+          </ul>
+          <ul v-if="b.readings?.length" class="reads">
+            <li v-for="r in b.readings" :key="r.id" :class="{ stale: readingStale(r) }" :title="r.scene">
+              <span class="tag" :class="readingStale(r) ? 'st-unverifiable' : 'st-engine'">{{ readingStale(r) ? tl('已过期') : tl('引擎读数') }}</span>
+              <span>{{ r.label }} · {{ tl('运行 #{0}', [r.run]) }}<template v-if="!r.complete"> · {{ tl('计算中') }}</template></span>
             </li>
           </ul>
           <div v-if="b.scene" class="scene-card">
             <div class="sc-head"><Icon name="studio" :size="13" /><b>{{ tl('已搭建并载入：{0}', [b.scene.name]) }}</b></div>
-            <p class="sc-meta">{{ tl('{0} 个物体 · {1} 个连接件', [b.scene.bodies, b.scene.connectors]) }}</p>
+            <p class="sc-meta">{{ tl('{0} 个物体 · {1} 个连接件', [b.scene.bodies, b.scene.connectors]) }}<span v-if="cardStatus(b.scene).key !== 'none'" class="tag" :class="`st-${cardStatus(b.scene).key}`" data-ui="copilot-status">{{ cardStatus(b.scene).text }}</span></p>
             <ol v-if="b.scene.questions.length" class="sc-ans">
               <li v-for="(q, i) in b.scene.questions" :key="i">
                 <span>{{ q }}</span>
@@ -146,6 +190,12 @@ const buildFailed = (b: Bubble) => b.offer?.state === 'failed'
                 <small v-if="!cardHidden(b.scene) && cardAnswers(b.scene)?.[i]?.note" class="muted">{{ cardAnswers(b.scene)?.[i]?.note }}</small>
               </li>
             </ol>
+            <ul v-if="cardChecks(b).length" class="checks" data-ui="copilot-checks">
+              <li v-for="(c, i) in cardChecks(b)" :key="i" :class="`ck-${c.verdict}`">
+                <span class="tag" :class="c.verdict === 'match' ? 'st-engine' : c.verdict === 'mismatch' ? 'st-mismatch' : 'st-unverifiable'">{{ tl(CHECK_TEXT[c.verdict]) }}</span>
+                <span>{{ tl('讲解 {0} · 引擎 {1}', [c.claimedText ?? '—', cardAnswers(b.scene!)?.[i]?.text ?? '—']) }}<template v-if="c.rel !== null && c.verdict === 'mismatch'"> · {{ tl('相差 {0}%', [(c.rel * 100).toFixed(1)]) }}</template></span>
+              </li>
+            </ul>
             <details v-if="b.assumptions?.length" class="sc-notes">
               <summary>{{ tl('构建时的假设（{0}）', [b.assumptions.length]) }}</summary>
               <ul><li v-for="(n, i) in b.assumptions" :key="i">{{ n }}</li></ul>
@@ -166,6 +216,7 @@ const buildFailed = (b: Bubble) => b.offer?.state === 'failed'
             </div>
             <button v-if="b.problem && b.scene.questions.length && !copilot.busy" type="button" class="btn small compare" @click="compareWithSim(b.problem, b.scene)"><Icon name="graduation" :size="12" />{{ tl('对照讲解与仿真结果') }}</button>
           </div>
+          <p v-if="b.problem && b.text && !b.scene" class="draft" data-ui="copilot-draft"><span class="tag st-draft">{{ tl('讲解草稿') }}</span>{{ tl('数值由 AI 推算，未经引擎核验；生成仿真场景后由 App 对照。') }}</p>
           <div v-if="b.text" class="text" v-html="renderAnswer(b.text)" />
           <button v-if="b.text" type="button" class="copy" :title="tl('复制')" :aria-label="tl('复制')" @click="copy(b.text)"><Icon name="copy" :size="12" /></button>
           <!-- 26.60 (D204): the user chooses whether to build the problem in the engine -->
@@ -199,7 +250,7 @@ const buildFailed = (b: Bubble) => b.offer?.state === 'failed'
         <input ref="fileInput" type="file" accept="image/*" hidden @change="onFile">
         <button v-if="canThink" type="button" class="chip-toggle" :class="{ on: settings.ai.thinking }" :aria-pressed="settings.ai.thinking" :title="tl('深度思考：先思考再回答（更慢，用量更多）')" @click="settings.ai.thinking = !settings.ai.thinking"><Icon name="sparkle" :size="13" />{{ tl('深度思考') }}</button>
         <span class="spacer" />
-        <button v-if="copilot.busy" type="button" class="btn small" @click="stop">{{ tl('停止') }}</button>
+        <button data-ui="copilot-stop" v-if="copilot.busy" type="button" class="btn small" @click="stop">{{ tl('停止') }}</button>
         <button v-else type="button" class="btn primary" data-ui="copilot-send" :disabled="!input.trim() && !image" :title="tl('发送（Enter）')" @click="send()"><Icon name="send" :size="14" />{{ tl('发送') }}</button>
       </div>
       <p v-if="copilotThinks()" class="tiny muted">{{ tl('深度思考已开启：回答更慢，用量更多。') }}</p>
@@ -244,6 +295,20 @@ const buildFailed = (b: Bubble) => b.offer?.state === 'failed'
 .acts li span { color: var(--text-2); }
 .acts li.fail { color: var(--danger); }
 .acts li.undone span:first-of-type { text-decoration: line-through; }
+.tag { display: inline-block; margin: 0 6px 0 0; padding: 0 6px; border-radius: 8px; font-size: var(--type-tiny); line-height: 17px; border: 1px solid var(--separator); white-space: nowrap; }
+.sc-meta .tag { margin-left: 8px; }
+.st-engine { color: var(--success, #15803d); border-color: currentColor; }
+.st-computing, .st-hidden, .st-draft { color: var(--text-2); }
+.st-earlier { color: var(--text-2); border-style: dashed; }
+.st-mismatch { color: var(--warning, #b45309); border-color: currentColor; }
+.st-unverifiable { color: var(--danger, #b91c1c); border-color: currentColor; }
+.reads, .checks { list-style: none; margin: 4px 0; padding: 0; font-size: 12px; }
+.reads li, .checks li { margin: 2px 0; }
+.reads li.stale span:last-child { color: var(--text-2); text-decoration: line-through; }
+.draft { margin: 0 0 4px; font-size: 12px; color: var(--text-2); }
+.diff { margin: 2px 0 0 18px; font-size: 12px; }
+.diff ul { margin: 2px 0; padding-left: 14px; }
+.diff code { font-size: 11px; word-break: break-all; }
 .acts .err { color: var(--danger) !important; font-size: var(--type-tiny); }
 .acts .muted { color: var(--text-3); }
 .status { display: flex; align-items: center; gap: 8px; color: var(--text-2); font-size: var(--type-small); }

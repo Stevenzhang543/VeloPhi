@@ -5,8 +5,9 @@
  * target and contact pair that referred to a changed body is carried over to the piece it belongs to.
  */
 import { tl } from '../../i18n'
-import type { Anchor, BodyDef, PartShapeDef, Scene, ShapePart } from '../../core/scene/types'
+import type { Anchor, ArcShapeDef, BodyDef, Scene, ShapePart } from '../../core/scene/types'
 import { connectorAnchors } from '../../core/scene/types'
+import { arcCentroid, centeredArc } from '../../core/scene/arc'
 import { nextId } from '../../core/scene/build'
 import { compoundMass, polygonCentroid, shapeOutline } from '../../engine/calc'
 import type { Pt } from './geometry'
@@ -21,9 +22,10 @@ function freshName(scene: Scene, base: string): string {
 }
 
 /** Area of a part shape (m²). */
-function partArea(s: PartShapeDef): number {
+function partArea(s: ShapePart['shape']): number {
   if (s.type === 'circle') return Math.PI * s.radius * s.radius
   if (s.type === 'box') return s.width * s.height
+  if (s.type === 'arc') return arcCentroid(s).area
   return Math.abs(signedArea(s.points))
 }
 
@@ -107,9 +109,17 @@ export function explodeCompound(scene: Scene, id: string): string | null {
   const base = old.name.replace(/\d+$/, '')
   for (const part of old.shape.parts) {
     const local = { x: part.position.x - shift.x, y: part.position.y - shift.y }
-    let shape: PartShapeDef = part.shape
+    let shape: BodyDef['shape'] = part.shape
     let origin = local
-    if (part.shape.type === 'polygon') {
+    if (part.shape.type === 'arc') {
+      // 26.60 r2 (D207): an arc part becomes an arc body — static: origin at the circle's centre; moving: origin at
+      // its centre of mass
+      const cc = part.shape.center ?? { x: 0, y: 0 }
+      const g = dynamic ? arcCentroid(part.shape).c : { x: 0, y: 0 }
+      const off = rotate({ x: cc.x + g.x, y: cc.y + g.y }, part.angle)
+      origin = { x: local.x + off.x, y: local.y + off.y }
+      shape = { ...part.shape, center: { x: q9(-g.x), y: q9(-g.y) } }
+    } else if (part.shape.type === 'polygon') {
       // A polygon part about its own centroid
       const ccw = signedArea(part.shape.points) < 0 ? part.shape.points.slice().reverse() : part.shape.points
       const c = polygonCentroid(ccw)
@@ -123,13 +133,10 @@ export function explodeCompound(scene: Scene, id: string): string | null {
     if (b.shape.type === 'circle') b.role = 'ball'
     scene.bodies.push(b)
     made.push(b)
-    const outline = shapeOutline(b.shape, b.kind !== 'static')[0]
+    const outline = shapeOutline(b.shape, b.kind !== 'static')
     regions.push({
       body: b, c: w,
-      test: p => {
-        if (outline.kind === 'circle') return Math.hypot(p.x - w.x, p.y - w.y) <= outline.radius
-        return inside(outline.verts.map(v => toWorldPt(b, v)), p)
-      }
+      test: p => outline.some(o => (o.kind === 'circle' ? Math.hypot(p.x - toWorldPt(b, o.center).x, p.y - toWorldPt(b, o.center).y) <= o.radius : inside(o.verts.map(v => toWorldPt(b, v)), p)))
     })
   }
   const owner = (p: Pt) => regions.find(r => r.test(p))?.body ?? regions.reduce((best, r) => (Math.hypot(p.x - r.c.x, p.y - r.c.y) < Math.hypot(p.x - best.c.x, p.y - best.c.y) ? r : best)).body
@@ -140,8 +147,9 @@ export function explodeCompound(scene: Scene, id: string): string | null {
 
 // ---- Combine ----
 
-/** A part shape with its polygon vertices on the 10⁻⁹ m grid (D74). */
-function quantized(s: PartShapeDef): PartShapeDef {
+/** A part shape with its polygon vertices (and arc centre) on the 10⁻⁹ m grid (D74). */
+function quantized(s: ShapePart['shape']): ShapePart['shape'] {
+  if (s.type === 'arc') return { ...s, center: s.center ? { x: q9(s.center.x), y: q9(s.center.y) } : { x: 0, y: 0 } }
   return s.type === 'polygon' ? { type: 'polygon', points: s.points.map(p => ({ x: q9(p.x), y: q9(p.y) })) } : s
 }
 
@@ -153,6 +161,11 @@ function worldParts(def: BodyDef): ShapePart[] {
     return def.shape.parts.map(p => ({ shape: JSON.parse(JSON.stringify(p.shape)), position: toWorldPt(def, { x: p.position.x - shift.x, y: p.position.y - shift.y }), angle: def.angle + p.angle }))
   }
   if (def.shape.type === 'polygon') return [{ shape: { type: 'polygon', points: localVerts(def) }, position: { ...def.position }, angle: def.angle }]
+  // 26.60 r2 (D207): an arc joins as an arc part, placed as the solver places it (a moving arc about its centre of mass)
+  if (def.shape.type === 'arc') {
+    const a: ArcShapeDef = { ...def.shape, center: { ...(def.shape.center ?? { x: 0, y: 0 }) } }
+    return [{ shape: dynamic ? centeredArc(a) : a, position: { ...def.position }, angle: def.angle }]
+  }
   return [{ shape: JSON.parse(JSON.stringify(def.shape)), position: { ...def.position }, angle: def.angle }]
 }
 

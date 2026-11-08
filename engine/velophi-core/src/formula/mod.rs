@@ -12,6 +12,7 @@ pub mod situations;
 pub mod situations2651;
 pub mod situations2654;
 pub mod situations2655;
+pub mod situations2662;
 
 use std::rc::Rc;
 
@@ -585,7 +586,8 @@ pub fn attached(model: &Model, id: &str) -> Attached {
     extra += model.motors.iter().filter(|c| has(&c.a) || has(&c.b)).count();
     extra += model.gears.iter().filter(|g| g.a.is_some_and(|x| model.bodies[x].id == id) || g.b.is_some_and(|x| model.bodies[x].id == id)).count();
     for &i in &springs {
-        if model.springs[i].stiffness == 0.0 || model.springs[i].cubic != 0.0 {
+        // 26.60 r2 (D208): a spring that only pushes is not a linear spring all the way
+        if model.springs[i].stiffness == 0.0 || model.springs[i].cubic != 0.0 || model.springs[i].push_only {
             extra += 1;
         }
     }
@@ -605,7 +607,7 @@ pub fn attached(model: &Model, id: &str) -> Attached {
     Attached {
         ropes,
         rods: model.rods.iter().enumerate().filter(|(_, c)| has(&c.a) || has(&c.b)).map(|(i, _)| i).collect(),
-        springs: springs.into_iter().filter(|&i| model.springs[i].stiffness > 0.0 && model.springs[i].cubic == 0.0).collect(),
+        springs: springs.into_iter().filter(|&i| model.springs[i].stiffness > 0.0 && model.springs[i].cubic == 0.0 && !model.springs[i].push_only).collect(),
         hinges: model.hinges.iter().enumerate().filter(|(_, c)| has(&c.a) || has(&c.b)).map(|(i, _)| i).collect(),
         forces: model.forces.iter().enumerate().filter(|(_, c)| has(&c.a)).map(|(i, _)| i).collect(),
         extra,

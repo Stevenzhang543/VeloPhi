@@ -93,7 +93,7 @@ pub fn model_info(sys: &System) -> Value {
         "rods": m.rods.iter().map(|r| with(named(&r.id, &r.name), vec![("a", anchor_json(&r.a)), ("b", anchor_json(&r.b)), ("length", jnum(r.length))])).collect::<Vec<_>>(),
         "springs": m.springs.iter().map(|s| with(named(&s.id, &s.name), vec![
             ("a", anchor_json(&s.a)), ("b", anchor_json(&s.b)), ("stiffness", jnum(s.stiffness)), ("restLength", jnum(s.rest_length)),
-            ("damping", jnum(s.damping)), ("cubic", jnum(s.cubic)), ("damper", json!(s.damper))
+            ("damping", jnum(s.damping)), ("cubic", jnum(s.cubic)), ("damper", json!(s.damper)), ("pushOnly", json!(s.push_only))
         ])).collect::<Vec<_>>(),
         "hinges": m.hinges.iter().map(|h| with(named(&h.id, &h.name), vec![("a", anchor_json(&h.a)), ("b", anchor_json(&h.b))])).collect::<Vec<_>>(),
         "forces": m.forces.iter().map(|f| with(named(&f.id, &f.name), vec![("a", anchor_json(&f.a)), ("force", v2(f.force)), ("expr", json!(f.expr.is_some()))])).collect::<Vec<_>>(),
@@ -337,6 +337,10 @@ pub fn body_forces(sys: &System, mode: Option<&Mode>, sol: Option<&ModeSolution>
         let uy = dy / l;
         let vrel = ux * (pa.vx - pb.vx) + uy * (pa.vy - pb.vy);
         let ext = l - s.rest_length;
+        // 26.60 r2 (D208): a spring that only pushes has let go of the body
+        if s.push_only && ext > 0.0 {
+            continue;
+        }
         let mag = -s.stiffness * ext - s.cubic * ext * ext * ext - s.damping * vrel;
         let (label, kind) = if s.damper { ("F阻", "damper") } else { ("F弹", "spring") };
         if s.a.body == Some(g) {

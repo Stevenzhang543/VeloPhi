@@ -53,7 +53,7 @@ const shortTitle = (s: string) => (s.length > 40 ? `${s.slice(0, 38)}…` : s)
  * Check, place and load a scene file the AI wrote. With questions it opens as a problem (the engine computes the
  * answers, which are awaited); without, it replaces the scene in the studio.
  */
-export async function applyAiScene(raw: unknown, questions: unknown, meta: { title?: string; stem?: string } = {}): Promise<{ ok: true; card: SceneCard; result: Record<string, unknown> } | { ok: false; errors: string[]; notes: string[] }> {
+export async function applyAiScene(raw: unknown, questions: unknown, meta: { title?: string; stem?: string; signal?: AbortSignal } = {}): Promise<{ ok: true; card: SceneCard; result: Record<string, unknown> } | { ok: false; errors: string[]; notes: string[] }> {
   const prep = prepareAiScene(raw, questions)
   if (!prep.ok) return { ok: false, errors: prep.errors.slice(0, 14), notes: prep.notes.slice(0, 8) }
   await confirmReplace()
@@ -74,7 +74,7 @@ export async function applyAiScene(raw: unknown, questions: unknown, meta: { tit
     loadScene(scene, null)
     state.page = 'studio'
   }
-  const answers = problemId ? await waitForProblemAnswers(problemId, simHooks.waitMs) : null
+  const answers = problemId ? await waitForProblemAnswers(problemId, simHooks.waitMs, meta.signal) : null
   const hidden = settings.ai.learningMode && !!problemId && !state.problem?.revealed
   const card: SceneCard = {
     ok: true, name: title, json: serializeScene(scene), bodies: scene.bodies.length, connectors: scene.connectors.length,

@@ -37,6 +37,8 @@ export const EVENTS: Record<string, string> = {
   taut: '绳绷紧',
   zoneEnter: '进入场区（电场、磁场、液体等区域）',
   zoneLeave: '离开场区',
+  springRelease: '与不粘连的弹簧分离（弹簧恢复原长）',
+  springPress: '压上不粘连的弹簧',
   rollStop: '停止滚动',
   limit: '到达滑轨限位'
 }

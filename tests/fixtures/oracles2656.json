@@ -14312,6 +14312,2732 @@
    "tol": 1e-09,
    "scale": {},
    "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K01",
+   "name": "EX K01",
+   "kind": "benchmark",
+   "inputs": {
+    "x": 0.0123456,
+    "n": 3.0
+   },
+   "expect": {
+    "e": -2.0,
+    "xr": 0.0123,
+    "rel": 0.0036936236391912907
+   },
+   "conditions": {
+    "nonzero": "applicable"
+   },
+   "method": "decimal adjusted exponent; floor(x/q + 1/2) checked against Decimal.quantize",
+   "tol": 1e-10,
+   "scale": {
+    "rel": 1e-12
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K01",
+   "name": "one significant figure",
+   "kind": "boundary",
+   "inputs": {
+    "x": 0.0123456,
+    "n": 1.0
+   },
+   "expect": {
+    "e": -2.0,
+    "xr": 0.01,
+    "rel": 0.1899948159668222
+   },
+   "conditions": {
+    "nonzero": "applicable"
+   },
+   "method": "decimal adjusted exponent; floor(x/q + 1/2) checked against Decimal.quantize",
+   "tol": 1e-10,
+   "scale": {
+    "rel": 1e-12
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K01",
+   "name": "negative and large",
+   "kind": "transfer",
+   "inputs": {
+    "x": -6.02214076e+23,
+    "n": 4.0
+   },
+   "expect": {
+    "e": 23.0,
+    "xr": -6.022e+23,
+    "rel": 2.3373747909539064e-05
+   },
+   "conditions": {
+    "nonzero": "applicable"
+   },
+   "method": "decimal adjusted exponent; floor(x/q + 1/2) checked against Decimal.quantize",
+   "tol": 1e-10,
+   "scale": {
+    "rel": 1e-12
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K01",
+   "name": "rounding up into the next decade",
+   "kind": "transfer",
+   "inputs": {
+    "x": 987.65,
+    "n": 2.0
+   },
+   "expect": {
+    "e": 2.0,
+    "xr": 990.0,
+    "rel": 0.002379385409811168
+   },
+   "conditions": {
+    "nonzero": "applicable"
+   },
+   "method": "decimal adjusted exponent; floor(x/q + 1/2) checked against Decimal.quantize",
+   "tol": 1e-10,
+   "scale": {
+    "rel": 1e-12
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K02",
+   "name": "EX K02",
+   "kind": "benchmark",
+   "inputs": {
+    "M": 0.021,
+    "nv": 7.0,
+    "c": 2e-05,
+    "S": 0.0055,
+    "k": 23.0,
+    "pitch": 0.0005,
+    "N": 50.0,
+    "z": 0.0
+   },
+   "expect": {
+    "Lv": 0.02114,
+    "Lm": 0.00573,
+    "cm": 1e-05
+   },
+   "conditions": {},
+   "method": "division by division",
+   "tol": 1e-12,
+   "scale": {
+    "Lv": 1e-09,
+    "Lm": 1e-09
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K02",
+   "name": "zero on both scales",
+   "kind": "boundary",
+   "inputs": {
+    "M": 0.012,
+    "nv": 0.0,
+    "c": 2e-05,
+    "S": 0.002,
+    "k": 0.0,
+    "pitch": 0.0005,
+    "N": 50.0,
+    "z": 0.0
+   },
+   "expect": {
+    "Lv": 0.012,
+    "Lm": 0.002,
+    "cm": 1e-05
+   },
+   "conditions": {},
+   "method": "division by division",
+   "tol": 1e-12,
+   "scale": {
+    "Lv": 1e-09,
+    "Lm": 1e-09
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K02",
+   "name": "10-division vernier and a zero error of 0.02 mm",
+   "kind": "transfer",
+   "inputs": {
+    "M": 0.034,
+    "nv": 6.0,
+    "c": 0.0001,
+    "S": 0.0071,
+    "k": 38.0,
+    "pitch": 0.0005,
+    "N": 50.0,
+    "z": 2e-05
+   },
+   "expect": {
+    "Lv": 0.03458,
+    "Lm": 0.00746,
+    "cm": 1e-05
+   },
+   "conditions": {},
+   "method": "division by division",
+   "tol": 1e-12,
+   "scale": {
+    "Lv": 1e-09,
+    "Lm": 1e-09
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K03",
+   "name": "EX K03",
+   "kind": "benchmark",
+   "inputs": {
+    "n": 20.0,
+    "rss1": 0.8,
+    "k1": 2.0,
+    "rss2": 0.5,
+    "k2": 3.0
+   },
+   "expect": {
+    "aic1": -60.37751649736401,
+    "aic2": -67.77758908227872,
+    "daic": -7.400072584914711,
+    "bic1": -58.38605195025603,
+    "bic2": -64.79039226161676,
+    "w2": 0.975873833070152
+   },
+   "conditions": {},
+   "method": "Gaussian log-likelihood at the ML variance; Akaike weights normalised",
+   "tol": 1e-12,
+   "scale": {
+    "daic": 1e-09
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K03",
+   "name": "identical models",
+   "kind": "boundary",
+   "inputs": {
+    "n": 20.0,
+    "rss1": 0.8,
+    "k1": 2.0,
+    "rss2": 0.8,
+    "k2": 2.0
+   },
+   "expect": {
+    "aic1": -60.37751649736401,
+    "aic2": -60.37751649736401,
+    "daic": 0.0,
+    "bic1": -58.38605195025603,
+    "bic2": -58.38605195025603,
+    "w2": 0.5
+   },
+   "conditions": {},
+   "method": "Gaussian log-likelihood at the ML variance; Akaike weights normalised",
+   "tol": 1e-12,
+   "scale": {
+    "daic": 1e-09
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K03",
+   "name": "a small gain for two parameters more",
+   "kind": "transfer",
+   "inputs": {
+    "n": 100.0,
+    "rss1": 4.1,
+    "k1": 2.0,
+    "rss2": 4.0,
+    "k2": 4.0
+   },
+   "expect": {
+    "aic1": -315.41832122778294,
+    "aic2": -313.88758248682007,
+    "daic": 1.53073874096285,
+    "bic1": -310.20798085580674,
+    "bic2": -303.4669017428677,
+    "w2": 0.3174816546102766
+   },
+   "conditions": {},
+   "method": "Gaussian log-likelihood at the ML variance; Akaike weights normalised",
+   "tol": 1e-12,
+   "scale": {
+    "daic": 1e-09
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K04",
+   "name": "EX K04",
+   "kind": "benchmark",
+   "inputs": {
+    "a": 2.0,
+    "b": 3.0,
+    "x": 0.1,
+    "y": 0.2,
+    "c": 0.5,
+    "w": 2.0
+   },
+   "expect": {
+    "V": 0.14,
+    "Ex": -0.4,
+    "Ey": -1.2,
+    "lap": 10.0,
+    "div": 1.0,
+    "curl": 4.0
+   },
+   "conditions": {},
+   "method": "mpmath.diff (numerical derivatives)",
+   "tol": 1e-12,
+   "scale": {
+    "V": 1e-09,
+    "Ex": 1e-09,
+    "Ey": 1e-09,
+    "lap": 1e-09,
+    "div": 1e-09,
+    "curl": 1e-09
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K04",
+   "name": "at the origin, no flow",
+   "kind": "boundary",
+   "inputs": {
+    "a": 2.0,
+    "b": 3.0,
+    "x": 0.0,
+    "y": 0.0,
+    "c": 0.0,
+    "w": 0.0
+   },
+   "expect": {
+    "V": 0.0,
+    "Ex": 0.0,
+    "Ey": 0.0,
+    "lap": 10.0,
+    "div": 0.0,
+    "curl": 0.0
+   },
+   "conditions": {},
+   "method": "mpmath.diff (numerical derivatives)",
+   "tol": 1e-12,
+   "scale": {
+    "V": 1e-09,
+    "Ex": 1e-09,
+    "Ey": 1e-09,
+    "lap": 1e-09,
+    "div": 1e-09,
+    "curl": 1e-09
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K04",
+   "name": "a harmonic saddle (∇²V = 0)",
+   "kind": "transfer",
+   "inputs": {
+    "a": -3.0,
+    "b": 3.0,
+    "x": 0.4,
+    "y": -0.7,
+    "c": -1.0,
+    "w": 0.25
+   },
+   "expect": {
+    "V": 0.99,
+    "Ex": 2.4,
+    "Ey": 4.2,
+    "lap": 0.0,
+    "div": -2.0,
+    "curl": 0.5
+   },
+   "conditions": {},
+   "method": "mpmath.diff (numerical derivatives)",
+   "tol": 1e-12,
+   "scale": {
+    "V": 1e-09,
+    "Ex": 1e-09,
+    "Ey": 1e-09,
+    "lap": 1e-09,
+    "div": 1e-09,
+    "curl": 1e-09
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K05",
+   "name": "EX K05",
+   "kind": "benchmark",
+   "inputs": {
+    "nv": 4.0,
+    "kd": 3.0,
+    "len": 1.0,
+    "g": 9.8,
+    "C": 6.283185307179586
+   },
+   "expect": {
+    "np": 1.0,
+    "T": 2.0070899231544934
+   },
+   "conditions": {},
+   "method": "counting; period from the zero of θ′ (mpmath.odefun, findroot)",
+   "tol": 1e-12,
+   "scale": {
+    "np": 1e-09
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K05",
+   "name": "as many dimensions as variables",
+   "kind": "boundary",
+   "inputs": {
+    "nv": 3.0,
+    "kd": 3.0,
+    "len": 0.25,
+    "g": 1.62,
+    "C": 6.283185307179586
+   },
+   "expect": {
+    "np": 0.0,
+    "T": 2.46826829897687
+   },
+   "conditions": {},
+   "method": "counting; period from the zero of θ′ (mpmath.odefun, findroot)",
+   "tol": 1e-12,
+   "scale": {
+    "np": 1e-09
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K05",
+   "name": "on Mars",
+   "kind": "transfer",
+   "inputs": {
+    "nv": 4.0,
+    "kd": 3.0,
+    "len": 2.5,
+    "g": 3.71,
+    "C": 6.283185307179586
+   },
+   "expect": {
+    "np": 1.0,
+    "T": 5.157781236206544
+   },
+   "conditions": {},
+   "method": "counting; period from the zero of θ′ (mpmath.odefun, findroot)",
+   "tol": 1e-12,
+   "scale": {
+    "np": 1e-09
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K06",
+   "name": "EX K06",
+   "kind": "benchmark",
+   "inputs": {
+    "mean": 9.79,
+    "s": 0.05,
+    "n": 20.0,
+    "mu0": 9.81,
+    "tc": 2.093
+   },
+   "expect": {
+    "se": 0.011180339887498949,
+    "t": -1.7888543819998317,
+    "lo": 9.766599548615465,
+    "hi": 9.813400451384535,
+    "reject": 0.0
+   },
+   "conditions": {},
+   "method": "standard error; interval contains μ₀?",
+   "tol": 1e-12,
+   "scale": {
+    "reject": 1.0,
+    "t": 1e-09
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K06",
+   "name": "a clear deviation",
+   "kind": "transfer",
+   "inputs": {
+    "mean": 9.7,
+    "s": 0.05,
+    "n": 20.0,
+    "mu0": 9.81,
+    "tc": 2.093
+   },
+   "expect": {
+    "se": 0.011180339887498949,
+    "t": -9.838699100999074,
+    "lo": 9.676599548615465,
+    "hi": 9.723400451384535,
+    "reject": 1.0
+   },
+   "conditions": {},
+   "method": "standard error; interval contains μ₀?",
+   "tol": 1e-12,
+   "scale": {
+    "reject": 1.0,
+    "t": 1e-09
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K06",
+   "name": "two measurements",
+   "kind": "boundary",
+   "inputs": {
+    "mean": 9.81,
+    "s": 0.05,
+    "n": 2.0,
+    "mu0": 9.8,
+    "tc": 12.706
+   },
+   "expect": {
+    "se": 0.035355339059327376,
+    "t": 0.282842712474619,
+    "lo": 9.360775061912186,
+    "hi": 10.259224938087813,
+    "reject": 0.0
+   },
+   "conditions": {},
+   "method": "standard error; interval contains μ₀?",
+   "tol": 1e-12,
+   "scale": {
+    "reject": 1.0,
+    "t": 1e-09
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K07",
+   "name": "EX K07",
+   "kind": "benchmark",
+   "inputs": {
+    "m": 1.0,
+    "w": 0.5,
+    "v": 2.0,
+    "r": 3.0,
+    "lat": 0.6981317007977318,
+    "W": 7.2921e-05
+   },
+   "expect": {
+    "Fc": 2.0,
+    "Fcf": 0.75,
+    "aE": 0.00018749086114380853
+   },
+   "conditions": {},
+   "method": "cross products (horizontal component, positive to the right of an eastward motion)",
+   "tol": 1e-12,
+   "scale": {
+    "Fc": 1e-12,
+    "Fcf": 1e-12,
+    "aE": 1e-15
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K07",
+   "name": "no rotation; at the equator",
+   "kind": "boundary",
+   "inputs": {
+    "m": 1.0,
+    "w": 0.0,
+    "v": 2.0,
+    "r": 3.0,
+    "lat": 0.0,
+    "W": 7.2921e-05
+   },
+   "expect": {
+    "Fc": 0.0,
+    "Fcf": 0.0,
+    "aE": 0.0
+   },
+   "conditions": {},
+   "method": "cross products (horizontal component, positive to the right of an eastward motion)",
+   "tol": 1e-12,
+   "scale": {
+    "Fc": 1e-12,
+    "Fcf": 1e-12,
+    "aE": 1e-15
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K07",
+   "name": "a carousel; the southern hemisphere",
+   "kind": "transfer",
+   "inputs": {
+    "m": 60.0,
+    "w": 1.2,
+    "v": 1.5,
+    "r": 4.0,
+    "lat": -0.5916666164260778,
+    "W": 7.2921e-05
+   },
+   "expect": {
+    "Fc": 216.0,
+    "Fcf": 345.6,
+    "aE": -0.00012201399327572396
+   },
+   "conditions": {},
+   "method": "cross products (horizontal component, positive to the right of an eastward motion)",
+   "tol": 1e-12,
+   "scale": {
+    "Fc": 1e-12,
+    "Fcf": 1e-12,
+    "aE": 1e-15
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K08",
+   "name": "EX K08 (Sun–Earth)",
+   "kind": "benchmark",
+   "inputs": {
+    "mu": 3.003e-06,
+    "a": 149600000000.0
+   },
+   "expect": {
+    "rH": 1496482861.2769363,
+    "L4": 149600000000.0,
+    "stable": 1.0
+   },
+   "conditions": {
+    "small": "applicable"
+   },
+   "method": "exact collinear equation (findroot), mean of the L1 and L2 distances; Routh (1 − √(23/27))/2",
+   "tol": 0.0001,
+   "scale": {},
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K08",
+   "name": "Sun–Jupiter",
+   "kind": "transfer",
+   "inputs": {
+    "mu": 0.0009537,
+    "a": 778500000000.0
+   },
+   "expect": {
+    "rH": 53115721486.81182,
+    "L4": 778500000000.0,
+    "stable": 1.0
+   },
+   "conditions": {
+    "small": "applicable"
+   },
+   "method": "exact collinear equation (findroot), mean of the L1 and L2 distances; Routh (1 − √(23/27))/2",
+   "tol": 0.005,
+   "scale": {},
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K08",
+   "name": "just above the Routh value",
+   "kind": "boundary",
+   "inputs": {
+    "mu": 0.04,
+    "a": 1.0
+   },
+   "expect": {
+    "rH": {
+     "state": "approximate",
+     "value": 0.23712622029933753
+    },
+    "L4": 1.0,
+    "stable": 0.0
+   },
+   "conditions": {
+    "small": "approximate"
+   },
+   "method": "Hill formula as an approximate answer; Routh criterion",
+   "tol": 1e-12,
+   "scale": {},
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K08",
+   "name": "not a small mass ratio",
+   "kind": "boundary",
+   "inputs": {
+    "mu": 0.1,
+    "a": 1.0
+   },
+   "expect": {
+    "rH": {
+     "state": "notApplicable",
+     "value": null
+    },
+    "L4": 1.0,
+    "stable": 0.0
+   },
+   "conditions": {
+    "small": "notApplicable"
+   },
+   "method": "Hill formula as an approximate answer; Routh criterion",
+   "tol": 1e-12,
+   "scale": {},
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K09",
+   "name": "EX K09 (steel)",
+   "kind": "benchmark",
+   "inputs": {
+    "E": 200000000000.0,
+    "nu": 0.3,
+    "tau": 50000000.0,
+    "eps": 0.001
+   },
+   "expect": {
+    "G": 76923076923.07692,
+    "K": 166666666666.66666,
+    "gamma": 0.00065,
+    "epsT": -0.0003,
+    "dV": 0.0004
+   },
+   "conditions": {
+    "nu": "applicable"
+   },
+   "method": "Lamé constants; uniaxial stress through the inverted stiffness (lu_solve)",
+   "tol": 1e-12,
+   "scale": {
+    "epsT": 1e-15,
+    "dV": 1e-15
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K09",
+   "name": "aluminium in compression",
+   "kind": "transfer",
+   "inputs": {
+    "E": 70000000000.0,
+    "nu": 0.33,
+    "tau": 20000000.0,
+    "eps": -0.0005
+   },
+   "expect": {
+    "G": 26315789473.68421,
+    "K": 68627450980.39216,
+    "gamma": 0.00076,
+    "epsT": 0.000165,
+    "dV": -0.00017
+   },
+   "conditions": {
+    "nu": "applicable"
+   },
+   "method": "Lamé constants; uniaxial stress through the inverted stiffness (lu_solve)",
+   "tol": 1e-12,
+   "scale": {
+    "epsT": 1e-15,
+    "dV": 1e-15
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K09",
+   "name": "ν = 0: no lateral strain",
+   "kind": "boundary",
+   "inputs": {
+    "E": 200000000000.0,
+    "nu": 0.0,
+    "tau": 50000000.0,
+    "eps": 0.001
+   },
+   "expect": {
+    "G": 100000000000.0,
+    "K": 66666666666.666664,
+    "gamma": 0.0005,
+    "epsT": 0.0,
+    "dV": 0.001
+   },
+   "conditions": {
+    "nu": "applicable"
+   },
+   "method": "Lamé constants; uniaxial stress through the inverted stiffness (lu_solve)",
+   "tol": 1e-12,
+   "scale": {
+    "epsT": 1e-15,
+    "dV": 1e-15
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K09",
+   "name": "ν = 0.5: incompressible, no bulk modulus",
+   "kind": "boundary",
+   "inputs": {
+    "E": 10000000.0,
+    "nu": 0.5,
+    "tau": 100000.0,
+    "eps": 0.01
+   },
+   "expect": {
+    "G": 3333333.3333333335,
+    "K": {
+     "state": "notApplicable",
+     "value": null
+    },
+    "gamma": 0.03,
+    "epsT": -0.005,
+    "dV": 0.0
+   },
+   "conditions": {
+    "nu": "notApplicable"
+   },
+   "method": "incompressible limit: G = E/3, ΔV = 0",
+   "tol": 1e-12,
+   "scale": {
+    "dV": 1e-15
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K10",
+   "name": "EX K10",
+   "kind": "benchmark",
+   "inputs": {
+    "E": 200000000000.0,
+    "sy": 250000000.0,
+    "Et": 2000000000.0,
+    "eps": 0.004
+   },
+   "expect": {
+    "epsY": 0.00125,
+    "sigma": 255500000.0,
+    "epsP": 0.0027225
+   },
+   "conditions": {
+    "yield": "applicable"
+   },
+   "method": "return mapping, linear hardening H = E·E_t/(E − E_t), 400 increments",
+   "tol": 1e-12,
+   "scale": {
+    "epsP": 1e-15
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K10",
+   "name": "still elastic",
+   "kind": "boundary",
+   "inputs": {
+    "E": 200000000000.0,
+    "sy": 250000000.0,
+    "Et": 2000000000.0,
+    "eps": 0.001
+   },
+   "expect": {
+    "epsY": 0.00125,
+    "sigma": 200000000.0,
+    "epsP": 0.0
+   },
+   "conditions": {
+    "yield": "notApplicable"
+   },
+   "method": "return mapping, linear hardening H = E·E_t/(E − E_t), 400 increments",
+   "tol": 1e-12,
+   "scale": {
+    "epsP": 1e-15
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K10",
+   "name": "perfectly plastic (E_t = 0)",
+   "kind": "limit",
+   "inputs": {
+    "E": 200000000000.0,
+    "sy": 250000000.0,
+    "Et": 0.0,
+    "eps": 0.004
+   },
+   "expect": {
+    "epsY": 0.00125,
+    "sigma": 250000000.0,
+    "epsP": 0.00275
+   },
+   "conditions": {
+    "yield": "applicable"
+   },
+   "method": "return mapping, linear hardening H = E·E_t/(E − E_t), 400 increments",
+   "tol": 1e-12,
+   "scale": {
+    "epsP": 1e-15
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K10",
+   "name": "aluminium, 2 %",
+   "kind": "transfer",
+   "inputs": {
+    "E": 70000000000.0,
+    "sy": 270000000.0,
+    "Et": 700000000.0,
+    "eps": 0.02
+   },
+   "expect": {
+    "epsY": 0.003857142857142857,
+    "sigma": 281300000.0,
+    "epsP": 0.01598142857142857
+   },
+   "conditions": {
+    "yield": "applicable"
+   },
+   "method": "return mapping, linear hardening H = E·E_t/(E − E_t), 400 increments",
+   "tol": 1e-12,
+   "scale": {
+    "epsP": 1e-15
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K11",
+   "name": "EX K11 (pinned–pinned)",
+   "kind": "benchmark",
+   "inputs": {
+    "E": 200000000000.0,
+    "I": 8.333e-09,
+    "len": 2.0,
+    "K": 1.0,
+    "Ar": 0.0001
+   },
+   "expect": {
+    "P": 4112.170673713881,
+    "sigma": 41121706.737138815,
+    "lam": 219.09340491398427
+   },
+   "conditions": {},
+   "method": "shooting on the effective length (mpmath.odefun, findroot)",
+   "tol": 1e-12,
+   "scale": {},
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K11",
+   "name": "fixed–free",
+   "kind": "boundary",
+   "inputs": {
+    "E": 200000000000.0,
+    "I": 8.333e-09,
+    "len": 2.0,
+    "K": 2.0,
+    "Ar": 0.0001
+   },
+   "expect": {
+    "P": 1028.0426684284703,
+    "sigma": 10280426.684284704,
+    "lam": 438.18680982796855
+   },
+   "conditions": {},
+   "method": "shooting on the effective length (mpmath.odefun, findroot)",
+   "tol": 1e-12,
+   "scale": {},
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K11",
+   "name": "aluminium, fixed–fixed",
+   "kind": "transfer",
+   "inputs": {
+    "E": 70000000000.0,
+    "I": 2e-08,
+    "len": 1.5,
+    "K": 0.5,
+    "Ar": 0.0003
+   },
+   "expect": {
+    "P": 24564.34873160018,
+    "sigma": 81881162.43866727,
+    "lam": 91.85586535436917
+   },
+   "conditions": {},
+   "method": "shooting on the effective length (mpmath.odefun, findroot)",
+   "tol": 1e-12,
+   "scale": {},
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K12",
+   "name": "EX K12",
+   "kind": "benchmark",
+   "inputs": {
+    "E": 1000000.0,
+    "eta": 10000000.0,
+    "eps0": 0.01,
+    "s0": 10000.0,
+    "t": 5.0
+   },
+   "expect": {
+    "tau": 10.0,
+    "sM": 6065.306597126334,
+    "eK": 0.003934693402873665
+   },
+   "conditions": {},
+   "method": "mpmath.odefun of σ′ = −Eσ/η and ηε′ + Eε = σ₀",
+   "tol": 1e-12,
+   "scale": {
+    "eK": 1e-15
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K12",
+   "name": "at the step",
+   "kind": "boundary",
+   "inputs": {
+    "E": 1000000.0,
+    "eta": 10000000.0,
+    "eps0": 0.01,
+    "s0": 10000.0,
+    "t": 0.0
+   },
+   "expect": {
+    "tau": 10.0,
+    "sM": 10000.0,
+    "eK": 0.0
+   },
+   "conditions": {},
+   "method": "mpmath.odefun of σ′ = −Eσ/η and ηε′ + Eε = σ₀",
+   "tol": 1e-12,
+   "scale": {
+    "eK": 1e-15
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K12",
+   "name": "after three time constants",
+   "kind": "limit",
+   "inputs": {
+    "E": 3000000.0,
+    "eta": 6000000.0,
+    "eps0": 0.02,
+    "s0": 50000.0,
+    "t": 6.0
+   },
+   "expect": {
+    "tau": 2.0,
+    "sM": 2987.2241020718366,
+    "eK": 0.015836882193868935
+   },
+   "conditions": {},
+   "method": "mpmath.odefun of σ′ = −Eσ/η and ηε′ + Eε = σ₀",
+   "tol": 1e-12,
+   "scale": {
+    "eK": 1e-15
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K13",
+   "name": "EX K13",
+   "kind": "benchmark",
+   "inputs": {
+    "h": 2.0,
+    "lam": 20.0,
+    "g": 9.8
+   },
+   "expect": {
+    "cs": 4.427188724235731,
+    "c": 4.167965357739942,
+    "ratio": 0.9414474099383375
+   },
+   "conditions": {},
+   "method": "ω from ω² = gk·tanh(kh) (findroot); c = ω/k",
+   "tol": 1e-12,
+   "scale": {},
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K13",
+   "name": "very shallow: c → √(gh)",
+   "kind": "limit",
+   "inputs": {
+    "h": 0.01,
+    "lam": 100.0,
+    "g": 9.8
+   },
+   "expect": {
+    "cs": 0.31304951684997057,
+    "c": 0.3130494962521405,
+    "ratio": 0.9999999342026455
+   },
+   "conditions": {},
+   "method": "ω from ω² = gk·tanh(kh) (findroot); c = ω/k",
+   "tol": 1e-12,
+   "scale": {},
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K13",
+   "name": "deep water (h = λ/2)",
+   "kind": "boundary",
+   "inputs": {
+    "h": 10.0,
+    "lam": 20.0,
+    "g": 9.8
+   },
+   "expect": {
+    "cs": 9.899494936611665,
+    "c": 5.574771620130438,
+    "ratio": 0.5631369737372212
+   },
+   "conditions": {},
+   "method": "ω from ω² = gk·tanh(kh) (findroot); c = ω/k",
+   "tol": 1e-12,
+   "scale": {},
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K13",
+   "name": "tsunami in the open ocean",
+   "kind": "transfer",
+   "inputs": {
+    "h": 4000.0,
+    "lam": 200000.0,
+    "g": 9.8
+   },
+   "expect": {
+    "cs": 197.9898987322333,
+    "c": 197.47140185985916,
+    "ratio": 0.9973811953251445
+   },
+   "conditions": {},
+   "method": "ω from ω² = gk·tanh(kh) (findroot); c = ω/k",
+   "tol": 1e-12,
+   "scale": {},
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K14",
+   "name": "EX K14 (Earth)",
+   "kind": "benchmark",
+   "inputs": {
+    "S0": 1361.0,
+    "al": 0.3,
+    "ep": 0.78,
+    "sig": 5.670374419e-08
+   },
+   "expect": {
+    "Te": 254.5781401165717,
+    "Ts": 288.0637768960795,
+    "dT": 33.48563677950782
+   },
+   "conditions": {},
+   "method": "energy balance of surface and layer (lu_solve)",
+   "tol": 1e-12,
+   "scale": {
+    "dT": 1e-09
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K14",
+   "name": "no greenhouse layer",
+   "kind": "boundary",
+   "inputs": {
+    "S0": 1361.0,
+    "al": 0.3,
+    "ep": 0.0,
+    "sig": 5.670374419e-08
+   },
+   "expect": {
+    "Te": 254.5781401165717,
+    "Ts": 254.5781401165717,
+    "dT": 0.0
+   },
+   "conditions": {},
+   "method": "energy balance of surface and layer (lu_solve)",
+   "tol": 1e-12,
+   "scale": {
+    "dT": 1e-09
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K14",
+   "name": "a fully absorbing layer",
+   "kind": "limit",
+   "inputs": {
+    "S0": 1361.0,
+    "al": 0.3,
+    "ep": 1.0,
+    "sig": 5.670374419e-08
+   },
+   "expect": {
+    "Te": 254.5781401165717,
+    "Ts": 302.7461355507867,
+    "dT": 48.167995434215015
+   },
+   "conditions": {},
+   "method": "energy balance of surface and layer (lu_solve)",
+   "tol": 1e-12,
+   "scale": {
+    "dT": 1e-09
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K14",
+   "name": "Mars, thin atmosphere",
+   "kind": "transfer",
+   "inputs": {
+    "S0": 586.0,
+    "al": 0.25,
+    "ep": 0.1,
+    "sig": 5.670374419e-08
+   },
+   "expect": {
+    "Te": 209.80787632582553,
+    "Ts": 212.5156347436551,
+    "dT": 2.7077584178295755
+   },
+   "conditions": {},
+   "method": "energy balance of surface and layer (lu_solve)",
+   "tol": 1e-12,
+   "scale": {
+    "dT": 1e-09
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K15",
+   "name": "EX K15",
+   "kind": "benchmark",
+   "inputs": {
+    "k1": 0.8,
+    "d1": 0.2,
+    "k2": 0.04,
+    "d2": 0.05,
+    "Ar": 10.0,
+    "Ti": 293.15,
+    "To": 273.15,
+    "hi": 8.0,
+    "ho": 25.0
+   },
+   "expect": {
+    "R": 0.1665,
+    "Q": 120.12012012012012,
+    "T12": 288.6454954954955
+   },
+   "conditions": {},
+   "method": "nodal analysis of the conductance network (lu_solve)",
+   "tol": 1e-12,
+   "scale": {
+    "Q": 1e-09
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K15",
+   "name": "no temperature difference",
+   "kind": "boundary",
+   "inputs": {
+    "k1": 0.8,
+    "d1": 0.2,
+    "k2": 0.04,
+    "d2": 0.05,
+    "Ar": 10.0,
+    "Ti": 293.15,
+    "To": 293.15,
+    "hi": 8.0,
+    "ho": 25.0
+   },
+   "expect": {
+    "R": 0.1665,
+    "Q": -2.1916670622756004e-47,
+    "T12": 293.15
+   },
+   "conditions": {},
+   "method": "nodal analysis of the conductance network (lu_solve)",
+   "tol": 1e-12,
+   "scale": {
+    "Q": 1e-09
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K15",
+   "name": "glass with an air gap",
+   "kind": "transfer",
+   "inputs": {
+    "k1": 1.0,
+    "d1": 0.004,
+    "k2": 0.025,
+    "d2": 0.016,
+    "Ar": 2.5,
+    "Ti": 294.15,
+    "To": 263.15,
+    "hi": 7.7,
+    "ho": 25.0
+   },
+   "expect": {
+    "R": 0.325548051948052,
+    "Q": 95.22403778643007,
+    "T12": 289.050938277909
+   },
+   "conditions": {},
+   "method": "nodal analysis of the conductance network (lu_solve)",
+   "tol": 1e-12,
+   "scale": {
+    "Q": 1e-09
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K16",
+   "name": "EX K16",
+   "kind": "benchmark",
+   "inputs": {
+    "Tc": 268.15,
+    "Th": 308.15,
+    "W": 1000.0
+   },
+   "expect": {
+    "copC": 6.70375,
+    "copH": 7.70375,
+    "Qc": 6703.75,
+    "Qh": 7703.75
+   },
+   "conditions": {
+    "order": "applicable"
+   },
+   "method": "reversed Carnot cycle: isothermal heats nRT·ln(V₂/V₁)",
+   "tol": 1e-12,
+   "scale": {},
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K16",
+   "name": "a freezer",
+   "kind": "transfer",
+   "inputs": {
+    "Tc": 255.15,
+    "Th": 298.15,
+    "W": 500.0
+   },
+   "expect": {
+    "copC": 5.933720930232558,
+    "copH": 6.933720930232558,
+    "Qc": 2966.860465116279,
+    "Qh": 3466.860465116279
+   },
+   "conditions": {
+    "order": "applicable"
+   },
+   "method": "reversed Carnot cycle: isothermal heats nRT·ln(V₂/V₁)",
+   "tol": 1e-12,
+   "scale": {},
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K16",
+   "name": "equal temperatures",
+   "kind": "boundary",
+   "inputs": {
+    "Tc": 300.0,
+    "Th": 300.0,
+    "W": 1000.0
+   },
+   "expect": {
+    "copC": {
+     "state": "notApplicable",
+     "value": null
+    },
+    "copH": {
+     "state": "notApplicable",
+     "value": null
+    },
+    "Qc": {
+     "state": "notApplicable",
+     "value": null
+    },
+    "Qh": {
+     "state": "notApplicable",
+     "value": null
+    }
+   },
+   "conditions": {
+    "order": "notApplicable"
+   },
+   "method": "no cycle between equal temperatures",
+   "tol": 1e-09,
+   "scale": {},
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K17",
+   "name": "EX K17",
+   "kind": "benchmark",
+   "inputs": {
+    "P": 100.0,
+    "r": 2.0,
+    "th": 0.5235987755982989
+   },
+   "expect": {
+    "E": 1.7229027981931002,
+    "E0": 1.9894367886486917
+   },
+   "conditions": {},
+   "method": "flux vector · unit normal",
+   "tol": 1e-12,
+   "scale": {
+    "E": 1.0
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K17",
+   "name": "grazing incidence",
+   "kind": "boundary",
+   "inputs": {
+    "P": 100.0,
+    "r": 2.0,
+    "th": 1.5707963267948966
+   },
+   "expect": {
+    "E": -1.0053576411919554e-51,
+    "E0": 1.9894367886486917
+   },
+   "conditions": {},
+   "method": "flux vector · unit normal",
+   "tol": 1e-12,
+   "scale": {
+    "E": 1.0
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K17",
+   "name": "normal incidence far away",
+   "kind": "transfer",
+   "inputs": {
+    "P": 60.0,
+    "r": 10.0,
+    "th": 0.0
+   },
+   "expect": {
+    "E": 0.0477464829275686,
+    "E0": 0.0477464829275686
+   },
+   "conditions": {},
+   "method": "flux vector · unit normal",
+   "tol": 1e-12,
+   "scale": {
+    "E": 1.0
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K18",
+   "name": "EX K18",
+   "kind": "benchmark",
+   "inputs": {
+    "lam": 6.33e-07,
+    "w0": 0.0005,
+    "z": 1.0
+   },
+   "expect": {
+    "zR": 1.2407553924130306,
+    "w": 0.0006421784292623497,
+    "R": 2.5394739438020135,
+    "th": 0.000402980315908679,
+    "gouy": 0.6783649207369261
+   },
+   "conditions": {},
+   "method": "complex beam parameter",
+   "tol": 1e-12,
+   "scale": {},
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K18",
+   "name": "at the Rayleigh range",
+   "kind": "boundary",
+   "inputs": {
+    "lam": 6.33e-07,
+    "w0": 0.0005,
+    "z": 1.2407553924130306
+   },
+   "expect": {
+    "zR": 1.2407553924130306,
+    "w": 0.0007071067811865475,
+    "R": 2.481510784826061,
+    "th": 0.000402980315908679,
+    "gouy": 0.7853981633974483
+   },
+   "conditions": {},
+   "method": "complex beam parameter",
+   "tol": 1e-12,
+   "scale": {},
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K18",
+   "name": "far field",
+   "kind": "limit",
+   "inputs": {
+    "lam": 1.064e-06,
+    "w0": 0.002,
+    "z": 1000.0
+   },
+   "expect": {
+    "zR": 11.81049869770599,
+    "w": 0.1693526695366477,
+    "R": 1000.1394878794886,
+    "th": 0.00016934085944977665,
+    "gouy": 1.5589863771917092
+   },
+   "conditions": {},
+   "method": "complex beam parameter",
+   "tol": 1e-12,
+   "scale": {},
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K19",
+   "name": "EX K19 (BK7)",
+   "kind": "benchmark",
+   "inputs": {
+    "nF": 1.5224,
+    "nd": 1.5168,
+    "nC": 1.5143,
+    "R1": 0.1,
+    "R2": 0.1,
+    "Rm": 0.5,
+    "hh": 0.05
+   },
+   "expect": {
+    "fF": 0.09571209800918837,
+    "fd": 0.09674922600619196,
+    "fC": 0.09721952167995333,
+    "df": 0.0015074236707649732,
+    "Vd": 63.80246913580247,
+    "lsa": 0.001259453814803019
+   },
+   "conditions": {
+    "ray": "applicable"
+   },
+   "method": "refraction matrices (thin lens); exact reflection of the marginal ray",
+   "tol": 1e-12,
+   "scale": {},
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K19",
+   "name": "flint F2; a fast mirror",
+   "kind": "transfer",
+   "inputs": {
+    "nF": 1.63208,
+    "nd": 1.62004,
+    "nC": 1.61503,
+    "R1": 0.2,
+    "R2": 0.2,
+    "Rm": 1.0,
+    "hh": 0.2
+   },
+   "expect": {
+    "fF": 0.15820782179470952,
+    "fd": 0.16127991742468228,
+    "fC": 0.16259369461652276,
+    "df": 0.004385872821813241,
+    "Vd": 36.36598240469208,
+    "lsa": 0.01031036307982877
+   },
+   "conditions": {
+    "ray": "applicable"
+   },
+   "method": "refraction matrices (thin lens); exact reflection of the marginal ray",
+   "tol": 1e-12,
+   "scale": {},
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K19",
+   "name": "ray above the mirror",
+   "kind": "boundary",
+   "inputs": {
+    "nF": 1.5224,
+    "nd": 1.5168,
+    "nC": 1.5143,
+    "R1": 0.1,
+    "R2": 0.1,
+    "Rm": 0.5,
+    "hh": 0.6
+   },
+   "expect": {
+    "fF": 0.09571209800918837,
+    "fd": 0.09674922600619196,
+    "fC": 0.09721952167995333,
+    "df": 0.0015074236707649732,
+    "Vd": 63.80246913580247,
+    "lsa": {
+     "state": "notApplicable",
+     "value": null
+    }
+   },
+   "conditions": {
+    "ray": "notApplicable"
+   },
+   "method": "refraction matrices (thin lens); exact reflection of the marginal ray",
+   "tol": 1e-12,
+   "scale": {},
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K20",
+   "name": "EX K20",
+   "kind": "benchmark",
+   "inputs": {
+    "Rin": 10000.0,
+    "Rf": 47000.0,
+    "Vin": 0.2,
+    "Vs": 12.0
+   },
+   "expect": {
+    "Gi": -4.7,
+    "Gn": 5.7,
+    "Vi": -0.94,
+    "Vn": 1.14
+   },
+   "conditions": {},
+   "method": "nodal equations with open-loop gain 1e18 (lu_solve); supply limit",
+   "tol": 1e-12,
+   "scale": {},
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K20",
+   "name": "saturated",
+   "kind": "boundary",
+   "inputs": {
+    "Rin": 10000.0,
+    "Rf": 47000.0,
+    "Vin": 3.0,
+    "Vs": 12.0
+   },
+   "expect": {
+    "Gi": -4.7,
+    "Gn": 5.7,
+    "Vi": -12.0,
+    "Vn": 12.0
+   },
+   "conditions": {},
+   "method": "nodal equations with open-loop gain 1e18 (lu_solve); supply limit",
+   "tol": 1e-12,
+   "scale": {},
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K20",
+   "name": "unity inverting, doubling",
+   "kind": "transfer",
+   "inputs": {
+    "Rin": 2200.0,
+    "Rf": 2200.0,
+    "Vin": -1.5,
+    "Vs": 15.0
+   },
+   "expect": {
+    "Gi": -1.0,
+    "Gn": 2.0,
+    "Vi": 1.5,
+    "Vn": -3.0
+   },
+   "conditions": {},
+   "method": "nodal equations with open-loop gain 1e18 (lu_solve); supply limit",
+   "tol": 1e-12,
+   "scale": {},
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K21",
+   "name": "EX K21",
+   "kind": "benchmark",
+   "inputs": {
+    "A": 1.0,
+    "B": 1.0,
+    "tpd": 1e-08,
+    "ng": 3.0
+   },
+   "expect": {
+    "and": 1.0,
+    "or": 1.0,
+    "xor": 0.0,
+    "nand": 0.0,
+    "delay": 3e-08
+   },
+   "conditions": {
+    "bits": "applicable"
+   },
+   "method": "truth tables",
+   "tol": 1e-12,
+   "scale": {
+    "and": 1.0,
+    "or": 1.0,
+    "xor": 1.0,
+    "nand": 1.0
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K21",
+   "name": "both inputs low",
+   "kind": "boundary",
+   "inputs": {
+    "A": 0.0,
+    "B": 0.0,
+    "tpd": 1e-08,
+    "ng": 1.0
+   },
+   "expect": {
+    "and": 0.0,
+    "or": 0.0,
+    "xor": 0.0,
+    "nand": 1.0,
+    "delay": 1e-08
+   },
+   "conditions": {
+    "bits": "applicable"
+   },
+   "method": "truth tables",
+   "tol": 1e-12,
+   "scale": {
+    "and": 1.0,
+    "or": 1.0,
+    "xor": 1.0,
+    "nand": 1.0
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K21",
+   "name": "one input high, five gates",
+   "kind": "transfer",
+   "inputs": {
+    "A": 1.0,
+    "B": 0.0,
+    "tpd": 5e-09,
+    "ng": 5.0
+   },
+   "expect": {
+    "and": 0.0,
+    "or": 1.0,
+    "xor": 1.0,
+    "nand": 1.0,
+    "delay": 2.5e-08
+   },
+   "conditions": {
+    "bits": "applicable"
+   },
+   "method": "truth tables",
+   "tol": 1e-12,
+   "scale": {
+    "and": 1.0,
+    "or": 1.0,
+    "xor": 1.0,
+    "nand": 1.0
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K21",
+   "name": "an input between the levels",
+   "kind": "boundary",
+   "inputs": {
+    "A": 0.5,
+    "B": 1.0,
+    "tpd": 1e-08,
+    "ng": 2.0
+   },
+   "expect": {
+    "and": {
+     "state": "notApplicable",
+     "value": null
+    },
+    "or": {
+     "state": "notApplicable",
+     "value": null
+    },
+    "xor": {
+     "state": "notApplicable",
+     "value": null
+    },
+    "nand": {
+     "state": "notApplicable",
+     "value": null
+    },
+    "delay": 2e-08
+   },
+   "conditions": {
+    "bits": "notApplicable"
+   },
+   "method": "no logic level",
+   "tol": 1e-12,
+   "scale": {},
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K22",
+   "name": "EX K22",
+   "kind": "benchmark",
+   "inputs": {
+    "Q": 12960.0,
+    "U": 3.7,
+    "P": 2.0,
+    "eta": 0.9
+   },
+   "expect": {
+    "E": 47952.0,
+    "t": 21578.4,
+    "I": 0.6006006006006006
+   },
+   "conditions": {},
+   "method": "mAh·V = mWh; constant-power drain",
+   "tol": 1e-12,
+   "scale": {},
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K22",
+   "name": "lossless",
+   "kind": "boundary",
+   "inputs": {
+    "Q": 12960.0,
+    "U": 3.7,
+    "P": 2.0,
+    "eta": 1.0
+   },
+   "expect": {
+    "E": 47952.0,
+    "t": 23976.0,
+    "I": 0.5405405405405406
+   },
+   "conditions": {},
+   "method": "mAh·V = mWh; constant-power drain",
+   "tol": 1e-12,
+   "scale": {},
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K22",
+   "name": "a power bank",
+   "kind": "transfer",
+   "inputs": {
+    "Q": 36000.0,
+    "U": 3.7,
+    "P": 10.0,
+    "eta": 0.85
+   },
+   "expect": {
+    "E": 133200.0,
+    "t": 11322.0,
+    "I": 3.179650238473768
+   },
+   "conditions": {},
+   "method": "mAh·V = mWh; constant-power drain",
+   "tol": 1e-12,
+   "scale": {},
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K23",
+   "name": "EX K23",
+   "kind": "benchmark",
+   "inputs": {
+    "phi": 0.6981317007977318,
+    "dl": 0.40910517666747087,
+    "H": 0.5235987755982989,
+    "Td": 86400.0
+   },
+   "expect": {
+    "aN": 1.2817698026646356,
+    "a": 1.0438775949075159,
+    "day": 53440.393906197205
+   },
+   "conditions": {
+    "day": "applicable"
+   },
+   "method": "vector rotation; sunset hour angle by findroot",
+   "tol": 1e-12,
+   "scale": {},
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K23",
+   "name": "equinox: 12 h",
+   "kind": "boundary",
+   "inputs": {
+    "phi": 0.6981317007977318,
+    "dl": 0.0,
+    "H": 0.5235987755982989,
+    "Td": 86400.0
+   },
+   "expect": {
+    "aN": 0.8726646259971648,
+    "a": 0.7253721464889011,
+    "day": 43200.0
+   },
+   "conditions": {
+    "day": "applicable"
+   },
+   "method": "vector rotation; sunset hour angle by findroot",
+   "tol": 1e-12,
+   "scale": {},
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K23",
+   "name": "southern winter",
+   "kind": "transfer",
+   "inputs": {
+    "phi": -0.5916666164260778,
+    "dl": 0.40910517666747087,
+    "H": 0.7853981633974483,
+    "Td": 86400.0
+   },
+   "expect": {
+    "aN": 0.5700245337013481,
+    "a": 0.32215291263145507,
+    "day": 35069.5090073512
+   },
+   "conditions": {
+    "day": "applicable"
+   },
+   "method": "vector rotation; sunset hour angle by findroot",
+   "tol": 1e-12,
+   "scale": {},
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K23",
+   "name": "midnight sun: no sunset",
+   "kind": "boundary",
+   "inputs": {
+    "phi": 1.2217304763960306,
+    "dl": 0.40910517666747087,
+    "H": 0.5235987755982989,
+    "Td": 86400.0
+   },
+   "expect": {
+    "aN": 0.7581710270663368,
+    "a": 0.7017483854598315,
+    "day": {
+     "state": "notApplicable",
+     "value": null
+    }
+   },
+   "conditions": {
+    "day": "notApplicable"
+   },
+   "method": "vector rotation",
+   "tol": 1e-09,
+   "scale": {},
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K24",
+   "name": "EX K24 (first quarter; Earth’s umbra)",
+   "kind": "benchmark",
+   "inputs": {
+    "psi": 1.5707963267948966,
+    "Tm": 2360591.5104,
+    "Te": 31558149.7632,
+    "d": 149600000000.0,
+    "Rs": 695700000.0,
+    "Re": 6371000.0
+   },
+   "expect": {
+    "k": 0.5,
+    "Ts": 2551442.8216886134,
+    "Lu": 1382651244.9062784
+   },
+   "conditions": {},
+   "method": "quadrature of the lit area; relative angular rate; tangent line",
+   "tol": 1e-12,
+   "scale": {
+    "k": 1e-12
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K24",
+   "name": "full moon",
+   "kind": "boundary",
+   "inputs": {
+    "psi": 3.141592653589793,
+    "Tm": 2360591.5104,
+    "Te": 31558149.7632,
+    "d": 149600000000.0,
+    "Rs": 695700000.0,
+    "Re": 6371000.0
+   },
+   "expect": {
+    "k": 1.0,
+    "Ts": 2551442.8216886134,
+    "Lu": 1382651244.9062784
+   },
+   "conditions": {},
+   "method": "quadrature of the lit area; relative angular rate; tangent line",
+   "tol": 1e-12,
+   "scale": {
+    "k": 1e-12
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K24",
+   "name": "new moon",
+   "kind": "boundary",
+   "inputs": {
+    "psi": 0.0,
+    "Tm": 2360591.5104,
+    "Te": 31558149.7632,
+    "d": 149600000000.0,
+    "Rs": 695700000.0,
+    "Re": 6371000.0
+   },
+   "expect": {
+    "k": 0.0,
+    "Ts": 2551442.8216886134,
+    "Lu": 1382651244.9062784
+   },
+   "conditions": {},
+   "method": "quadrature of the lit area; relative angular rate; tangent line",
+   "tol": 1e-12,
+   "scale": {
+    "k": 1e-12
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K24",
+   "name": "the Moon’s umbra (annular eclipses)",
+   "kind": "transfer",
+   "inputs": {
+    "psi": 2.0943951023931957,
+    "Tm": 2360591.5104,
+    "Te": 31558149.7632,
+    "d": 149600000000.0,
+    "Rs": 695700000.0,
+    "Re": 1737400.0
+   },
+   "expect": {
+    "k": 0.75,
+    "Ts": 2551442.8216886134,
+    "Lu": 374537532.714299
+   },
+   "conditions": {},
+   "method": "quadrature of the lit area; relative angular rate; tangent line",
+   "tol": 1e-12,
+   "scale": {
+    "k": 1e-12
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K25",
+   "name": "EX K25",
+   "kind": "benchmark",
+   "inputs": {
+    "lo": 7e-07,
+    "le": 6.5628e-07,
+    "H0": 2.2685455026110557e-18,
+    "c": 299792458.0
+   },
+   "expect": {
+    "z": 0.0666179069909185,
+    "v": {
+     "state": "approximate",
+     "value": 19971546.083622843
+    },
+    "vr": 19307695.846020438,
+    "d": {
+     "state": "approximate",
+     "value": 8.803678859708103e+24
+    }
+   },
+   "conditions": {
+    "low": "approximate"
+   },
+   "method": "relativistic Doppler factor (findroot); first order cz; Hubble distance",
+   "tol": 1e-12,
+   "scale": {
+    "z": 1e-12,
+    "v": 0.001,
+    "vr": 0.001,
+    "d": 1.0
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K25",
+   "name": "a nearby galaxy",
+   "kind": "transfer",
+   "inputs": {
+    "lo": 6.595614e-07,
+    "le": 6.5628e-07,
+    "H0": 2.2685455026110557e-18,
+    "c": 299792458.0
+   },
+   "expect": {
+    "z": 0.005,
+    "v": 1498962.29,
+    "vr": 1495214.9308839443,
+    "d": 6.607591905362802e+23
+   },
+   "conditions": {
+    "low": "applicable"
+   },
+   "method": "relativistic Doppler factor (findroot); first order cz; Hubble distance",
+   "tol": 1e-12,
+   "scale": {
+    "z": 1e-12,
+    "v": 0.001,
+    "vr": 0.001,
+    "d": 1.0
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K25",
+   "name": "no shift",
+   "kind": "boundary",
+   "inputs": {
+    "lo": 6.5628e-07,
+    "le": 6.5628e-07,
+    "H0": 2.2685455026110557e-18,
+    "c": 299792458.0
+   },
+   "expect": {
+    "z": 0.0,
+    "v": 0.0,
+    "vr": 0.0,
+    "d": 0.0
+   },
+   "conditions": {
+    "low": "applicable"
+   },
+   "method": "relativistic Doppler factor (findroot); first order cz; Hubble distance",
+   "tol": 1e-12,
+   "scale": {
+    "z": 1e-12,
+    "v": 0.001,
+    "vr": 0.001,
+    "d": 1.0
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K25",
+   "name": "z = 1: cz no longer applies",
+   "kind": "boundary",
+   "inputs": {
+    "lo": 1.31256e-06,
+    "le": 6.5628e-07,
+    "H0": 2.2685455026110557e-18,
+    "c": 299792458.0
+   },
+   "expect": {
+    "z": 1.0,
+    "v": {
+     "state": "notApplicable",
+     "value": null
+    },
+    "vr": 179875474.8,
+    "d": {
+     "state": "notApplicable",
+     "value": null
+    }
+   },
+   "conditions": {
+    "low": "notApplicable"
+   },
+   "method": "relativistic Doppler factor (findroot); first order cz; Hubble distance",
+   "tol": 1e-12,
+   "scale": {
+    "z": 1e-12,
+    "v": 0.001,
+    "vr": 0.001,
+    "d": 1.0
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K26",
+   "name": "EX K26",
+   "kind": "benchmark",
+   "inputs": {
+    "H0": 2.2685455026110557e-18,
+    "f": 0.5
+   },
+   "expect": {
+    "t0": 2.9387405538013024e+17,
+    "a": 0.6299605249474366,
+    "z": 0.5874010519681995,
+    "H": 4.537091005222111e-18
+   },
+   "conditions": {},
+   "method": "quadrature of the Friedmann equation (EdS); findroot",
+   "tol": 1e-12,
+   "scale": {
+    "z": 1e-12
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K26",
+   "name": "today",
+   "kind": "boundary",
+   "inputs": {
+    "H0": 2.2685455026110557e-18,
+    "f": 1.0
+   },
+   "expect": {
+    "t0": 2.9387405538013024e+17,
+    "a": 1.0,
+    "z": 0.0,
+    "H": 2.2685455026110557e-18
+   },
+   "conditions": {},
+   "method": "quadrature of the Friedmann equation (EdS); findroot",
+   "tol": 1e-12,
+   "scale": {
+    "z": 1e-12
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K26",
+   "name": "a tenth of the age",
+   "kind": "transfer",
+   "inputs": {
+    "H0": 2.2685455026110557e-18,
+    "f": 0.1
+   },
+   "expect": {
+    "t0": 2.9387405538013024e+17,
+    "a": 0.21544346900318836,
+    "z": 3.641588833612779,
+    "H": 2.2685455026110554e-17
+   },
+   "conditions": {},
+   "method": "quadrature of the Friedmann equation (EdS); findroot",
+   "tol": 1e-12,
+   "scale": {
+    "z": 1e-12
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K27",
+   "name": "EX K27 (Moon on Earth)",
+   "kind": "benchmark",
+   "inputs": {
+    "G": 6.6743e-11,
+    "M": 7.342e+22,
+    "R": 6371000.0,
+    "d": 384400000.0,
+    "rM": 5514.0,
+    "rm": 3344.0
+   },
+   "expect": {
+    "da": 1.099882256887474e-06,
+    "roche": 18365281.763394687
+   },
+   "conditions": {},
+   "method": "exact 1/d² differences, mean of near and far side (first-order formula within tol); fluid Roche coefficient 2.44",
+   "tol": 0.002,
+   "scale": {},
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K27",
+   "name": "the Sun on the Earth",
+   "kind": "transfer",
+   "inputs": {
+    "G": 6.6743e-11,
+    "M": 1.989e+30,
+    "R": 6371000.0,
+    "d": 149600000000.0,
+    "rM": 5514.0,
+    "rm": 3344.0
+   },
+   "expect": {
+    "da": 5.052232503076193e-07,
+    "roche": 18365281.763394687
+   },
+   "conditions": {},
+   "method": "exact 1/d² differences, mean of near and far side (first-order formula within tol); fluid Roche coefficient 2.44",
+   "tol": 1e-06,
+   "scale": {},
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K27",
+   "name": "a hundred times farther",
+   "kind": "limit",
+   "inputs": {
+    "G": 6.6743e-11,
+    "M": 7.342e+22,
+    "R": 6371000.0,
+    "d": 38440000000.0,
+    "rM": 5514.0,
+    "rm": 3344.0
+   },
+   "expect": {
+    "da": 1.0992781391639258e-12,
+    "roche": 18365281.763394687
+   },
+   "conditions": {},
+   "method": "exact 1/d² differences, mean of near and far side (first-order formula within tol); fluid Roche coefficient 2.44",
+   "tol": 1e-06,
+   "scale": {},
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K27",
+   "name": "equal densities: d_R = 2.44 R",
+   "kind": "boundary",
+   "inputs": {
+    "G": 6.6743e-11,
+    "M": 7.342e+22,
+    "R": 6371000.0,
+    "d": 384400000.0,
+    "rM": 3344.0,
+    "rm": 3344.0
+   },
+   "expect": {
+    "da": 1.099882256887474e-06,
+    "roche": 15545240.0
+   },
+   "conditions": {},
+   "method": "exact 1/d² differences, mean of near and far side (first-order formula within tol); fluid Roche coefficient 2.44",
+   "tol": 0.002,
+   "scale": {},
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K28",
+   "name": "EX K28",
+   "kind": "benchmark",
+   "inputs": {
+    "K": 50000000000.0,
+    "G": 30000000000.0,
+    "rho": 3000.0,
+    "D": 100000.0
+   },
+   "expect": {
+    "vp": 5477.2255750516615,
+    "vs": 3162.2776601683795,
+    "dt": 13.365358018178256
+   },
+   "conditions": {
+    "solid": "applicable"
+   },
+   "method": "Christoffel matrix eigenvalues (mpmath.eigsy)",
+   "tol": 1e-12,
+   "scale": {},
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K28",
+   "name": "granite, 350 km",
+   "kind": "transfer",
+   "inputs": {
+    "K": 50000000000.0,
+    "G": 30000000000.0,
+    "rho": 2700.0,
+    "D": 350000.0
+   },
+   "expect": {
+    "vp": 5773.502691896258,
+    "vs": 3333.3333333333335,
+    "dt": 44.3782217350893
+   },
+   "conditions": {
+    "solid": "applicable"
+   },
+   "method": "Christoffel matrix eigenvalues (mpmath.eigsy)",
+   "tol": 1e-12,
+   "scale": {},
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K28",
+   "name": "water: no S wave",
+   "kind": "boundary",
+   "inputs": {
+    "K": 2200000000.0,
+    "G": 0.0,
+    "rho": 1000.0,
+    "D": 100000.0
+   },
+   "expect": {
+    "vp": 1483.2396974191327,
+    "vs": {
+     "state": "notApplicable",
+     "value": null
+    },
+    "dt": {
+     "state": "notApplicable",
+     "value": null
+    }
+   },
+   "conditions": {
+    "solid": "notApplicable"
+   },
+   "method": "Christoffel matrix eigenvalues (mpmath.eigsy)",
+   "tol": 1e-12,
+   "scale": {},
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K29",
+   "name": "EX K29",
+   "kind": "benchmark",
+   "inputs": {
+    "Tm": 1000.0,
+    "sg": 0.1,
+    "Lx": 0.5,
+    "Ly": 0.3,
+    "m": 1.0,
+    "n": 1.0,
+    "a": 0.15
+   },
+   "expect": {
+    "c": 100.0,
+    "fmn": 194.36506316151002,
+    "f01": 255.15991652067078
+   },
+   "conditions": {},
+   "method": "separation of variables; mpmath.besseljzero",
+   "tol": 1e-12,
+   "scale": {},
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K29",
+   "name": "square membrane",
+   "kind": "boundary",
+   "inputs": {
+    "Tm": 1000.0,
+    "sg": 0.1,
+    "Lx": 0.4,
+    "Ly": 0.4,
+    "m": 1.0,
+    "n": 1.0,
+    "a": 0.15
+   },
+   "expect": {
+    "c": 100.0,
+    "fmn": 176.7766952966369,
+    "f01": 255.15991652067078
+   },
+   "conditions": {},
+   "method": "separation of variables; mpmath.besseljzero",
+   "tol": 1e-12,
+   "scale": {},
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K29",
+   "name": "mode (2,1)",
+   "kind": "transfer",
+   "inputs": {
+    "Tm": 2500.0,
+    "sg": 0.25,
+    "Lx": 0.5,
+    "Ly": 0.3,
+    "m": 2.0,
+    "n": 1.0,
+    "a": 0.2
+   },
+   "expect": {
+    "c": 100.0,
+    "fmn": 260.34165586355516,
+    "f01": 191.36993739050308
+   },
+   "conditions": {},
+   "method": "separation of variables; mpmath.besseljzero",
+   "tol": 1e-12,
+   "scale": {},
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K30",
+   "name": "EX K30 (λh = 2.5)",
+   "kind": "benchmark",
+   "inputs": {
+    "lam": 50.0,
+    "h": 0.05,
+    "N": 20.0
+   },
+   "expect": {
+    "gE": -1.5,
+    "gI": 0.2857142857142857,
+    "yE": 3325.256730079651,
+    "yI": 1.3141323697825354e-11,
+    "y": 1.9287498479639178e-22,
+    "stable": 0.0
+   },
+   "conditions": {},
+   "method": "N explicit and implicit Euler steps",
+   "tol": 1e-12,
+   "scale": {
+    "gE": 1e-12,
+    "yE": 1e-30,
+    "yI": 1e-30,
+    "y": 1e-30
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K30",
+   "name": "small step",
+   "kind": "boundary",
+   "inputs": {
+    "lam": 50.0,
+    "h": 0.001,
+    "N": 20.0
+   },
+   "expect": {
+    "gE": 0.95,
+    "gI": 0.9523809523809523,
+    "yE": 0.3584859224085422,
+    "yI": 0.3768894828730007,
+    "y": 0.36787944117144233,
+    "stable": 1.0
+   },
+   "conditions": {},
+   "method": "N explicit and implicit Euler steps",
+   "tol": 1e-12,
+   "scale": {
+    "gE": 1e-12,
+    "yE": 1e-30,
+    "yI": 1e-30,
+    "y": 1e-30
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K30",
+   "name": "λh = 1: explicit Euler jumps to zero",
+   "kind": "limit",
+   "inputs": {
+    "lam": 50.0,
+    "h": 0.02,
+    "N": 10.0
+   },
+   "expect": {
+    "gE": 0.0,
+    "gI": 0.5,
+    "yE": 0.0,
+    "yI": 0.0009765625,
+    "y": 4.5399929762484854e-05,
+    "stable": 1.0
+   },
+   "conditions": {},
+   "method": "N explicit and implicit Euler steps",
+   "tol": 1e-12,
+   "scale": {
+    "gE": 1e-12,
+    "yE": 1e-30,
+    "yI": 1e-30,
+    "y": 1e-30
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K31",
+   "name": "EX K31",
+   "kind": "benchmark",
+   "inputs": {
+    "v": 20.0,
+    "th": 0.5235987755982989,
+    "g": 9.8
+   },
+   "expect": {
+    "R": 35.34797566467096,
+    "dRdth": 40.816326530612244,
+    "dRdv": 3.5347975664670965,
+    "Rmax": 40.816326530612244,
+    "Sth": 0.6045997880780726
+   },
+   "conditions": {},
+   "method": "mpmath.diff; optimum angle by findroot",
+   "tol": 1e-12,
+   "scale": {
+    "dRdth": 10.0,
+    "Sth": 1.0
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K31",
+   "name": "at the optimum",
+   "kind": "boundary",
+   "inputs": {
+    "v": 20.0,
+    "th": 0.7853981633974483,
+    "g": 9.8
+   },
+   "expect": {
+    "R": 40.816326530612244,
+    "dRdth": -4.1252887266458858e-50,
+    "dRdv": 4.081632653061225,
+    "Rmax": 40.816326530612244,
+    "Sth": -7.937985764010098e-52
+   },
+   "conditions": {},
+   "method": "mpmath.diff; optimum angle by findroot",
+   "tol": 1e-12,
+   "scale": {
+    "dRdth": 10.0,
+    "Sth": 1.0
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K31",
+   "name": "steeper and faster",
+   "kind": "transfer",
+   "inputs": {
+    "v": 30.0,
+    "th": 1.0471975511965979,
+    "g": 9.81
+   },
+   "expect": {
+    "R": 79.45187190682924,
+    "dRdth": -91.74311926605505,
+    "dRdv": 5.296791460455283,
+    "Rmax": 91.74311926605505,
+    "Sth": -1.2091995761561452
+   },
+   "conditions": {},
+   "method": "mpmath.diff; optimum angle by findroot",
+   "tol": 1e-12,
+   "scale": {
+    "dRdth": 10.0,
+    "Sth": 1.0
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K32",
+   "name": "EX K32",
+   "kind": "benchmark",
+   "inputs": {
+    "m1": 1.0,
+    "x1": 0.0,
+    "v1": 3.0,
+    "m2": 2.0,
+    "x2": 1.0,
+    "v2": 0.0
+   },
+   "expect": {
+    "xc": 0.6666666666666666,
+    "vc": 1.0,
+    "u1": 2.0,
+    "u2": -1.0,
+    "Ki": 3.0,
+    "w1": -1.0,
+    "w2": 2.0
+   },
+   "conditions": {},
+   "method": "weighted sums; KE − ½Mv_C²; conservation of momentum and energy (findroot)",
+   "tol": 1e-10,
+   "scale": {
+    "xc": 1e-09,
+    "vc": 1e-09,
+    "u1": 1e-09,
+    "u2": 1e-09,
+    "w1": 1e-09,
+    "w2": 1e-09
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K32",
+   "name": "equal masses exchange velocities",
+   "kind": "boundary",
+   "inputs": {
+    "m1": 1.0,
+    "x1": 0.0,
+    "v1": 3.0,
+    "m2": 1.0,
+    "x2": 2.0,
+    "v2": -1.0
+   },
+   "expect": {
+    "xc": 1.0,
+    "vc": 1.0,
+    "u1": 2.0,
+    "u2": -2.0,
+    "Ki": 4.0,
+    "w1": -1.0,
+    "w2": 3.0
+   },
+   "conditions": {},
+   "method": "weighted sums; KE − ½Mv_C²; conservation of momentum and energy (findroot)",
+   "tol": 1e-10,
+   "scale": {
+    "xc": 1e-09,
+    "vc": 1e-09,
+    "u1": 1e-09,
+    "u2": 1e-09,
+    "w1": 1e-09,
+    "w2": 1e-09
+   },
+   "constantsSet": "CODATA2022"
+  },
+  {
+   "model": "K32",
+   "name": "a heavy partner",
+   "kind": "transfer",
+   "inputs": {
+    "m1": 2.0,
+    "x1": -1.0,
+    "v1": 0.5,
+    "m2": 10.0,
+    "x2": 3.0,
+    "v2": -0.2
+   },
+   "expect": {
+    "xc": 2.3333333333333335,
+    "vc": -0.08333333333333333,
+    "u1": 0.5833333333333334,
+    "u2": -0.11666666666666667,
+    "Ki": 0.4083333333333333,
+    "w1": -0.6666666666666666,
+    "w2": 0.03333333333333333
+   },
+   "conditions": {},
+   "method": "weighted sums; KE − ½Mv_C²; conservation of momentum and energy (findroot)",
+   "tol": 1e-10,
+   "scale": {
+    "xc": 1e-09,
+    "vc": 1e-09,
+    "u1": 1e-09,
+    "u2": 1e-09,
+    "w1": 1e-09,
+    "w2": 1e-09
+   },
+   "constantsSet": "CODATA2022"
   }
  ]
 }

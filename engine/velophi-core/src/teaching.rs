@@ -353,17 +353,84 @@ pub fn area(s: &mut Session, id: &str, t0_in: f64, t1_in: f64) -> SimResult<Valu
 
 /// Largest or smallest finite value of a quantity over the whole recording (NaN when there is none).
 pub fn extreme(s: &mut Session, id: &str, max: bool) -> SimResult<f64> {
-    if s.frame_count == 0 {
-        return Ok(f64::NAN);
+    // 26.61: refined between frames and at the events (extreme_in); the frames alone miss a smooth extreme by up to
+    // ~(ω·Δt)²/8 of the value and the side of an event by up to one frame
+    Ok(extreme_in(s, id, max, None, None)?.0)
+}
+
+/// 26.61: the extreme between frames. Around the best frame (one frame each side, cut at events) the exact quantity is
+/// searched by golden section; the values just before and after the events near it are candidates too (an extreme at
+/// an impact sits exactly on its side). Returns the better of the frame value and these.
+fn refine_extreme(s: &mut Session, id: &str, max: bool, best: f64, at: f64, lo: f64, hi: f64) -> SimResult<(f64, f64)> {
+    let dt = s.dt;
+    if !(dt > 0.0) || !best.is_finite() || !at.is_finite() {
+        return Ok((best, at));
     }
-    let (_, values) = crate::observe::quantity_series(s, &[id.to_string()], 0, s.frame_count - 1, 1)?;
-    let mut best = if max { f64::NEG_INFINITY } else { f64::INFINITY };
-    for &x in &values[0] {
-        if x.is_finite() {
-            best = if max { js_max(best, x) } else { js_min(best, x) };
+    let better = |x: f64, b: f64| x.is_finite() && if max { x > b } else { x < b };
+    let (mut best, mut at_t) = (best, at);
+    let a0 = js_max(lo, at - dt);
+    let b0 = js_min(hi, at + dt);
+    let near: Vec<(usize, f64)> = s.events.iter().enumerate().filter(|(_, e)| e.t >= a0 - dt && e.t <= b0 + dt && e.t >= lo - 1e-12 && e.t <= hi + 1e-12).map(|(i, e)| (i, e.t)).collect();
+    let ids = [id.to_string()];
+    for &(i, t) in &near {
+        for after in [false, true] {
+            let v = event_values(s, i, after, &ids)?[0];
+            if better(v, best) {
+                best = v;
+                at_t = t;
+            }
         }
     }
-    Ok(if best.is_finite() { best } else { f64::NAN })
+    let mut cuts = vec![a0];
+    for &(_, t) in &near {
+        if t > a0 && t < b0 {
+            cuts.push(t);
+        }
+    }
+    cuts.push(b0);
+    let terms = [(id.to_string(), 1.0)];
+    for w in cuts.windows(2) {
+        // Open interval: an event's own instant belongs to its sides (above)
+        let eps = 1e-9 * dt;
+        let (mut a, mut b) = (w[0] + eps, w[1] - eps);
+        if b - a < 1e-12 * js_max(1.0, dt) {
+            continue;
+        }
+        // Golden section on −q (max) or q (min); 60 steps shrink the bracket by 0.618⁶⁰ ≈ 3e-13
+        let sign = if max { -1.0 } else { 1.0 };
+        let r = 0.618_033_988_749_894_9;
+        let mut c = b - r * (b - a);
+        let mut d = a + r * (b - a);
+        let mut fc = sign * combo_at(s, &terms, c)?.0;
+        let mut fd = sign * combo_at(s, &terms, d)?.0;
+        if !fc.is_finite() || !fd.is_finite() {
+            continue;
+        }
+        for _ in 0..60 {
+            if fc < fd {
+                b = d;
+                d = c;
+                fd = fc;
+                c = b - r * (b - a);
+                fc = sign * combo_at(s, &terms, c)?.0;
+            } else {
+                a = c;
+                c = d;
+                fc = fd;
+                d = a + r * (b - a);
+                fd = sign * combo_at(s, &terms, d)?.0;
+            }
+            if !fc.is_finite() || !fd.is_finite() {
+                break;
+            }
+        }
+        let (t, v) = if fc < fd { (c, sign * fc) } else { (d, sign * fd) };
+        if better(v, best) {
+            best = v;
+            at_t = t;
+        }
+    }
+    Ok((best, at_t))
 }
 
 /// Quantities just before (`after` false) or after an event (teaching/problems.ts): the state before or after the
@@ -583,5 +650,9 @@ pub fn extreme_in(s: &mut Session, id: &str, max: bool, t0: Option<f64>, t1: Opt
             at = tk[j];
         }
     }
-    Ok(if best.is_finite() { (best, at) } else { (f64::NAN, f64::NAN) })
+    if !best.is_finite() {
+        return Ok((f64::NAN, f64::NAN));
+    }
+    let (lo, hi) = (k0 as f64 * s.dt, k1 as f64 * s.dt);
+    refine_extreme(s, id, max, best, at, lo, hi)
 }

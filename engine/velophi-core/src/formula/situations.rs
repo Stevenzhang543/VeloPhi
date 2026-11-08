@@ -11,7 +11,7 @@ use crate::dmath::{acos, atan2, cos, sin, tan, DEG, PI_VALUE};
 use crate::dynamics::{Friction, AUX_BELT, AUX_WORK};
 use crate::expr::{parse, BinOp, Node, ENV_SIZE};
 use crate::js::{js_max, js_min, js_num, js_round, js_to_precision};
-use crate::kinematics::{distance_kin, rope_path_into};
+use crate::kinematics::{distance_kin, rope_path_into, FeatureB};
 use crate::message::Text;
 use crate::model::ShapeModel;
 use crate::numeric::integrate;
@@ -45,6 +45,8 @@ pub fn recognize_phases(s: &mut Session, v: View) -> SimResult<Vec<Situation>> {
     rotation_situations(&mut r, &mut out)?;
     pulley_situations(&mut r, &mut out)?;
     vertical_circle_situations(&mut r, &mut out)?;
+    // 26.62 (D220): bodies on fixed circular tracks (inside and outside)
+    super::situations2662::situations2662(&mut r, &mut out)?;
     movable_pulley_situations(&mut r, &mut out)?;
     wedge_situations(&mut r, &mut out)?;
     spring_pair_situations(&mut r, &mut out)?;
@@ -65,6 +67,21 @@ pub type Lazy<T> = Rc<RefCell<Option<T>>>;
 
 pub fn lazy<T>() -> Lazy<T> {
     Rc::new(RefCell::new(None))
+}
+
+/// Whether the fixed body `other` touches through a curved feature in unit `u` (26.60 r2): an arc's concave inner side,
+/// or a round point of its own (an arc's outer side, a fixed disc).
+fn curved_support(sys: &System, u: &UnitMode, other: &str) -> bool {
+    let model = &sys.model;
+    let pair = &sys.pairs[u.pair];
+    u.points.iter().chain(std::iter::once(&u.ref_)).any(|&i| {
+        let Some(f) = pair.features.get(i) else { return false };
+        match &f.b {
+            FeatureB::Hollow(_) => true,
+            FeatureB::Point(p, _) => (model.bodies[p.body].id == other && p.radius > 0.0) || (model.bodies[f.a.body].id == other && f.a.radius > 0.0),
+            FeatureB::Face(_) => model.bodies[f.a.body].id == other && f.a.radius > 0.0,
+        }
+    })
 }
 
 // ---- Surfaces, inclines, rolling ----
@@ -90,6 +107,11 @@ fn surface_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()> {
             let u = us[0];
             let other = &model.bodies[other_body(&sys, u, &b.id)];
             if other.dynamic {
+                return None;
+            }
+            // 26.60 r2: the surface formulas hold on a flat face of the fixed body; on a curved one (an arc's inner or
+            // outer side, a fixed disc) the normal turns along the way and they do not apply
+            if curved_support(&sys, u, &other.id) {
                 return None;
             }
             let geo = unit_geometry(&sys, &seg.x0, u, &b.id);
@@ -1724,7 +1746,7 @@ fn spring_pair_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()
     'springs: for (si, sp) in model.springs.iter().enumerate() {
         let (Some(ag), Some(bg)) = (sp.a.body, sp.b.body) else { continue };
         let (ab, bb) = (&model.bodies[ag], &model.bodies[bg]);
-        if !ab.dynamic || !bb.dynamic || ag == bg || sp.damping != 0.0 {
+        if !ab.dynamic || !bb.dynamic || ag == bg || sp.damping != 0.0 || sp.push_only {
             continue;
         }
         for x in [ab, bb] {

@@ -31,7 +31,7 @@ export const SCENE_VERSION_SOFTSTEP = 8
  */
 export const SCENE_VERSION_ARCS = 9
 /** Engine version written into saved scenes. */
-export const ENGINE_VERSION = '26.60.0'
+export const ENGINE_VERSION = '26.62.0'
 
 /** Shape of a body, in body coordinates (m). */
 export type ShapeDef = PartShapeDef | CompoundShapeDef | ArcShapeDef
@@ -60,8 +60,11 @@ export type PartShapeDef =
  */
 export interface CompoundShapeDef { type: 'compound'; parts: ShapePart[] }
 
-/** A part of a compound shape: its shape, the position of its own origin (box and circle: centre) and its angle. */
-export interface ShapePart { shape: PartShapeDef; position: Vec2; angle: number }
+/**
+ * A part of a compound shape: its shape, the position of its own origin (box and circle: centre; arc: the origin its
+ * `center` is measured from) and its angle. Since 26.60 r2 (D207) a part may be an arc (a board with a curved end).
+ */
+export interface ShapePart { shape: PartShapeDef | ArcShapeDef; position: Vec2; angle: number }
 
 /** Particle (translation only), rigid body, or static (immovable) body. */
 export type BodyKind = 'particle' | 'rigid' | 'static'
@@ -164,6 +167,11 @@ export interface SpringDef {
   restLength: number | null
   /** Damping coefficient (N·s/m). */
   damping: number
+  /**
+   * 26.60 r2 (D208): not fastened to b (不粘连) — the spring only pushes; when it reaches its rest length the body
+   * leaves its free end (and may press on it again). Absent: fastened at both ends.
+   */
+  pushOnly?: boolean
 }
 /** Pin joint: the two anchors coincide. */
 export interface HingeDef { id: string; name: string; type: 'hinge'; a: Anchor; b: Anchor }
@@ -380,7 +388,7 @@ export function usesFields(scene: Scene): boolean {
 
 /** The scene (or one of its branches) has arc tracks (26.59 fix 3, D193; Rust core only, like fields). */
 export function usesArcs(scene: Scene): boolean {
-  return scene.bodies.some(b => b.shape.type === 'arc') || !!scene.branches?.some(b => usesArcs(b.scene))
+  return scene.bodies.some(b => b.shape.type === 'arc' || (b.shape.type === 'compound' && b.shape.parts.some(p => p.shape.type === 'arc'))) || !!scene.branches?.some(b => usesArcs(b.scene))
 }
 
 /** The scene (or one of its branches) is computed with the many-body solver (26.58). */

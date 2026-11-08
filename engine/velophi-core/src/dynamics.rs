@@ -517,19 +517,51 @@ fn gravity_size(model: &Model) -> f64 {
 /// (exact evaluation). Only the switches' part.
 #[inline]
 fn effective_sw<'a>(model: &Model, sw: Option<&'a [i8]>) -> Option<&'a [i8]> {
-    sw.filter(|s| s.len() == model.arena.switches.len() + model.zone_pairs.len()).map(|s| &s[..model.arena.switches.len()])
+    sw.filter(|s| s.len() == branch_count(model)).map(|s| &s[..model.arena.switches.len()])
 }
 
-/// Length of the frozen branch vector of a mode: switches, then zone pairs (26.55, D90).
+/// Length of the frozen branch vector of a mode: switches, then zone pairs (26.55, D90), then the springs that only
+/// push (26.60 r2, D208).
 #[inline]
 pub fn branch_count(model: &Model) -> usize {
-    model.arena.switches.len() + model.zone_pairs.len()
+    model.arena.switches.len() + model.zone_pairs.len() + model.push_springs.len()
 }
 
 /// Frozen inside/outside state of the zone pairs, when `sw` covers them.
 #[inline]
 pub fn zone_sw<'a>(model: &Model, sw: Option<&'a [i8]>) -> Option<&'a [i8]> {
-    sw.filter(|s| s.len() == branch_count(model)).map(|s| &s[model.arena.switches.len()..])
+    let ns = model.arena.switches.len();
+    sw.filter(|s| s.len() == branch_count(model)).map(|s| &s[ns..ns + model.zone_pairs.len()])
+}
+
+/// Frozen pressed (1) / free (−1) state of the springs that only push, when `sw` covers them (26.60 r2, D208).
+#[inline]
+pub fn push_sw<'a>(model: &Model, sw: Option<&'a [i8]>) -> Option<&'a [i8]> {
+    sw.filter(|s| s.len() == branch_count(model)).map(|s| &s[model.arena.switches.len() + model.zone_pairs.len()..])
+}
+
+/// How far spring `k` is pressed (rest length − length, m; negative: its free end is away from b) and the rate of it.
+pub fn push_depth(model: &Model, poses: &[Pose], k: usize) -> (f64, f64) {
+    let s = &model.springs[k];
+    let pa = anchor_state(poses, &s.a);
+    let pb = anchor_state(poses, &s.b);
+    let (dx, dy) = (pa.px - pb.px, pa.py - pb.py);
+    let l = (dx * dx + dy * dy).sqrt();
+    if l == 0.0 {
+        return (s.rest_length, 0.0);
+    }
+    let vrel = (dx * (pa.vx - pb.vx) + dy * (pa.vy - pb.vy)) / l;
+    (s.rest_length - l, -vrel)
+}
+
+/// Pressed (1) or free (−1) of push-only spring slot `j` at the poses; at the rest length the way it moves decides.
+pub fn push_branch(model: &Model, j: usize, poses: &[Pose]) -> i8 {
+    let (d, rate) = push_depth(model, poses, model.push_springs[j]);
+    if d > 0.0 || (d == 0.0 && rate > 0.0) {
+        1
+    } else {
+        -1
+    }
 }
 
 /// Branches of the switches and the zone pairs at state X (exact), the `sw` of a new mode; None without either.
@@ -539,10 +571,13 @@ pub fn mode_branches(sys: &System, x: &[f64]) -> Option<Vec<i8>> {
         return None;
     }
     let mut out = switch_branches(sys, x);
-    if !model.zone_pairs.is_empty() {
+    if !model.zone_pairs.is_empty() || !model.push_springs.is_empty() {
         let poses = crate::kinematics::compute_poses(model, x);
         for k in 0..model.zone_pairs.len() {
             out.push(crate::regions::zone_branch(model, k, &poses));
+        }
+        for j in 0..model.push_springs.len() {
+            out.push(push_branch(model, j, &poses));
         }
     }
     Some(out)
@@ -744,7 +779,19 @@ pub fn applied_forces_into(sys: &System, poses: &[Pose], mut rates: Option<&mut 
             r.applied_work += fx * p.vx + fy * p.vy;
         }
     }
-    for s in &model.springs {
+    let pushed = push_sw(model, sw);
+    for (k, s) in model.springs.iter().enumerate() {
+        // 26.60 r2 (D208): a spring that only pushes acts while pressed (frozen in the mode, else exact)
+        if s.push_only {
+            let j = model.push_springs.iter().position(|&i| i == k).unwrap_or(0);
+            let on = match pushed {
+                Some(b) => b[j] > 0,
+                None => push_branch(model, j, poses) > 0,
+            };
+            if !on {
+                continue;
+            }
+        }
         let pa = anchor_state(poses, &s.a);
         let pb = anchor_state(poses, &s.b);
         let dx = pa.px - pb.px;
@@ -1403,6 +1450,10 @@ pub fn energy(sys: &System, x: &[f64], poses: &[Pose]) -> EnergyParts {
         let dx = pa.px - pb.px;
         let dy = pa.py - pb.py;
         let e = (dx * dx + dy * dy).sqrt() - s.rest_length;
+        // 26.60 r2 (D208): a spring that only pushes stores nothing once its free end has left the body
+        if s.push_only && e > 0.0 {
+            continue;
+        }
         spring += if s.cubic != 0.0 { 0.5 * s.stiffness * e * e + 0.25 * s.cubic * e * e * e * e } else { 0.5 * s.stiffness * e * e };
     }
     // 26.51: potential energy of gravitation, −G·m₁m₂/r per pair (counted with gravity)

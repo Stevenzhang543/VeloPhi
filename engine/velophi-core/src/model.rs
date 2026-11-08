@@ -187,6 +187,8 @@ pub struct SpringModel {
     pub cubic: f64,
     /// A damper (26.51): stiffness 0, no potential energy.
     pub damper: bool,
+    /// 26.60 r2 (D208): not fastened to b — it pushes only (its state is a frozen branch of the mode, `push_springs`).
+    pub push_only: bool,
 }
 
 /// Compiled weld; `angle0` (rad) is NaN until build_system resolves it.
@@ -389,6 +391,8 @@ pub struct Model {
     /// mode after the switches (D90); liquids (D92); rail loops (D91). Empty in scenes without them.
     pub zones: Vec<FieldZone>,
     pub zone_pairs: Vec<(usize, usize)>,
+    /// 26.60 r2 (D208): springs that only push, in order; frozen in a mode after the zone pairs (pressed: 1, free: −1).
+    pub push_springs: Vec<usize>,
     pub liquids: Vec<LiquidModel>,
     pub rails: Vec<RailModel>,
     /// The state carries the ledger entries of these features (and the time when a region alternates).
@@ -744,7 +748,12 @@ fn complex_shape(polygon: Option<Vec<Vec2>>, parts: &[ShapePart], shift: Vec2) -
         return out;
     }
     for part in parts {
-        if let ShapeDef::Circle { radius } = &part.shape {
+        if let ShapeDef::Arc { radius, thickness, start, sweep, center } = &part.shape {
+            // 26.60 r2 (D207): an arc part, placed by its part transform; its features keep their own piece indexes
+            let (c, sn) = (cos(part.angle), sin(part.angle));
+            let ctr = Vec2 { x: part.position.x + c * center.x - sn * center.y - shift.x, y: part.position.y + sn * center.x + c * center.y - shift.y };
+            append_complex(&mut out, arc_shape(ctr, *radius, radius + thickness, start + part.angle, *sweep));
+        } else if let ShapeDef::Circle { radius } = &part.shape {
             let center = Vec2 { x: part.position.x - shift.x, y: part.position.y - shift.y };
             let piece = out.pieces.len();
             out.points.push(ShapePoint { local: center, radius: *radius, cone: None, piece, span: None });
@@ -756,6 +765,16 @@ fn complex_shape(polygon: Option<Vec<Vec2>>, parts: &[ShapePart], shift: Vec2) -
         }
     }
     out
+}
+
+/// Append the features of `more` to `out`, moving its piece indexes past the pieces already there (26.60 r2, D207).
+fn append_complex(out: &mut ComplexShape, more: ComplexShape) {
+    let base = out.pieces.len();
+    out.points.extend(more.points.into_iter().map(|p| ShapePoint { piece: p.piece + base, ..p }));
+    out.faces.extend(more.faces.into_iter().map(|f| ShapeFace { piece: f.piece + base, ..f }));
+    out.hollows.extend(more.hollows.into_iter().map(|h| ShapeHollow { piece: h.piece + base, ..h }));
+    out.pieces.extend(more.pieces);
+    out.outline.extend(more.outline);
 }
 
 /// Area centroid of a compiled complex shape (its parts) in body coordinates.
@@ -1024,7 +1043,7 @@ pub fn compile_model(scene: &Scene) -> SimResult<Model> {
             ConnectorKind::Rod { a, b, length } => {
                 rods.push(RodModel { id: c.id.clone(), name: c.name.clone(), a: anchor(a), b: anchor(b), length: length.unwrap_or(f64::NAN) });
             }
-            ConnectorKind::Spring { a, b, stiffness, rest_length, damping, cubic } => springs.push(SpringModel {
+            ConnectorKind::Spring { a, b, stiffness, rest_length, damping, cubic, push_only } => springs.push(SpringModel {
                 id: c.id.clone(),
                 name: c.name.clone(),
                 a: anchor(a),
@@ -1034,6 +1053,7 @@ pub fn compile_model(scene: &Scene) -> SimResult<Model> {
                 damping: *damping,
                 cubic: *cubic,
                 damper: false,
+                push_only: *push_only,
             }),
             ConnectorKind::Damper { a, b, damping } => springs.push(SpringModel {
                 id: c.id.clone(),
@@ -1045,6 +1065,7 @@ pub fn compile_model(scene: &Scene) -> SimResult<Model> {
                 damping: *damping,
                 cubic: 0.0,
                 damper: true,
+                push_only: false,
             }),
             ConnectorKind::Weld { a, b } => {
                 welds.push(WeldModel { id: c.id.clone(), name: c.name.clone(), a: anchor(a), b: anchor(b), angle0: f64::NAN });
@@ -1284,6 +1305,7 @@ pub fn compile_model(scene: &Scene) -> SimResult<Model> {
             _ => {}
         }
     }
+    let push_springs: Vec<usize> = springs.iter().enumerate().filter(|(_, s)| s.push_only).map(|(i, _)| i).collect();
     let mut zone_pairs = Vec::new();
     for (zi, z) in zones.iter().enumerate() {
         for &k in &charged {
@@ -1355,6 +1377,7 @@ pub fn compile_model(scene: &Scene) -> SimResult<Model> {
         charged,
         zones,
         zone_pairs,
+        push_springs,
         liquids,
         rails,
         extra_ledger,

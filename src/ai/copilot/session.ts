@@ -23,6 +23,8 @@ import { simResultsText } from './simPrompt'
 import { applyAiScene, copilotToolDefs, copilotToolByName, simHooks, buildHooks, LONG_RESULTS } from './simTools'
 import type { SceneCard } from './simTools'
 import { buildScene } from './builder'
+import { sceneDiff } from './verify'
+import { parseLoose } from '../looseJson'
 import { compactSceneDoc } from './simScene'
 import { transcribeImage, importProblem } from '../import/pipeline'
 import { outcomeText, waitForAnswers } from '../import/answers'
@@ -33,10 +35,23 @@ import { serializeScene, parseScene } from '../../core/scene/io'
 import { ask } from '../../platform/ask'
 import { setTask, taskUi } from '../../app/task/taskState'
 import type { TaskSpec } from '../../task/types'
-import type { ProblemSession } from '../../app/store'
+import type { ProblemSession, Selection } from '../../app/store'
+import { showBranch } from '../../app/branches'
 import { logEvent } from '../../app/trialLog'
 
-export interface Action { id: number; tool: string; label: string; ok: boolean; error?: string; undo?: number; undone?: boolean }
+/**
+ * One change (or failed change) of the Copilot. `undo` is the id of the snapshot taken before it (26.61, R1: an id,
+ * not a position in the list — the list drops its oldest entries); `expired`: that snapshot was dropped (more than
+ * SNAPSHOT_LIMIT changes since), the change can no longer be undone.
+ */
+export interface Action {
+  id: number; tool: string; label: string; ok: boolean; error?: string; undo?: number; undone?: boolean; expired?: boolean
+  /** 26.61 (C): what the change did — object.field: old → new, or one line for a replaced scene. */
+  diff?: { lines: string[]; replaced: boolean; more: number }
+}
+
+/** 26.61 (C): an engine reading the Copilot took (read tools), with the run it comes from. */
+export interface Reading { id: number; label: string; run: number; scene: string; complete: boolean }
 /**
  * One item of the conversation. 'import' (26.59 fix, D182) is a problem read with the template reader: its
  * progress, then what was loaded or why not (with the AI's raw answer).
@@ -64,9 +79,29 @@ export interface Bubble {
   offer?: { state: 'open' | 'building' | 'done' | 'no' | 'failed'; errors?: string[] }
   /** Assumptions the builder made (sizes the problem did not give). */
   assumptions?: string[]
+  /** 26.61 (C): readings of the engine used for this answer (shown with their run; stale once the run changed). */
+  readings?: Reading[]
+  /** 26.61 (C): the explanation this built scene checks (the answer "生成仿真场景" was chosen under). */
+  explanation?: string
 }
 
-interface Snapshot { scene: string; name: string | null; page: typeof state.page; rightTab: typeof state.rightTab; bottomTab: typeof state.bottomTab; problem: ProblemSession | null; task: TaskSpec | null }
+/**
+ * The document as it was before one Copilot change (26.61, R1): the whole document (main scene and branches), its file
+ * name, path and unsaved mark, the editor's undo history, the problem and task, the branch shown, the selection and the
+ * panels. `after` is the document (without its view) right after the change, to notice later edits by hand.
+ */
+interface Snapshot {
+  id: number
+  scene: string; name: string | null; path: string | null; dirty: boolean; past: string[]
+  branch: string | null; selection: Selection
+  page: typeof state.page; rightTab: typeof state.rightTab; bottomTab: typeof state.bottomTab
+  problem: ProblemSession | null; task: TaskSpec | null
+  after?: string
+}
+
+/** Snapshots kept (older Copilot changes can no longer be undone; their buttons say so). */
+export const SNAPSHOT_LIMIT = 30
+let snapIds = 0
 
 const MAX_ROUNDS = 10
 const MAX_RESULT = 6000
@@ -97,33 +132,103 @@ export function clearCopilot() {
   copilot.status = ''
 }
 
+
 /** Whether the next question is asked with thinking ("深度思考" on and possible on this connection). */
 export function copilotThinks(): boolean { return settings.ai.thinking && aiCanThink() }
 
-function snapshot(): number {
-  copilot.snapshots.push({
-    scene: serializeScene(documentScene()), name: state.fileName, page: state.page, rightTab: state.rightTab, bottomTab: state.bottomTab,
-    problem: state.problem ? JSON.parse(JSON.stringify(state.problem)) : null, task: taskUi.task ? JSON.parse(JSON.stringify(taskUi.task)) : null
-  })
-  if (copilot.snapshots.length > 30) copilot.snapshots.shift()
-  return copilot.snapshots.length - 1
+const clone = <T>(v: T): T => (v == null ? v : JSON.parse(JSON.stringify(v)) as T)
+
+/** The document without its camera (fitting the view is not an edit). */
+function docKey(): string {
+  try {
+    const doc = JSON.parse(serializeScene(documentScene())) as Record<string, unknown>
+    delete doc.view
+    return JSON.stringify(doc)
+  } catch { return '' }
 }
 
-/** Undo one of Copilot's changes: the scene and the panels as they were before it. */
-export function undoAction(a: Action) {
-  if (a.undo === undefined || a.undone) return
-  const s = copilot.snapshots[a.undo]
-  if (!s) return
-  loadScene(parseScene(s.scene).scene, s.name)
+function snapshot(): number {
+  const s: Snapshot = {
+    id: ++snapIds,
+    scene: serializeScene(documentScene()), name: state.fileName ?? null, path: state.filePath ?? null, dirty: !!state.dirty, past: [...(state.past ?? [])],
+    branch: state.branch ?? null, selection: state.selection ? { ...state.selection } : null,
+    page: state.page, rightTab: state.rightTab, bottomTab: state.bottomTab, problem: clone(state.problem), task: clone(taskUi.task)
+  }
+  copilot.snapshots.push(s)
+  // The oldest are dropped; their changes say so instead of restoring another snapshot
+  while (copilot.snapshots.length > SNAPSHOT_LIMIT) expire(copilot.snapshots.shift()!.id)
+  return s.id
+}
+
+function eachAction(f: (a: Action) => void) { for (const b of copilot.bubbles) for (const a of b.actions) f(a) }
+function expire(id: number) { eachAction(a => { if (a.undo === id && !a.undone) a.expired = true }) }
+/** Forget the snapshot of a change that failed or was declined. */
+function discard(id: number | undefined) { if (id !== undefined) copilot.snapshots = copilot.snapshots.filter(s => s.id !== id) }
+/** The change went through: remember the document after it (manual edits are noticed against it). */
+function settled(id: number) { const s = copilot.snapshots.find(x => x.id === id); if (s) s.after = docKey() }
+
+/** What the change with snapshot `id` did to the document. */
+function diffOf(id: number): Action['diff'] {
+  const s = copilot.snapshots.find(x => x.id === id)
+  if (!s) return undefined
+  try { const d = sceneDiff(s.scene, serializeScene(documentScene())); return d.lines.length ? d : undefined } catch { return undefined }
+}
+
+/** What undoing a change did. */
+export type UndoResult = 'done' | 'expired' | 'cancelled' | 'none' | 'failed'
+
+/**
+ * Undo one of Copilot's changes: the document, its file state and the panels as they were before it. Later Copilot
+ * changes were made on top of it and are undone with it. When the document was edited by hand after the last of
+ * them, the user is asked first (those edits are lost). A change older than the kept snapshots reports 'expired'.
+ */
+export async function undoAction(a: Action): Promise<UndoResult> {
+  if (a.undo === undefined || a.undone || !a.ok) return 'none'
+  const i = copilot.snapshots.findIndex(s => s.id === a.undo)
+  if (i < 0) { a.expired = true; return 'expired' }
+  const s = copilot.snapshots[i]
+  const last = copilot.snapshots[copilot.snapshots.length - 1]
+  if (last.after !== undefined && last.after !== docKey()) {
+    const later = countLater(s.id)
+    const q = later > 0 ? tl('撤销这一步会同时撤销其后的 {0} 步 Copilot 改动，并丢弃之后的手动修改。继续吗？', [later]) : tl('撤销这一步会丢弃之后的手动修改。继续吗？')
+    if (!(await ask(q))) return 'cancelled'
+    // The list may have changed while asking
+    if (!copilot.snapshots.some(x => x.id === s.id) || a.undone) return a.undone ? 'none' : (a.expired = true, 'expired')
+  }
+  let scene
+  try { scene = parseScene(s.scene).scene } catch { return 'failed' }
+  loadScene(scene, s.name, s.path)
+  state.dirty = s.dirty
+  state.past = [...s.past]
+  state.future = []
+  if (s.branch && (scene.branches ?? []).some(b => b.id === s.branch)) showBranch(s.branch)
+  state.problem = s.problem
+  setTask(s.task)
   state.page = s.page
   state.rightTab = s.rightTab
   state.bottomTab = s.bottomTab
-  if (s.problem) state.problem = s.problem
-  setTask(s.task)
-  // Later changes were made on top of this one: they are undone with it
-  for (const b of copilot.bubbles) for (const x of b.actions) if (x.undo !== undefined && x.undo >= a.undo) x.undone = true
-  copilot.snapshots.length = a.undo
+  const sel = s.selection
+  if (sel && (sel.kind === 'body' ? state.scene.bodies : sel.kind === 'pulley' ? state.scene.pulleys : state.scene.connectors).some((o: { id: string }) => o.id === sel.id)) state.selection = sel
+  eachAction(x => { if (x.undo !== undefined && x.undo >= s.id) x.undone = true })
+  copilot.snapshots = copilot.snapshots.slice(0, i)
   logEvent('copilot.undo', { tool: a.tool })
+  return 'done'
+}
+
+/** Copilot changes after the one with snapshot `id` that are still undoable. */
+function countLater(id: number): number { let n = 0; eachAction(x => { if (x.undo !== undefined && x.undo > id && !x.undone && x.ok) n++ }); return n }
+
+/**
+ * Arguments of a tool call (26.61: almost-JSON is read too — single quotes, trailing commas, a cut-off end); an error
+ * says where the text cannot be read, so the model can correct it.
+ */
+export function toolArgs(text: string | undefined): Record<string, unknown> {
+  if (!text || !text.trim()) return {}
+  try { const v = JSON.parse(text) as unknown; if (v && typeof v === 'object' && !Array.isArray(v)) return v as Record<string, unknown> } catch { /* tolerant below */ }
+  const r = parseLoose(text.trim())
+  if (r.ok && r.value && typeof r.value === 'object' && !Array.isArray(r.value)) return r.value as Record<string, unknown>
+  if (r.ok) throw new ToolError('arguments must be one JSON object')
+  throw new ToolError(`arguments are not valid JSON (line ${r.line}, column ${r.column}: ${r.error}; near …${r.context}…)`)
 }
 
 function compact(v: unknown, max = MAX_RESULT): string {
@@ -202,10 +307,11 @@ async function chatTurn(answer: Bubble, userMsg: ChatMessage, content: string, t
   copilot.history.push(userMsg)
   simHooks.applied = card => { answer.scene = { ...card } }
   buildHooks.run = async a => {
-    const r = await buildScene({ request: a.request, current: a.modify ? compactSceneDoc(documentScene()) : undefined }, { signal, title: a.title, onStatus: st => { copilot.status = st } })
+    const r = await buildScene({ request: a.request, current: a.modify ? compactSceneDoc(documentScene()) : undefined }, { signal, title: a.title, think, onStatus: st => { copilot.status = st } })
     if (r.ok) { answer.assumptions = r.assumptions; return { ...r.result, assumptions: r.assumptions.length ? r.assumptions : undefined } }
     if (r.refused) return { ok: false, summary: r.refused, errors: [r.refused] }
-    return { ok: false, summary: tl('场景文件有 {0} 处问题', [r.errors.length]), errors: r.errors }
+    // 26.60 r2: the builder already corrected the file twice; the chat model should not keep probing with test builds
+    return { ok: false, summary: tl('场景文件有 {0} 处问题', [r.errors.length]), errors: r.errors.slice(0, 8), tries: r.tries, advice: 'The builder already tried to correct the file. Tell the user briefly what failed. Try build_scene at most once more, with a simpler model (separate fixed bodies instead of a compound, fewer bodies) and every size and position spelled out in the request; never send test builds.' }
   }
   for (let round = 0; round < MAX_ROUNDS; round++) {
     const res = await chat({ messages: [{ role: 'system', content: copilotSystem() }, ...copilot.history], tools: copilotToolDefs(), tool_choice: 'auto', temperature: 0.3, max_tokens: think ? 16000 : 8000, reasoning: think ? 'on' : 'off', purpose: 'copilot' }, { signal })
@@ -239,7 +345,7 @@ async function runTool(answer: Bubble, tool: Tool | undefined, name: string, arg
   try {
     if (!tool) throw new ToolError(`unknown tool ${name}`)
     let args: Record<string, unknown> = {}
-    try { args = argText ? (JSON.parse(argText) as Record<string, unknown>) : {} } catch { throw new ToolError('arguments are not valid JSON') }
+    args = toolArgs(argText)
     action.label = tool.label(args)
     copilot.status = action.label
     tool.check?.(args)
@@ -249,14 +355,23 @@ async function runTool(answer: Bubble, tool: Tool | undefined, name: string, arg
     result = await tool.run(args)
     const failed = !!result && typeof result === 'object' && (result as { ok?: unknown }).ok === false
     if (failed) {
-      action.error = String((result as { summary?: unknown }).summary ?? tl('未完成'))
-      if (action.undo !== undefined) copilot.snapshots.length = action.undo
+      // 26.60 r2: the first problem is shown with the summary (what the builder could not fix)
+      const errs = (result as { errors?: unknown }).errors
+      const first = Array.isArray(errs) && typeof errs[0] === 'string' ? errs[0] : ''
+      const summary = String((result as { summary?: unknown }).summary ?? tl('未完成'))
+      action.error = first && first !== summary ? `${summary} · ${first.length > 140 ? `${first.slice(0, 138)}…` : first}` : summary
+      discard(action.undo)
       action.undo = undefined
-    } else action.ok = true
+    } else {
+      action.ok = true
+      if (action.undo !== undefined) { settled(action.undo); action.diff = diffOf(action.undo) }
+      const ev = (result as { evidence?: { run?: unknown; scene?: unknown; complete?: unknown } } | null)?.evidence
+      if (tool.level === 'read' && ev && typeof ev.run === 'number') (answer.readings ??= []).push({ id: action.id, label: action.label, run: ev.run, scene: String(ev.scene ?? ''), complete: ev.complete !== false })
+    }
     if (tool.level !== 'read') answer.actions.push(action)
   } catch (e) {
     action.error = e instanceof Error ? e.message : String(e)
-    if (action.undo !== undefined) copilot.snapshots.length = action.undo
+    discard(action.undo)
     action.undo = undefined
     result = { error: action.error }
     if (tool && tool.level !== 'read') answer.actions.push(action)
@@ -296,9 +411,11 @@ export async function buildFromAnswer(b: Bubble): Promise<void> {
   try {
     if (settings.ai.copilotMode === 'ask' && !(await ask(tl('Copilot 想要：{0}。允许吗？', [tl('生成仿真场景并导入')])))) throw new ToolError('the user declined this action')
     action.undo = snapshot()
-    const r = await buildScene({ problem: b.problem, solution: b.text }, { signal, onStatus: st => { copilot.status = st } })
+    const r = await buildScene({ problem: b.problem, solution: b.text }, { signal, think: copilotThinks(), onStatus: st => { copilot.status = st } })
     if (r.ok) {
       action.ok = true
+      if (action.undo !== undefined) { settled(action.undo); action.diff = diffOf(action.undo) }
+      item.explanation = b.text
       action.label = tl('搭建并载入：{0}', [r.card.name])
       item.actions.push(action)
       item.assumptions = r.assumptions
@@ -309,7 +426,7 @@ export async function buildFromAnswer(b: Bubble): Promise<void> {
         { role: 'assistant', content: `${tl('已搭建并载入场景“{0}”。', [r.card.name])}${simResultsText(r.card.name, r.card.answers, r.card.hidden)}` }
       )
     } else {
-      if (action.undo !== undefined) copilot.snapshots.length = action.undo
+      discard(action.undo)
       action.undo = undefined
       copilot.bubbles.splice(copilot.bubbles.indexOf(item), 1)
       const why = r.refused ? [r.refused] : r.errors
@@ -318,6 +435,8 @@ export async function buildFromAnswer(b: Bubble): Promise<void> {
     }
   } catch (e) {
     const err = e instanceof AiError ? e : null
+    discard(action.undo)
+    action.undo = undefined
     copilot.bubbles.splice(copilot.bubbles.indexOf(item), 1)
     b.offer = { state: 'open' }
     if (err?.code !== 'aborted') copilot.bubbles.push({ id: ++ids, role: 'error', text: err ? err.message : String((e as Error).message), actions: [], code: err?.code })

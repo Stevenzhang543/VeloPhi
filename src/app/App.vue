@@ -47,8 +47,12 @@ const ProblemGallery = defineAsyncComponent(() => import('./components/ProblemGa
 const LearningPath = defineAsyncComponent(() => import('./components/LearningPath.vue'))
 const CommandPalette = defineAsyncComponent(() => import('./components/CommandPalette.vue'))
 // 26.56: teaching activities and the model catalogue (D102, D105)
+import { lessonUi } from './lessons'
 const ActivityRunner = defineAsyncComponent(() => import('./components/ActivityRunner.vue'))
+// 26.61 (B): the classroom experiment card over the studio
+const LessonBar = defineAsyncComponent(() => import('./components/LessonBar.vue'))
 const ModelCatalog = defineAsyncComponent(() => import('./components/models/ModelCatalog.vue'))
+const CurriculumDialog = defineAsyncComponent(() => import('./components/CurriculumDialog.vue'))
 import ProblemPanel from './components/ProblemPanel.vue'
 // 26.57 (D114): the task panel
 import TaskPanel from './components/task/TaskPanel.vue'
@@ -274,7 +278,9 @@ watch(phone, p => { if (!p) shell.sheet = null })
     <LearningPath v-if="state.showLearning" />
     <CommandPalette v-if="state.showPalette" />
     <ModelCatalog v-if="state.showModels" />
+    <CurriculumDialog v-if="state.showCurriculum" />
     <ActivityRunner v-if="state.activity" :key="state.activity" />
+    <LessonBar v-if="lessonUi.id" :key="lessonUi.id" />
     <Spotlight />
     <!-- 26.59 (D157): two live regions that always exist (polite status, assertive alert), so every message is announced -->
     <div class="sr-only" role="status" aria-live="polite">{{ state.toast && !state.toast.error ? state.toast.text : '' }}</div>

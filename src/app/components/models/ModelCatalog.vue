@@ -1,6 +1,7 @@
 <script setup lang="ts">
 /**
- * Model catalogue (26.56, D105; UX01, UX04): the 180 model families of the blueprint, searchable and filtered by
+ * Model catalogue (26.56, D105; UX01, UX04): the 180 model families of the blueprint and (26.62) the 32 curriculum
+ * families K, searchable and filtered by
  * domain, stage, maturity and status, with the chosen model's calculator on the right. Maturity and status are the
  * honest ones of the coverage matrix (L4 is never claimed: it needs trials with learners).
  *
@@ -17,7 +18,7 @@ import { LEVEL_TEXT, STAGE_TEXT, STATUS_TEXT, T3 } from '../../models/labels'
 import ModelView from './ModelView.vue'
 import Icon from '../Icon.vue'
 
-const DOMAINS: Array<[string, string]> = [['G', '通用'], ['M', '力学'], ['F', '流体与连续介质'], ['W', '振动与波'], ['T', '热学'], ['E', '电学'], ['B', '磁与感应'], ['O', '光学'], ['Q', '量子'], ['N', '原子核'], ['R', '相对论与天体'], ['X', '场与前沿']]
+const DOMAINS: Array<[string, string]> = [['G', '通用'], ['M', '力学'], ['F', '流体与连续介质'], ['W', '振动与波'], ['T', '热学'], ['E', '电学'], ['B', '磁与感应'], ['O', '光学'], ['Q', '量子'], ['N', '原子核'], ['R', '相对论与天体'], ['X', '场与前沿'], ['K', '课程补充']]
 const q = ref('')
 const domain = ref('')
 const stage = ref<'' | Stage>('')
@@ -86,7 +87,8 @@ function onKey(e: KeyboardEvent) {
 .body { display: grid; grid-template-columns: 280px 1fr; gap: 14px; height: 74vh; }
 aside { display: flex; flex-direction: column; gap: 6px; min-height: 0; }
 .search { width: 100%; }
-.filters { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.filters { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 4px; }
+.filters select { min-width: 0; width: 100%; }
 .pk-only { grid-column: 1 / -1; display: inline-flex; gap: 6px; align-items: center; }
 .pk { color: var(--accent); border: 1px solid currentColor; border-radius: 5px; padding: 0 4px; margin-right: 4px; }
 .list { overflow: auto; flex: 1; min-height: 0; }

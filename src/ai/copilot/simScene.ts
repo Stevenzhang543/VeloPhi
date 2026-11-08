@@ -11,7 +11,7 @@
  *     start, a solver error), and checks every question against the quantities the scene can read.
  * Every problem is a sentence with a path ("bodies[1].mass must be > 0") so the AI can repair the file.
  */
-import type { Anchor, BodyRole, PartShapeDef, Scene, ShapeDef } from '../../core/scene/types'
+import type { Anchor, ArcShapeDef, BodyRole, PartShapeDef, Scene, ShapeDef } from '../../core/scene/types'
 import { COULOMB_K, ENGINE_VERSION, SCENE_FORMAT, SCENE_VERSION_ARCS } from '../../core/scene/types'
 import { emptyScene } from '../../core/scene/build'
 import { parseScene, serializeScene } from '../../core/scene/io'
@@ -22,6 +22,7 @@ import { findOverlaps, pushApart } from '../../engine/overlaps'
 import { msgText } from '../../i18n/locale'
 import type { Message } from '../../i18n/message'
 import { checkTarget } from '../import/contract'
+import { extractJsonObject, numberFromText, parseLoose } from '../looseJson'
 import type { CheckedQuestion } from '../import/contract'
 
 type O = Record<string, unknown>
@@ -69,21 +70,58 @@ function polygonMass(pts: V[]): { area: number; c: V } {
 
 const rot = (p: V, a: number): V => ({ x: Math.cos(a) * p.x - Math.sin(a) * p.y, y: Math.sin(a) * p.x + Math.cos(a) * p.y })
 
-/** Area and centroid of a part shape in its own frame (box and circle: centre). */
-function partMass(s: PartShapeDef): { area: number; c: V } {
+/** Area and centroid of a part shape in its own frame (box and circle: centre; arc: from its circle's centre). */
+function partMass(s: PartShapeDef | ArcShapeDef): { area: number; c: V } {
   if (s.type === 'circle') return { area: Math.PI * s.radius * s.radius, c: { x: 0, y: 0 } }
   if (s.type === 'box') return { area: s.width * s.height, c: { x: 0, y: 0 } }
+  if (s.type === 'arc') {
+    const k = arcCentroid(s)
+    const cc = s.center ?? { x: 0, y: 0 }
+    return { area: k.area, c: { x: cc.x + k.c.x, y: cc.y + k.c.y } }
+  }
   const m = polygonMass(s.points)
   return { area: Math.abs(m.area), c: m.c }
 }
 
-/** A part shape (circle, box, polygon) from what the AI wrote; shape-type aliases are accepted. */
-function partShape(raw: unknown, path: string, errors: string[], notes: string[]): O | null {
+/** Radians from what the AI wrote: a value above 2π (up to 360) was meant in degrees (a common slip). */
+function radiansOf(o: O, key: string, path: string, notes: string[]) {
+  const v = o[key]
+  if (fin(v) && Math.abs(v) > 2 * Math.PI + 1e-6 && Math.abs(v) <= 360) {
+    o[key] = v * DEG
+    notes.push(`${path}.${key}: ${v} read as degrees (${(v * DEG).toFixed(6)} rad)`)
+  }
+}
+
+/** An arc shape (a body shape or a part of a compound): degree keys, defaults, aliases. */
+function arcShape(raw: unknown, t: string, path: string, notes: string[]): O {
+  const s = { ...(isObj(raw) ? raw : {}) } as O
+  s.type = 'arc'
+  if (!fin(s.radius) && fin(s.r)) s.radius = s.r
+  if (!fin(s.radius) && fin(s.innerRadius)) s.radius = s.innerRadius
+  if (!fin(s.radius) && fin(s.R)) s.radius = s.R
+  if (t !== 'arc' && !fin(s.sweep) && !fin(s.sweepDeg)) { s.start = 0; s.sweep = 2 * Math.PI }
+  if (fin(s.startDeg)) { s.start = s.startDeg * DEG; delete s.startDeg }
+  if (fin(s.sweepDeg)) { s.sweep = s.sweepDeg * DEG; delete s.sweepDeg }
+  if (!fin(s.sweep) && fin(s.end)) { s.sweep = s.end - (fin(s.start) ? s.start : 0); delete s.end }
+  if (!fin(s.start)) s.start = 0
+  radiansOf(s, 'start', path, notes)
+  radiansOf(s, 'sweep', path, notes)
+  if (!fin(s.thickness)) { s.thickness = 0.1; notes.push(`${path}.thickness: 0.1 m assumed`) }
+  if (s.center !== undefined) s.center = vec(s.center)
+  for (const k of ['r', 'R', 'innerRadius', 'end']) delete s[k]
+  return s
+}
+
+const ARC_TYPES = ['arc', 'hoop', 'ring', 'annulus', 'track', 'groove']
+
+/** A part shape (circle, box, polygon; in a compound also an arc) from what the AI wrote; aliases are accepted. */
+function partShape(raw: unknown, path: string, errors: string[], notes: string[], arcs = false): O | null {
   let s: O
   if (typeof raw === 'string') s = { type: raw }
   else if (isObj(raw)) s = { ...raw }
   else { errors.push(`${path} must be an object such as {"type":"box","width":0.3,"height":0.2}`); return null }
   const t = String(s.type ?? '').toLowerCase()
+  if (arcs && ARC_TYPES.includes(t)) return arcShape(s, t, path, notes)
   if (['ball', 'disc', 'disk', 'cylinder', 'sphere', 'wheel'].includes(t)) s.type = 'circle'
   else if (['rect', 'rectangle', 'block', 'square', 'board', 'plank'].includes(t)) s.type = 'box'
   else if (['triangle', 'poly', 'wedge'].includes(t)) s.type = 'polygon'
@@ -100,7 +138,7 @@ function partShape(raw: unknown, path: string, errors: string[], notes: string[]
       notes.push(`${path}: vertices reversed to counter-clockwise order`)
     }
   }
-  if (!['circle', 'box', 'polygon'].includes(s.type as string)) { errors.push(`${path}.type "${raw && isObj(raw) ? raw.type : raw}" must be circle, box or polygon`); return null }
+  if (!['circle', 'box', 'polygon'].includes(s.type as string)) { errors.push(`${path}.type "${raw && isObj(raw) ? String(raw.type) : String(raw)}" must be circle, box, polygon${arcs ? ' or arc' : ''}`); return null }
   delete s.r; delete s.size; delete s.vertices
   return s
 }
@@ -108,29 +146,28 @@ function partShape(raw: unknown, path: string, errors: string[], notes: string[]
 /** A body shape: a part shape, a compound of parts, or an arc. */
 function bodyShape(raw: unknown, path: string, errors: string[], notes: string[]): O | null {
   const t = typeof raw === 'string' ? raw.toLowerCase() : isObj(raw) ? String(raw.type ?? '').toLowerCase() : ''
-  if (t === 'compound') {
+  if (t === 'compound' || t === 'composite' || t === 'group') {
     const s = raw as O
-    if (!Array.isArray(s.parts) || !s.parts.length) { errors.push(`${path}.parts must list at least one part {shape, position, angle}`); return null }
-    const parts = (s.parts as unknown[]).map((p, i) => {
+    const list = Array.isArray(s.parts) ? s.parts : Array.isArray(s.shapes) ? s.shapes : Array.isArray(s.children) ? s.children : null
+    if (!list || !list.length) { errors.push(`${path}.parts must list at least one part {"shape": {…}, "position": {"x":…,"y":…}, "angle": 0}`); return null }
+    const parts = (list as unknown[]).map((p, i) => {
       const pp = `${path}.parts[${i}]`
       if (!isObj(p)) { errors.push(`${pp} must be {"shape":{…},"position":{"x":…,"y":…},"angle":0}`); return null }
-      const shape = partShape(p.shape, `${pp}.shape`, errors, notes)
-      const angle = fin(p.angleDeg) ? p.angleDeg * DEG : fin(p.angle) ? p.angle : 0
-      return shape ? { shape, position: vec(p.position ?? { x: 0, y: 0 }), angle } : null
+      // A part written flat — {"type":"box","width":…,"position":…} — is read as {shape, position, angle}
+      const flat = !isObj(p.shape) && typeof p.shape !== 'string' && typeof p.type === 'string'
+      const { position, offset, at, x, y, angle: pa, angleDeg: pd, ...inline } = p
+      const rawShape = flat ? inline : p.shape
+      if (flat) notes.push(`${pp}: shape fields read as ${pp}.shape`)
+      if (rawShape === undefined || rawShape === null) { errors.push(`${pp}.shape is missing: each part is {"shape": {"type": "box", …}, "position": {"x":…,"y":…}, "angle": 0}`); return null }
+      const shape = partShape(rawShape, `${pp}.shape`, errors, notes, true)
+      const ang = fin(pd) ? pd * DEG : fin(pa) ? pa : 0
+      const pos = vec(position ?? offset ?? at ?? (fin(x) && fin(y) ? { x, y } : { x: 0, y: 0 }))
+      if (!isVec(pos)) { errors.push(`${pp}.position must be {"x":…,"y":…} (relative to the body position)`); return null }
+      return shape ? { shape, position: pos, angle: ang } : null
     })
     return parts.every(Boolean) ? { type: 'compound', parts } : null
   }
-  if (t === 'arc' || t === 'hoop' || t === 'ring') {
-    const s = { ...(isObj(raw) ? raw : {}) } as O
-    s.type = 'arc'
-    if (t !== 'arc' && !fin(s.sweep) && !fin(s.sweepDeg)) { s.start = 0; s.sweep = 2 * Math.PI }
-    if (fin(s.startDeg)) { s.start = s.startDeg * DEG; delete s.startDeg }
-    if (fin(s.sweepDeg)) { s.sweep = s.sweepDeg * DEG; delete s.sweepDeg }
-    if (!fin(s.start)) s.start = 0
-    if (!fin(s.thickness)) { s.thickness = 0.1; notes.push(`${path}.thickness: 0.1 m assumed`) }
-    if (s.center !== undefined) s.center = vec(s.center)
-    return s
-  }
+  if (ARC_TYPES.includes(t)) return arcShape(raw, t, path, notes)
   return partShape(raw, path, errors, notes)
 }
 
@@ -162,8 +199,28 @@ function worldOf(a: Anchor, bodies: Map<string, O>): V | null {
 /**
  * The file as the parser wants it, from what the AI wrote. `rest`: ids of bodies to place on the surface under them.
  */
+/** Keys whose string values are names or words, never numbers. */
+const TEXT_KEYS = new Set(['id', 'name', 'description', 'text', 'prompt', 'unit', 'type', 'kind', 'role', 'color', 'title', 'stem', 'label', 'event', 'side', 'which', 'body', 'format', 'engine', 'integrator', 'shape', 'material', 'mode', 'wrap', 'note', 'pulley', 'axis', 'target', 'source', 'on', 'side'])
+
+/**
+ * 26.61: numbers the model wrote as text ("2", "25 cm", "30°", "pi/6") become numbers in SI, with one note per field;
+ * words stay words.
+ */
+function coerceNumbers(v: unknown, path: string, notes: string[], depth = 0): unknown {
+  if (depth > 12) return v
+  if (Array.isArray(v)) return v.map((x, i) => coerceNumbers(x, `${path}[${i}]`, notes, depth + 1))
+  if (!isObj(v)) return v
+  for (const [k, x] of Object.entries(v)) {
+    if (typeof x === 'string' && !TEXT_KEYS.has(k)) {
+      const n = numberFromText(x)
+      if (n !== null) { v[k] = n; if (notes.length < 40) notes.push(`${path ? `${path}.` : ''}${k}: "${x}" read as ${Number(n.toPrecision(6))}`) }
+    } else if (x && typeof x === 'object') v[k] = coerceNumbers(x, path ? `${path}.${k}` : k, notes, depth + 1)
+  }
+  return v
+}
+
 function normalize(input: O, errors: string[], notes: string[]): { doc: O; rest: string[]; fitView: boolean } {
-  const doc: O = JSON.parse(JSON.stringify(input)) as O
+  const doc: O = coerceNumbers(JSON.parse(JSON.stringify(input)) as O, '', notes) as O
   const base = emptyScene('AI 场景')
   if (doc.format !== undefined && doc.format !== SCENE_FORMAT && doc.format !== 'verity-scene') notes.push(`format "${String(doc.format)}" replaced by "${SCENE_FORMAT}"`)
   doc.format = SCENE_FORMAT
@@ -233,11 +290,14 @@ function normalize(input: O, errors: string[], notes: string[]): { doc: O; rest:
       b.shape = { type: t, radius: b.radius, width: b.width ?? b.length, height: b.height, points: b.points, thickness: b.thickness, startDeg: b.startDeg, sweepDeg: b.sweepDeg }
       delete b.radius; delete b.width; delete b.length; delete b.height; delete b.points; delete b.thickness; delete b.startDeg; delete b.sweepDeg
     }
-    const shape = bodyShape(b.shape, `${path}.shape`, errors, notes)
+    if (b.shape === undefined && Array.isArray(b.parts)) { b.shape = { type: 'compound', parts: b.parts }; delete b.parts; notes.push(`${path}.parts read as ${path}.shape {"type":"compound"}`) }
+    if (b.shape === undefined || b.shape === null) errors.push(`${path}.shape is missing (e.g. {"type":"box","width":0.2,"height":0.2})`)
+    const shape = b.shape === undefined || b.shape === null ? null : bodyShape(b.shape, `${path}.shape`, errors, notes)
     if (shape) b.shape = shape
     b.position = vec(b.position)
     if (!isVec(b.position)) errors.push(`${path}.position must be {"x":…,"y":…} (m; the centre of mass of a moving body, the origin of a fixed one)`)
     if (fin(b.angleDeg)) { b.angle = b.angleDeg * DEG; delete b.angleDeg }
+    radiansOf(b, 'angle', path, notes)
     if (b.velocity !== undefined) b.velocity = vec(b.velocity)
     if (fin(b.omega) && b.angularVelocity === undefined) { b.angularVelocity = b.omega; delete b.omega }
     // material: mu / e shorthands on the body or in the material
@@ -251,7 +311,7 @@ function normalize(input: O, errors: string[], notes: string[]): { doc: O; rest:
     b.material = m
     if (b.kind !== 'static' && !(fin(b.mass) && b.mass > 0)) errors.push(`${path}.mass must be a number > 0 (kg) for a moving body`)
     if (b.kind === 'static' && b.mass === undefined) b.mass = 0
-    const sh = b.shape as O | null
+    const sh = shape
     const role = typeof b.role === 'string' && (ROLES as readonly string[]).includes(b.role) ? (b.role as BodyRole)
       : b.kind === 'static' ? (sh?.type === 'polygon' ? 'incline' : 'ground') : sh?.type === 'circle' ? 'ball' : sh?.type === 'arc' ? 'generic' : 'block'
     b.role = role
@@ -338,6 +398,10 @@ function normalize(input: O, errors: string[], notes: string[]): { doc: O; rest:
       case 'rod': if (c.length === undefined) c.length = null; break
       case 'spring':
         if (c.stiffness === undefined && fin(c.k)) { c.stiffness = c.k; delete c.k }
+        // 26.60 r2 (D208): a spring the body is not fastened to, in the words a model may use
+        if (c.pushOnly === undefined && (c.attached === false || c.fastened === false || c.detached === true || c.unilateral === true || c.compressionOnly === true)) { c.pushOnly = true; notes.push(`${path}: read as "pushOnly": true`) }
+        for (const k of ['attached', 'fastened', 'detached', 'unilateral', 'compressionOnly']) delete c[k]
+        if (c.pushOnly !== undefined && typeof c.pushOnly !== 'boolean') c.pushOnly = c.pushOnly === 'true' || c.pushOnly === 1
         if (c.restLength === undefined) c.restLength = fin(c.length) ? c.length : null
         delete c.length
         if (c.damping === undefined) c.damping = 0
@@ -385,6 +449,14 @@ function normalize(input: O, errors: string[], notes: string[]): { doc: O; rest:
   return { doc, rest, fitView }
 }
 
+/** A normalized part shape whose mass can be computed (the parser reports the others). */
+function partOk(s: O): boolean {
+  if (s.type === 'circle') return fin(s.radius)
+  if (s.type === 'box') return fin(s.width) && fin(s.height)
+  if (s.type === 'arc') return fin(s.radius) && fin(s.thickness) && fin(s.sweep) && fin(s.start) && (s.center === undefined || isVec(s.center))
+  return s.type === 'polygon' && Array.isArray(s.points) && s.points.length >= 3 && (s.points as unknown[]).every(isVec)
+}
+
 /** Move a moving polygon, compound or arc so that its centre of mass is the body origin (the world shape stays). */
 function recentre(b: O, sh: O, path: string, notes: string[]) {
   const angle = fin(b.angle) ? b.angle : 0
@@ -395,8 +467,8 @@ function recentre(b: O, sh: O, path: string, notes: string[]) {
     if (Math.hypot(c.x, c.y) > 1e-9) sh.points = (sh.points as V[]).map(p => ({ x: p.x - c!.x, y: p.y - c!.y }))
   } else if (sh.type === 'compound' && Array.isArray(sh.parts)) {
     let A = 0, cx = 0, cy = 0
-    for (const p of sh.parts as Array<{ shape: PartShapeDef; position: V; angle: number }>) {
-      if (!isVec(p.position)) return
+    for (const p of sh.parts as Array<{ shape: PartShapeDef | ArcShapeDef; position: V; angle: number }>) {
+      if (!isObj(p) || !isVec(p.position) || !isObj(p.shape) || !partOk(p.shape)) return
       const m = partMass(p.shape)
       const pc = rot(m.c, p.angle)
       A += m.area; cx += m.area * (p.position.x + pc.x); cy += m.area * (p.position.y + pc.y)
@@ -418,19 +490,31 @@ function recentre(b: O, sh: O, path: string, notes: string[]) {
   if (sh.type !== 'arc') notes.push(`${path}: points re-centred on the centre of mass (position moved by (${w.x.toFixed(4)}, ${w.y.toFixed(4)}) m; the shape stays where it was)`)
 }
 
-/** Extreme extent of a shape along direction d (body frame at angle `a`): max over the shape of d·p. */
+/** Extreme extent of a shape along direction d (body frame at angle `a`): max over the shape of d·p (exact for arcs). */
 function support(shape: ShapeDef, a: number, d: V): number {
   const pts: Array<{ p: V; r: number }> = []
-  const add = (s: PartShapeDef, off: V, ang: number) => {
+  // Arcs (annular sectors): the end corners always; the outer circle where d points into the sector's span
+  const arcs: Array<{ c: V; ro: number; start: number; sweep: number }> = []
+  const add = (s: PartShapeDef | ArcShapeDef, off: V, ang: number) => {
     if (s.type === 'circle') pts.push({ p: off, r: s.radius })
     else if (s.type === 'box') for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) { const q = rot({ x: (sx * s.width) / 2, y: (sy * s.height) / 2 }, ang); pts.push({ p: { x: off.x + q.x, y: off.y + q.y }, r: 0 }) }
-    else for (const v of s.points) { const q = rot(v, ang); pts.push({ p: { x: off.x + q.x, y: off.y + q.y }, r: 0 }) }
+    else if (s.type === 'arc') {
+      const cc = rot(s.center ?? { x: 0, y: 0 }, ang)
+      const c = { x: off.x + cc.x, y: off.y + cc.y }
+      const ro = s.radius + s.thickness
+      for (const t of [s.start + ang, s.start + s.sweep + ang]) for (const r of [s.radius, ro]) pts.push({ p: { x: c.x + r * Math.cos(t), y: c.y + r * Math.sin(t) }, r: 0 })
+      arcs.push({ c, ro, start: s.start + ang, sweep: s.sweep })
+    } else for (const v of s.points) { const q = rot(v, ang); pts.push({ p: { x: off.x + q.x, y: off.y + q.y }, r: 0 }) }
   }
   if (shape.type === 'compound') for (const part of shape.parts) add(part.shape, part.position, part.angle)
-  else if (shape.type === 'arc') { const c = shape.center ?? { x: 0, y: 0 }; pts.push({ p: c, r: shape.radius + shape.thickness }) }
   else add(shape, { x: 0, y: 0 }, 0)
   let best = -Infinity
   for (const { p, r } of pts) { const w = rot(p, a); best = Math.max(best, w.x * d.x + w.y * d.y + r) }
+  const dirIn = Math.atan2(d.y, d.x) - a
+  for (const k of arcs) {
+    const rel = (((dirIn - k.start) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI)
+    if (rel <= k.sweep + 1e-12) { const w = rot(k.c, a); best = Math.max(best, w.x * d.x + w.y * d.y + k.ro * Math.hypot(d.x, d.y)) }
+  }
   return best
 }
 
@@ -465,12 +549,10 @@ export function fitSceneView(scene: Scene): Scene['view'] {
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
   const grow = (p: V, r: number) => { x0 = Math.min(x0, p.x - r); x1 = Math.max(x1, p.x + r); y0 = Math.min(y0, p.y - r); y1 = Math.max(y1, p.y + r) }
   for (const b of scene.bodies) {
-    const s = b.shape
-    if (s.type === 'polygon') for (const v of s.points) { const q = rot(v, b.angle); grow({ x: b.position.x + q.x, y: b.position.y + q.y }, 0) }
-    else if (s.type === 'arc') { const c = rot(s.center ?? { x: 0, y: 0 }, b.angle); grow({ x: b.position.x + c.x, y: b.position.y + c.y }, s.radius + s.thickness) }
-    else if (s.type === 'circle') grow(b.position, s.radius)
-    else if (s.type === 'box') grow(b.position, Math.hypot(s.width, s.height) / 2)
-    else grow(b.position, 0.3)
+    // Extents along ±x and ±y (exact for every shape, compounds and arcs included)
+    const e = (d: V) => { try { const v = support(b.shape, b.angle, d); return Number.isFinite(v) ? v : 0.3 } catch { return 0.3 } }
+    grow({ x: b.position.x + e({ x: 1, y: 0 }), y: b.position.y }, 0); grow({ x: b.position.x - e({ x: -1, y: 0 }), y: b.position.y }, 0)
+    grow({ x: b.position.x, y: b.position.y + e({ x: 0, y: 1 }) }, 0); grow({ x: b.position.x, y: b.position.y - e({ x: 0, y: -1 }) }, 0)
   }
   for (const p of scene.pulleys) if (!p.body) grow(p.position, p.radius)
   const moving = scene.bodies.filter(b => b.kind !== 'static')
@@ -487,11 +569,16 @@ export function fitSceneView(scene: Scene): Scene['view'] {
 export function unwrapAiScene(raw: unknown, questions?: unknown): { file: O | null; questions: unknown; title: string; stem: string; error?: string } {
   let v = raw
   if (typeof v === 'string') {
-    try { v = JSON.parse(v) } catch (e) { return { file: null, questions, title: '', stem: '', error: `the scene is not valid JSON: ${(e as Error).message}` } }
+    try { v = JSON.parse(v) } catch {
+      // 26.61: almost-JSON (a scene sent as text inside the tool arguments)
+      const r = extractJsonObject(v as string, o => (Array.isArray(o.bodies) || isObj(o.scene) ? 10 : 0), () => {})
+      if (!r) { const e = parseLoose(v as string); return { file: null, questions, title: '', stem: '', error: `the scene is not valid JSON${e.ok ? '' : ` (line ${e.line}, column ${e.column}: ${e.error}; near …${e.context}…)`}` } }
+      v = r.value
+    }
   }
   if (!isObj(v)) return { file: null, questions, title: '', stem: '', error: 'the scene must be one JSON object (the scene file)' }
   // Some models send nested arguments as JSON text
-  if (typeof questions === 'string') { try { questions = JSON.parse(questions) as unknown } catch { /* reported as not a list */ } }
+  if (typeof questions === 'string') { const r = parseLoose(questions); if (r.ok) questions = r.value }
   let file = v
   let qs = questions
   let title = '', stem = ''
@@ -516,7 +603,17 @@ const PROBE_SECONDS = 0.25
  * questions. `raw`: the file (object or text) or {scene, questions, title, stem}.
  */
 export function prepareAiScene(raw: unknown, rawQuestions?: unknown): PreparedScene {
+  // 26.60 r2: never throws — a file the checks did not foresee comes back as a problem the AI can act on
   const notes: string[] = []
+  try {
+    return prepare(raw, rawQuestions, notes)
+  } catch (e) {
+    const where = ((e as Error).stack ?? '').split('\n').slice(1, 2).join('').replace(/^\s*at\s+/, '').replace(/\s*\(.*$/, '')
+    return { ok: false, errors: [`the app could not read this file (${(e as Error).message}${where ? ` in ${where}` : ''}). Check its structure against the format: every shape has a "type" and its sizes, every compound part is {"shape": {…}, "position": {"x":…,"y":…}, "angle": 0}, every anchor names an existing body.`], notes }
+  }
+}
+
+function prepare(raw: unknown, rawQuestions: unknown, notes: string[]): PreparedScene {
   const errors: string[] = []
   const u = unwrapAiScene(raw, rawQuestions)
   if (!u.file) return { ok: false, errors: [u.error ?? 'no scene'], notes }
@@ -639,10 +736,9 @@ export function sceneBlocks(text: string): unknown[] {
   const out: unknown[] = []
   const re = /```(?:json|velophi|velophi-scene|jsonc)?\s*\n([\s\S]*?)```/gi
   for (let m = re.exec(text); m; m = re.exec(text)) {
-    try {
-      const v = JSON.parse(m[1]) as unknown
-      if (isObj(v) && (Array.isArray(v.bodies) || (isObj(v.scene) && Array.isArray((v.scene as O).bodies)))) out.push(v)
-    } catch { /* not JSON */ }
+    const r = parseLoose(m[1].trim())
+    const v = r.ok && !r.truncated ? r.value : null
+    if (isObj(v) && (Array.isArray(v.bodies) || (isObj(v.scene) && Array.isArray((v.scene as O).bodies)))) out.push(v)
   }
   return out
 }
@@ -650,6 +746,8 @@ export function sceneBlocks(text: string): unknown[] {
 /** The answer text without its scene code blocks. */
 export function withoutSceneBlocks(text: string): string {
   return text.replace(/```(?:json|velophi|velophi-scene|jsonc)?\s*\n([\s\S]*?)```/gi, (all, body: string) => {
-    try { const v = JSON.parse(body) as unknown; return isObj(v) && (Array.isArray(v.bodies) || isObj(v.scene)) ? '' : all } catch { return all }
+    const r = parseLoose(body.trim())
+    const v = r.ok && !r.truncated ? r.value : null
+    return isObj(v) && (Array.isArray(v.bodies) || isObj(v.scene)) ? '' : all
   }).replace(/\n{3,}/g, '\n\n').trim()
 }

@@ -6,7 +6,7 @@
  */
 export type Orientation = 'auto' | 'portrait' | 'landscape'
 
-interface Bridge { setOrientation(mode: string): void; orientation(): string }
+interface Bridge { setOrientation(mode: string): void; orientation(): string; lastIssue?(): string }
 
 function bridge(): Bridge | null {
   const b = (typeof window !== 'undefined' ? (window as unknown as { VeloPhiAndroid?: Bridge }).VeloPhiAndroid : undefined) ?? null
@@ -31,4 +31,18 @@ export function setOrientationMode(mode: Orientation): boolean {
 /** The orientation the screen has now. */
 export function currentOrientation(): 'portrait' | 'landscape' {
   return typeof window !== 'undefined' && window.innerWidth > window.innerHeight ? 'landscape' : 'portrait'
+}
+
+/**
+ * What ended the last session abnormally, noted by MainActivity (26.60 r2): an uncaught exception, or the WebView's
+ * renderer gone ("crashed" or "killed"); null when the last session ended normally. Read once.
+ */
+export function lastIssue(): { kind: string; at: number; detail: string } | null {
+  try {
+    const b = bridge()
+    const v = b && typeof b.lastIssue === 'function' ? b.lastIssue() : ''
+    if (!v) return null
+    const [kind, at, ...rest] = v.split('|')
+    return { kind, at: Number(at) || 0, detail: rest.join('|') }
+  } catch { return null }
 }

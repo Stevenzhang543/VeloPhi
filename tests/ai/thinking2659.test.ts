@@ -289,15 +289,17 @@ describe('Copilot with thinking', () => {
 })
 
 describe('new Copilot tools', () => {
-  it('read_forces lists gravity, the normal force and friction from the simulation', () => {
+  it('read_forces lists gravity, the normal force and friction from the simulation', async () => {
     state.recording = simulate(state.scene)
-    const r = readForces('block', { t: 0.5 })
+    const r = await readForces('block', { t: 0.5 })
     const byId = Object.fromEntries(r.forces.map(f => [f.id, f.value]))
     expect(byId.gravity).toBeCloseTo(2 * 9.8, 6)
     expect(byId['contact.block|incline.N']).toBeCloseTo(2 * 9.8 * Math.cos(Math.PI / 6), 2)
     expect(byId['contact.block|incline.f']).toBeCloseTo(0.2 * 2 * 9.8 * Math.cos(Math.PI / 6), 2)
     expect(r.forces.some(f => /\.(fx|fy)$/.test(f.id))).toBe(false)
-    expect(() => readForces('nope', {})).toThrow(/no body/)
+    await expect(readForces('nope', {})).rejects.toThrow(/no body/)
+    // 26.61: the reading says which run it comes from
+    expect(r.evidence.complete).toBe(true)
   })
 
   it('add_force adds an applied force; set_display "selected" selects a body', async () => {

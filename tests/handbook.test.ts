@@ -15,7 +15,8 @@ import { simulate } from './reference/core/solver/simulation'
 import type { Recording } from './reference/core/solver/simulation'
 import { recognize } from './reference/formula/situations'
 import { cardsAt } from './reference/formula/match'
-import { usesFields } from '../src/core/scene/types'
+import { usesArcs, usesFields } from '../src/core/scene/types'
+import { usesNewer } from '../src/templates'
 import { simulate as simulateCore } from '../src/engine/recording'
 import { recognize as recognizeCore } from '../src/formula/recognize'
 import { cardsAt as cardsAtCore } from '../src/formula/match'
@@ -57,7 +58,7 @@ describe('handbook examples', () => {
     type Cards = (t: number) => Array<{ formula: { id: string }; verdict: string }>
     const runs = new Map<string, Cards>()
     const runOf = (scene: ReturnType<typeof buildTemplate>): Cards => {
-      if (!usesFields(scene)) { const rec: Recording = simulate(scene); return t => cardsAt(recognize(rec), t) }
+      if (!usesFields(scene) && !usesArcs(scene) && !usesNewer(scene)) { const rec: Recording = simulate(scene); return t => cardsAt(recognize(rec), t) }
       const rec = simulateCore(scene)
       const sits = recognizeCore(rec)
       return t => cardsAtCore(rec, t, { digits: 6 }, sits)

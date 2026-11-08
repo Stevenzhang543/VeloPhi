@@ -49,7 +49,7 @@ describe('scene files of the simulation Copilot', () => {
   it('every example of the prompt loads and gives the textbook answer', () => {
     const prepared = SIM_EXAMPLES.map(e => prepareAiScene(e.file))
     for (const p of prepared) { if (!p.ok) throw new Error(p.errors.join('; ')); expect(p.questions.length).toBeGreaterThan(0) }
-    const [incline, pulley, arc] = prepared.map(p => (p.ok ? p.scene : null)!)
+    const [incline, pulley, arc, slide] = prepared.map(p => (p.ok ? p.scene : null)!)
     // 1: a = g(sin30° − μ cos30°) = 3.268 m/s², v(1 s) = 3.268 m/s
     const [v1] = valuesAt(incline, ['block.v'], 1)
     expect(v1).toBeCloseTo(10 * (0.5 - 0.2 * Math.cos(Math.PI / 6)), 3)
@@ -58,10 +58,14 @@ describe('scene files of the simulation Copilot', () => {
     const [a, T] = valuesAt(pulley, ['A.a', 'rope.T'], 0.2)
     expect(a).toBeCloseTo(1.96, 3)
     expect(T).toBeCloseTo(7.84, 3)
-    // 3: from 182° on a circle of radius R − r = 0.77 m down to the bottom: v² = 2g·Δh, N = mg + mv²/(R − r)
-    const dh = 0.7731 - 0.03
-    expect(extreme(arc, 'ball.v', 'max', 1.2)).toBeCloseTo(Math.sqrt(2 * 9.8 * dh), 2)
-    expect(extreme(arc, 'contact.ball|track.N', 'max', 1.2)).toBeCloseTo(0.98 + (0.1 * 2 * 9.8 * dh) / 0.77, 1)
+    // 3 (26.60 r2): the track's inner radius is R + r, so the ball's centre runs on R = 0.8 m from the rim: the
+    // textbook answers v = √(2gR) = 3.960 m/s and N = 3mg = 2.94 N
+    expect(extreme(arc, 'ball.v', 'max', 1.2)).toBeCloseTo(Math.sqrt(2 * 9.8 * 0.8), 4)
+    expect(extreme(arc, 'contact.ball|track.N', 'max', 1.2)).toBeCloseTo(3 * 0.98, 3)
+    // 4 (26.60 r2, D207): a slide with an arc part on a smooth floor — v = √(2gR·M/(M+m)) = 2.711 m/s, V = −v·m/M
+    const v4 = Math.sqrt(2 * 9.8 * 0.5 * 3 / 4)
+    expect(extreme(slide, 'ball.vx', 'max', 1.2)).toBeCloseTo(v4, 4)
+    expect(extreme(slide, 'slide.vx', 'min', 1.2)).toBeCloseTo(-v4 / 3, 4)
     // The builder's prompt carries the examples (as whole outputs), the targets and the format; JSON only
     const sys = builderSystem()
     for (const e of SIM_EXAMPLES) { const { questions, ...scene } = e.file; expect(sys).toContain(JSON.stringify(scene)); expect(sys).toContain(JSON.stringify(questions)) }

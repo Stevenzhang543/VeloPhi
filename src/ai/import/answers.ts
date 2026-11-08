@@ -93,12 +93,13 @@ export async function waitForAnswers(o: ImportSuccess, ms = 15000): Promise<Answ
 }
 
 /** Wait (up to `ms`) for the answers of the open problem `id`. */
-export async function waitForProblemAnswers(id: string, ms = 15000): Promise<AnswerLine[] | null> {
+export async function waitForProblemAnswers(id: string, ms = 15000, signal?: AbortSignal): Promise<AnswerLine[] | null> {
   const t0 = Date.now()
   for (;;) {
     const a = problemAnswers(id)
     if (a) return a
-    if (Date.now() - t0 >= ms) return null
+    // 26.61: a stop, or another problem opened meanwhile, ends the wait (the card then shows the actual state)
+    if (Date.now() - t0 >= ms || signal?.aborted || state.problem?.problem.id !== id) return null
     await new Promise(r => setTimeout(r, 250))
   }
 }

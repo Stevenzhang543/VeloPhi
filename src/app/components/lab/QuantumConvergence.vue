@@ -11,6 +11,8 @@ import { DEFAULT_CASE, ROUNDING, gridStudy, stepStudy } from '../../../teaching/
 import type { GridRow, StepRow } from '../../../teaching/convergence'
 import { exportDocument } from '../../models/run'
 import { saveFile } from '../../../platform/files'
+import { researchQ08 } from '../../../research/q08'
+import { platformClass } from '../../repro'
 
 const grid = ref<{ reference: { x: number; sx: number; sp: number }; rows: GridRow[] } | null>(null)
 const steps = ref<StepRow[] | null>(null)
@@ -31,13 +33,17 @@ async function exportStudy() {
   if (!grid.value || !steps.value) return
   await saveFile(exportDocument('convergence', { case: DEFAULT_CASE, grid: [64, 128, 256, 512, 1024], steps: [600, 1200, 2400, 4800], harmonic: { omega: 0.5, n: 256, L: 40 } }, { grid: grid.value, steps: steps.value }, 'quantum', 'CODATA2022'), 'velophi-quantum-convergence.json', [{ name: 'JSON', extensions: ['json'] }])
 }
+/** 26.61 (D): the Research Preview package of this case (inputs, settings, reference, resolutions, errors, recompute). */
+async function exportResearch() {
+  try { await saveFile(JSON.stringify(researchQ08({ host: 'app', platform: platformClass() }), null, 1), 'velophi-research-Q08.json', [{ name: 'JSON', extensions: ['json'] }]) } catch (e) { error.value = String((e as Error).message ?? e) }
+}
 </script>
 
 <template>
   <details class="lab-block lab-details">
     <summary>{{ tl('收敛研究（模型 Q08）') }}</summary>
     <p class="tiny muted lab-note">{{ tl('自由高斯波包 x₀ = −5、p₀ = 2、σ₀ = 1，t = 2（约化单位 ħ = m = 1，长度单位 nm）。网格加密与 Q08 的独立闭式解比较；时间步长在谐振势中逐次减半，只能做自收敛比较（不是独立参照）。') }}</p>
-    <div class="row"><button class="btn small" @click="run">{{ tl('运行收敛研究') }}</button><button class="btn ghost small" :disabled="!grid" @click="exportStudy">{{ tl('导出（含运行清单）') }}</button><span v-if="grid" class="tiny muted">{{ tl('{0} ms', [ms.toFixed(0)]) }}</span></div>
+    <div class="row"><button class="btn small" @click="run">{{ tl('运行收敛研究') }}</button><button class="btn ghost small" :disabled="!grid" @click="exportStudy">{{ tl('导出（含运行清单）') }}</button><button class="btn ghost small" data-ui="research-q08" @click="exportResearch">{{ tl('研究预览包（可复算）') }}</button><span v-if="grid" class="tiny muted">{{ tl('{0} ms', [ms.toFixed(0)]) }}</span></div>
     <p v-if="error" class="tiny err" role="alert">{{ error }}</p>
     <template v-if="grid">
       <div class="tiny">{{ tl('参照（Q08）：⟨x⟩ = {0}，σx = {1}', [grid.reference.x.toPrecision(10), grid.reference.sx.toPrecision(10)]) }}</div>

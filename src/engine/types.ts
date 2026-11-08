@@ -7,12 +7,14 @@ import type { Message } from '../i18n/message'
 
 /** Event functions (what fired). */
 export type EventType = 'contact' | 'liftoff' | 'leave' | 'slip' | 'stop' | 'slack' | 'taut' | 'switch' | 'pulley'
-  | 'limit' | 'unlimit' | 'mslip' | 'mlock' | 'rollStart' | 'rollStop' | 'zone'
+  | 'limit' | 'unlimit' | 'mslip' | 'mlock' | 'rollStart' | 'rollStop' | 'zone' | 'push'
 
 /** Kind of a state change reported at an event. */
 export type ChangeType =
   | 'impact' | 'touch' | 'separate' | 'stick' | 'slip' | 'reverse' | 'leave' | 'slack' | 'taut' | 'switch' | 'timestep' | 'pulley'
   | 'limit' | 'unlimit' | 'motorSlip' | 'motorLock' | 'rollStop' | 'rollStart' | 'zoneEnter' | 'zoneLeave'
+  // 26.60 r2 (D208): a spring that only pushes lets go of the body, or is pressed again
+  | 'springRelease' | 'springPress'
 
 /** One change at an event (see engine/velophi-core/src/simulation.rs `ChangeDetail`). */
 export interface ChangeDetail {

@@ -28,7 +28,7 @@ const formulaById = new Map(FORMULAS.map(f => [f.id, f] as [string, FormulaDef])
 const sharedById = new Map(SHARED_A.map(s => [s.id, s] as [string, SharedSteps]))
 
 /** Templates whose recordings contain the group-E situations. */
-const TEMPLATE_IDS = ['rail-force', 'rail-coast', 'rail-fall', 'floating-block', 'sinking-ball', 'rising-block', 'mass-spectrometer', 'cyclotron-dees', 'bounded-field', 'oscilloscope']
+const TEMPLATE_IDS = ['rail-force', 'rail-coast', 'rail-fall', 'floating-block', 'sinking-ball', 'rising-block', 'mass-spectrometer', 'cyclotron-dees', 'bounded-field', 'oscilloscope', 'vertical-loop', 'hump-bridge', 'arc-slide', 'dome-slide']
 /** The templates plus variants: a narrow field the charge crosses, a floating block that has settled. */
 const VARIANTS: Array<[string, Record<string, number>]> = [...TEMPLATE_IDS.map(id => [id, {}] as [string, Record<string, number>]), ['bounded-field', { D: 0.6 }], ['floating-block', { c: 40 }]]
 
@@ -105,8 +105,8 @@ function rng(seed: number): () => number {
 }
 
 describe('group-E derivations: coverage and card texts', () => {
-  it('there are 20 group-E formulas and each has exactly one derivation', () => {
-    expect(formulasA.length).toBe(20)
+  it('there are 31 group-E formulas and each has exactly one derivation', () => {
+    expect(formulasA.length).toBe(31)
     const seen = new Map<string, number>()
     for (const d of DERIVATIONS_A) seen.set(d.formula, (seen.get(d.formula) ?? 0) + 1)
     for (const f of formulasA) expect(seen.get(f.id), f.id).toBe(1)

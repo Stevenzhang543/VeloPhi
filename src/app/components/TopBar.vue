@@ -150,6 +150,7 @@ function goPage(p: Page) { state.page = p }
             <button role="menuitem" @click="act(() => { state.showProblems = true })"><Icon name="problem" />{{ tl('题目库…') }}</button>
             <button role="menuitem" @click="act(() => { state.showLearning = true })"><Icon name="graduation" />{{ tl('学习路径…') }}</button>
             <button role="menuitem" @click="act(() => { state.showModels = true })"><Icon name="layers" />{{ tl('模型目录…') }}</button>
+            <button role="menuitem" @click="act(() => { state.showCurriculum = true })"><Icon name="graduation" />{{ tl('课程对照…') }}</button>
             <div class="menu-title">{{ tl('教学') }}</div>
             <button role="menuitem" :disabled="!teachReady()" @click="act(() => { state.showFbd = true })"><Icon name="fbd" />{{ tl('受力分析图…') }}</button>
             <button role="menuitem" :disabled="!teachReady()" @click="act(() => { state.showTape = true })"><Icon name="tape" />{{ tl('打点计时器纸带…') }}</button>

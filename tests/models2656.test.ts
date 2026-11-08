@@ -57,10 +57,11 @@ describe('model registry', () => {
     expect(bad).toEqual([])
   })
 
-  it('covers the 180 model families of the blueprint (doc 02), in id order', () => {
+  it('covers the 180 model families of the blueprint (doc 02), in id order, then the 32 curriculum families K (26.62)', () => {
     const baseline = JSON.parse(readFileSync(new URL('./fixtures/coverage/baseline-26.55.json', import.meta.url), 'utf8')) as { models: Array<{ id: string }> }
-    expect(MODELS.length).toBe(180)
-    expect(MODELS.map(m => m.id)).toEqual(baseline.models.map(m => m.id))
+    expect(MODELS.length).toBe(212)
+    expect(MODELS.slice(0, 180).map(m => m.id)).toEqual(baseline.models.map(m => m.id))
+    expect(MODELS.slice(180).map(m => m.id)).toEqual(Array.from({ length: 32 }, (_, i) => `K${String(i + 1).padStart(2, '0')}`))
   })
 
   it('links point at existing templates, labs, problems, situations, topics and activities', () => {

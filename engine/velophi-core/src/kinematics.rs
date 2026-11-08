@@ -608,6 +608,8 @@ pub fn pair_features(model: &Model, xi: usize, yi: usize) -> Vec<ContactFeature>
     };
     let origin = Vec2::default();
     match (&x.shape, &y.shape) {
+        // 26.60 r2 (D209): two points without volume never touch
+        (ShapeModel::Circle { radius: rx }, ShapeModel::Circle { radius: ry }) if *rx + *ry <= 0.0 => {}
         (ShapeModel::Circle { radius: rx }, ShapeModel::Circle { radius: ry }) => {
             out.push(ContactFeature {
                 a: PointFeature { body: x.global, local: origin, radius: *rx, vertex: -1, piece: None, span: None },
@@ -615,13 +617,18 @@ pub fn pair_features(model: &Model, xi: usize, yi: usize) -> Vec<ContactFeature>
                 probe_key: probe_key(x, -1, y),
             });
         }
+        // 26.60 r2 (D209): a point without volume meets a polygon on its faces only (a corner has no width either)
         (ShapeModel::Circle { radius }, _) => {
             pf(&mut out, x, -1, origin, *radius, y);
-            pv(&mut out, x, origin, *radius, y);
+            if *radius > 0.0 {
+                pv(&mut out, x, origin, *radius, y);
+            }
         }
         (_, ShapeModel::Circle { radius }) => {
             pf(&mut out, y, -1, origin, *radius, x);
-            pv(&mut out, y, origin, *radius, x);
+            if *radius > 0.0 {
+                pv(&mut out, y, origin, *radius, x);
+            }
         }
         (ShapeModel::Polygon { verts: vx, .. }, ShapeModel::Polygon { verts: vy, .. }) => {
             for (i, v) in vx.iter().enumerate() {

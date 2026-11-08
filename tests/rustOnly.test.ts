@@ -19,13 +19,15 @@ const FIELD_TEMPLATES = ['charge-deflection', 'cyclotron', 'velocity-selector', 
 const MANY_BODY_TEMPLATES = ['pyramid', 'galton', 'dominoes', 'ball-pour']
 /** 26.59 fix 3 (D193): arc tracks are Rust-only shapes too (format 9). */
 const ARC_TEMPLATES = ['arc-slide', 'vertical-loop', 'hump-bridge', 'groove-momentum', 'hoop-disc']
+/** 26.61: springs that only push and point masses (26.60 r2) — not in the reference either. */
+const NEWER_TEMPLATES = ['spring-drop', 'spring-launcher', 'dome-slide']
 
 describe('scenes with charges or fields', () => {
   it('are exactly the field templates, and the reference comparisons skip them', () => {
     const fields = TEMPLATES.filter(t => usesFields(buildTemplate(t.id))).map(t => t.id)
     expect(fields).toEqual([...FIELD_TEMPLATES, ...MANY_BODY_TEMPLATES, ...ARC_TEMPLATES])
     const ref = referenceTemplates().map(t => t.id)
-    expect(ref).toEqual(TEMPLATES.map(t => t.id).filter(id => !FIELD_TEMPLATES.includes(id) && !MANY_BODY_TEMPLATES.includes(id) && !ARC_TEMPLATES.includes(id)))
+    expect(ref).toEqual(TEMPLATES.map(t => t.id).filter(id => !FIELD_TEMPLATES.includes(id) && !MANY_BODY_TEMPLATES.includes(id) && !ARC_TEMPLATES.includes(id) && !NEWER_TEMPLATES.includes(id)))
   })
 
   it('differ from what the reference computes (it ignores the electric and magnetic forces)', () => {
