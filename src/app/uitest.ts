@@ -5,6 +5,9 @@
  * exposed without the parameter; the hook carries no keys (it cannot read them).
  */
 import { state, documentScene, rewind } from './store'
+import { shell } from './layout'
+import { tally } from './tally'
+import { viewStatus } from './viewStatus'
 import { settings } from './settings'
 import { serializeScene } from '../core/scene/io'
 import { valuesAt } from '../engine/observe'
@@ -16,6 +19,8 @@ export function installUiTestHooks() {
   if (typeof location === 'undefined' || !/[?&]uitest=1\b/.test(location.search)) return
   ;(window as unknown as { __velophiTest: unknown }).__velophiTest = {
     state, settings, copilot,
+    // 26.63: the shell's own state (rail, dialogs), the class tally and the status bar's view of the canvas
+    shell, tally, viewStatus,
     sceneText: () => serializeScene(documentScene()),
     events: () => (state.recording && !state.stale ? state.recording.events.map(e => ({ t: e.t, triggers: e.triggers, changes: e.changes.map(c => c.type) })) : null),
     rewind,

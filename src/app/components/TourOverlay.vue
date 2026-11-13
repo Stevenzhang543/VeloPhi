@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
- * The 60-second tour (26.58, D138): five steps, each lighting up one part of the studio with a short note — tools,
- * canvas, timeline, analysis panel, run button. The interface itself shows how to start (PhET's implicit
+ * The 60-second tour (26.58, D138; 26.63: the navigation first): six steps, each lighting up one part of the app with
+ * a short note — navigation, tools, canvas, timeline, analysis panel, run button. The interface itself shows how to start (PhET's implicit
  * scaffolding: little text, then hands on). ←/→ or the buttons move, Escape ends it.
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
@@ -10,15 +10,16 @@ import { state } from '../store'
 import { phone } from '../layout'
 
 interface Step { sel: string; title: string; text: string }
-const STEPS = computed<Step[]>(() => [
-  { sel: phone.value ? '[data-ui="sheet-tools"]' : '[data-ui="tools"]', title: tl('1 / 5 · 工具'), text: tl('画布左侧的工具条：选一个工具，在画布上单击放置物体（物块、小球、斜面、绳、弹簧……），拖拽可拉出大小；“全部工具”里还有轨道、连接、力与场。') },
-  { sel: '.page-studio .view', title: tl('2 / 5 · 画布'), text: tl('拖动物体改位置，滚轮缩放，右键平移。运行后画面上的箭头、轨迹与读数都来自求解器。') },
-  { sel: phone.value ? '.ptime' : '[data-ui="timeline"]', title: tl('3 / 5 · 时间轴'), text: tl('空格播放 / 暂停，拖动时间轴到任意时刻；菱形是碰撞、开始滑动等事件。只要物体还在运动就会一直算下去。点“曲线”展开曲线与事件。') },
+const STEPS = computed<Step[]>(() => ([
+  { sel: phone.value ? '[data-ui="nav"]' : '.rail', title: tl('导航'), text: tl('左边是页面：首页、工作台、实验室、资源库（模板、题目、易错概念、手册）、课堂、监视；下面是搜索、帮助和设置。Alt+数字键直接切换。') },
+  { sel: phone.value ? '[data-ui="sheet-tools"]' : '[data-ui="tools"]', title: tl('工具'), text: tl('画布左侧的工具条：选一个工具，在画布上单击放置物体（物块、小球、斜面、绳、弹簧……），拖拽可拉出大小；“全部工具”里还有轨道、连接、力与场。') },
+  { sel: '.page-studio .view', title: tl('画布'), text: tl('拖动物体改位置，滚轮缩放，右键平移。运行后画面上的箭头、轨迹与读数都来自求解器。') },
+  { sel: phone.value ? '.ptime' : '[data-ui="timeline"]', title: tl('时间轴'), text: tl('空格播放 / 暂停，拖动时间轴到任意时刻；菱形是碰撞、开始滑动等事件。只要物体还在运动就会一直算下去。点“曲线”展开曲线与事件。') },
   phone.value
-    ? { sel: '.pnav', title: tl('4 / 5 · 底部标签栏'), text: tl('工具、属性、分析（公式、曲线、事件、题目）与 AI 都从底部打开，面板可以拖到三分之一、三分之二或全屏，向下拖关闭。中间的按钮运行或播放。') }
-    : { sel: '.sidebar', title: tl('4 / 5 · 侧栏'), text: tl('右侧一个侧栏，四页：属性、分析（公式与仿真并排对照、监视读数）、题目、AI（Copilot 讲题并生成仿真场景）。顶部的“搭建 / 仿真 / 分析”切换常用的布局。') },
-  { sel: '[data-ui="run"]', title: tl('5 / 5 · 运行'), text: tl('修改后自动重新计算；旁边的标记说明这次用的是精确求解器还是实时多体求解器。') }
-])
+    ? { sel: '.pnav', title: tl('底部标签栏'), text: tl('工具、属性、分析（公式、曲线、事件、题目）与 AI 都从底部打开，面板可以拖到三分之一、三分之二或全屏，向下拖关闭。中间的按钮运行或播放。') }
+    : { sel: '.sidebar', title: tl('侧栏'), text: tl('右侧一个侧栏，四页：属性、分析（公式与仿真并排对照、监视读数）、题目、AI（Copilot 讲题并生成仿真场景）。顶部的“搭建 / 仿真 / 分析”切换常用的布局。') },
+  { sel: phone.value ? '.pnav .main' : '[data-ui="run"]', title: tl('运行'), text: tl('修改后自动重新计算；旁边的标记说明这次用的是精确求解器还是实时多体求解器。') }
+] as Step[]).map((st, i, all) => ({ ...st, title: `${i + 1} / ${all.length} · ${st.title}` })))
 const step = computed(() => (state.tourStep !== null ? STEPS.value[state.tourStep] : null))
 const rect = ref<{ x: number; y: number; w: number; h: number } | null>(null)
 

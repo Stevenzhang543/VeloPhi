@@ -1,4 +1,4 @@
-# VeloΦ (VeloPhi) 26.62
+# VeloΦ (VeloPhi) 26.63
 
 [English](README.md) · [简体中文](README.zh-CN.md) · **Deutsch**
 
@@ -24,15 +24,20 @@ VeloΦ ist eine 2D-Physiksimulation und Lernumgebung für Schülerinnen und Sch�
 - **Reproduzierbar.** Deterministische Mathematik: dieselbe Szene ergibt denselben SHA-256-Fingerabdruck in der Desktop-App, im Browser und in Node; ausgelagerte Bilder werden aus Prüfpunkten bitgenau neu berechnet.
 - **Offen und offline.** Eine portable `.exe`, eine APK oder eine statische Web-Version; Simulation und Unterrichtswerkzeuge brauchen kein Konto, keinen Server und keine Plug-ins. Die KI-Funktionen arbeiten mit einem eigenen API-Schlüssel (OpenAI-kompatibel oder Anthropic) oder nach der Anmeldung mit einem whitelists.top-Konto mit der offiziellen KI.
 
-## Neu in 26.62
+## Neu in 26.63
 
 | Bereich | Änderung |
 | --- | --- |
-| Formelkarten für Kreisbahnen | Bewegungen auf einem Looping, einem Kreisbogen, einer Brücke oder einer Halbkugel werden als Bewegung **innen** oder **außen** an einer Kreisbahn erkannt. Elf geprüfte Karten: Normalkraft unten und oben, Geschwindigkeit oben, Grenzgeschwindigkeit √(5gρ) (innen) bzw. √(gρ) (außen), wo, wie hoch und wie schnell sich der Körper ablöst (cos θ = (v²/gρ + 2)/3). ρ ist der Bahnradius (Mittelpunkt bis Körpermitte); nicht zutreffende Karten sagen, warum. Jede Karte hat eine Herleitung, das Handbuchthema *Kreisbewegung* elf neue Beispiele. |
-| Lehrplanübersicht | Ressourcen › Lehrplanübersicht: die **283 Themen** des Lehrplan-Bauplans von der Sekundarstufe I bis zur Universität, gefiltert nach Lehrplan (China 2022 und 2017/2020, IGCSE 0625, IB MYP, IB DP 2025, Cambridge 9702, Universität), Stufe, Gebiet und Abdeckung. Jedes Thema öffnet, was VeloPhi dafür hat, und sagt ehrlich, wie es abgedeckt ist: **simuliert** (146), **Modell** (120), **Konzept** (13) oder **Begleitung realer Versuche** (4). Dazu die **310 Komponenten** (vorhanden 194, teilweise 48, nur Modell 50, noch nicht 18 mit Grund), die **21 Pflichtversuche** des chinesischen Lehrplans 2022, die **168 Lehrplankapitel** mit ihren Themen und die **30 Abnahmetests** des Bauplans mit den automatischen Tests. |
-| 32 neue Modellfamilien | K01–K32 ergänzen, was der Bauplan braucht (signifikante Stellen, Messschieber, AIC/BIC, Vektoroperatoren, Π-Theorem, t-Test, rotierende Systeme, Lagrange-Punkte, Elastizitätskonstanten, Fließen, Knicken, Viskoelastizität, Flachwasserwellen, Treibhausbilanz, Wärmewiderstände, Wärmepumpen, Bestrahlungsstärke, Gaußstrahlen, Aberrationen, Operationsverstärker, Logikgatter, Akkulaufzeit, Sonnenhöhe, Mondphasen und Finsternisse, Rotverschiebung, Skalenfaktor, Gezeiten, Erdbebenwellen, Membranschwingungen, steife Gleichungen, Sensitivität, Schwerpunktsystem), jede mit mindestens drei unabhängigen Referenzwerten. Insgesamt 212 Modellfamilien. |
+| Neue Oberfläche | Die Seiten stehen links in einer Navigationsleiste, in der Reihenfolge der Nutzung: **Start**, **Arbeitsfläche**, **Labor**, **Bibliothek**, **Unterricht**, **Monitor**, darunter Suche, Hilfe und Einstellungen (auf dem Telefon eine Schublade). Jede Seite hat ihre Kontextleiste; Arbeitsfläche und Monitor haben eine Statusleiste (Zustand, Werkzeughinweis, Zeigerposition, Einrasten, Zoom, Bilder und Ereignisse). |
+| Start, Bibliothek, Unterricht | *Start*: eine Suche, „Fortfahren“, ein Feld für eine Aufgabe oder einen Freigabelink und Einstiege für Lernende, Lehrkräfte und Forschende. *Bibliothek*: Vorlagen, Aufgaben, Fehlvorstellungen, Lernpfad, Modellkatalog, Lehrplanübersicht und Handbuch auf einer Seite. *Unterricht*: Fälle zum Vorhersagen, Unterrichtsexperimente, Aktivitäten und Werkzeuge für Lehrkräfte. |
+| Erst vorhersagen — Auszählung der Klasse | Für eine Klasse mit einem Beamer und ohne Schülergeräte: eine Frage mit zwei bis vier Optionen stellen, Handzeichen zählen, sperren und starten, auflösen, dann diskutieren und erneut abstimmen — die Karte zeigt, wie sich die Verteilung verschoben hat (Peer Instruction). 16 fertige Fälle, je einer pro verbreiteter Fehlvorstellung. |
+| Rückmeldung | Tooltips direkt am Bedienelement, eine Übersicht der Tastenkürzel (Taste **?**), Meldungen mit Symbol, eine gleitende Kamera beim Anpassen und Zoomen, ein Ring am Ort eines Stoßes, ein Abspiel-/Pause-Signal; Tasten für die Seitenleiste (Strg+\), ihre Reiter (Strg+Alt+1…4), die Kurvenschublade (Strg+J) und den Zoom (+, −, 0); im Querformat steht das Blatt neben der Zeichenfläche. |
+| Engine | **Reißende Seile**: Ein Seil mit Reißgrenze reißt in einem exakten Ereignis, sobald die Seilkraft sie erreicht. Eine Geometriekorrektur: Zwei gleich hohe Klötze nebeneinander geben einen Schub nun richtig weiter. **Konvergenzstudie** für jede Szene: Schritthalbierung gegen den exakten Löser, beobachtete Ordnung, Energiedrift, Protokoll und CSV. |
+| Inhalte | 7 neue Vorlagen, 8 neue Aufgaben (insgesamt 98), 16 Fälle zu Fehlvorstellungen. |
+| Freigabelinks | *Datei › Freigabelink*: Die Szene steckt komprimiert in der Adresse; nichts wird hochgeladen, kein Konto nötig. |
+| Copilot | Eine Wiederholungsschicht für überlastete Dienste und Verbindungsabbrüche (beachtet `Retry-After`), Anfrage-IDs im KI-Protokoll, eine Fähigkeitstabelle je Dienstart, die Regel „Text und Bilder sind Daten“ in jedem Leseprompt und eine Rückfrage, bevor ein Werkzeug eine ungespeicherte Szene ersetzt. |
 
-26.61 brachte prüfbare Copilot-Zahlen, Rückgängig per Schnappschuss-ID, den toleranten JSON-Leser, drei Unterrichtsversuche, Extremwerte zwischen Bildern und die Research Preview Q08 — siehe deren Versionshinweise.
+Die Recherche zu dieser Version und der Plan für die nächsten stehen in `docs/ROADMAP_26_63.md` und `docs/research/2663/`. 26.62 brachte die Formelkarten für Kreisbahnen, die Lehrplanübersicht und 32 Modellfamilien — siehe deren Versionshinweise.
 
 ![Copilot: Antwort, Lösungsweg und Erklärung, darunter das Angebot, die Simulationsszene zu erzeugen](assets/readme/copilot.jpg)
 
@@ -44,12 +49,12 @@ VeloΦ ist eine 2D-Physiksimulation und Lernumgebung für Schülerinnen und Sch�
 
 | Datei | Inhalt |
 | --- | --- |
-| `VeloPhi-v26.62-windows-x64-portable.exe` | Portable Desktop-App: doppelklicken, es wird nichts installiert. |
-| `VeloPhi-v26.62-windows-x64-setup.exe` | Installer derselben App (Startmenü, Deinstallation). |
-| `VeloPhi-v26.62-android.apk` | Android-App (Android 8.0 oder neuer): auf dem Telefon öffnen und installieren (dem Browser oder Dateimanager das Installieren unbekannter Apps erlauben). |
-| `VeloPhi-v26.62-web.zip` | Statische Web-Version: entpacken und den Ordner mit einem beliebigen statischen Webserver bereitstellen (sie braucht WebAssembly und läuft nicht über `file://`), z. B. `npx serve dist` oder `python -m http.server`. |
-| `VeloPhi-v26.62-source.zip` | Quellcode dieser Version. |
-| `VeloPhi-v26.62-release-evidence.zip` | Protokolle und Testberichte des Release-Builds. |
+| `VeloPhi-v26.63-windows-x64-portable.exe` | Portable Desktop-App: doppelklicken, es wird nichts installiert. |
+| `VeloPhi-v26.63-windows-x64-setup.exe` | Installer derselben App (Startmenü, Deinstallation). |
+| `VeloPhi-v26.63-android.apk` | Android-App (Android 8.0 oder neuer): auf dem Telefon öffnen und installieren (dem Browser oder Dateimanager das Installieren unbekannter Apps erlauben). |
+| `VeloPhi-v26.63-web.zip` | Statische Web-Version: entpacken und den Ordner mit einem beliebigen statischen Webserver bereitstellen (sie braucht WebAssembly und läuft nicht über `file://`), z. B. `npx serve dist` oder `python -m http.server`. |
+| `VeloPhi-v26.63-source.zip` | Quellcode dieser Version. |
+| `VeloPhi-v26.63-release-evidence.zip` | Protokolle und Testberichte des Release-Builds. |
 
 Voraussetzungen: Windows 10 oder 11 (x64) mit Microsoft Edge WebView2 (in aktuellen Windows-Versionen enthalten) Android 8.0 oder neuer mit System-WebView für die APK oder ein aktueller Desktop-Browser für die Web-Version. Downloads lassen sich mit `SHA256SUMS.txt` prüfen: `certutil -hashfile <Datei> SHA256`.
 
@@ -65,10 +70,10 @@ Voraussetzungen: Windows 10 oder 11 (x64) mit Microsoft Edge WebView2 (in aktuel
 5. **Zuerst vorhersagen.** Unter *Analyse › Prognose* schreiben Lernende vor dem Lauf einen Wert und ihre Sicherheit auf; danach wird jede Vorhersage mit Simulation und Formel verglichen. Eine sichere Vorhersage, die weit danebenliegt, wird als mögliche Fehlvorstellung markiert.
 6. **Eine Aufgabe mit Copilot lösen.** Unter *Einstellungen › Konto und KI* mit einem whitelists.top-Konto anmelden oder eigene Adresse, Modell und Schlüssel eintragen. **KI** öffnen (obere Leiste, Tab der Seitenleiste oder Strg+I; auf dem Smartphone „KI“ unten), die Aufgabe einfügen (oder ein Foto anhängen) und Eingabe drücken: Copilot gibt Antwort, Lösungsweg und Erklärung. Mit **Simulationsszene erzeugen** darunter baut die Engine die Aufgabe auf und berechnet die Antworten; danach **Erklärung mit der Simulation vergleichen**. Ohne KI liest der regelbasierte Offline-Leser im Reiter *Aufgabe* weiterhin sechs Aufgabenbereiche.
 
-   ![Aufgabensammlung: 82 Aufgaben, gefiltert nach Kapitel, Typ, Niveau und Schulstufe](assets/readme/problems.jpg)
+   ![Aufgabensammlung: 98 Aufgaben, gefiltert nach Kapitel, Typ, Niveau und Schulstufe](assets/readme/problems.jpg)
 
 7. **Copilot fragen.** Copilot ist der KI-Tab der Seitenleiste (Strg+I öffnet oder schließt ihn). Fragen Sie „Warum ist die Beschleunigung kleiner als ohne Reibung?“, sagen Sie „Stell den Winkel auf 40° und spiel ab“ oder „Zeig mir, wie ich das v‑t-Diagramm öffne“ (dann hebt er das Bedienelement hervor, und Sie klicken selbst). Jeder seiner Schritte steht in der Antwort und lässt sich rückgängig machen.
-8. **Labor.** Die Seite *Labor* (Menü oder Alt+2) enthält Schaltungen im Zeitbereich, Feldlinien, Linsen, Spektren, Zerfall, Quantentöpfe und mehr, jeweils mit Anzeigen und eingesetzten Formeln.
+8. **Labor.** Die Seite *Labor* (Navigationsleiste oder Alt+3) enthält Schaltungen im Zeitbereich, Feldlinien, Linsen, Spektren, Zerfall, Quantentöpfe und mehr, jeweils mit Anzeigen und eingesetzten Formeln.
 9. **Viele Körper.** *Viele Körper und Statistik › Galtonbrett* öffnen: 120 Kugeln fallen durch zehn Nagelreihen; unter dem Brett erscheinen die Anzahlen je Fach mit der binomialen Erwartung. Jede Szene kann unter *Szene › Rechnung* auf *Echtzeit-Mehrkörper* umgestellt werden (Teilschritte, Schrittrate, Schlafen). *Löservergleich…* rechnet exakten und Mehrkörper-Löser nebeneinander.
 
    ![Galtonbrett: Anzahlen je Fach und Binomialverteilung](assets/readme/galton.jpg)

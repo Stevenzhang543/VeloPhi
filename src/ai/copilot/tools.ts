@@ -19,9 +19,11 @@ import { tryEval } from '../../app/models/run'
 import { LABS } from '../../app/lab/catalog'
 import { openLab } from '../../app/learn/actions'
 import { TOPICS } from '../../handbook/topics'
+import { shell } from '../../app/layout'
+import { tally } from '../../app/tally'
 import { openHandbook } from '../../app/handbook'
 import { currentResults, taskUi } from '../../app/task/taskState'
-import { DOMAINS, targetSpec } from '../../task/vocab'
+import { targetSpec } from '../../task/vocab'
 import { listQuantities, canonicalQuantityId } from '../../engine/observe'
 import { currentTemplate, applyTemplateParams } from '../../app/templateParams'
 import { importProblem } from '../import/pipeline'
@@ -52,6 +54,11 @@ export interface Tool {
   label: (args: Record<string, unknown>) => string
   /** Argument checks that run before the user is asked (a wrong call is never put to the user). */
   check?: (args: Record<string, unknown>) => void
+  /**
+   * 26.63 (D238): asked first even in the "act" mode when this returns a reason — a change that throws away work the
+   * user has not saved (replacing a scene with unsaved changes). Undo still works afterwards.
+   */
+  confirmIf?: (args: Record<string, unknown>) => string | null
   run: (args: Record<string, unknown>) => Promise<unknown> | unknown
 }
 
@@ -224,7 +231,10 @@ export async function readForces(bodyId: string, when: { t?: number; event?: str
   return { body: bodyId, at: when.event ? `${when.side ?? 'before'} ${when.event}` : `t = ${round(when.t ?? state.time, 4)} s`, forces, note: 'computed by the engine from the scene (contacts, ropes, springs, fields); a contact force of 0 means no contact at that moment', evidence: evidence(rec) }
 }
 
-const SHOW_TARGETS = ['studio', 'lab', 'monitor', 'settings', 'settings-ai', 'task', 'problem', 'formulas', 'watch', 'predict', 'inspector', 'scene-settings', 'curves', 'events', 'templates', 'problems', 'models', 'learning', 'fbd', 'handbook'] as const
+const SHOW_TARGETS = ['home', 'studio', 'lab', 'library', 'classroom', 'monitor', 'settings', 'settings-ai', 'task', 'problem', 'formulas', 'watch', 'predict', 'inspector', 'scene-settings', 'curves', 'events', 'templates', 'problems', 'models', 'learning', 'fbd', 'handbook', 'cases', 'convergence', 'share', 'tally', 'shortcuts'] as const
+
+/** 26.63 (D238): replacing the scene while it has unsaved changes is asked first, whatever the Copilot mode. */
+const unsavedWork = (): string | null => (state.dirty ? tl('当前场景有未保存的修改，这一步会替换它（之后仍可撤销）。') : null)
 
 export const TOOLS: Tool[] = [
   {
@@ -284,7 +294,7 @@ export const TOOLS: Tool[] = [
     run: a => BUILTIN_PROBLEMS.filter(p => (!a.chapter || p.chapter === a.chapter) && (!a.type || META[p.id]?.types.includes(str(a.type))) && (!a.level || META[p.id]?.level === a.level)).slice(0, 40).map(p => ({ id: p.id, title: ptext(p.title, lang()), chapter: p.chapter, types: META[p.id]?.types ?? [], level: META[p.id]?.level ?? '' }))
   },
   {
-    name: 'open_example', level: 'change', label: a => tl('打开例题 {0}', [ptext(builtinById(str(a.id))?.title ?? str(a.id), lang())]),
+    name: 'open_example', level: 'change', confirmIf: unsavedWork, label: a => tl('打开例题 {0}', [ptext(builtinById(str(a.id))?.title ?? str(a.id), lang())]),
     description: 'Open a built-in example (problem mode) by id, optionally with other parameter values (template parameter keys, display units).',
     parameters: obj({ id: S('example id from search_catalog or list_examples'), params: { type: 'object', description: 'optional parameter values by key', additionalProperties: { type: 'number' } } }, ['id']),
     check: a => {
@@ -302,7 +312,7 @@ export const TOOLS: Tool[] = [
     }
   },
   {
-    name: 'open_my_problem', level: 'change', label: () => tl('打开我的题目'),
+    name: 'open_my_problem', level: 'change', confirmIf: unsavedWork, label: () => tl('打开我的题目'),
     description: 'Open a problem the user saved ("my problems") by id (from search_catalog kind my).',
     parameters: obj({ id: S('saved problem id') }, ['id']),
     run: async a => {
@@ -314,7 +324,7 @@ export const TOOLS: Tool[] = [
     }
   },
   {
-    name: 'load_template', level: 'change', label: a => tl('载入模板 {0}', [templateById(str(a.id))?.name ?? str(a.id)]),
+    name: 'load_template', level: 'change', confirmIf: unsavedWork, label: a => tl('载入模板 {0}', [templateById(str(a.id))?.name ?? str(a.id)]),
     description: 'Load a simulation template into the studio, optionally with parameter values (keys and display units of the template). Replaces the current scene.',
     parameters: obj({ id: S('template id'), params: { type: 'object', description: 'parameter values by key', additionalProperties: { type: 'number' } } }, ['id']),
     check: a => {
@@ -455,7 +465,13 @@ export const TOOLS: Tool[] = [
       const t = str(a.target)
       const studio = () => { state.page = 'studio' }
       switch (t) {
-        case 'studio': case 'lab': case 'monitor': case 'settings': state.page = t; break
+        case 'home': case 'studio': case 'lab': case 'library': case 'classroom': case 'monitor': case 'settings': state.page = t; break
+        // 26.63 (D233–D237)
+        case 'cases': state.librarySection = 'cases'; state.page = 'library'; break
+        case 'convergence': studio(); shell.convergence = true; break
+        case 'share': studio(); shell.share = true; break
+        case 'tally': studio(); tally.open = true; break
+        case 'shortcuts': shell.shortcuts = true; break
         case 'settings-ai': state.page = 'settings'; state.settingsSection = 'ai'; break
         case 'task': studio(); state.rightTab = 'task'; break
         case 'problem': if (!state.problem) throw new ToolError('no problem is open'); studio(); state.rightTab = 'problem'; break
@@ -576,7 +592,7 @@ export const TOOLS: Tool[] = [
     }
   },
   {
-    name: 'build_scene', level: 'change', label: a => tl('搭建场景 {0}', [str((a.scene as { name?: string } | undefined)?.name) || '']),
+    name: 'build_scene', level: 'change', confirmIf: unsavedWork, label: a => tl('搭建场景 {0}', [str((a.scene as { name?: string } | undefined)?.name) || '']),
     description: `Build a new scene when no template fits (replaces the current scene). SI units, x right, y up. scene = { name, gravity (m/s², default 9.8), duration (s),
 surfaces: [{type:"ground", id, top, left, right, muS, muK} | {type:"incline", id, angleDeg, base, x0, y0, mu} | {type:"wall", id, x, bottom, top} | {type:"arc", id, center:[x,y], radius (the running surface), startDeg, sweepDeg (0° right, 90° up; quarter track: 180, 90; vertical loop: 0, 360), side:"inside"|"outside" (hump), mu}],
 bodies: [{id, name, shape:"box"|"ball"|"rod"|"cylinder"|"groove"|"hoop", width, height, radius, length, thickness, startDeg, sweepDeg, mass, position:[x,y] (groove: its circle's centre) or on:{surface, s (m from the top of an incline) | x | angleDeg (on an arc track)}, velocity:[vx,vy], mu, restitution, charge (C), fixedRotation}],
@@ -615,6 +631,3 @@ export function toolDefs(): ToolDef[] {
 }
 
 export function toolByName(name: string): Tool | undefined { return TOOLS.find(t => t.name === name) }
-
-/** Domains the task solver knows (for the prompt). */
-export const TASK_DOMAINS = Object.keys(DOMAINS)

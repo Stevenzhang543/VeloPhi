@@ -16,9 +16,6 @@ export type LodLevel = 'frame' | 'block' | 'chunk'
 /** Blocks per chunk of the middle level. */
 export const BLOCKS_PER_CHUNK = 20
 
-/** Frames per chunk of a recording. */
-export function chunkFramesOf(rec: Recording): number { return rec.chunkFrames }
-
 /** What `chartEnvelope` computes. */
 export interface EnvelopeRequest {
   /** Quantity ids. */

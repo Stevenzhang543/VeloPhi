@@ -10,6 +10,7 @@
  * on demand (src/curriculum/index.ts).
  */
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { foldSearch } from '../searchText'
 import { dialogKeys } from '../focusTrap'
 import { tl, activeLang } from '../../i18n'
 import { state } from '../store'
@@ -39,7 +40,8 @@ const level = ref('')
 const domain = ref('')
 const coverage = ref<'' | Coverage>('')
 const topicId = ref<string | null>(state.curriculumTopic)
-const norm = (s: string) => s.toLowerCase().replace(/\s+/g, '')
+// 26.63 (D239): the app's one search folding (full-width forms, dashes, case, spaces)
+const norm = foldSearch
 const topics = computed<Topic[]>(() => {
   const c = cur.value
   if (!c) return []

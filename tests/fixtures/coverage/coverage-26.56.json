@@ -1,5 +1,5 @@
 {
- "version": "26.61",
+ "version": "26.63",
  "generated": "scripts/coverage.mjs",
  "baseline": {
   "version": "26.55",
@@ -1627,7 +1627,9 @@
    "links": {
     "templates": [
      "incline-friction",
-     "pull-force"
+     "pull-force",
+     "ramp-pull",
+     "two-blocks-push"
     ],
     "labs": [],
     "problems": [
@@ -1698,6 +1700,8 @@
    "links": {
     "templates": [
      "free-fall",
+     "drop-vs-throw",
+     "fall-two-masses",
      "ball-into-water",
      "bouncing-ball"
     ],
@@ -1769,6 +1773,9 @@
    "links": {
     "templates": [
      "projectile",
+     "rope-break-pendulum",
+     "drop-vs-throw",
+     "monkey-hunter",
      "charge-deflection",
      "oscilloscope",
      "projectile-slope",
@@ -2059,7 +2066,8 @@
      "pyramid",
      "ball-pour",
      "table-pulley",
-     "pull-force"
+     "pull-force",
+     "ramp-pull"
     ],
     "labs": [],
     "problems": [
@@ -2137,6 +2145,7 @@
    "links": {
     "templates": [
      "pull-force",
+     "two-blocks-push",
      "incline-efficiency",
      "slope-up",
      "arc-slide",
@@ -3191,6 +3200,7 @@
     "templates": [
      "vertical-circle-rope",
      "uniform-circle",
+     "rope-break-circle",
      "arc-slide",
      "vertical-loop",
      "hump-bridge",
@@ -3265,7 +3275,9 @@
    "links": {
     "templates": [
      "vertical-circle-rod",
-     "uniform-circle"
+     "uniform-circle",
+     "rope-break-pendulum",
+     "rope-break-circle"
     ],
     "labs": [],
     "problems": [
@@ -3474,6 +3486,7 @@
    "links": {
     "templates": [
      "drag-fall",
+     "fall-two-masses",
      "charged-drop",
      "sinking-ball",
      "ball-into-water"

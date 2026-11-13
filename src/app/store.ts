@@ -55,7 +55,14 @@ export type Tool =
 export type Selection = { kind: 'body' | 'connector' | 'pulley'; id: string } | null
 
 /** Top-level page. */
-export type Page = 'studio' | 'lab' | 'monitor' | 'settings'
+/**
+ * Top-level pages (26.63, D232): home (start: search, roles, continue), the studio, the lab, the library (templates,
+ * problems, misconception cases, models, curriculum, handbook), the classroom (lessons, activities, teacher tools),
+ * render & monitor, and the settings.
+ */
+export type Page = 'home' | 'studio' | 'lab' | 'library' | 'classroom' | 'monitor' | 'settings'
+/** Sections of the library page. */
+export type LibrarySection = 'templates' | 'problems' | 'cases' | 'models' | 'curriculum' | 'path' | 'handbook'
 
 /** The run in flight or last run, for the timeline and the solver-information panel (decision D26). */
 export interface RunInfo {
@@ -152,8 +159,10 @@ export interface AppState {
   digits: number
   /** Quantity ids plotted in the chart panel. */
   chart: string[]
-  /** Top-level page: the studio (build and analyse), the render & monitor page, or the settings page. */
+  /** Top-level page (see `Page`). */
   page: Page
+  /** Section of the library page shown (26.63). */
+  librarySection: LibrarySection
   rightTab: 'inspect' | 'formula' | 'watch' | 'predict' | 'settings' | 'problem' | 'task'
   bottomTab: 'chart' | 'events'
   /** Effective theme (settings.themeMode resolved against the system appearance); read by the renderer. */
@@ -208,6 +217,10 @@ export interface AppState {
   formulaPick: { body: string; force: ForceKind | null } | null
   /** Time to show as soon as the recording reaches it (an example opened from the handbook). */
   pendingSeek: number | null
+  /** 26.63 (D236): start playing as soon as the scene has a result (a share link asked for it). */
+  pendingPlay: boolean
+  /** 26.63 (D232): text handed to Copilot's input from another page (the home page's paste box); taken once. */
+  copilotDraft: string
   /** 26.51 branches (D52): the branch shown (null: the main scene). */
   branch: string | null
   /** The main scene (with its `branches`) while a branch is shown in `scene`; null on the main scene. */
@@ -251,6 +264,7 @@ export const state = reactive<AppState>({
   set digits(v: number) { settings.digits = Math.round(Math.min(12, Math.max(3, v))) },
   chart: [],
   page: 'studio',
+  librarySection: 'templates',
   rightTab: 'formula',
   bottomTab: 'chart',
   theme: 'light',
@@ -288,7 +302,9 @@ export const state = reactive<AppState>({
   formulaSituation: null,
   formulaHighlight: null,
   formulaPick: null,
-  pendingSeek: null
+  pendingSeek: null,
+  pendingPlay: false,
+  copilotDraft: ''
 }) as AppState
 
 // ---- Editing ----
@@ -372,6 +388,8 @@ export function loadScene(scene: Scene, name: string | null, path: string | null
   state.chart = defaultChart(scene)
   state.fitPending = true
   state.cameraRequest++
+  // 26.63 (D232): a scene opened from the home, library or classroom page is shown in the studio
+  if (state.page === 'home' || state.page === 'library' || state.page === 'classroom') state.page = 'studio'
   markStale()
   runSimulation()
 }
@@ -496,6 +514,8 @@ function acceptRecording(rec: Recording, first: boolean, freshScene: boolean, ke
     state.pendingSeek = null
     setFrame(Math.min(last, Math.max(0, Math.round(ts / rec.dt))))
   }
+  // 26.63 (D236): a share link that asked to play
+  if (state.pendingPlay && first) { state.pendingPlay = false; queueMicrotask(() => play()) }
 }
 
 let recognitionTimer: ReturnType<typeof setTimeout> | null = null
@@ -668,11 +688,6 @@ function updateRunInfo(st: RunStats) {
   r.paused = st.paused
   r.fingerprint = st.fingerprint
   if (r.unbounded) r.tTarget = Math.max(r.tTarget, st.tComputed)
-}
-
-/** Playback time (s); 0 without a recording. */
-export function currentTime(): number {
-  return state.recording ? state.time : 0
 }
 
 /** Show a short message (errors stay longer). */

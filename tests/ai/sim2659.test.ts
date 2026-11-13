@@ -6,6 +6,7 @@
  * at most twice) loads it as a problem, build_scene from a request, and the comparison with the engine's answers.
  */
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
+import { DATA_RULE } from '../../src/ai/import/prompts'
 import type { Scene } from '../../src/core/scene/types'
 import { buildTemplate } from '../../src/templates'
 
@@ -216,7 +217,7 @@ describe('the Copilot (26.60, D204)', () => {
     // The user chooses to build it: a JSON-only request with the problem and the explanation
     await buildFromAnswer(answer)
     expect(seen).toHaveLength(2)
-    expect(String(seen[1].messages[0].content)).toBe(builderSystem())
+    expect(String(seen[1].messages[0].content)).toBe(builderSystem() + DATA_RULE)
     expect(seen[1].tools).toBeUndefined()
     const ask = String(seen[1].messages[1].content)
     expect(ask).toContain(PROBLEM)

@@ -16,6 +16,7 @@ import type { ForceKind, Palette } from '../render/renderer'
 import { DARK, LIGHT, forceColor, forceLabel } from '../render/renderer'
 import { FONT } from '../render/style'
 import { formatSig } from '../units/units'
+import { escapeHtml } from '../core/text'
 
 /** One force of the diagram (world coordinates, N). */
 export interface FbdForce {
@@ -90,7 +91,7 @@ export function fbdSymbol(f: Pick<FbdForce, 'label' | 'sub'>): string { return f
 /** |F| with its unit. */
 export function fbdMagnitude(fx: number, fy: number, digits: number): string { return `${formatSig(Math.hypot(fx, fy), digits)} N` }
 
-const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+const esc = escapeHtml
 const n2 = (v: number) => (Math.round(v * 100) / 100).toString()
 
 interface Box { x0: number; y0: number; x1: number; y1: number }

@@ -7,7 +7,7 @@ import type { Message } from '../i18n/message'
 
 /** Event functions (what fired). */
 export type EventType = 'contact' | 'liftoff' | 'leave' | 'slip' | 'stop' | 'slack' | 'taut' | 'switch' | 'pulley'
-  | 'limit' | 'unlimit' | 'mslip' | 'mlock' | 'rollStart' | 'rollStop' | 'zone' | 'push'
+  | 'limit' | 'unlimit' | 'mslip' | 'mlock' | 'rollStart' | 'rollStop' | 'zone' | 'push' | 'break'
 
 /** Kind of a state change reported at an event. */
 export type ChangeType =
@@ -15,6 +15,8 @@ export type ChangeType =
   | 'limit' | 'unlimit' | 'motorSlip' | 'motorLock' | 'rollStop' | 'rollStart' | 'zoneEnter' | 'zoneLeave'
   // 26.60 r2 (D208): a spring that only pushes lets go of the body, or is pressed again
   | 'springRelease' | 'springPress'
+  // 26.63 (D231): a rope breaks at its tension limit
+  | 'break'
 
 /** One change at an event (see engine/velophi-core/src/simulation.rs `ChangeDetail`). */
 export interface ChangeDetail {

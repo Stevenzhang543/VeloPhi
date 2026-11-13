@@ -4,8 +4,9 @@
  * answer can inject markup: only KaTeX output and the few tags made here reach the page.
  */
 import katex from 'katex'
+import { escapeHtml } from '../../core/text'
 
-const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+const esc = escapeHtml
 
 function math(tex: string, display: boolean): string {
   try { return katex.renderToString(tex, { displayMode: display, throwOnError: false, strict: 'ignore', output: 'html', trust: false }) } catch { return `<code>${esc(tex)}</code>` }

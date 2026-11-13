@@ -26,6 +26,7 @@ import { loadMyProblems } from '../teaching/myProblems'
 import { isAndroid } from '../platform/device'
 import { useSystemFonts } from '../render/style'
 import { installUiTestHooks } from './uitest'
+import { installTooltips } from './tooltip'
 
 // 26.60 r2: Android uses the system's fonts (the diagnosis switch "appfont" keeps the bundled ones)
 if (isAndroid() && !((window as unknown as { __velophiCompat?: string }).__velophiCompat ?? '').split(',').includes('appfont')) {
@@ -78,8 +79,14 @@ async function start() {
   if (compatFlags().includes('nowelcome')) settings.ui.welcomed = true
   state.scene = buildTemplate('incline')
   state.chart = defaultChart(state.scene)
+  // 26.63 (D232): the home page at start (a setting); tests, the release self-check and share links start in the studio
+  const direct = /[?&](uitest|selftest)\b/.test(location.search) || location.hash.startsWith('#s=') || compatFlags().length > 0
+  state.page = !direct && settings.ui.startPage === 'home' ? 'home' : 'studio'
   createApp(App).mount('#app')
+  installTooltips()
   installUiTestHooks()
+  // 26.63 (D236): a share link in the address opens its scene
+  void import('./shareOpen').then(m => m.openShareFromAddress()).catch(() => {})
   // 26.60 r2: Android — take the interface out of layout while the screen turns (rotateGuard.ts)
   void import('./rotateGuard').then(m => m.initRotateGuard()).catch(() => {})
   runSimulation()

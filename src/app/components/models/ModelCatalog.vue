@@ -8,6 +8,7 @@
  * Mounted by App.vue while `state.showModels` is true; `state.modelId` picks the model.
  */
 import { PACKAGES, packageOf } from '../../../content/packages'
+import { foldSearch } from '../../searchText'
 import { computed, onMounted, ref } from 'vue'
 import { dialogKeys } from '../../focusTrap'
 import { tl } from '../../../i18n'
@@ -26,7 +27,8 @@ const level = ref<'' | `${Level}`>('')
 const status = ref<'' | Status>('')
 /** 26.57 (D122): only the families with a teaching package; a search also finds a package by its goal words (T26). */
 const pkgOnly = ref(false)
-const norm = (s: string) => s.toLowerCase().replace(/\s+/g, '')
+// 26.63 (D239): the app's one search folding (full-width forms, dashes, case, spaces)
+const norm = foldSearch
 const list = computed(() => {
   const w = norm(q.value)
   return MODELS.filter(m =>

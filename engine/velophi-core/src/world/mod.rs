@@ -448,6 +448,7 @@ fn kind_code(k: EqualityKind) -> u64 {
 #[allow(clippy::too_many_arguments)]
 fn build_rows(
     model: &Model,
+    x: &[f64],
     poses: &[Pose],
     h: f64,
     island: &[f64],
@@ -475,6 +476,10 @@ fn build_rows(
         }
     }
     for (k, r) in model.ropes.iter().enumerate() {
+        // 26.63 (D231): a broken rope has no row
+        if model.rope_broken(x, k) {
+            continue;
+        }
         let (kin, _) = rope_kin(model, poses, r);
         push((2u64 << 52) | k as u64, kin.j, kin.value, JKind::Uni, 0.0, 0.0);
     }
@@ -1039,7 +1044,7 @@ pub fn soft_step(sys: &System, x: &mut [f64], dt: f64, run: &mut SoftRun) -> Sim
         }
         if has_rows {
             let old = std::mem::take(&mut sc.rows);
-            build_rows(model, &sc.poses, h, &st.island, &mut sc.eqs, &old, &st.joints, &mut sc.rows);
+            build_rows(model, x, &sc.poses, h, &st.island, &mut sc.eqs, &old, &st.joints, &mut sc.rows);
             for r in &sc.rows {
                 if r.awake && r.lambda != 0.0 {
                     add_row(model, &mut sc.v, &r.j, r.lambda);
@@ -1072,7 +1077,7 @@ pub fn soft_step(sys: &System, x: &mut [f64], dt: f64, run: &mut SoftRun) -> Sim
             x[3 * n..6 * n].copy_from_slice(&sc.v);
             compute_poses_into(model, x, &mut sc.poses);
             let old = std::mem::take(&mut sc.rows);
-            build_rows(model, &sc.poses, h, &st.island, &mut sc.eqs, &old, &st.joints, &mut sc.rows);
+            build_rows(model, x, &sc.poses, h, &st.island, &mut sc.eqs, &old, &st.joints, &mut sc.rows);
             solve_rows(model, &mut sc.rows, &mut sc.v, js, h, false);
             for r in &sc.rows {
                 if r.kind == JKind::Drive {
@@ -1108,6 +1113,21 @@ pub fn soft_step(sys: &System, x: &mut [f64], dt: f64, run: &mut SoftRun) -> Sim
     st.joints.clear();
     for r in &sc.rows {
         st.joints.push((r.key, r.lambda));
+    }
+    // 26.63 (D231): a rope whose tension over the last sub-step (impulse / h) exceeds its limit is broken from the
+    // next step on (time stepping has no event at the limit)
+    if let Some(base) = model.break_base {
+        for r in &sc.rows {
+            if r.key >> 52 != 2 {
+                continue;
+            }
+            let k = (r.key & ((1u64 << 52) - 1)) as usize;
+            if let Some(j) = model.ropes.get(k).and_then(|rp| rp.break_index) {
+                if r.lambda / h > model.ropes[k].max_tension {
+                    x[base + j] = 1.0;
+                }
+            }
+        }
     }
 
     // ---- islands and sleep ----

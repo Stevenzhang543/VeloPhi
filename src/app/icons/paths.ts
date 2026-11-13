@@ -2,6 +2,24 @@
 
 /** SVG path data by icon name. */
 export const UI_ICONS: Record<string, string> = {
+  // 26.63 (D232): navigation rail, home, library and classroom
+  home: 'M4 11l8-7 8 7M6 10v9h4v-5h4v5h4v-9',
+  library: 'M5 4v16M9 4v16M13 5l5 14M3 20h18',
+  classroom: 'M3 5h18v11H3zM12 16v4M8 20h8M7 12l3-3 3 2 4-4',
+  help: 'M12 21a9 9 0 100-18 9 9 0 000 18zM9.5 9.5a2.5 2.5 0 114 2c-.9.6-1.5 1.1-1.5 2.3M12 17v.2',
+  users: 'M9 11a3 3 0 100-6 3 3 0 000 6zM3 19c.5-3 2.8-5 6-5s5.5 2 6 5M16 5.5a3 3 0 010 5.6M18 14.5c1.7.7 2.7 2.2 3 4.5',
+  target: 'M12 21a9 9 0 100-18 9 9 0 000 18zM12 16a4 4 0 100-8 4 4 0 000 8zM12 12v.1',
+  converge: 'M4 5l6 6M4 19l6-6M10 12h10M17 9l3 3-3 3',
+  zoomIn: 'M11 18a7 7 0 100-14 7 7 0 000 14zM20 20l-4-4M11 8v6M8 11h6',
+  zoomOut: 'M11 18a7 7 0 100-14 7 7 0 000 14zM20 20l-4-4M8 11h6',
+  alert: 'M12 4l9 16H3zM12 10v5M12 17.5v.2',
+  okCircle: 'M12 21a9 9 0 100-18 9 9 0 000 18zM8 12l3 3 5-6',
+  arrowRight: 'M5 12h14M13 6l6 6-6 6',
+  star: 'M12 4l2.5 5.2 5.5.8-4 4 1 5.6L12 17l-5 2.6 1-5.6-4-4 5.5-.8z',
+  share: 'M16 8a2.5 2.5 0 100-5 2.5 2.5 0 000 5zM6 14.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5zM16 21a2.5 2.5 0 100-5 2.5 2.5 0 000 5zM8.2 11l5.6-3.5M8.2 13l5.6 3.5',
+  bolt: 'M13 3L5 13h6l-1 8 8-10h-6z',
+  tally: 'M5 5v14M9 5v14M13 5v14M17 5v14M3 15l16-6',
+  research: 'M9 3h6M10 3v6l-5 9a2 2 0 002 3h10a2 2 0 002-3l-5-9V3M8 15h8',
   play: 'M7 5l12 7-12 7z',
   pause: 'M8 5v14M16 5v14',
   stepf: 'M6 5l9 7-9 7zM18 5v14',

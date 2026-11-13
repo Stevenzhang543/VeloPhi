@@ -16,7 +16,7 @@ import { checkBuild, checkRoute, extrasOf, readableQuantities } from './contract
 import type { Build, EquationsBuild, RouteAnswer } from './contract'
 import { compileSceneSpec } from './sceneSpec'
 import { alignAngles } from './angles'
-import { ROUTE_SYSTEM, TRANSCRIBE_SYSTEM, TRANSCRIBE_USER, buildSystem, buildUser, repairUser, routeUser, unreadableUser, verdictUser } from './prompts'
+import { DATA_RULE, ROUTE_SYSTEM, TRANSCRIBE_SYSTEM, TRANSCRIBE_USER, buildSystem, buildUser, repairUser, routeUser, unreadableUser, verdictUser } from './prompts'
 import type { Problem } from '../../teaching/problems'
 import { openProblem, reveal } from '../../app/problemMode'
 import { state } from '../../app/store'
@@ -94,7 +94,7 @@ export function cancelImport() { controller?.abort() }
 export async function transcribeImage(image: string, text: string, signal?: AbortSignal): Promise<{ transcript: string; tokens: number }> {
   if (!aiVision()) throw new AiError('vision', tl('当前 AI 模型不支持图片，请输入文字题目（或在设置中换用支持图片的模型）'))
   const content: ContentPart[] = [{ type: 'text', text: `${TRANSCRIBE_USER}${typedWithPhoto(text.trim())}` }, { type: 'image_url', image_url: { url: image } }]
-  const r = await chat({ messages: [{ role: 'system', content: TRANSCRIBE_SYSTEM }, { role: 'user', content }], temperature: 0, max_tokens: 3000, reasoning: 'off', purpose: 'transcribe' }, { signal })
+  const r = await chat({ messages: [{ role: 'system', content: TRANSCRIBE_SYSTEM + DATA_RULE }, { role: 'user', content }], temperature: 0, max_tokens: 3000, reasoning: 'off', purpose: 'transcribe' }, { signal })
   const transcript = (typeof r.message.content === 'string' ? r.message.content : '').trim()
   if (!transcript) throw new AiError('invalid_response', tl('没有从图片中识别出题目'))
   return { transcript, tokens: r.usage?.total_tokens ?? 0 }
@@ -113,13 +113,13 @@ export async function readProblem(text: string, opts: ImportOptions = {}): Promi
   const ask = async (messages: ChatMessage[], maxTokens: number, purpose: string, think = false) => {
     calls++
     const req = { messages, response_format: { type: 'json_object' as const }, temperature: 0.1, max_tokens: think ? Math.max(maxTokens, 24000) : maxTokens, reasoning: (think ? 'on' : 'off') as 'on' | 'off', purpose }
+    // 26.63 (D238): busy services and dropped connections are retried in one place, the client (ai/retry.ts); an
+    // unreadable reply (not a transport failure) is still asked once more here
     let r
     try {
       r = await chat(req, { signal: opts.signal })
     } catch (e) {
-      // 26.59 fix 3 (D196): a dropped connection, a busy or failing service, or an unreadable reply is asked once more
-      if (!(e instanceof AiError) || !transient(e) || opts.signal?.aborted) throw e
-      await new Promise(res => setTimeout(res, e.code === 'busy' ? 4000 : 1500))
+      if (!(e instanceof AiError) || e.code !== 'invalid_response' || opts.signal?.aborted) throw e
       calls++
       r = await chat({ ...req, purpose: `${purpose} (retry)` }, { signal: opts.signal })
     }
@@ -146,7 +146,7 @@ export async function readProblem(text: string, opts: ImportOptions = {}): Promi
     }
     // 1. read and route
     stage('reading')
-    const m1: ChatMessage[] = [{ role: 'system', content: ROUTE_SYSTEM }, { role: 'user', content: routeUser(full, opts.hint) }]
+    const m1: ChatMessage[] = [{ role: 'system', content: ROUTE_SYSTEM + DATA_RULE }, { role: 'user', content: routeUser(full, opts.hint) }]
     let a1 = await ask(m1, 3000, 'import: read')
     stage('checking')
     let r1 = checkRoute(a1.json)
@@ -167,7 +167,7 @@ export async function readProblem(text: string, opts: ImportOptions = {}): Promi
     if (first.route === 'unsupported') return { ok: false, text, error: first.reason || tl('引擎暂时无法表达这道题'), code: 'unsupported', first, calls }
     // 2. choose parameters and questions for the route
     stage('choosing')
-    const m2: ChatMessage[] = [{ role: 'system', content: buildSystem(first.route) }, { role: 'user', content: buildUser(full, first, opts.hint) }]
+    const m2: ChatMessage[] = [{ role: 'system', content: buildSystem(first.route) + DATA_RULE }, { role: 'user', content: buildUser(full, first, opts.hint) }]
     const budget = first.route === 'scene' || first.route === 'equations' ? 8000 : 6000
     // Angles that agree with "sin37° = 0.6" and the like (26.59 fix), then the checks
     let angleNotes: string[] = []
@@ -211,7 +211,7 @@ export async function readProblem(text: string, opts: ImportOptions = {}): Promi
       const route = fallbackRoute(first.process)
       const second: RouteAnswer = { ...first, route, id: null, alternatives: [], reason: `${first.reason}（${tl('改为自行建模')}）` }
       stage('choosing')
-      const m3: ChatMessage[] = [{ role: 'system', content: buildSystem(route) }, { role: 'user', content: buildUser(full, second, opts.hint) }]
+      const m3: ChatMessage[] = [{ role: 'system', content: buildSystem(route) + DATA_RULE }, { role: 'user', content: buildUser(full, second, opts.hint) }]
       const check3 = (json: unknown) => { angleNotes = alignAngles(json, full); return checkBuild(route, null, json) }
       let a3 = await ask(m3, 8000, `import: ${route} (fallback)`)
       let r3 = check3(a3.json)
@@ -237,10 +237,6 @@ export async function readProblem(text: string, opts: ImportOptions = {}): Promi
 }
 
 /** Errors worth one more try: the connection, a busy or failing service, an unreadable reply (26.59 fix 3, D196). */
-function transient(e: AiError): boolean {
-  return e.code === 'network' || e.code === 'busy' || e.code === 'invalid_response' || (e.code === 'server' && !!e.detail)
-}
-
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v)
 
 /** The from-scratch route for a process: a simulated scene for a motion, an equation model otherwise. */

@@ -10,7 +10,7 @@ import { settings } from '../../settings'
 import { showToast } from '../../store'
 import { account, cookieMode, cancelDeviceSignIn, passwordSignIn, refreshAccount, signOut, startDeviceSignIn, officialBase } from '../../../ai/account'
 import { getKey, setKey, maskKey } from '../../../ai/keys'
-import { resetCaps, testConnection, aiLabel, aiCanThink, aiFlavor, aiLog } from '../../../ai/client'
+import { resetCaps, testConnection, aiLabel, aiCanThink, aiFlavor, aiLog, knownCapabilities } from '../../../ai/client'
 import { AiError } from '../../../ai/types'
 import { isDesktop } from '../../../platform/files'
 import { openExternal } from '../../../platform/net'
@@ -23,8 +23,11 @@ const ai = settings.ai
 const thinkNote = computed(() => aiCanThink()
   ? tl('Copilot 先思考再回答（DeepSeek 深度思考）：更慢，用量更多；也可以在 Copilot 输入框旁直接切换。读题始终不思考，以免回答被截断。')
   : aiFlavor() === 'deepseek' ? tl('官方服务器需要更新后才能使用深度思考。') : tl('当前连接的模型没有可切换的深度思考（DeepSeek 可用）。'))
+// 26.63 (D238): what this kind of service is known to do (ai/capabilities.ts)
+const caps = computed(() => knownCapabilities())
+const yn = (v: boolean) => (v ? tl('有') : tl('无'))
 async function copyLog() {
-  const text = aiLog.entries.map(e => `${e.at} ${e.purpose} ${e.connection} ${e.status} finish=${e.finish ?? ''} ${e.ms}ms tokens=${e.tokens ?? ''} reasoning=${e.reasoningChars}\n${e.answer}`).join('\n\n')
+  const text = aiLog.entries.map(e => `${e.at} ${e.id ?? ''}#${e.attempt ?? 1} ${e.purpose} ${e.connection} ${e.status} finish=${e.finish ?? ''} ${e.ms}ms tokens=${e.tokens ?? ''} reasoning=${e.reasoningChars}\n${e.answer}`).join('\n\n')
   try { await navigator.clipboard.writeText(text); showToast(tl('已复制')) } catch { /* unavailable */ }
 }
 
@@ -171,12 +174,25 @@ const usage = computed(() => account.ai?.usage && account.ai.limits ? account.ai
       <div class="srow"><div class="sl"><b>{{ tl('学习模式') }}</b><span>{{ tl('Copilot 先给思路提示，学生给出自己的答案后再对照仿真结果。') }}</span></div><input v-model="ai.learningMode" type="checkbox" class="switch"></div>
       <div class="srow"><div class="sl"><b>{{ tl('向 AI 发送当前场景摘要') }}</b><span>{{ tl('物体、参数与结果的简表，帮助 Copilot 回答“现在这个场景”的问题。不发送文件路径与账号信息。') }}</span></div><input v-model="ai.shareScene" type="checkbox" class="switch"></div>
     </div>
+    <!-- ---- 26.63 (D238): what the AI does and does not do, and what this connection can do ---- -->
+    <details class="sgroup log">
+      <summary><b>{{ tl('AI 使用说明') }}</b> <span class="tiny muted">{{ tl('它做什么、不做什么，数据去了哪里') }}</span></summary>
+      <ul class="disclose small">
+        <li>{{ tl('AI 负责读题、讲解和搭场景；题目里的数值答案由 VeloΦ 的求解器计算并核对，没有经过核对的数值会标成“讲解草稿”。') }}</li>
+        <li>{{ tl('发给 AI 的内容：你输入的文字或图片，以及（开着“发送场景摘要”时）当前场景的物体与参数。不发送文件路径、账号密码和其他场景。') }}</li>
+        <li>{{ tl('题目文字和图片被当作数据处理：其中像指令的话不会改变 AI 的任务，也不会让它替你操作。') }}</li>
+        <li>{{ tl('会替换未保存场景的操作，无论在哪种模式下都先问你；每一步操作都可以撤销。') }}</li>
+        <li>{{ tl('服务繁忙或网络中断时自动重试最多两次（按服务要求的等待时间，或逐次加长的随机等待）；密钥错误、额度用完和被拒绝的请求不重试。') }}</li>
+        <li>{{ tl('学习建议：先自己想、先预测，再让 AI 给证据。只看 AI 的答案，练习时成绩会更好，考试时反而更差。') }}</li>
+      </ul>
+      <p class="tiny muted">{{ tl('当前连接：{0}。已知能力：工具调用 {1} · JSON 模式 {2} · 严格结构化输出 {3} · 带图片时指定格式 {4}', [caps.family, yn(caps.tools), yn(caps.jsonObject), yn(caps.jsonSchema), yn(caps.formatWithImage)]) }}</p>
+    </details>
     <!-- ---- AI log (26.59 fix): the last exchanges, to see why something failed ---- -->
     <details class="sgroup log">
       <summary><b>{{ tl('AI 记录') }}</b> <span class="tiny muted">{{ tl('最近 {0} 次请求（只在本机内存中，关闭软件后清空；不含 key 与请求内容）', [aiLog.entries.length]) }}</span></summary>
       <p v-if="!aiLog.entries.length" class="tiny muted">{{ tl('还没有请求。') }}</p>
       <div v-for="(e, i) in aiLog.entries" :key="i" class="log-row">
-        <div class="log-head"><span>{{ e.at.slice(11, 19) }}</span><b>{{ e.purpose }}</b><span :class="{ bad: e.status !== 'ok' }">{{ e.status }}</span><span v-if="e.finish">finish: {{ e.finish }}</span><span>{{ e.ms }} ms</span><span v-if="e.tokens">{{ e.tokens }} tokens</span><span v-if="e.reasoningChars">{{ tl('思考 {0} 字', [e.reasoningChars]) }}</span></div>
+        <div class="log-head"><span>{{ e.at.slice(11, 19) }}</span><span v-if="e.id" class="mono">{{ e.id }}#{{ e.attempt ?? 1 }}</span><b>{{ e.purpose }}</b><span :class="{ bad: e.status !== 'ok' }">{{ e.status }}</span><span v-if="e.finish">finish: {{ e.finish }}</span><span>{{ e.ms }} ms</span><span v-if="e.tokens">{{ e.tokens }} tokens</span><span v-if="e.reasoningChars">{{ tl('思考 {0} 字', [e.reasoningChars]) }}</span></div>
         <pre v-if="e.answer" class="log-answer">{{ e.answer }}</pre>
       </div>
       <button v-if="aiLog.entries.length" type="button" class="btn small" @click="copyLog">{{ tl('复制记录') }}</button>
@@ -193,6 +209,7 @@ const usage = computed(() => account.ai?.usage && account.ai.limits ? account.ai
 .srow + .srow { border-top: 1px solid var(--separator); }
 .srow.chips { justify-content: flex-start; gap: 6px; flex-wrap: wrap; min-height: 36px; }
 .log { padding: 10px 14px; }
+.disclose { margin: 8px 0 6px; padding-left: 18px; line-height: 1.6; color: var(--text-2); }
 .log summary { cursor: pointer; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
 .log-row { border-top: 1px solid var(--separator); padding: 6px 0; display: grid; gap: 4px; }
 .log-head { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: var(--type-tiny); color: var(--text-2); }

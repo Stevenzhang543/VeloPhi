@@ -135,9 +135,9 @@ function check(spec: (typeof PROBLEMS_2659)[number], params: P, report: string[]
 }
 
 describe('26.59 problem bank', () => {
-  it('has 90 problems in 14 chapters, each with categories from the shared vocabulary', () => {
-    expect(BUILTIN_PROBLEMS).toHaveLength(90)
-    expect(new Set(BUILTIN_PROBLEMS.map(p => p.id)).size).toBe(90)
+  it('has 98 problems in 14 chapters, each with categories from the shared vocabulary', () => {
+    expect(BUILTIN_PROBLEMS).toHaveLength(98)
+    expect(new Set(BUILTIN_PROBLEMS.map(p => p.id)).size).toBe(98)
     const chapters = new Set(BUILTIN_PROBLEMS.map(p => p.chapter))
     expect(chapters.size).toBe(14)
     for (const c of chapters) expect(CHAPTERS.some(x => x.id === c), c).toBe(true)

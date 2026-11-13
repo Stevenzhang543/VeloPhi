@@ -1,5 +1,6 @@
 /**
- * Layout of the interface (26.60, D205–D206; 26.55, D96 for narrow windows).
+ * Layout of the interface (26.63, D232: navigation rail, context bar and status bar around the pages; 26.60, D205–D206
+ * for the studio; 26.55, D96 for narrow windows).
  *
  * Desktop: the canvas fills the window. A slim top bar carries the three studio modes — 搭建 (build), 仿真 (simulate),
  * 分析 (analyze) — which are presets of what is shown: the tool strip at the left edge of the canvas, one sidebar on the
@@ -11,7 +12,7 @@
  * (工具, 属性, ▶, 分析, AI) opens bottom sheets that stop at a third, two thirds or the full height and close when
  * dragged down; a slim timeline sits above the tab bar.
  */
-import { computed, reactive, ref, watch } from 'vue'
+import { reactive, ref, watch } from 'vue'
 import { settings } from './settings'
 import { state } from './store'
 
@@ -23,13 +24,12 @@ const phoneQ = mq('(max-width: 760px), (max-height: 500px) and (pointer: coarse)
 export const narrow = ref(!!narrowQ?.matches)
 /** Phone layout: full-screen canvas, bottom tab bar and sheets. */
 export const phone = ref(!!phoneQ?.matches)
+/** 26.63 (an open item of 26.60): a phone held sideways — an open sheet stands beside the canvas instead of over it. */
+const landscapeQ = mq('(orientation: landscape) and (max-height: 520px)')
+export const landscape = ref(!!landscapeQ?.matches)
+landscapeQ?.addEventListener?.('change', e => { landscape.value = e.matches })
 narrowQ?.addEventListener?.('change', e => { narrow.value = e.matches })
 phoneQ?.addEventListener?.('change', e => { phone.value = e.matches })
-
-/** Kept for older callers: the tool strip shows icons only (always, since 26.60). */
-export const railOn = computed(() => true)
-/** Kept for older callers: the sidebar is open over the canvas of a narrow window. */
-export const drawerOpen = computed({ get: () => shell.sideOpen && narrow.value, set: v => { shell.sideOpen = v } })
 
 export type StudioMode = 'build' | 'simulate' | 'analyze'
 export type SideTab = 'inspect' | 'analysis' | 'problem' | 'ai'
@@ -83,7 +83,12 @@ export const shell = reactive({
   attention: null as SideTab | null,
   /** Phone: the open sheet and its height (1: a third, 2: two thirds, 3: full). */
   sheet: null as SheetId | null,
-  sheetSize: 2 as 1 | 2 | 3
+  sheetSize: 2 as 1 | 2 | 3,
+  /** 26.63 (D232–D236): the phone's navigation drawer, the shortcut sheet, the share and convergence dialogs. */
+  navOpen: false,
+  shortcuts: false,
+  share: false,
+  convergence: false
 })
 
 const save = () => {

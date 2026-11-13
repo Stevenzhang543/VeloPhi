@@ -36,10 +36,13 @@ import Icon from './Icon.vue'
 import { DOMAINS } from '../../task/vocab'
 import { PACKAGES } from '../../content/packages'
 import { openSample } from '../task/taskState'
+import { CASES } from '../../teaching/cases'
+import { newTally, openCase } from '../tally'
+import { shell } from '../layout'
 
 interface Item { cat: string; icon: string; title: string; detail: string; hay: string; run: () => unknown }
 
-const CATS: Array<[string, string]> = [['goal', '目标'], ['page', '页面'], ['tool', '工具'], ['template', '模板'], ['lab', '实验'], ['model', '模型'], ['activity', '活动'], ['formula', '公式'], ['handbook', '手册'], ['problem', '题目'], ['path', '学习路径']]
+const CATS: Array<[string, string]> = [['goal', '目标'], ['page', '页面'], ['tool', '工具'], ['template', '模板'], ['lab', '实验'], ['model', '模型'], ['activity', '活动'], ['case', '易错概念'], ['formula', '公式'], ['handbook', '手册'], ['problem', '题目'], ['path', '学习路径']]
 const catLabel = (c: string) => tl(CATS.find(x => x[0] === c)?.[1] ?? c)
 
 // 26.59 (UX12): full/half width and every dash folded the same way
@@ -55,10 +58,20 @@ function buildIndex(): Item[] {
   const items: Item[] = []
   const add = (cat: string, icon: string, title: string, detail: string, extra: string, run: () => unknown) => items.push({ cat, icon, title, detail, hay: norm(`${title} ${detail} ${extra}`), run })
   const go = (p: Page) => () => { state.page = p }
-  add('page', 'studio', tl('工作台'), tl('编辑与仿真'), 'studio 1', go('studio'))
-  add('page', 'flask', tl('实验室'), tl('电路、光学、热学、原子与量子实验'), 'lab 2', go('lab'))
-  add('page', 'monitor', tl('渲染与监视'), tl('大画面播放与读数'), 'monitor 3', go('monitor'))
-  add('page', 'settings', tl('设置'), tl('单位、外观、学习手册'), 'settings 4', go('settings'))
+  add('page', 'home', tl('首页'), tl('开始：搜索、继续上次的场景、按身份进入'), 'home start 1', go('home'))
+  add('page', 'studio', tl('工作台'), tl('编辑与仿真'), 'studio 2', go('studio'))
+  add('page', 'flask', tl('实验室'), tl('电路、光学、热学、原子与量子实验'), 'lab 3', go('lab'))
+  add('page', 'library', tl('资源库'), tl('模板、题目、易错概念、模型目录、课程对照、学习手册'), 'library 4', go('library'))
+  add('page', 'classroom', tl('课堂'), tl('课堂实验、教学活动、预测统计与教师工具'), 'classroom teach 5', go('classroom'))
+  add('page', 'monitor', tl('渲染与监视'), tl('大画面播放与读数'), 'monitor 6', go('monitor'))
+  add('page', 'settings', tl('设置'), tl('单位、外观、AI 与快捷键'), 'settings', go('settings'))
+  // 26.63 (D233–D237)
+  add('page', 'target', tl('易错概念'), tl('先猜结果，再看仿真怎么说'), 'misconception cases predict', () => { state.librarySection = 'cases'; state.page = 'library' })
+  add('page', 'tally', tl('先猜后看：班级预测统计'), tl('举手计票，锁定后运行，揭晓后可以讨论再投一次'), 'tally vote predict class', () => { newTally(); state.page = 'studio' })
+  add('page', 'converge', tl('收敛性研究'), tl('步长减半，看误差按几阶减小'), 'convergence order step', () => { state.page = 'studio'; shell.convergence = true })
+  add('page', 'share', tl('分享链接'), tl('场景写在链接里，不上传'), 'share link url', () => { state.page = 'studio'; shell.share = true })
+  add('page', 'keyboard', tl('快捷键一览'), tl('全部键盘与鼠标操作'), 'shortcuts keys ?', () => { shell.shortcuts = true })
+  for (const c of CASES) add('case', 'target', T(c.title), T(c.belief), c.id, () => openCase(c.id))
   add('page', 'book', tl('学习手册'), tl('原理、公式推导与例题'), 'handbook', () => openHandbook(null))
   add('page', 'graduation', tl('学习路径'), tl('按课程标准顺序的模板、实验、题目与手册'), 'path learn', () => { state.showLearning = true })
   // 26.58 (D136, D138): the solver comparison and the welcome page with its tour

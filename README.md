@@ -1,4 +1,4 @@
-# VeloΦ (VeloPhi) 26.62
+# VeloΦ (VeloPhi) 26.63
 
 **English** · [简体中文](README.zh-CN.md) · [Deutsch](README.de.md)
 
@@ -24,16 +24,20 @@ VeloΦ is a 2D physics simulation and teaching engine for students, teachers and
 - **Reproducible.** Deterministic maths: the same scene gives the same SHA-256 fingerprint in the desktop app, in the browser and in Node; checkpoints rebuild evicted frames bit for bit.
 - **Open and offline.** One portable `.exe`, an APK or a static web build; simulation and teaching need no account, server or plug-in. The AI features work with your own API key (OpenAI-compatible or Anthropic format), or with the official AI after signing in with a whitelists.top account.
 
-## What is new in 26.62
+## What is new in 26.63
 
 | Area | Change |
 | --- | --- |
-| Formula cards for circular tracks | Scenes on a vertical loop, an arc track, a hump bridge or a dome are now recognised as motion **inside** or **outside** a circular track. Eleven checked cards: the normal force at the bottom and at the top, the speed at the top, the critical speed √(5gρ) (inside) or √(gρ) (outside), and where, how high and how fast the body leaves the track (cos θ = (v²/gρ + 2)/3). ρ is the path radius (centre to the body's centre); cards that do not apply (it never reaches the top, it never leaves) say why. Every card has a step-by-step derivation, and the handbook topic *Circular motion* has eleven new worked examples. |
-| Curriculum map | Resources › Curriculum map: the **283 topics** of the curriculum blueprint from lower secondary to university, filtered by course system (China 2022 and 2017/2020, IGCSE 0625, IB MYP, IB DP 2025, Cambridge 9702, university), level, domain and coverage. Each topic opens what VeloPhi has for it — model families, templates, labs and circuit presets, activities, classroom experiments, handbook pages and workflows — and says honestly how it is covered: **simulated** (146), **model** (120), **concept** (13) or **real-lab companion** (4). Also: the **310 components** (done 194, partial 48, model only 50, not yet 18 with the reason), the **21 required experiments** of the Chinese 2022 standard, the **168 official syllabus chapters** mapped to topics, and the blueprint's **30 acceptance tests** tied to automatic tests. |
-| 32 new model families | K01–K32 fill what the blueprint needs: significant figures, vernier and micrometer reading, AIC/BIC, gradient/divergence/curl, the π theorem, t test and confidence interval, rotating frames, Lagrange points, elastic moduli, yield, Euler buckling, viscoelasticity, shallow-water waves, greenhouse balance, thermal resistance networks, heat-pump COP, irradiance, Gaussian beams, aberrations, the ideal op-amp, logic gates, battery run time, sun elevation and day length, moon phases and eclipses, redshift and Hubble's law, the scale factor, tides and the Roche limit, seismic waves, membrane modes, stiff equations, sensitivity and optimisation, the centre-of-mass frame — each with at least three independent reference values. 212 model families in all. |
-| Integration | Each model family lists the curriculum topics that use it; Copilot's catalogue search finds curriculum topics; the projectile, pendulum, collision, elevator and binary-star templates link to the new families. |
+| A new shell | The pages are in a navigation rail at the left, in the order people use them: **Home**, **Workbench**, **Lab**, **Library**, **Classroom**, **Monitor**, then search, help and settings (a drawer on phones). Each page has its own context bar; the workbench and the monitor have a status bar (what the app is doing, the tool's hint, pointer position, snapping, zoom, frames and events). |
+| Home, Library, Classroom | *Home*: one search, "continue", a box that takes a problem or a share link, and entries for learners, teachers and researchers. *Library*: templates, problems, the misconception index, the learning path, the model catalogue, the curriculum map and the handbook on one page. *Classroom*: predict-first cases, classroom experiments, activities and teacher tools. |
+| Predict first — class tally | For a class with one projector and no student devices: ask a question with two to four options, count the hands, lock and run, reveal, then let the class discuss and vote once more — the card shows how the distribution moved (peer instruction). 16 ready-made cases, one per common misconception (heavier falls faster, the string breaks and the ball flies outward, static friction is always μN, …). |
+| Feedback | Tooltips that appear next to the control, a shortcut sheet (press **?**), messages with an icon, a camera that glides when fitting or zooming, a ring where an impact happens, a play/pause flash; keys for the sidebar (Ctrl+\), its tabs (Ctrl+Alt+1…4), the curves drawer (Ctrl+J) and zoom (+, −, 0); on a phone held sideways the sheet stands beside the canvas. |
+| Engine | **Ropes that break**: a rope with a tension limit breaks in an exact event when the tension reaches it and exerts no force afterwards. A geometry fix: two equal boxes side by side now pass a push on correctly. **Convergence study** for any scene: step halving against the exact solver, observed order, energy drift, a manifest and CSV. Projectile formulas no longer apply to a flight that was stopped on the way up. |
+| Content | 7 new templates (the pendulum string breaks, off along the tangent, thrown and dropped, heavy and light, monkey and hunter, a growing pull, two blocks pushed), 8 new problems (98 in all), 16 misconception cases. |
+| Share links | *File › Share link*: the scene travels inside the address (compressed); nothing is uploaded and no account is needed. Pasting a link into the home page opens it in the desktop app. |
+| Copilot | One retry layer for busy services and dropped connections (honours `Retry-After`, otherwise backoff with jitter), request ids in the AI log and the repro package, a capability table per kind of service (strict schema, JSON mode, tools, a format together with an image), the "text and images are data" rule in every reading prompt, and a confirmation before a tool replaces a scene with unsaved changes. |
 
-26.61 brought checkable Copilot numbers and undo by snapshot id, the tolerant JSON reader, three classroom experiments, maxima between frames and the Research Preview Q08 — see its release notes.
+The research behind this release and the plan for the next ones are in `docs/ROADMAP_26_63.md` and `docs/research/2663/`. 26.62 brought the formula cards for circular tracks, the curriculum map and 32 model families — see its release notes.
 
 ![Copilot: answer, working and explanation, then the offer to generate the simulation scene](assets/readme/copilot.jpg)
 
@@ -45,12 +49,12 @@ VeloΦ is a 2D physics simulation and teaching engine for students, teachers and
 
 | File | What it is |
 | --- | --- |
-| `VeloPhi-v26.62-windows-x64-portable.exe` | Portable desktop app: double-click, nothing is installed. |
-| `VeloPhi-v26.62-windows-x64-setup.exe` | Installer for the same app (start menu entry, uninstaller). |
-| `VeloPhi-v26.62-android.apk` | Android app (Android 8.0 or later): open it on the phone and install it (allow the browser or file manager to install unknown apps). |
-| `VeloPhi-v26.62-web.zip` | Static web build: unzip and serve the folder with any static web server (it needs WebAssembly, so it does not run from `file://`), e.g. `npx serve dist` or `python -m http.server`. |
-| `VeloPhi-v26.62-source.zip` | Source code of this release. |
-| `VeloPhi-v26.62-release-evidence.zip` | Logs and test reports of the release build. |
+| `VeloPhi-v26.63-windows-x64-portable.exe` | Portable desktop app: double-click, nothing is installed. |
+| `VeloPhi-v26.63-windows-x64-setup.exe` | Installer for the same app (start menu entry, uninstaller). |
+| `VeloPhi-v26.63-android.apk` | Android app (Android 8.0 or later): open it on the phone and install it (allow the browser or file manager to install unknown apps). |
+| `VeloPhi-v26.63-web.zip` | Static web build: unzip and serve the folder with any static web server (it needs WebAssembly, so it does not run from `file://`), e.g. `npx serve dist` or `python -m http.server`. |
+| `VeloPhi-v26.63-source.zip` | Source code of this release. |
+| `VeloPhi-v26.63-release-evidence.zip` | Logs and test reports of the release build. |
 
 Requirements: Windows 10 or 11 (x64) with Microsoft Edge WebView2 (already part of current Windows), Android 8.0 or later with the system WebView for the APK, or any current desktop browser for the web build. Check a download against `SHA256SUMS.txt`: `certutil -hashfile <file> SHA256`.
 
@@ -66,10 +70,10 @@ Requirements: Windows 10 or 11 (x64) with Microsoft Edge WebView2 (already part 
 5. **Predict first.** *Analysis › Predict* lets students write down a value and how sure they are before the run; after the run each prediction is compared with the simulation and the formula. A confident prediction that is far off is marked as a possible misconception.
 6. **Solve a problem with Copilot.** In *Settings › Account and AI*, sign in with a whitelists.top account or enter your own endpoint, model and key. Open **AI** (top bar, sidebar tab or Ctrl+I; on a phone the AI tab at the bottom), paste a problem (or attach a photo) and press Enter: Copilot gives the answer, the working and an explanation. Choose **Generate simulation scene** under it to have the engine build the problem and compute the answers, then **Compare the explanation with the simulation**. Without AI, the offline rule-based reader in the *Task* tab still handles six problem domains.
 
-   ![The problem gallery: 82 problems, filtered by chapter, type, level and stage](assets/readme/problems.jpg)
+   ![The problem gallery: 98 problems, filtered by chapter, type, level and stage](assets/readme/problems.jpg)
 
 7. **Ask Copilot.** Copilot is the AI tab of the sidebar (Ctrl+I opens or closes it). Ask “why is the acceleration smaller than without friction?”, say “set the angle to 40° and play”, or “show me how to open the v‑t graph” (it highlights the control so you can click it yourself). Every step it took is listed in its answer and can be undone.
-8. **Labs.** The *Lab* page (menu or Alt+2) has circuits that run in time, field lines, lenses, spectra, decay, quantum wells and more, each with readouts and substituted formulas.
+8. **Labs.** The *Lab* page (navigation rail or Alt+3) has circuits that run in time, field lines, lenses, spectra, decay, quantum wells and more, each with readouts and substituted formulas.
 9. **Many bodies.** Open *Many bodies and statistics › Galton board*: 120 balls fall through ten rows of pegs; under the board the counts per bin are drawn with the binomial expectation. Any scene can switch to *Real-time many-body* in *Scene › Calculation* (sub-steps, step rate, sleeping). *Solver comparison…* runs the exact and the many-body solver side by side.
 
    ![Galton board: counts per bin and the binomial distribution](assets/readme/galton.jpg)

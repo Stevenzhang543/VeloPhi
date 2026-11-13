@@ -47,6 +47,9 @@ pub fn touching_features(sys: &System, poses: &[Pose]) -> Vec<Touch> {
             if !in_region(&k) || k.gap > tol::TOUCH || k.gap < -tol::DEEP {
                 continue;
             }
+            if vertex_beside_face(&sys.model, f, &k, poses) {
+                continue;
+            }
             if let Some(j) = out[start..].iter().position(|t| (t.kin.cx - k.cx).abs() <= 1e-9 && (t.kin.cy - k.cy).abs() <= 1e-9) {
                 let j = start + j;
                 if arcs && k.m1.min(k.m2) > out[j].kin.m1.min(out[j].kin.m2) {
@@ -59,6 +62,45 @@ pub fn touching_features(sys: &System, poses: &[Pose]) -> Vec<Touch> {
         drop_corner_pinch(sys, pair, &mut out, start);
     }
     out
+}
+
+/**
+ * 26.63 (D231): a polygon vertex exactly at the end of a face — two corners coincide, as with two equal boxes side by
+ * side — touches that face only if the polygon lies outside it: neither edge at the vertex may run down along the
+ * face's end or into the face (an edge that dips under the face's plane beyond its end is fine: a block tipping over a
+ * table's edge). Otherwise the vertex is beside the face and the neighbouring face carries the contact. Without this rule the top
+ * corners of two flush boxes of equal height were taken as "A's corner on B's top face" (a vertical normal), so B's
+ * weight was put on A and a horizontal push did not reach B.
+ */
+fn vertex_beside_face(model: &crate::model::Model, f: &crate::kinematics::ContactFeature, k: &ContactKin, poses: &[Pose]) -> bool {
+    let crate::kinematics::FeatureB::Face(face) = &f.b else { return false };
+    if f.a.vertex < 0 || f.a.radius > 0.0 || k.m1.min(k.m2) > 1e-9 {
+        return false;
+    }
+    let ShapeModel::Polygon { verts, .. } = &model.bodies[f.a.body].shape else { return false };
+    let n = verts.len();
+    let v = f.a.vertex as usize;
+    if v >= n || (verts[v].x - f.a.local.x).abs() > 1e-12 || (verts[v].y - f.a.local.y).abs() > 1e-12 {
+        return false;
+    }
+    let pa = &poses[model.bodies[f.a.body].global];
+    let pb = &poses[model.bodies[face.body].global];
+    let (nx, ny) = (pb.c * face.normal.x - pb.s * face.normal.y, pb.s * face.normal.x + pb.c * face.normal.y);
+    // Along the face, from the end the vertex is at towards the face's inside
+    let sg = if k.m1 <= k.m2 { 1.0 } else { -1.0 };
+    let (fx, fy) = (sg * (face.e1.x - face.e0.x) / face.len, sg * (face.e1.y - face.e0.y) / face.len);
+    let (tx, ty) = (pb.c * fx - pb.s * fy, pb.s * fx + pb.c * fy);
+    for w in [verts[(v + n - 1) % n], verts[(v + 1) % n]] {
+        let (lx, ly) = (w.x - verts[v].x, w.y - verts[v].y);
+        let (dx, dy) = (pa.c * lx - pa.s * ly, pa.s * lx + pa.c * ly);
+        let len = (dx * dx + dy * dy).sqrt();
+        // an edge that dips under the face's plane beyond its end is fine (a block tipping over a table's edge);
+        // one that goes down along the face's end, or into the face, is not
+        if nx * dx + ny * dy < -1e-7 * len && tx * dx + ty * dy >= -1e-7 * len {
+            return true;
+        }
+    }
+    false
 }
 
 /// Whether body g has a concave circular side (an arc, or a compound with an arc part).
@@ -434,9 +476,10 @@ pub fn determine_mode(sys: &System, x: &[f64], max_tries: usize, prefer_slack: &
         }
     }
     let mut rope_candidate = Vec::with_capacity(model.ropes.len());
-    for r in &model.ropes {
+    for (ri, r) in model.ropes.iter().enumerate() {
         let (k, _) = rope_kin(model, &poses, r);
-        rope_candidate.push(k.value <= tol::TOUCH && k.vel.abs() <= tol::VEL);
+        // 26.63 (D231): a broken rope never pulls again
+        rope_candidate.push(!model.rope_broken(x, ri) && k.value <= tol::TOUCH && k.vel.abs() <= tol::VEL);
     }
     let options: Vec<Vec<UnitOption>> = candidates.iter().map(|c| unit_options(sys, c)).collect();
     let rope_options: Vec<Vec<bool>> = rope_candidate
@@ -631,7 +674,7 @@ pub fn state_mode(sys: &System, x: &[f64], stick_speed: f64) -> Mode {
             units.push(UnitMode { pair: pair.index, ref_: r.feature, points: points.iter().map(|t| t.feature).collect(), open: Vec::new(), friction, s, roll });
         }
     }
-    let taut = model.ropes.iter().map(|r| rope_kin(model, &poses, r).0.value <= tol::TOUCH).collect();
+    let taut = model.ropes.iter().enumerate().map(|(ri, r)| !model.rope_broken(x, ri) && rope_kin(model, &poses, r).0.value <= tol::TOUCH).collect();
     let sw = mode_branches(sys, x);
     let limit = if model.has_limits {
         Some(

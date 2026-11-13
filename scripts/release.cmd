@@ -1,19 +1,19 @@
 @echo off
-rem VeloPhi 26.62 release build (Windows). Double-click to run.
+rem VeloPhi 26.63 release build (Windows). Double-click to run.
 rem Runs: npm ci, Rust engine tests (native), WebAssembly build, type check, all tests on the new WebAssembly core,
 rem the calculation parity check (TypeScript reference vs native Rust), Tauri build (web build + NSIS installer),
 rem the check that the web build contains no reference code, the engine self-check inside WebView2 (native Rust vs
 rem WebAssembly in the worker and on the interface thread, every template), the Android APK (26.59: toolchain setup,
-rem signed universal APK, see scripts\android), packaging into releases\v26.62.
+rem signed universal APK, see scripts\android), packaging into releases\v26.63.
 rem No Git write operations of any kind.
 setlocal
 chcp 65001 >nul
 cd /d "%~dp0\.."
 if not exist .cache mkdir .cache
-set "LOG=%CD%\.cache\release-26.62.log"
-set "EV=%CD%\.cache\evidence-26.62"
+set "LOG=%CD%\.cache\release-26.63.log"
+set "EV=%CD%\.cache\evidence-26.63"
 if not exist "%EV%" mkdir "%EV%"
-echo VeloPhi 26.62 release started %date% %time% > "%LOG%"
+echo VeloPhi 26.63 release started %date% %time% > "%LOG%"
 echo [1/12] tools
 (where node && node --version && where npm && call npm --version && where cargo && cargo --version && rustc --version) >> "%LOG%" 2>&1 || goto fail
 echo [2/12] npm ci
@@ -32,7 +32,7 @@ echo [6/12] tests (on the WebAssembly core just built)
 set "VELOPHI_CORE=wasm"
 rem 26.61 (D218): the Research Preview package Q08 is written by its test on this core, then compared with the stored one
 set "VELOPHI_RESEARCH_OUT=%EV%\q08-wasm-windows.json"
-call npx vitest run --reporter=default --reporter=junit --outputFile.junit=.cache\evidence-26.62\vitest-junit.xml >> "%LOG%" 2>&1 || goto fail
+call npx vitest run --reporter=default --reporter=junit --outputFile.junit=.cache\evidence-26.63\vitest-junit.xml >> "%LOG%" 2>&1 || goto fail
 set "VELOPHI_CORE="
 set "VELOPHI_RESEARCH_OUT="
 call node scripts\research-compare.mjs docs\research\q08-reference.json "%EV%\q08-wasm-windows.json" > "%EV%\research-q08.txt" 2>&1 || (type "%EV%\research-q08.txt" >> "%LOG%" & goto fail)
@@ -52,7 +52,7 @@ echo [12/12] package
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\package-release.ps1 >> "%LOG%" 2>&1 || goto fail
 echo RELEASE OK >> "%LOG%"
 echo.
-echo RELEASE OK - releases\v26.62
+echo RELEASE OK - releases\v26.63
 echo Log: %LOG%
 if not defined NOPAUSE pause
 exit /b 0

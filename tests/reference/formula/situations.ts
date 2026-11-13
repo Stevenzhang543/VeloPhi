@@ -519,13 +519,17 @@ function projectileSituations(rec: Recording, out: Situation[]) {
       if (r.t1 - r.t0 < 1e-9) continue
       const s0 = bodyVel(sys, r.segs[0].X0, b)
       const endEvent = eventAt(rec, r.t1)
-      const lands = !!endEvent?.changes.some(c => (c.type === 'impact' || c.type === 'touch') && c.bodies.includes(b.id))
-      const sEnd = bodyVel(sys, lands ? endEvent!.before : exactStateAt(rec, r.t1), b)
+      const ended = !!endEvent?.changes.some(c => (c.type === 'impact' || c.type === 'touch') && c.bodies.includes(b.id))
+      const sEnd = bodyVel(sys, ended ? endEvent!.before : exactStateAt(rec, r.t1), b)
+      // 26.63: a flight stopped on the way up (it hit something) did not land; the formulas take the falling branch
+      const rising = ended && sEnd.vy > 1e-9 * (1 + Math.abs(s0.vy))
+      const lands = ended && !rising
       let apex: { t: number; y: number } | null | undefined
       const findApex = () => {
         if (apex !== undefined) return apex
         apex = null
-        if (s0.vy > 0) {
+        // 26.63: a flight that still rises when it is stopped has no apex (the velocity's jump at the hit is not one)
+        if (s0.vy > 0 && !rising) {
           const ts = crossings(rec, X => -X[3 * sys.n + 3 * b.index + 1], r.t0, r.t1, 1, 1)
           if (ts.length) apex = { t: ts[0], y: bodyVel(sys, exactStateAt(rec, ts[0]), b).y }
         }
@@ -554,7 +558,7 @@ function projectileSituations(rec: Recording, out: Situation[]) {
               E: M(0.5 * b.mass * speed * speed + b.mass * g * st.y, 'J', tl('机械能 ½mv² + mgy'))
             },
             conditions: [
-              cond('lands', tl('记录内落到接触面'), lands, lands ? '' : tl('记录内没有落地')),
+              cond('lands', tl('记录内落到接触面'), lands, lands ? '' : rising ? tl('在上升途中发生碰撞，不是落到接触面') : tl('记录内没有落地')),
               cond('rises', tl('向上抛出且到达最高点'), s0.vy > 0 && !!ap),
               cond('fromRest', tl('由静止释放（自由落体）'), fromRest, fromRest ? '' : tl('有初速度'))
             ]

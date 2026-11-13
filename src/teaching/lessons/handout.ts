@@ -7,8 +7,9 @@ import type { Lang, Tri } from '../../i18n/tri'
 import { triText } from '../../i18n/tri'
 import type { Lesson } from './defs'
 import { LESSON_STEP_TEXT } from './defs'
+import { escapeHtml } from '../../core/text'
 
-const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+const esc = escapeHtml
 const H: Record<string, Tri> = {
   goal: { zh: '学习目标', en: 'Goal', de: 'Lernziel' },
   start: { zh: '起始状态', en: 'Start', de: 'Ausgangslage' },

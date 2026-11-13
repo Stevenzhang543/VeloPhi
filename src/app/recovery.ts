@@ -36,6 +36,7 @@ function read(): Snapshot | null {
 }
 
 let last = ''
+let timer: ReturnType<typeof setInterval> | null = null
 function save() {
   if (state.playing) return
   try {
@@ -82,7 +83,9 @@ export function initRecovery() {
     offer(tl('VeloΦ 上次意外退出'))
   }
   last = ''
-  setInterval(save, 4000)
+  // 26.63 (D239): one timer however often this runs (a second call used to leave the first interval running)
+  if (timer !== null) clearInterval(timer)
+  timer = setInterval(save, 4000)
   // Turning the screen and leaving the app are the moments that matter most
   window.addEventListener('orientationchange', save)
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') save() })

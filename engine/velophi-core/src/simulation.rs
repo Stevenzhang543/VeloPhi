@@ -69,6 +69,8 @@ pub enum ChangeType {
     /// presses on its free end again.
     SpringRelease,
     SpringPress,
+    /// 26.63 (D231): a rope breaks at its tension limit.
+    Break,
 }
 
 impl ChangeType {
@@ -97,6 +99,7 @@ impl ChangeType {
             ChangeType::ZoneLeave => "zoneLeave",
             ChangeType::SpringRelease => "springRelease",
             ChangeType::SpringPress => "springPress",
+            ChangeType::Break => "break",
         }
     }
 }
@@ -594,6 +597,25 @@ struct Settled {
     impact: Option<ImpactResult>,
 }
 
+/// 26.63 (D231): mark rope `k` broken in state `x` (nothing for a rope that cannot break).
+fn mark_broken(sys: &System, x: &mut [f64], k: usize) {
+    if let (Some(base), Some(j)) = (sys.model.break_base, sys.model.ropes[k].break_index) {
+        x[base + j] = 1.0;
+    }
+}
+
+/// 26.63 (D231): the ropes that broke between two states become `break` changes (instead of `slack`).
+fn break_changes(sys: &System, before: &[f64], after: &[f64], changes: &mut Vec<ChangeDetail>) {
+    for &k in &sys.model.breakable {
+        if sys.model.rope_broken(before, k) || !sys.model.rope_broken(after, k) {
+            continue;
+        }
+        let r = &sys.model.ropes[k];
+        changes.retain(|c| !(c.kind() == ChangeType::Slack && c.subject == r.id));
+        changes.push(ChangeDetail::simple(ChangeType::Break, &r.id, rope_bodies(sys, k)));
+    }
+}
+
 impl SimulationRun {
     /// Start a run of a scene (the constructor of simulation.ts without a resume point).
     pub fn new(scene: &Scene, opts: SimOptions) -> SimResult<SimulationRun> {
@@ -656,8 +678,17 @@ impl SimulationRun {
             impact_loss: run.impact_loss,
             reduced: false,
         });
+        // 26.63 (D231): a rope loaded beyond its limit from the start breaks at t = 0
+        let x_init = initial_state(&sys);
+        let mut broke0 = Vec::new();
+        break_changes(&sys, &x_init, &x, &mut broke0);
+        if first.impact.is_none() && !broke0.is_empty() {
+            run.check_stop_at(&broke0, 0.0);
+            run.events.push(SimEvent { index: 0, t: 0.0, triggers: vec![EventType::Break], changes: broke0.clone(), before: x_init, after: x.clone(), impact: None, segment: 0 });
+        }
         if let Some(imp) = first.impact {
-            let changes = diff_modes(&sys, None, &run.mode, Some(&imp));
+            let mut changes = diff_modes(&sys, None, &run.mode, Some(&imp));
+            changes.extend(broke0);
             run.check_stop_at(&changes, 0.0);
             run.events.push(SimEvent {
                 index: 0,
@@ -1044,6 +1075,31 @@ impl SimulationRun {
             }
         }
         choice.solution = solve_mode(&sys, &xc, &choice.mode, None)?;
+        // 26.63 (D231): a rope that the new mode would pull beyond its limit breaks at once (a mode change can raise
+        // the tension by a jump, which no event function sees); one rope at a time, the most overloaded first
+        if sys.model.break_base.is_some() {
+            let eps = crate::dynamics::tol::FORCE * sys.model.force_scale;
+            for _ in 0..sys.model.breakable.len() {
+                let worst = sys
+                    .model
+                    .breakable
+                    .iter()
+                    .filter(|&&k| choice.mode.taut[k] && choice.solution.rope_tension[k] > sys.model.ropes[k].max_tension + eps)
+                    .max_by(|&&a, &&b| {
+                        let ra = choice.solution.rope_tension[a] / sys.model.ropes[a].max_tension;
+                        let rb = choice.solution.rope_tension[b] / sys.model.ropes[b].max_tension;
+                        ra.partial_cmp(&rb).unwrap_or(std::cmp::Ordering::Equal)
+                    })
+                    .copied();
+                let Some(k) = worst else { break };
+                mark_broken(&sys, &mut xc, k);
+                choice = determine_mode(&sys, &xc, 20000, slack, unlimit)?;
+                if let Some(px) = project(&sys, &xc, &choice.mode, &mut self.proj_info, &mut self.proj_scratch) {
+                    xc = px;
+                }
+                choice.solution = solve_mode(&sys, &xc, &choice.mode, None)?;
+            }
+        }
         if choice.ambiguous {
             self.stats.ambiguous_modes += 1;
             if self.stats.ambiguous_modes <= 3 {
@@ -1244,7 +1300,14 @@ impl SimulationRun {
                         triggers.push(ty);
                     }
                 }
-                let settled = self.settle(before.clone(), &slack, &unlimit)?;
+                // 26.63 (D231): ropes whose tension reached their limit are broken from here on
+                let mut start = before.clone();
+                for &i in &loc.fired {
+                    if let EventValue::Break { rope } = self.fns[i].value {
+                        mark_broken(&sys, &mut start, rope);
+                    }
+                }
+                let settled = self.settle(start, &slack, &unlimit)?;
                 let prev_mode = std::mem::replace(&mut self.mode, settled.choice.mode);
                 self.sol = settled.choice.solution;
                 self.x = settled.x;
@@ -1262,6 +1325,7 @@ impl SimulationRun {
                     reduced: false,
                 });
                 let mut changes = diff_modes(&sys, Some(&prev_mode), &self.mode, settled.impact.as_ref());
+                break_changes(&sys, &before, &self.x, &mut changes);
                 // 26.51: a body reached the pulley its rope runs onto; the run ends at this event
                 let mut reached = false;
                 for &i in &loc.fired {

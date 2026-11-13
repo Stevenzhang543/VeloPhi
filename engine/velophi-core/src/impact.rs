@@ -76,7 +76,10 @@ pub fn approaching(sys: &System, x: &[f64]) -> bool {
             return true;
         }
     }
-    for r in &sys.model.ropes {
+    for (ri, r) in sys.model.ropes.iter().enumerate() {
+        if sys.model.rope_broken(x, ri) {
+            continue;
+        }
         let (k, _) = rope_kin(&sys.model, &poses, r);
         if k.value <= tol::TOUCH && k.vel < -tol::VEL {
             return true;
@@ -134,10 +137,10 @@ pub fn multi_impact_plastic_warning() -> Message {
 /// impact would add kinetic energy, the impact is solved again as plastic (26.51, D37).
 pub fn resolve_impact(sys: &System, x: &[f64]) -> Option<ImpactResult> {
     let poses = compute_poses(&sys.model, x);
-    let mut rows = impact_rows(sys, &poses, false)?;
+    let mut rows = impact_rows(sys, x, &poses, false)?;
     let res = solve_impact(sys, x, &mut rows);
     if res.frictionless && res.active >= 2 && res.result.energy_after > res.result.energy_before + 1e-12 * js_max(1.0, res.result.energy_before) {
-        let mut plastic_rows = impact_rows(sys, &poses, true).expect("approaching rows found above");
+        let mut plastic_rows = impact_rows(sys, x, &poses, true).expect("approaching rows found above");
         let mut plastic = solve_impact(sys, x, &mut plastic_rows);
         plastic.result.warning = Some(multi_impact_plastic_warning());
         return Some(plastic.result);
@@ -146,7 +149,7 @@ pub fn resolve_impact(sys: &System, x: &[f64]) -> Option<ImpactResult> {
 }
 
 /// The rows of an impact; None when nothing approaches.
-fn impact_rows(sys: &System, poses: &[Pose], plastic: bool) -> Option<Vec<IRow>> {
+fn impact_rows(sys: &System, x: &[f64], poses: &[Pose], plastic: bool) -> Option<Vec<IRow>> {
     let model = &sys.model;
     let mut rows: Vec<IRow> = Vec::new();
     // Equality constraints (hinges, rods and the connectors of 26.51) stay satisfied at velocity level; the drive of a
@@ -186,6 +189,10 @@ fn impact_rows(sys: &System, poses: &[Pose], plastic: bool) -> Option<Vec<IRow>>
         rows.push(IRow { j: t.kin.jn.clone(), u, target: if approach { -e * u } else { 0.0 }, unilateral: true, approach, info: Some(info), kin: Some(t.kin) });
     }
     for (k, r) in model.ropes.iter().enumerate() {
+        // 26.63 (D231): a broken rope takes no part
+        if model.rope_broken(x, k) {
+            continue;
+        }
         let (rk, path) = rope_kin(model, poses, r);
         if rk.value > tol::TOUCH {
             continue;

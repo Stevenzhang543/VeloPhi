@@ -54,8 +54,6 @@ export function nextName(scene: Scene, base: string): string {
   nameCounters[base] = k + 1
   return `${base}${k}`
 }
-/** Restart the name counters of nextName (not used by the app or the tests). */
-export function resetNameCounters() { nameCounters = {} }
 
 /** Place a new object for an `add-*` tool. Returns the new id. */
 export function placeObject(scene: Scene, cp: EditView, tool: Tool, p: Pt): string | null {

@@ -52,14 +52,26 @@ export const SHORTCUTS: ShortcutGroup[] = trDeep([
   ] },
   { title: '视图', items: [
     { keys: [['滚轮']], text: '以指针为中心缩放' },
+    { keys: [['+'], ['−']], text: '放大 / 缩小一级' },
+    { keys: [['0']], text: '适合视图（缩放到运动范围）' },
     { keys: [['中键拖动'], ['空格', '拖动']], text: '平移视图' }
   ] },
+  { title: '界面', items: [
+    { keys: [[MOD, 'K']], text: '全局搜索：工具、模板、实验、公式、手册、题目' },
+    { keys: [[MOD, 'I']], text: '打开或收起 Copilot' },
+    { keys: [[MOD, '\\']], text: '展开或收起侧栏' },
+    { keys: [[MOD, 'J']], text: '展开或收起曲线与事件' },
+    { keys: [[MOD, 'Alt', '1'], [MOD, 'Alt', '2'], [MOD, 'Alt', '3'], [MOD, 'Alt', '4']], text: '侧栏：属性 / 分析 / 题目 / AI' },
+    { keys: [['?']], text: '快捷键一览' }
+  ] },
   { title: '页面', items: [
-    { keys: [['Alt', '1']], text: '工作台' },
-    { keys: [['Alt', '2']], text: '实验室' },
-    { keys: [['Alt', '3']], text: '渲染与监视' },
-    { keys: [['Alt', '4'], [MOD, ',']], text: '设置' },
-    { keys: [[MOD, 'K']], text: '全局搜索：工具、模板、实验、公式、手册、题目' }
+    { keys: [['Alt', '1']], text: '首页' },
+    { keys: [['Alt', '2']], text: '工作台' },
+    { keys: [['Alt', '3']], text: '实验室' },
+    { keys: [['Alt', '4']], text: '资源库' },
+    { keys: [['Alt', '5']], text: '课堂' },
+    { keys: [['Alt', '6']], text: '渲染与监视' },
+    { keys: [[MOD, ',']], text: '设置' }
   ] },
   { title: '触屏', items: [
     { keys: [['双指捏合']], text: '缩放视图' },

@@ -12,6 +12,15 @@ export interface ProblemMeta { types: string[]; level: Level; stage: Stage }
 const m = (types: string[], level: Level = 'basic', stage: Stage = 'senior'): ProblemMeta => ({ types, level, stage })
 
 export const META: Record<string, ProblemMeta> = {
+  // 26.63
+  'c-rope-break': { types: ['圆周', '临界', '能量守恒'], level: 'advanced', stage: 'senior' },
+  'c-rope-circle': { types: ['圆周', '临界'], level: 'basic', stage: 'senior' },
+  'p-drop-throw': { types: ['抛体'], level: 'basic', stage: 'senior' },
+  'p-monkey': { types: ['抛体', '追及相遇'], level: 'advanced', stage: 'senior' },
+  'f-ramp-pull': { types: ['临界', '图像'], level: 'basic', stage: 'senior' },
+  'n-two-blocks': { types: ['连接体'], level: 'basic', stage: 'senior' },
+  'n-fall-drag': { types: ['阻力'], level: 'advanced', stage: 'senior' },
+  'm-big-small': { types: ['碰撞', '动量守恒'], level: 'basic', stage: 'senior' },
   // 26.61
   'e-spring-drop': { types: ['弹簧', '能量守恒'], level: 'advanced', stage: 'senior' },
   'e-spring-launch': { types: ['弹簧', '能量守恒'], level: 'basic', stage: 'senior' },

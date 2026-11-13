@@ -1,6 +1,7 @@
 /**
- * 26.52 built-in problems (D40 revised): 30 problems in textbook chapter order (81 since 26.59, D171: the rest in
- * problemBank2659.ts), each a template with parameters
+ * 26.52 built-in problems (D40 revised): 30 problems in textbook chapter order; the later ones are in
+ * problemBank2659.ts (26.59, D171), problemBank2661.ts and problemBank2663.ts — `PROBLEM_COUNT` is the total. Each is
+ * a template with parameters
  * plus a stem and questions. The stem names the parameters as `{key}` placeholders filled from the scene, and the
  * answers are read from the simulation, so "another set of numbers" (random parameters in each problem's `vary`
  * ranges) gives a new problem with correct answers. Texts are trilingual inline.
@@ -12,6 +13,7 @@ import { buildTemplate } from '../templates'
 import type { ChapterId, ChoiceQuestion, NumericQuestion, Problem, ProblemQuestion, ProblemTarget } from './problems'
 import { PROBLEMS_2659 } from './problemBank2659'
 import { PROBLEMS_2661 } from './problemBank2661'
+import { PROBLEMS_2663 } from './problemBank2663'
 
 /** A built-in problem: a template with parameters, its texts and questions. */
 export interface BuiltinProblem {
@@ -403,10 +405,15 @@ export const BUILTIN_PROBLEMS: BuiltinProblem[] = [
   // 26.59 (D171): 51 more problems, four new chapters
   ...PROBLEMS_2659,
   // 26.61: push-only springs, a point mass, a wall and the arc tracks
-  ...PROBLEMS_2661
+  ...PROBLEMS_2661,
+  // 26.63 (D234)
+  ...PROBLEMS_2663
 ]
 
 /** Id of each built-in problem (problem ids are stable across versions). */
+/** Number of built-in problems (26.63: shown on the home page and in the library). */
+export const PROBLEM_COUNT = BUILTIN_PROBLEMS.length
+
 export function builtinById(id: string): BuiltinProblem | undefined { return BUILTIN_PROBLEMS.find(p => p.id === id) }
 
 /** A built-in problem as a problem, with the given parameters (the problem's own when absent). */

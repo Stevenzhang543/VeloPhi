@@ -22,12 +22,12 @@ import type { Recording } from '../engine/recording'
 import type { DetailBlock, DetailCell, DetailSection, DetailView, Tone } from './detailTypes'
 
 /** Kind of event function (engine EventType). */
-export type EventType = 'contact' | 'liftoff' | 'leave' | 'slip' | 'stop' | 'slack' | 'taut' | 'switch' | 'pulley' | 'limit' | 'unlimit' | 'mslip' | 'mlock' | 'rollStart' | 'rollStop' | 'zone' | 'push'
+export type EventType = 'contact' | 'liftoff' | 'leave' | 'slip' | 'stop' | 'slack' | 'taut' | 'switch' | 'pulley' | 'limit' | 'unlimit' | 'mslip' | 'mlock' | 'rollStart' | 'rollStop' | 'zone' | 'push' | 'break'
 
 /** Kind of a state change reported at an event (engine ChangeType). */
 export type ChangeType =
   | 'impact' | 'touch' | 'separate' | 'stick' | 'slip' | 'reverse' | 'leave' | 'slack' | 'taut' | 'switch' | 'timestep' | 'pulley'
-  | 'limit' | 'unlimit' | 'motorSlip' | 'motorLock' | 'rollStop' | 'rollStart' | 'zoneEnter' | 'zoneLeave' | 'springRelease' | 'springPress'
+  | 'limit' | 'unlimit' | 'motorSlip' | 'motorLock' | 'rollStop' | 'rollStart' | 'zoneEnter' | 'zoneLeave' | 'springRelease' | 'springPress' | 'break'
 
 /** One change at an event (engine ChangeDetail). */
 export interface ChangeDetail {
@@ -284,6 +284,17 @@ export const TRIGGER_TEXT: Record<EventType, TriggerTemplate> = {
       'L ist die Länge der nicht befestigten Feder, L₀ ihre Ruhelänge, also ist L₀ − L die Stauchung; b = +1, wenn sie gedrückt war, −1, wenn der Körper sich gelöst hatte, sodass g > 0 vor dem Ereignis. Fällt g auf 0, hat die Feder ihre Ruhelänge erreicht, und der Körper löst sich (oder drückt wieder auf sie).'
     ),
     unit: 'm'
+  },
+  // 26.63 (D231)
+  break: {
+    name: T('绳断检测', 'The rope breaking', 'Reißen des Seils'),
+    g: 'g(t) = T_\\mathrm{max} - T(t)',
+    meaning: T(
+      'T 为绳在当前约束状态下的拉力，T_max 为绳能承受的最大拉力。g 减小到 0，拉力达到上限，绳断开。',
+      'T is the tension of the rope in the current constraint state and T_max the largest tension it bears. When g falls to 0 the tension has reached the limit and the rope breaks.',
+      'T ist die Seilkraft im aktuellen Zwangszustand, T_max die größte Kraft, die das Seil aushält. Fällt g auf 0, hat die Seilkraft die Grenze erreicht, und das Seil reißt.'
+    ),
+    unit: 'N'
   }
 }
 
@@ -491,6 +502,16 @@ export const CHANGE_TEXT: Record<ChangeType, ChangeTemplate> = {
       'Der Körper erreicht das freie Ende der Feder und beginnt sie zusammenzudrücken: Ab jetzt drückt die Feder mit F = k(L₀ − L). Eine leichte Feder hat keine Masse, daher gibt es keinen Kraftstoß.'
     ),
     law: T('F = k(L₀ − L)，L < L₀', 'F = k(L₀ − L) for L < L₀', 'F = k(L₀ − L) für L < L₀')
+  },
+  // 26.63 (D231)
+  break: {
+    name: T('绳断', 'The rope breaks', 'Das Seil reißt'),
+    text: T(
+      '绳的拉力达到它能承受的最大值，绳断开。从这一刻起绳不再对两端的物体施力：物体保持断开瞬间的速度，此后只受其余的力（例如只受重力时做抛体运动）。断开的瞬间速度不突变，变的是加速度。',
+      'The tension reaches the largest value the rope can bear, and it breaks. From this moment the rope exerts no force on the bodies at its ends: each keeps the velocity it has at that instant and moves on under the remaining forces (as a projectile if only gravity is left). The velocity does not jump when the rope breaks; the acceleration does.',
+      'Die Seilkraft erreicht den größten Wert, den das Seil aushält, und es reißt. Von diesem Moment an übt das Seil keine Kraft mehr auf die Körper an seinen Enden aus: Jeder behält die Geschwindigkeit dieses Augenblicks und bewegt sich unter den übrigen Kräften weiter (als Wurf, wenn nur die Schwerkraft bleibt). Beim Reißen springt nicht die Geschwindigkeit, sondern die Beschleunigung.'
+    ),
+    law: T('T = T_max 时断开；之后 T = 0', 'Breaks at T = T_max; afterwards T = 0', 'Reißt bei T = T_max; danach T = 0')
   }
 }
 

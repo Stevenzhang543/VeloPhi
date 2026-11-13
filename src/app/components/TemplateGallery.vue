@@ -98,7 +98,7 @@ async function create() {
         </section>
       </div>
       <div class="dialog-footer">
-        <button class="btn" @click="state.showTemplates = false">{{ tl('取消') }}</button>
+        <button class="btn embed-hide" @click="state.showTemplates = false">{{ tl('取消') }}</button>
         <button class="btn primary" @click="create">{{ tl('创建场景') }}</button>
       </div>
     </div>

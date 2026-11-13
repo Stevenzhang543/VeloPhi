@@ -21,6 +21,7 @@ import { TEMPLATES_2657 } from './t2657'
 import { TEMPLATES_2658 } from './t2658'
 import { TEMPLATES_2659 } from './t2659'
 import { TEMPLATES_2661 } from './t2661'
+import { TEMPLATES_2663 } from './t2663'
 import type { TemplatePreset } from './t2657'
 
 /** A template parameter: key, label, display unit ('°' for angles), default value and limits. */
@@ -679,7 +680,9 @@ export const TEMPLATES: TemplateInfo[] = trDeep([
   // 26.59 fix: a ball thrown horizontally lands on the incline (D185)
   ...TEMPLATES_2659,
   // 26.61: push-only springs, a point mass, a projectile against a wall
-  ...TEMPLATES_2661
+  ...TEMPLATES_2661,
+  // 26.63 (D234): breakable ropes and illuminating cases
+  ...TEMPLATES_2663
 ])
 
 /**
@@ -692,10 +695,10 @@ export function exactTemplates(): TemplateInfo[] { return TEMPLATES.filter(t => 
 
 /**
  * 26.61: features the TypeScript reference engine does not know (26.60 r2, D208/D209): springs that only push and
- * point masses without volume. Their templates are checked against closed-form answers instead (problems2661).
+ * point masses without volume; 26.63 (D231): ropes with a tension limit. Their templates are checked against closed-form answers instead (problems2661).
  */
 export function usesNewer(s: Scene): boolean {
-  return s.connectors.some(c => c.type === 'spring' && (c as { pushOnly?: boolean }).pushOnly === true) || s.bodies.some(b => b.kind === 'particle' && b.shape.type === 'circle' && b.shape.radius === 0)
+  return s.connectors.some(c => (c.type === 'spring' && (c as { pushOnly?: boolean }).pushOnly === true) || (c.type === 'rope' && ((c as { maxTension?: number }).maxTension ?? 0) > 0)) || s.bodies.some(b => b.kind === 'particle' && b.shape.type === 'circle' && b.shape.radius === 0)
 }
 
 /** Templates the TypeScript reference can run (D77): the ones without charges or fields. */

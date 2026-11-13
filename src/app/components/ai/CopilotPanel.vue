@@ -20,7 +20,7 @@ import type { AnswerLine } from '../../../ai/import/answers'
 import { saveFile, sceneFilter } from '../../../platform/files'
 import { safeName } from '../../../export/safeName'
 import { renderAnswer } from '../../../ai/copilot/render'
-import { aiReady, aiVision, aiLabel, aiCanThink } from '../../../ai/client'
+import { aiReady, aiVision, aiLabel, aiCanThink, aiStatus } from '../../../ai/client'
 import { aiImport, cancelImport } from '../../../ai/import/pipeline'
 import { imageFrom, imageToDataUrl } from '../../../ai/image'
 import { phone, setCopilotOpen, showSideTab } from '../../layout'
@@ -32,6 +32,8 @@ const image = ref<string | null>(null)
 const list = ref<HTMLElement | null>(null)
 const box = ref<HTMLTextAreaElement | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
+// 26.63 (D232): text handed over from another page (the home page's paste box) lands in the input, ready to send
+watch(() => state.copilotDraft, d => { if (d) { input.value = d; state.copilotDraft = ''; void nextTick(() => box.value?.focus()) } }, { immediate: true })
 const ready = computed(() => aiReady())
 const canThink = computed(() => aiCanThink())
 
@@ -235,6 +237,8 @@ const buildFailed = (b: Bubble) => b.offer?.state === 'failed'
         </div>
       </template>
       <div v-if="copilot.busy && !aiImport.busy" class="status" role="status"><span class="dot" />{{ copilot.status }}…</div>
+      <!-- 26.63 (D238): between a failed request and its retry -->
+      <div v-if="aiStatus.waiting" class="status waiting" role="status" data-ui="copilot-waiting"><span class="dot" />{{ tl('{0}，{1} 秒后第 {2} 次重试…', [aiStatus.waiting.reason, aiStatus.waiting.seconds, aiStatus.waiting.retry]) }}</div>
     </div>
 
     <footer class="foot">

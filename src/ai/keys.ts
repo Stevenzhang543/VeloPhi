@@ -28,7 +28,5 @@ export function setKey(kind: 'openai' | 'anthropic', value: string) {
   try { localStorage.setItem(KEY, JSON.stringify(k)) } catch { /* storage unavailable */ }
 }
 
-export function clearKeys() { memory = null; try { localStorage.removeItem(KEY) } catch { /* ignore */ } }
-
 /** A key shown in the interface: the first characters and the length. */
 export function maskKey(k: string): string { return k ? `${k.slice(0, 5)}…（${k.length}）` : '' }

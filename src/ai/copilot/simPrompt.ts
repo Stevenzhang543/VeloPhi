@@ -158,7 +158,7 @@ id 字母开头，只含字母、数字、_；读数 id 用它（block.v）。�
 
 ## 连接件 connectors[]
 锚点 a/b："物体 id"（质心）、{"body": id, "local": {x, y}}（物体上相对质心的点）或 {"body": null, "local": {x, y}}（世界中的固定点）。每个连接件要有唯一 id。
-- 绳 {"id": "rope", "type": "rope", "a": 锚点, "b": 锚点, "pulleys": [{"pulley": "wheel", "wrap": "cw"}], "length": null}：pulleys 按从 a 到 b 的顺序；wrap 可省略（App 按几何判断）；length null 为初始拉直。读数 rope.T。
+- 绳 {"id": "rope", "type": "rope", "a": 锚点, "b": 锚点, "pulleys": [{"pulley": "wheel", "wrap": "cw"}], "length": null}：pulleys 按从 a 到 b 的顺序；wrap 可省略（App 按几何判断）；length null 为初始拉直。读数 rope.T。题目给出“绳能承受的最大拉力”时加 "maxTension": 数值（N）：拉力达到它时绳断开（事件 break），之后绳不再施力，物体带着断开瞬间的速度继续运动。
 - 轻杆 {"type": "rod", "a", "b", "length": null}；铰链 {"type": "hinge", "a", "b"}（两点重合；绕固定轴转动时 b 用世界固定点）；焊接 {"type": "weld", "a", "b"}。
 - 弹簧 {"type": "spring", "a", "b", "stiffness": k, "restLength": 原长（null 为初始长度）, "damping": 0}。读数 spring.F、spring.x。物块与弹簧不粘连（“不拴接”“弹簧把物块弹出”）时加 "pushOnly": true：弹簧只推不拉，恢复原长时物块与它分离（事件 springRelease），之后弹簧停在原长；b 端接物块与弹簧接触的那一点。
 - 恒力 {"type": "force", "a": "block", "force": {"x": Fx, "y": Fy}}；随时间变化加 "expr": {"x": "10*sin(2*pi*t)", "y": "0"}。读数 <力 id>.F。
@@ -169,7 +169,7 @@ id 字母开头，只含字母、数字、_；读数 id 用它（block.v）。�
 - 斜面（倾角 θ，底边 b，从左上向右下）：固定 polygon [{x0, y0}, {x0 + b, y0}, {x0, y0 + b·tanθ}]；斜面上的物体用 "rest": true，或：沿坡距顶端 s 处的方块中心 = (x0 + s·cosθ + (w/2)cosθ + (h/2)sinθ, y0 + b·tanθ − s·sinθ − (w/2)sinθ + (h/2)cosθ)，angle = −θ。
 - 板块模型：地面上放木板（box），板上放物块（"rest": true，或 y = 板顶 + h/2），初速度写在 velocity。
 - 定滑轮：被绳竖直吊着的物体 x = 滑轮中心 x ± 半径；水平段的绳高度 = 滑轮中心 y + 半径。
-- 单摆 / 绳拉小球做圆周运动：绳的一端为世界固定点 {"body": null, "local": 悬点}；杆模型用 rod。
+- 单摆 / 绳拉小球做圆周运动：绳的一端为世界固定点 {"body": null, "local": 悬点}；杆模型用 rod。绳在最低点恰好被拉断：给绳 "maxTension"，问“绳断时的速度 / 之后的落点”用 {"kind": "atEvent", "id": "ball.v", "event": "break", "side": "after"} 或地面上的 impact 事件。
 - 弹簧弹出物块：墙（固定 box）上固定一根不粘连的弹簧 {"type": "spring", "a": {"body": null, "local": 墙面上的点}, "b": {"body": "block", "local": 物块贴着弹簧那一面的中点（相对质心）}, "stiffness": k, "restLength": 原长, "pushOnly": true}，起始时物块把弹簧压缩 x（两锚点距离 = 原长 − x）；问“物块离开弹簧时的速度”用 {"kind": "atEvent", "id": "block.v", "event": "springRelease", "side": "after"}。
 - 碰撞：velocity 写初速度，restitution 决定弹性（1 弹性、0 完全非弹性）。抛体：小球 velocity；问到“落地”就放地面并用 impact 事件。
 - 圆弧轨道：四分之一圆弧（左侧顶端到底端，底端与水平面相切）：圆心在切点正上方，start π、sweep π/2；半圆槽 start π、sweep π；竖直圆轨道 start 0、sweep 2π；拱形桥：start π/6、sweep 2π/3，小球在外侧。

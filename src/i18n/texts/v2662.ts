@@ -30,7 +30,6 @@ export const TEXTS_2662: Record<string, readonly [string, string]> = {
 
   // curriculum map (D222)
   "课程对照": ["Curriculum map", "Lehrplanübersicht"],
-  "课程对照…": ["Curriculum map…", "Lehrplanübersicht…"],
   "从初中到大学的知识点、组件与课程章节对照": ["Topics, components and syllabus chapters from lower secondary to university", "Themen, Komponenten und Lehrplankapitel von der Sekundarstufe I bis zur Universität"],
   "课程补充": ["Curriculum additions", "Lehrplanergänzungen"],
   "知识点": ["Topics", "Themen"],

@@ -5,6 +5,7 @@
  * Copilot reaches it through the build_scene tool, the user through "生成仿真场景" under the answer to a problem.
  */
 import { tl } from '../../i18n'
+import { DATA_RULE } from '../import/prompts'
 import { chat } from '../client'
 import type { ChatMessage } from '../types'
 import { builderAsk, builderSystem, continueNote, repairNote } from './simPrompt'
@@ -39,7 +40,7 @@ const CONTINUATIONS = 2
 
 /** Build a scene with the builder and load it; `onStatus` reports the steps. */
 export async function buildScene(ask: BuildAsk, opts: { signal?: AbortSignal; onStatus?: (s: string) => void; title?: string; think?: boolean } = {}): Promise<BuildResult> {
-  const messages: ChatMessage[] = [{ role: 'system', content: builderSystem() }, { role: 'user', content: builderAsk(ask) }]
+  const messages: ChatMessage[] = [{ role: 'system', content: builderSystem() + DATA_RULE }, { role: 'user', content: builderAsk(ask) }]
   let errors: string[] = []
   let raw = ''
   for (let k = 1; k <= BUILD_TRIES; k++) {

@@ -41,6 +41,7 @@ import { regionAt, regionHandles, resizeRegion } from '../../render/regions'
 import { anchorFor, createCentral, createConnector, createForce, createHinge, createPin, hitTest, moveObject, placeObject, wrapAt } from '../editing'
 import { combineBodies, cutBodies } from '../editor/shapeOps'
 import { editor, clearDrafts, notify } from '../editor/editorState'
+import { viewStatus } from '../viewStatus'
 import type { MenuTarget } from '../editor/editorState'
 import type { Pt } from '../editor/geometry'
 import { bodyBounds, bodyCenter, outlineWorld, pulleyWorld } from '../editor/geometry'
@@ -52,7 +53,7 @@ import type { DragFeedback, Handle, HandleDrag, HandleId } from '../editor/handl
 import { applyHandleDrag, bodyHandles, deleteVertex, edgeAt, handleKey, hitHandle, insertVertex, pulleyHandles, rotateStemFrom, startHandleDrag } from '../editor/handles'
 import type { DragTool } from '../editor/create'
 import { createFromDrag, createPolygon, dragPreview, isDragTool, polygonPreview } from '../editor/create'
-import { SHEET_STOPS, phone, shell } from '../layout'
+import { SHEET_STOPS, landscape, phone, shell } from '../layout'
 import { canvasDpr } from '../../platform/device'
 import { isPresetTool } from '../editor/presets'
 import { addAnnotation, annotationPointAt, deleteAnnotation, editAnnotations, hitAnnotation, placeMoved, pushHistory, setAnnotationPoint } from '../editor/annotations'
@@ -61,6 +62,7 @@ import {
   paste, resetVelocity, sendToBack, toggleFixedRotation, toggleStatic
 } from '../editor/commands'
 import ContextMenu from './ContextMenu.vue'
+import Icon from './Icon.vue'
 import type { MenuItem } from './ContextMenu.vue'
 import AnnotationTextInput from './AnnotationTextInput.vue'
 
@@ -210,7 +212,7 @@ function paint(ctx: CanvasRenderingContext2D) {
  * 26.60 r2: the height of the canvas a phone sheet covers (px; none at full height, where the canvas is hidden). The
  * view keeps the scene in the part left above the sheet: opening or resizing a sheet pans by half the change.
  */
-const sheetCover = computed(() => (phone.value && shell.sheet && shell.sheetSize < 3 ? SHEET_STOPS[shell.sheetSize] * cam.value.height : 0))
+const sheetCover = computed(() => (phone.value && !landscape.value && shell.sheet && shell.sheetSize < 3 ? SHEET_STOPS[shell.sheetSize] * cam.value.height : 0))
 watch(sheetCover, (now, before) => {
   const d = now - (before ?? 0)
   if (!d || !(cam.value.ppm > 0) || !Number.isFinite(d)) return
@@ -247,10 +249,30 @@ let floatBottom = 0
 let floatLeft = 0
 
 /**
+ * 26.63 (D233): move the camera to `target` in a short glide (centre linearly, zoom geometrically), so a fit or a
+ * zoom step reads as one motion of the same picture. Without interface animations it jumps.
+ */
+let glide = 0
+function glideTo(target: typeof cam.value, ms = 240) {
+  cancelAnimationFrame(glide)
+  const from = cam.value
+  const calm = !settings.ui.motion || (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches)
+  if (calm || !visible() || !(from.ppm > 0) || !(target.ppm > 0)) { cam.value = target; requestDraw(); return }
+  const t0 = performance.now(), l0 = Math.log(from.ppm), l1 = Math.log(target.ppm)
+  const step = (now: number) => {
+    const u = Math.min(1, (now - t0) / ms), e = 1 - Math.pow(1 - u, 3)
+    cam.value = { ...cam.value, cx: from.cx + (target.cx - from.cx) * e, cy: from.cy + (target.cy - from.cy) * e, ppm: Math.exp(l0 + (l1 - l0) * e) }
+    requestDraw()
+    if (u < 1) glide = requestAnimationFrame(step)
+  }
+  glide = requestAnimationFrame(step)
+}
+
+/**
  * Fit the view to where things happen: every recorded position of the moving bodies (or their initial
  * positions before a run), pulleys and fixed anchors, with a margin.
  */
-function fitView() {
+function fitView(animate = false) {
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
   const grow = (x: number, y: number, r = 0) => { minX = Math.min(minX, x - r); maxX = Math.max(maxX, x + r); minY = Math.min(minY, y - r); maxY = Math.max(maxY, y + r) }
   const rec = state.recording
@@ -340,9 +362,10 @@ function fitView() {
   const fit = (reserve: number) => Math.max(10, Math.min(2000, Math.min((cam.value.width * 0.8) / w, ((cam.value.height - cover) * (hist ? 0.9 : 0.72) - reserve) / h)))
   let ppm = fit(0), reserve = 0
   if (hist) for (let k = 0; k < 2; k++) { reserve = Math.max(40, Math.min(140, 3 * hist.binWidth * ppm)) + 44; ppm = fit(reserve) }
-  cam.value = { ...cam.value, cx: (minX + maxX) / 2, cy: (minY + maxY) / 2 - (reserve + cover) / 2 / ppm, ppm }
-  lastFit = { cx: cam.value.cx, cy: cam.value.cy, ppm }
-  requestDraw()
+  const target = { ...cam.value, cx: (minX + maxX) / 2, cy: (minY + maxY) / 2 - (reserve + cover) / 2 / ppm, ppm }
+  lastFit = { cx: target.cx, cy: target.cy, ppm }
+  if (animate) glideTo(target)
+  else { cancelAnimationFrame(glide); cam.value = target; requestDraw() }
 }
 
 let ro: ResizeObserver | null = null
@@ -396,7 +419,7 @@ function onMouseDown(e: MouseEvent) {
 // Shown again: take the current size (it may have changed while hidden) and draw the current state
 watch(pageActive, on => { if (on) { resize(); requestDraw() } })
 watch(() => state.recording, () => { effectsBroken = false })
-watch(() => state.cameraRequest, fitView)
+watch(() => state.cameraRequest, () => fitView())
 watch(() => [state.recording, state.stale], () => {
   if (state.fitPending && state.recording && !state.stale && visible()) {
     state.fitPending = false
@@ -429,6 +452,15 @@ watch(() => state.selection, s => { if (s) { editor.annotationId = null; editor.
 watch(() => state.tool, () => { clearDrafts(); snapMark.value = null; snapGuides.value = [] })
 
 defineExpose({ canvas, cam, fitView })
+
+// 26.63 (D233): the status bar reads the zoom and asks for zoom steps
+watch(() => cam.value.ppm, v => { if (studio.value) viewStatus.ppm = v }, { immediate: true })
+watch(() => viewStatus.zoom, z => {
+  if (!z || !studio.value) return
+  viewStatus.zoom = 0
+  refitAt = 0
+  glideTo({ ...cam.value, ppm: Math.min(5000, Math.max(5, cam.value.ppm * Math.pow(1.25, z))) })
+})
 
 // ---- Overlay ----
 function selectionHandles(): { handles: Handle[]; target: { body?: string; pulley?: string } } | null {
@@ -647,6 +679,7 @@ let drag: Drag | null = null
 
 function onWheel(e: WheelEvent) {
   e.preventDefault()
+  cancelAnimationFrame(glide)
   refitAt = 0
   const before = worldOf(e)
   const f = Math.exp(-e.deltaY * 0.0015)
@@ -658,6 +691,7 @@ function onWheel(e: WheelEvent) {
 }
 
 function onDown(e: MouseEvent) {
+  cancelAnimationFrame(glide)
   const p = worldOf(e)
   const [sx, sy] = screenOf(e)
   altDown = e.altKey
@@ -887,6 +921,7 @@ function angleClick(q: Pt, shift: boolean) {
 function onMove(e: MouseEvent) {
   const p = worldOf(e)
   cursorWorld.value = p
+  if (studio.value) viewStatus.cursor = p
   altDown = e.altKey
   const ppm = cam.value.ppm
   const d = drag
@@ -1197,6 +1232,7 @@ function finishCombine() {
 function onLeave() {
   hover.value = null
   hotHandle.value = null
+  if (studio.value) viewStatus.cursor = null
   const d = drag
   // A drag with the window listeners keeps going outside the canvas (26.60); the context menu needs a release inside
   if (d && d.kind !== 'right' && windowDrag) { requestDraw(); return }
@@ -1403,7 +1439,7 @@ function runMenu(id: string) {
   switch (id) {
     case 'paste': paste(snapPoint(m.world, cam.value.ppm, false), offset); return
     case 'text': editor.textInput = { at: snapPoint(m.world, cam.value.ppm, false), text: '', editId: null }; return
-    case 'fit': fitView(); return
+    case 'fit': fitView(true); return
     case 'edit-text': {
       const a = state.scene.annotations.find(x => x.id === tid)
       if (a?.type === 'text') editor.textInput = { at: { ...a.at }, text: a.text, editId: a.id }
@@ -1592,6 +1628,18 @@ const selectionHint = computed(() => {
   if (b.shape.type === 'arc') return tl('拖动内侧的手柄改半径，圆形手柄旋转{0}；起始角、圆心角与厚度在“属性”中修改', [rot])
   return tl('拖动手柄改半径')
 })
+// 26.63 (D233): on a desktop the hint is shown in the status bar; the pill over the canvas stays on phones
+watch([toolHint, selectionHint], ([a, b]) => { if (studio.value) viewStatus.hint = a || b }, { immediate: true })
+const hintOnCanvas = computed(() => !studio.value || phone.value)
+// 26.63 (D233): starting and pausing playback flashes its symbol in the middle of the canvas, as video players do
+const flash = ref<{ icon: 'play' | 'pause'; n: number } | null>(null)
+let flashTimer: ReturnType<typeof setTimeout> | null = null
+watch(() => state.playing, on => {
+  if (!pageActive.value || !visible() || !settings.ui.motion) return
+  flash.value = { icon: on ? 'play' : 'pause', n: (flash.value?.n ?? 0) + 1 }
+  if (flashTimer) clearTimeout(flashTimer)
+  flashTimer = setTimeout(() => { flash.value = null }, 560)
+})
 </script>
 
 <template>
@@ -1605,8 +1653,8 @@ const selectionHint = computed(() => {
       <span v-if="state.simError" class="badge bad" :title="msgText(state.simError)">{{ msgText(state.simError) }}</span>
     </div>
     <div v-if="!studio && timeText" class="overlay hud mono">{{ timeText }}<span v-if="state.speed !== 1" class="speed">{{ state.speed }}×</span></div>
-    <div v-if="toolHint || editor.notice || selectionHint" class="overlay hint-col">
-      <div v-if="toolHint || selectionHint" class="hint small">{{ toolHint || selectionHint }}</div>
+    <div v-if="((toolHint || selectionHint) && hintOnCanvas) || editor.notice" class="overlay hint-col">
+      <div v-if="(toolHint || selectionHint) && hintOnCanvas" class="hint small">{{ toolHint || selectionHint }}</div>
       <div v-if="editor.notice" class="hint small notice">{{ editor.notice }}</div>
     </div>
     <div v-if="studio && draftBar" class="draft-bar" role="toolbar" :aria-label="draftBar.label">
@@ -1615,8 +1663,9 @@ const selectionHint = computed(() => {
       <button type="button" class="btn small" @click="cancelDraft">{{ tl('取消') }}</button>
       <button type="button" class="btn primary small" data-ui="draft-finish" :disabled="!draftBar.ready" @click="draftBar.finish">{{ draftBar.action }}</button>
     </div>
+    <div v-if="flash" :key="flash.n" class="flash" aria-hidden="true"><Icon :name="flash.icon" :size="34" /></div>
     <div class="overlay bottom-right">
-      <button class="btn ghost small" :title="tl('缩放到运动范围')" @click="fitView">{{ tl('适合视图') }}</button>
+      <button class="btn ghost small" :title="tl('缩放到运动范围')" @click="fitView(true)">{{ tl('适合视图') }}</button>
     </div>
     <AnnotationTextInput v-if="studio && editor.textInput && textInputPos" :key="`${editor.textInput.editId ?? 'new'}:${editor.textInput.at.x},${editor.textInput.at.y}`"
       :x="textInputPos.x" :y="textInputPos.y" :text="editor.textInput.text" :size="TEXT_SIZE * (settings.projector ? 1.4 : 1)" @commit="commitText" @cancel="cancelText" />
@@ -1644,6 +1693,8 @@ canvas.kbd-focus:focus { outline: 2px solid var(--accent); outline-offset: -2px;
 .hint { background: var(--pane); padding: 4px 10px; border-radius: 999px; box-shadow: var(--shadow); color: var(--text-2); text-align: center; }
 .hint.notice { color: var(--accent); }
 .overlay .time, .overlay.hud { pointer-events: none; }
+.flash { position: absolute; left: 50%; top: 46%; width: 84px; height: 84px; margin: -42px 0 0 -42px; border-radius: 50%; display: grid; place-items: center; background: rgba(20, 22, 26, 0.55); color: #fff; pointer-events: none; z-index: 5; animation: flash 540ms var(--ease-out) forwards; }
+@keyframes flash { 0% { opacity: 0; transform: scale(0.7); } 22% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1.22); } }
 .time { font-size: 15px; font-weight: 600; background: var(--pane); padding: 2px 10px; border-radius: 8px; box-shadow: var(--shadow); }
 .hud { top: 14px; right: 16px; font-size: 30px; font-weight: 650; letter-spacing: 0.01em; background: var(--pane); padding: 4px 16px; border-radius: 12px; box-shadow: var(--shadow); font-variant-numeric: tabular-nums; }
 .hud .speed { font-size: 16px; font-weight: 600; color: var(--text-2); margin-left: 10px; }

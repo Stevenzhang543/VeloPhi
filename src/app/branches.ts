@@ -97,15 +97,6 @@ export function deleteBranch(id: string) {
   logEvent('branch.delete', { branch: id })
 }
 
-/** Rename a branch. */
-export function renameBranch(id: string, name: string) {
-  const host = state.mainScene ?? state.scene
-  const b = host.branches?.find(x => x.id === id)
-  if (!b || !name.trim()) return
-  b.name = name.trim()
-  state.dirty = true
-}
-
 /** Depth of a branch in the tree (1: child of the main scene). */
 export function branchDepth(id: string): number {
   let d = 0

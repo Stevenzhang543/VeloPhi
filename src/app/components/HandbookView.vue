@@ -6,6 +6,7 @@
  * request) and searchable; a formula card's "Handbook" button opens the entry here.
  */
 import { tl } from '../../i18n'
+import { foldSearch } from '../searchText'
 import { computed, nextTick, ref, watch } from 'vue'
 import { locale } from '../../i18n/locale'
 import type { Tri } from '../../i18n/tri'
@@ -39,7 +40,8 @@ const cur = computed(() => effectiveCurriculum())
 const levelName = computed(() => tl(LEVEL_CHOICES[cur.value].find(c => c.ord === settings.knowledge.level)?.name ?? ''))
 
 /** Search: title, symbolic form, id and topic name, ignoring case and spaces. */
-const norm = (s: string) => s.toLowerCase().replace(/\s+/g, '')
+// 26.63 (D239): the app's one search folding (full-width forms, dashes, case, spaces)
+const norm = foldSearch
 function matches(f: FormulaDef, topicTitle: string): boolean {
   const q = norm(query.value)
   if (!q) return true

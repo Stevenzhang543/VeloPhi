@@ -24,10 +24,10 @@ export function exampleOf(formulaId: string): HandbookExample | null {
   return (EXAMPLES as Record<string, HandbookExample>)[formulaId] ?? null
 }
 
-/** Open the settings page at the handbook, optionally at one formula's entry. */
+/** Open the handbook (26.63: a section of the library page), optionally at one formula's entry. */
 export function openHandbook(formulaId: string | null = null) {
-  state.page = 'settings'
-  state.settingsSection = 'handbook'
+  state.page = 'library'
+  state.librarySection = 'handbook'
   state.handbookFocus = formulaId
   logEvent('handbook.open', { formula: formulaId ?? '' })
 }

@@ -211,7 +211,6 @@ export const TEXTS_APP: Record<string, readonly [string, string]> = {
   '课件导出…': ['Courseware…', 'Unterrichtsmaterial…'],
   '浅色外观': ['Light appearance', 'Helles Erscheinungsbild'],
   '深色外观': ['Dark appearance', 'Dunkles Erscheinungsbild'],
-  '关于与快捷键': ['About and shortcuts', 'Über und Tastenkürzel'],
   '计算出错': ['Solver error', 'Rechenfehler'],
   '计算中…': ['Computing…', 'Berechnung…'],
   '结果已过期': ['Result out of date', 'Ergebnis veraltet'],
@@ -488,7 +487,6 @@ export const TEXTS_APP: Record<string, readonly [string, string]> = {
   '示例：{0}': ['Example: {0}', 'Beispiel: {0}'],
   '打开示例': ['Open the example', 'Beispiel öffnen'],
   '学习手册': ['Learning handbook', 'Lernhandbuch'],
-  '按主题整理的原理讲解与全部公式：符号、适用条件、推导、知识水平与示例；“打开示例”在工作台中载入模板并跳到该公式出现的时刻。': ['The principles by topic and every formula with its symbols, conditions, derivation, level and an example; “Open the example” loads a template in the studio and jumps to the moment the formula applies.', 'Die Prinzipien nach Themen und alle Formeln mit Symbolen, Voraussetzungen, Herleitung, Stufe und einem Beispiel; „Beispiel öffnen“ lädt eine Vorlage in die Werkstatt und springt zu dem Zeitpunkt, an dem die Formel gilt.'],
   // 26.51: custom (expression) quantities
   '自定义量 {0}': ['Custom quantity {0}', 'Eigene Größe {0}'],
   '自定义量': ['Custom quantities', 'Eigene Größen'],

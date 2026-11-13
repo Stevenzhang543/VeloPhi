@@ -738,7 +738,15 @@ export function drawScene(ctx: CanvasRenderingContext2D, cam: Camera, input: Dra
     ctx.beginPath()
     const pts: Array<[number, number]> = []
     for (let i = 0; i + 1 < path.points.length; i += 2) pts.push(toScreen(cam, path.points[i], path.points[i + 1]))
-    if (!taut && slack > 1e-6 && r.pulleys.length === 0) {
+    if (path.broken) {
+      // 26.63 (D231): a broken rope hangs from each end as a short frayed piece (visual only)
+      const stub = Math.min(r.length * 0.35 * cam.ppm, 46)
+      ctx.setLineDash([lw(5), lw(3)])
+      for (const [x, y] of [pts[0], pts[pts.length - 1]]) {
+        ctx.moveTo(x, y); ctx.lineTo(x, y + stub)
+        ctx.moveTo(x - lw(3), y + stub + lw(4)); ctx.lineTo(x, y + stub); ctx.lineTo(x + lw(3), y + stub + lw(4))
+      }
+    } else if (!taut && slack > 1e-6 && r.pulleys.length === 0) {
       // Slack rope: a sagging curve whose arc is about the rope length (visual only)
       const [x0, y0] = pts[0], [x1, y1] = pts[1]
       const sag = Math.sqrt(Math.max(0, (r.length * r.length - path.length * path.length))) * 0.5 * cam.ppm
@@ -1074,7 +1082,7 @@ const CHANGE_TEXT: Record<string, string> = {
   impact: '碰撞', touch: '接触', separate: '分离', stick: '相对静止（共速）', slip: '开始相对滑动', reverse: '相对滑动反向', slack: '绳松弛', taut: '绳绷紧', leave: '离开',
   switch: '变力切换', timestep: '改用时间步进（精度降级）', pulley: '到达滑轮', limit: '到达限位', unlimit: '离开限位',
   motorSlip: '马达打滑', motorLock: '马达恢复转速', rollStop: '滚动停止', rollStart: '开始滚动', zoneEnter: '进入场区', zoneLeave: '离开场区',
-  springRelease: '与弹簧分离', springPress: '压上弹簧'
+  springRelease: '与弹簧分离', springPress: '压上弹簧', break: '绳断'
 }
 
 /** Display text of a change (a switch that is a kink has its own text). */
@@ -1091,6 +1099,8 @@ export function impactDetail(c: { type: string; impulse?: number; tangentImpulse
   return c.tangentImpulse !== undefined && Math.abs(c.tangentImpulse) > 1e-12 ? tl('{0}，摩擦冲量 {1}', [n, q(Math.abs(c.tangentImpulse), 'N·s', Math.min(digits, 4))]) : n
 }
 
+/** How long (s of the scene's time) an impact rings out on the canvas (26.63). */
+const RIPPLE_SECONDS = 0.3
 /** At most this many key-moment labels are drawn (the most recent ones); older ones keep their dot. */
 const KEY_LABELS = 8
 
@@ -1159,6 +1169,22 @@ function drawKeyMoments(ctx: CanvasRenderingContext2D, cam: Camera, input: DrawI
     const x = e.at[0], y = e.at[1]
     const [sx, sy] = toScreen(cam, x, y)
     if (sx < -50 || sy < -50 || sx > cam.width + 50 || sy > cam.height + 50) continue
+    // 26.63 (D233): an impact, a first touch or a breaking rope rings out from where it happened for 0.3 s of the
+    // scene's time — a function of the time shown only, so a paused frame and an exported video show the same
+    const age = input.time - e.t
+    if (age >= 0 && age < RIPPLE_SECONDS && e.changes.some(ch => ch.type === 'impact' || ch.type === 'touch' || ch.type === 'break')) {
+      const u = age / RIPPLE_SECONDS, fade = (1 - u) * (1 - u)
+      ctx.save()
+      ctx.strokeStyle = e.changes.some(ch => ch.type === 'break') ? P.friction : P.accent
+      const grow = 1 - (1 - u) * (1 - u)
+      // two rings: a strong inner one and a faint outer one
+      for (const [reach, width, alpha] of [[28, 2.2, 0.9], [46, 1.2, 0.45]] as const) {
+        ctx.globalAlpha = fade * alpha
+        ctx.lineWidth = lw(width)
+        ctx.beginPath(); ctx.arc(sx, sy, fpx(5 + reach * grow), 0, Math.PI * 2); ctx.stroke()
+      }
+      ctx.restore()
+    }
     ctx.fillStyle = P.accent
     ctx.beginPath(); ctx.arc(sx, sy, 3.5, 0, Math.PI * 2); ctx.fill()
     hits.push({ x: sx - 6, y: sy - 6, w: 12, h: 12, event: i })

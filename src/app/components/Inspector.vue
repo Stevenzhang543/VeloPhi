@@ -469,6 +469,13 @@ function setPulleyBody(bodyId: string) {
         </div>
         <div v-if="conn.length !== null" class="row"><label>L</label><NumField class="grow" :model-value="conn.length" unit="m" :min="1e-6" @update:model-value="v => setConn(c => { if (c.type === 'rope' || c.type === 'rod') c.length = v })" /></div>
         <template v-if="conn.type === 'rope'">
+          <div class="row"><label>{{ tl('最大拉力') }}</label>
+            <select class="field grow" :value="conn.maxTension ? 'limit' : 'none'" :title="tl('拉力达到这个值时绳断开，之后不再对物体施力')" @change="setConn(c => { if (c.type === 'rope') { if (($event.target as HTMLSelectElement).value === 'limit') c.maxTension = 50; else delete c.maxTension } })">
+              <option value="none">{{ tl('不会断') }}</option>
+              <option value="limit">{{ tl('超过就断') }}</option>
+            </select>
+          </div>
+          <div v-if="conn.maxTension" class="row"><label>T<sub>max</sub></label><NumField class="grow" :model-value="conn.maxTension" unit="N" :min="1e-6" @update:model-value="v => setConn(c => { if (c.type === 'rope') c.maxTension = v })" /></div>
           <div v-for="(p, i) in conn.pulleys" :key="p.pulley + i" class="row">
             <label>{{ tl('滑轮 {0}', [i + 1]) }}</label>
             <span class="grow small">{{ state.scene.pulleys.find(q => q.id === p.pulley)?.name }}</span>

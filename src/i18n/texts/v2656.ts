@@ -113,7 +113,6 @@ export const TEXTS_2656: Record<string, readonly [string, string]> = {
   '导出学习记录': ['Export the learning records', 'Lernaufzeichnungen exportieren'],
   '清除学习记录': ['Clear the learning records', 'Lernaufzeichnungen löschen'],
   '清除本学段的访问': ['Clear the visits of this stage', 'Besuche dieser Stufe löschen'],
-  '模型目录…': ['Model catalogue…', 'Modellkatalog…'],
   '常数集': ['Constants', 'Konstantensatz'],
   '本实验涉及的模型族': ['Model families of this experiment', 'Modellfamilien dieses Experiments'],
   '模型：': ['Models:', 'Modelle:'],

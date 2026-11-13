@@ -1,9 +1,9 @@
-# Packages a finished build into releases\v26.62 (no rebuild). Run from the repository root.
-# Never deletes: an existing releases\v26.62 is moved aside to .cache\superseded-<time> first.
+# Packages a finished build into releases\v26.63 (no rebuild). Run from the repository root.
+# Never deletes: an existing releases\v26.63 is moved aside to .cache\superseded-<time> first.
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
-$Version = '26.62'
-$Full = '26.62.0'
+$Version = '26.63'
+$Full = '26.63.0'
 $Root = (Get-Location).Path
 $Out = Join-Path $Root "releases\v$Version"
 $Ev = Join-Path $Root ".cache\evidence-$Version"

@@ -14,6 +14,7 @@ import type { ImageBackground } from './still'
 import type { FaceRule, FontUsage } from './formulaImage'
 import { cardColors, documentFaces, selectFaces, splitFamilies, svgToPng } from './formulaImage'
 import { bytesToBase64 } from './zip'
+import { escapeHtml } from '../core/text'
 
 /** Options of the detail images. */
 export interface DetailImageOptions {
@@ -27,7 +28,7 @@ export interface DetailImageOptions {
   caption?: string
 }
 
-const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+const esc = escapeHtml
 
 function tex(src: string, display: boolean): string {
   try {

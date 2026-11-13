@@ -132,13 +132,21 @@ pub fn moreau_step(sys: &System, x: &[f64], h: f64) -> SimResult<MoreauStepResul
         let lim = if e.kind == EqualityKind::Drive && model.motors[e.owner].limited { Some(h * model.motors[e.owner].max_torque) } else { None };
         rows.push(PRow { j: e.kin.j, d, target, kind: PKind::Eq, normal: usize::MAX, mu: 0.0, lambda: 0.0, lim });
     }
-    for r in &model.ropes {
+    // 26.63 (D231): rows of the ropes that can break (rope index, row), to compare their impulse with the limit
+    let mut break_rows: Vec<(usize, usize)> = Vec::new();
+    for (ri, r) in model.ropes.iter().enumerate() {
+        if model.rope_broken(x, ri) {
+            continue;
+        }
         let (k, _) = rope_kin(model, &poses, r);
         if k.value > tol::TOUCH && k.value + 2.0 * h * k.vel > 0.0 {
             continue;
         }
         let d = row_minv_row(model, &k.j, &k.j);
         let target = if k.value > tol::TOUCH { -k.value / h } else { 0.0 };
+        if r.break_index.is_some() {
+            break_rows.push((ri, rows.len()));
+        }
         rows.push(PRow { j: k.j, d, target, kind: PKind::Normal, normal: usize::MAX, mu: 0.0, lambda: 0.0, lim: None });
     }
     let v_rest = js_max(tol::ZENO, 2.0 * model.accel_scale * h);
@@ -233,6 +241,17 @@ pub fn moreau_step(sys: &System, x: &[f64], h: f64) -> SimResult<MoreauStepResul
     if let Some(ts) = sys.time_slot {
         y[ts] = x[ts] + h;
     }
+    // 26.63 (D231): time stepping has no event at the limit — a rope whose mean tension over the step (impulse / h)
+    // exceeds it is broken from the next step on
+    if let Some(base) = model.break_base {
+        for &(ri, row) in &break_rows {
+            if rows[row].lambda / h > model.ropes[ri].max_tension {
+                if let Some(j) = model.ropes[ri].break_index {
+                    y[base + j] = 1.0;
+                }
+            }
+        }
+    }
     // 26.55: ledger extras of field regions, liquids and rail loops
     if let Some(e) = sys.extra_slot {
         for k in 0..crate::regions::EXTRA_LEN {
@@ -260,7 +279,10 @@ fn project_positions(sys: &System, x_in: Vec<f64>) -> Vec<f64> {
                 rows.push((e.kin.j, e.kin.value));
             }
         }
-        for r in &model.ropes {
+        for (ri, r) in model.ropes.iter().enumerate() {
+            if model.rope_broken(&x, ri) {
+                continue;
+            }
             let (k, _) = rope_kin(model, &poses, r);
             if k.value < -SLOP {
                 rows.push((k.j, k.value));

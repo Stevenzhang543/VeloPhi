@@ -279,16 +279,6 @@ export function closestOnSegment(p: V, a: V, b: V): V {
   return { x: a.x + e.x * t, y: a.y + e.y * t }
 }
 
-/** Closest point on the boundary of a polygon loop to p. */
-export function closestOnLoop(P: V[], p: V): { q: V; d: number } {
-  let best = { q: P[0], d: Infinity }
-  for (let i = 0; i < P.length; i++) {
-    const q = closestOnSegment(p, P[i], P[(i + 1) % P.length]), d = len(sub(p, q))
-    if (d < best.d) best = { q, d }
-  }
-  return best
-}
-
 /**
  * Nearest boundary point of a polygon loop to p and the unit direction from it to p. Inside an edge the direction is
  * the edge's normal itself (exact for horizontal and vertical edges: a block snapped onto the ground keeps its x).

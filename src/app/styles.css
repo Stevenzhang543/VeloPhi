@@ -1,5 +1,8 @@
 /*
- * VeloPhi design tokens. Derived from the Nova_A token set (4 pt grid, concentric radii, system font stack
+ * VeloPhi design tokens, version 3 (26.63, D232 "Workbench 3"): a tool-like shell — a navigation rail, a context bar
+ * and a status bar around the work area; three elevation levels (flat chrome, raised panels, floating layers); tighter
+ * concentric radii (controls 8, panels 12, floating layers 16); hairline borders instead of heavy shadows; one focus
+ * ring; motion tokens for press, hover, toggle, enter and exit. Derived from the Nova_A token set (4 pt grid, concentric radii, system font stack
  * with bundled OFL fallbacks; nothing Apple-proprietary is bundled). Light is the default theme because
  * classrooms project on white boards; dark is chosen in the settings or follows the system.
  *
@@ -28,8 +31,10 @@
   --line-body: 1.5;
   --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 20px; --space-6: 24px;
   /* 26.59 (D155): concentric radii — controls 10, panels 16, floating layers 20, pills 999; rows inside a control 8 */
-  --radius-control: 10px; --radius-panel: 16px; --radius-float: 20px;
-  --radius-pane: var(--radius-panel); --radius-group: 12px; --radius-row: 8px; --radius-pill: 999px;
+  --radius-control: 8px; --radius-panel: 12px; --radius-float: 16px;
+  --radius-pane: var(--radius-panel); --radius-group: 10px; --radius-row: 7px; --radius-pill: 999px;
+  /* 26.63: the shell — navigation rail, context bar, status bar */
+  --rail-w: calc(64px * var(--zoom)); --bar-h: calc(48px * var(--zoom)); --status-h: calc(26px * var(--zoom));
   --control-h: calc(32px * var(--zoom));
   --left-w: calc(216px * var(--zoom));
   /* Motion tokens (26.52, D57): press, hover/switch, open/dialog; reduced motion shortens them all (fx-calm) */
@@ -42,7 +47,14 @@
   --ease-spring: cubic-bezier(0.3, 1.25, 0.5, 1);
   --press-scale: 0.97;
 
-  --bg: #eef0f4;
+  --bg: #f1f2f5;
+  --chrome: #e8eaef;
+  --border: rgba(60, 60, 67, 0.13);
+  --ring: rgba(10, 108, 255, 0.34);
+  --accent-strong: #0057d9;
+  --elev-1: 0 0 0 1px var(--border), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --elev-2: 0 0 0 1px var(--border), 0 4px 14px rgba(15, 23, 42, 0.08);
+  --elev-3: 0 0 0 1px var(--border), 0 14px 44px rgba(15, 23, 42, 0.18), 0 2px 6px rgba(15, 23, 42, 0.08);
   --pane: #ffffff;
   --pane-bg: var(--pane);
   --group: #f5f6f8;
@@ -66,8 +78,8 @@
   --canvas-bg: #fbfbfd;
   --grid-minor: rgba(60, 60, 67, 0.06);
   --grid-major: rgba(60, 60, 67, 0.14);
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 4px 16px rgba(0, 0, 0, 0.06);
-  --shadow-pop: 0 10px 40px rgba(0, 0, 0, 0.16), 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow: var(--elev-1);
+  --shadow-pop: var(--elev-3);
 
   /* Glass */
   /* 26.59 (D158): white 82 %, blur 16–20 px, saturation 115 % (was 68 %, 22 px, 180 %) */
@@ -95,8 +107,15 @@
 }
 
 :root[data-theme="dark"] {
-  --bg: #0f1012;
-  --pane: #1c1c1f;
+  --bg: #101114;
+  --chrome: #0a0b0d;
+  --border: rgba(235, 235, 245, 0.12);
+  --ring: rgba(59, 139, 255, 0.45);
+  --accent-strong: #6aa6ff;
+  --elev-1: 0 0 0 1px var(--border), 0 1px 2px rgba(0, 0, 0, 0.4);
+  --elev-2: 0 0 0 1px var(--border), 0 6px 20px rgba(0, 0, 0, 0.4);
+  --elev-3: 0 0 0 1px var(--border), 0 18px 54px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.4);
+  --pane: #1b1c20;
   --group: #242428;
   --group-solid: #242428;
   --fill: rgba(235, 235, 245, 0.10);
@@ -117,8 +136,8 @@
   --canvas-bg: #141518;
   --grid-minor: rgba(235, 235, 245, 0.05);
   --grid-major: rgba(235, 235, 245, 0.12);
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 20px rgba(0, 0, 0, 0.35);
-  --shadow-pop: 0 16px 50px rgba(0, 0, 0, 0.55), 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow: var(--elev-1);
+  --shadow-pop: var(--elev-3);
 
   --glass-pane: rgba(30, 30, 34, 0.78);
   --glass-group: rgba(52, 52, 58, 0.74);
@@ -139,8 +158,8 @@
   --type-title: calc(15px * var(--zoom)); --type-body: calc(13px * var(--zoom)); --type-small: calc(12px * var(--zoom)); --type-tiny: calc(11px * var(--zoom));
   --control-h: calc(28px * var(--zoom)); --control-sm: calc(26px * var(--zoom)); --tab-h: calc(24px * var(--zoom)); --menu-row: calc(30px * var(--zoom)); --line-body: 1.4;
 }
-:root.projector { --proj-scale: 1.18; --text-2: rgba(0, 0, 0, 0.86); --text-3: rgba(0, 0, 0, 0.68); --separator: rgba(0, 0, 0, 0.26); --fill: rgba(0, 0, 0, 0.09); --fill-strong: rgba(0, 0, 0, 0.16); --bg: #e6e8ec; }
-:root.projector[data-theme="dark"] { --text-2: rgba(255, 255, 255, 0.9); --text-3: rgba(255, 255, 255, 0.72); --separator: rgba(255, 255, 255, 0.26); --fill: rgba(255, 255, 255, 0.14); --fill-strong: rgba(255, 255, 255, 0.22); --bg: #000; }
+:root.projector { --proj-scale: 1.18; --text-2: rgba(0, 0, 0, 0.86); --text-3: rgba(0, 0, 0, 0.68); --separator: rgba(0, 0, 0, 0.26); --border: rgba(0, 0, 0, 0.3); --fill: rgba(0, 0, 0, 0.09); --fill-strong: rgba(0, 0, 0, 0.16); --bg: #e6e8ec; --chrome: #d9dce2; }
+:root.projector[data-theme="dark"] { --text-2: rgba(255, 255, 255, 0.9); --text-3: rgba(255, 255, 255, 0.72); --separator: rgba(255, 255, 255, 0.26); --border: rgba(255, 255, 255, 0.3); --fill: rgba(255, 255, 255, 0.14); --fill-strong: rgba(255, 255, 255, 0.22); --bg: #000; --chrome: #000; }
 :root.projector .pane { box-shadow: 0 0 0 1.5px var(--separator); }
 :root.projector .badge { font-weight: 700; }
 
@@ -160,36 +179,45 @@ body {
 .mono, .num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 
 button, input, select, textarea { font: inherit; color: inherit; }
-:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.btn:focus-visible, .field:focus-visible { border-radius: var(--radius-control); }
 
 .btn {
   height: var(--control-h);
   padding: 0 10px;
   border: 0;
   border-radius: var(--radius-control);
-  background: var(--fill);
+  background: var(--pane);
+  box-shadow: inset 0 0 0 1px var(--border), 0 1px 1px rgba(15, 23, 42, 0.03);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: 6px;
   white-space: nowrap;
   font-size: var(--type-body);
+  font-weight: 500;
   /* 26.59 (D156): release 150 ms with the out curve; the press itself is 80 ms (below) */
   transition: background var(--dur-hover) ease, transform var(--dur-release) var(--ease-out), box-shadow var(--dur-release) ease, color var(--dur-hover) ease;
 }
-.btn:hover { background: var(--fill-strong); }
+.btn:hover { background: var(--group); box-shadow: inset 0 0 0 1px var(--separator), 0 1px 2px rgba(15, 23, 42, 0.06); }
 .btn:active { transform: scale(var(--press-scale)); transition-duration: var(--dur-press); }
 .btn:disabled { opacity: 0.45; cursor: default; transform: none; }
-.btn.primary { background: var(--accent); color: var(--on-accent); box-shadow: 0 1px 2px rgba(10, 108, 255, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.18); }
-.btn.primary:hover { filter: brightness(1.06); }
+.btn.primary { background: var(--accent); color: var(--on-accent); font-weight: 600; box-shadow: 0 1px 2px rgba(10, 108, 255, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2); }
+.btn.primary:hover { background: var(--accent); filter: brightness(1.08); box-shadow: 0 2px 8px rgba(10, 108, 255, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.2); }
+/* 26.63: tonal (accent on a soft ground), large, and block buttons */
+.btn.tonal { background: var(--accent-soft); color: var(--accent); box-shadow: none; font-weight: 600; }
+.btn.tonal:hover { background: color-mix(in srgb, var(--accent) 18%, transparent); box-shadow: none; }
+.btn.lg { height: calc(40px * var(--zoom)); padding: 0 16px; border-radius: 10px; font-size: var(--type-body); }
+.btn.block { width: 100%; justify-content: center; }
 /* 26.56 hand check: the accent outline vanished on accent buttons */
 .btn.primary:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
 .dialog[tabindex="-1"]:focus { outline: none; }
-.btn.ghost { background: transparent; }
-.btn.ghost:hover { background: var(--hover); }
-.btn.active { background: var(--accent-soft); color: var(--accent); }
+.btn.ghost { background: transparent; box-shadow: none; }
+.btn.ghost:hover { background: var(--hover); box-shadow: none; }
+.btn.active, .btn.active:hover { background: var(--accent-soft); color: var(--accent); box-shadow: none; }
 .btn.icon { width: var(--control-h); padding: 0; justify-content: center; }
 .btn.danger { color: var(--danger); }
+.btn.danger:hover { background: var(--danger-soft); }
 .btn.small { font-size: var(--type-small); height: var(--control-sm); padding: 0 8px; }
 
 .field {
@@ -198,11 +226,13 @@ button, input, select, textarea { font: inherit; color: inherit; }
   border-radius: var(--radius-control);
   background: var(--fill);
   padding: 0 8px;
+  transition: border-color var(--dur-hover) ease, background var(--dur-hover) ease, box-shadow var(--dur-hover) ease;
   min-width: 0;
   outline: none;
   font-size: var(--type-body);
 }
-.field:focus { border-color: var(--accent); background: var(--pane); }
+.field:hover:not(:disabled):not(:focus) { background: var(--fill-strong); }
+.field:focus { border-color: var(--accent); background: var(--pane); box-shadow: 0 0 0 3px var(--ring); }
 .field.invalid { border-color: var(--danger); }
 .field:disabled { opacity: 0.5; cursor: default; }
 select.field { padding-right: 4px; }
@@ -286,7 +316,7 @@ kbd { font-family: var(--font-mono); font-size: var(--type-tiny); background: va
 .check input { accent-color: var(--accent); }
 
 /* Menus and popovers */
-.menu { position: absolute; z-index: 8000; min-width: 220px; padding: 5px; border-radius: 14px; background: var(--pane); box-shadow: var(--shadow-pop), 0 0 0 0.5px var(--separator); display: flex; flex-direction: column; gap: 1px; animation: pop-in 140ms var(--ease-out); }
+.menu { position: absolute; z-index: 8000; min-width: 220px; padding: 5px; border-radius: 12px; background: var(--pane); box-shadow: var(--shadow-pop), 0 0 0 0.5px var(--separator); display: flex; flex-direction: column; gap: 1px; animation: pop-in 140ms var(--ease-out); }
 .menu > button, .menu > label, .menu .menu-col > button { display: flex; align-items: center; gap: 8px; height: var(--menu-row); padding: 0 10px; border: 0; border-radius: 7px; background: transparent; cursor: pointer; text-align: left; font-size: var(--type-body); white-space: nowrap; }
 .menu > button:hover, .menu > label:hover, .menu .menu-col > button:hover:not(:disabled) { background: var(--accent); color: var(--on-accent); }
 .menu > button:hover .muted, .menu > label:hover .muted { color: inherit; opacity: 0.8; }
@@ -294,6 +324,9 @@ kbd { font-family: var(--font-mono); font-size: var(--type-tiny); background: va
 .menu .sep { height: 1px; background: var(--separator); margin: 4px 6px; }
 .menu .menu-title { font-size: var(--type-tiny); color: var(--text-3); font-weight: 600; padding: 4px 10px 2px; }
 @keyframes pop-in { from { opacity: 0; transform: translateY(-4px) scale(0.98); } to { opacity: 1; transform: none; } }
+/* 26.63: a menu row is highlighted softly (the accent block was loud next to the canvas) */
+.menu > button:hover, .menu > label:hover, .menu .menu-col > button:hover:not(:disabled) { background: var(--accent-soft); color: var(--accent-strong); }
+.menu > button:active:not(:disabled), .menu .menu-col > button:active:not(:disabled) { background: color-mix(in srgb, var(--accent) 20%, transparent); }
 
 .dialog-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.32); display: flex; align-items: center; justify-content: center; z-index: 9000; animation: fade-in 140ms ease; }
 .dialog { background: var(--pane); border-radius: var(--radius-float); box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); width: min(880px, calc(100vw - 48px)); max-height: calc(100vh - 48px); display: flex; flex-direction: column; overflow: hidden; animation: dialog-in var(--dur-3) var(--ease-spring); }
@@ -303,9 +336,13 @@ kbd { font-family: var(--font-mono); font-size: var(--type-tiny); background: va
 .dialog-footer { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 20px 16px; border-top: 1px solid var(--separator); }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 
-.toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--pane); padding: 8px 14px; border-radius: 12px; box-shadow: var(--shadow); z-index: 9500; font-size: var(--type-small); max-width: 70vw; animation: toast-in var(--dur-3) var(--ease-spring); }
+/* 26.63 (D233): messages sit above the status bar, with an icon that says what kind they are */
+.toast { position: fixed; bottom: calc(var(--status-h) + 18px); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; background: var(--pane); color: var(--text); padding: 9px 12px 9px 10px; border-radius: 12px; box-shadow: var(--elev-3); z-index: 9500; font-size: var(--type-small); max-width: min(70vw, 640px); animation: toast-in var(--dur-3) var(--ease-spring); }
+.toast .toast-ico { flex: 0 0 auto; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: var(--success-soft); color: var(--success); }
+.toast.error .toast-ico { background: var(--danger-soft); color: var(--danger); }
+.toast .toast-text { min-width: 0; overflow-wrap: anywhere; }
 @keyframes toast-in { from { opacity: 0; transform: translate(-50%, 14px) scale(0.96); } to { opacity: 1; transform: translate(-50%, 0); } }
-.toast.error { background: var(--danger); color: #fff; }
+.toast.error { box-shadow: var(--elev-3), inset 3px 0 0 var(--danger); }
 
 /* Progress bar */
 .progress { height: 4px; border-radius: 999px; background: var(--fill); overflow: hidden; }
@@ -382,7 +419,7 @@ kbd { font-family: var(--font-mono); font-size: var(--type-tiny); background: va
 :root.fx-glass .menu { background: var(--glass-pop); -webkit-backdrop-filter: blur(var(--glass-blur-small)) saturate(var(--glass-sat)); backdrop-filter: blur(var(--glass-blur-small)) saturate(var(--glass-sat)); box-shadow: var(--shadow-pop), inset 0 0 0 0.5px var(--glass-rim); }
 :root.fx-glass .dialog { background: var(--glass-pop); -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat)); backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat)); box-shadow: 0 24px 70px rgba(0, 0, 0, 0.3), inset 0 0 0 0.5px var(--glass-rim); }
 :root.fx-glass .dialog-backdrop { background: rgba(0, 0, 0, 0.22); }
-:root.fx-glass .toast { -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }
+
 
 /* 26.59 (D158): floating function layers — the problem import bar, the Copilot panel, popovers. Solid by default
    (effects off, reduced transparency, no backdrop-filter support); frosted glass with fx-glass. The material is on
@@ -435,7 +472,64 @@ kbd { font-family: var(--font-mono); font-size: var(--type-tiny); background: va
 }
 /* Disabled controls say why in their title; a disabled button does not shrink on press */
 .btn:disabled:active { transform: none; }
-.toast-x { margin-left: 10px; border: 0; background: transparent; color: inherit; font: inherit; font-size: 16px; line-height: 1; cursor: pointer; min-width: 24px; min-height: 24px; border-radius: 6px; }
-.toast-x:hover { background: rgba(255, 255, 255, 0.16); }
-.toast-act { margin-left: 10px; border: 1px solid currentColor; background: transparent; color: inherit; font: inherit; font-weight: 600; cursor: pointer; min-height: 26px; padding: 0 10px; border-radius: 8px; }
-.toast-act:hover { background: rgba(127, 127, 127, 0.18); }
+.toast-x { margin-left: 2px; color: var(--text-3); border: 0; background: transparent; color: inherit; font: inherit; font-size: 16px; line-height: 1; cursor: pointer; min-width: 24px; min-height: 24px; border-radius: 6px; }
+.toast-x:hover { background: var(--hover); }
+.toast-act { margin-left: 6px; border: 0; background: var(--accent-soft); color: var(--accent); font: inherit; font-weight: 600; cursor: pointer; min-height: 26px; padding: 0 10px; border-radius: 8px; }
+.toast-act:hover { background: color-mix(in srgb, var(--accent) 20%, transparent); }
+
+/* ================= Workbench 3 (26.63, D232–D233) ================= */
+
+/* Cards: a surface that holds one thing to open; hoverable ones lift a little and show the focus ring */
+.card { background: var(--pane); border-radius: var(--radius-panel); box-shadow: var(--elev-1); padding: 14px 16px; text-align: left; }
+button.card, a.card, .card.hoverable { border: 0; font: inherit; color: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; width: 100%; transition: box-shadow var(--dur-hover) ease, transform var(--dur-release) var(--ease-out), background var(--dur-hover) ease; }
+button.card:hover, a.card:hover, .card.hoverable:hover { box-shadow: var(--elev-2); transform: translateY(-1px); }
+button.card:active, a.card:active, .card.hoverable:active { transform: translateY(0) scale(0.995); transition-duration: var(--dur-press); }
+button.card:focus-visible, a.card:focus-visible { border-radius: var(--radius-panel); }
+.card-title { font-weight: 600; font-size: var(--type-body); display: flex; align-items: center; gap: 8px; }
+.card-text { display: block; color: var(--text-2); font-size: var(--type-small); margin-top: 4px; line-height: 1.45; }
+.card-ico { flex: 0 0 auto; width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); }
+.card-ico.green { background: var(--success-soft); color: var(--success); }
+.card-ico.amber { background: var(--warning-soft); color: var(--warning); }
+.card-ico.violet { background: rgba(124, 77, 255, 0.13); color: #6d43e6; }
+:root[data-theme="dark"] .card-ico.violet { background: rgba(150, 120, 255, 0.2); color: #b39dff; }
+
+/* Chips: small choices in a row (filters, quick actions) */
+.chip { display: inline-flex; align-items: center; gap: 6px; height: calc(28px * var(--zoom)); padding: 0 11px; border: 0; border-radius: 999px; background: var(--fill); color: var(--text-2); font: inherit; font-size: var(--type-small); cursor: pointer; white-space: nowrap; transition: background var(--dur-hover) ease, color var(--dur-hover) ease; }
+.chip:hover { background: var(--fill-strong); color: var(--text); }
+.chip.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+
+/* A page of the app (home, library, classroom): a header and a scrolling body on the chrome ground */
+.page-shell { display: flex; flex-direction: column; min-height: 0; min-width: 0; height: 100%; }
+.page-scroll { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+.page-inner { max-width: 1120px; margin: 0 auto; padding: 28px 28px 48px; }
+.page-title { font-size: calc(26px * var(--zoom)); font-weight: 700; letter-spacing: -0.01em; line-height: 1.2; margin: 0; }
+.page-sub { color: var(--text-2); margin: 6px 0 0; max-width: 68ch; }
+.section-title { font-size: var(--type-title); font-weight: 650; margin: 28px 0 10px; display: flex; align-items: center; gap: 8px; }
+.section-title .more { margin-left: auto; font-weight: 500; }
+.grid-cards { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(232px, 1fr)); }
+.grid-cards.wide { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+@media (max-width: 760px) { .page-inner { padding: 16px 14px 32px; } .page-title { font-size: calc(21px * var(--zoom)); } .grid-cards, .grid-cards.wide { grid-template-columns: 1fr; } }
+
+/* A dialog component shown inside a page (the library): no backdrop, no frame, no close button, no focus trap */
+.embed-host { position: relative; min-height: 0; min-width: 0; height: 100%; display: flex; }
+.embed-host > .dialog-backdrop { position: static; inset: auto; background: none !important; flex: 1; min-width: 0; min-height: 0; display: flex; align-items: stretch; animation: none; z-index: auto; }
+.embed-host > .dialog-backdrop > .dialog { width: 100% !important; max-width: none !important; height: 100% !important; max-height: none !important; border-radius: var(--radius-panel); box-shadow: var(--elev-1) !important; background: var(--pane) !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; animation: none; }
+.embed-host > .dialog-backdrop > .dialog > .dialog-header > .btn.icon.ghost:last-child { display: none; }
+.embed-host > .dialog-backdrop > .dialog > .dialog-body { flex: 1 1 0; min-height: 0 !important; height: auto !important; max-height: none !important; }
+.embed-host > .dialog-backdrop > .dialog > .dialog-body > * { min-height: 0 !important; max-height: none !important; }
+.embed-host > .dialog-backdrop > .dialog > .dialog-body > .one { height: 100% !important; }
+.embed-host .embed-hide { display: none !important; }
+
+/* Tooltip layer (app/tooltip.ts): one element, placed next to the control the pointer rests on */
+.tip { position: fixed; z-index: 9800; max-width: 320px; padding: 6px 9px; border-radius: 8px; background: #1d1f24; color: #f5f6f8; font-size: var(--type-tiny); line-height: 1.4; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.28); pointer-events: none; opacity: 0; transform: translateY(2px); transition: opacity 110ms ease, transform 110ms var(--ease-out); white-space: pre-line; overflow-wrap: anywhere; }
+.tip.on { opacity: 1; transform: none; }
+.tip kbd { background: rgba(255, 255, 255, 0.16); color: inherit; box-shadow: none; margin-left: 6px; }
+:root[data-theme="dark"] .tip { background: #f1f2f5; color: #17181b; }
+:root[data-theme="dark"] .tip kbd { background: rgba(0, 0, 0, 0.12); }
+
+/* Empty states: what is missing and what to do about it */
+.empty-state { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 36px 16px; color: var(--text-2); text-align: center; }
+.empty-state .card-ico { width: 44px; height: 44px; border-radius: 12px; }
+
+/* Press feedback on anything marked .pressable (cards of the home page, rail items) */
+@media (hover: hover) { .lift { transition: transform var(--dur-release) var(--ease-out), box-shadow var(--dur-hover) ease; } .lift:hover { transform: translateY(-1px); } }

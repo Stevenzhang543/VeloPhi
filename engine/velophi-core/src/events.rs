@@ -30,6 +30,8 @@ pub enum EventType {
     Zone,
     /// 26.60 r2 (D208): a spring that only pushes reaches its rest length (or is pressed again).
     Push,
+    /// 26.63 (D231): the tension of a rope reaches its limit and the rope breaks.
+    Break,
 }
 
 /// A rope end closer than this to the pulley it runs onto has reached it (m).
@@ -56,6 +58,7 @@ impl EventType {
             EventType::RollStop => "rollStop",
             EventType::Zone => "zone",
             EventType::Push => "push",
+            EventType::Break => "break",
         }
     }
 }
@@ -135,6 +138,10 @@ pub enum EventValue {
         slot: usize,
         b: i8,
     },
+    /// 26.63 (D231): limit − tension of taut rope `rope`.
+    Break {
+        rope: usize,
+    },
 }
 
 /// An event function of the current mode with its hysteresis state.
@@ -199,6 +206,7 @@ pub fn event_value(sys: &System, mode: &Mode, f: &EventFn, poses: &[Pose], s: &M
         EventValue::RollStop { unit, r } => f64::from(r) * s.units[unit].wr,
         EventValue::Zone { pair, b } => f64::from(b) * crate::regions::zone_value(&sys.model, pair, poses),
         EventValue::Push { slot, b } => f64::from(b) * crate::dynamics::push_depth(&sys.model, poses, sys.model.push_springs[slot]).0,
+        EventValue::Break { rope } => sys.model.ropes[rope].max_tension - s.rope_tension[rope],
     }
 }
 
@@ -256,7 +264,11 @@ pub fn build_event_fns(sys: &System, mode: &Mode, poses: &[Pose], sol: &ModeSolu
     for (k, &taut) in mode.taut.iter().enumerate() {
         if taut {
             add(EventType::Slack, eps_f, EventValue::Slack { rope: k }, k as i32);
-        } else {
+            // 26.63 (D231): the tension reaches the limit of the rope
+            if model.ropes[k].break_index.is_some() {
+                add(EventType::Break, eps_f, EventValue::Break { rope: k }, k as i32);
+            }
+        } else if !model.rope_broken(x, k) {
             add(EventType::Taut, tol::EXT, EventValue::Taut { rope: k }, k as i32);
         }
     }

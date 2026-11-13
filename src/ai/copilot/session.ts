@@ -349,8 +349,9 @@ async function runTool(answer: Bubble, tool: Tool | undefined, name: string, arg
     action.label = tool.label(args)
     copilot.status = action.label
     tool.check?.(args)
-    const needsAsk = tool.level === 'confirm' || (tool.level === 'change' && settings.ai.copilotMode === 'ask')
-    if (needsAsk && !(await ask(tl('Copilot 想要：{0}。允许吗？', [action.label])))) throw new ToolError('the user declined this action')
+    const why = tool.level === 'read' ? null : tool.confirmIf?.(args) ?? null
+    const needsAsk = tool.level === 'confirm' || !!why || (tool.level === 'change' && settings.ai.copilotMode === 'ask')
+    if (needsAsk && !(await ask(why ? tl('Copilot 想要：{0}。{1}允许吗？', [action.label, why]) : tl('Copilot 想要：{0}。允许吗？', [action.label])))) throw new ToolError('the user declined this action')
     if (tool.level !== 'read') action.undo = snapshot()
     result = await tool.run(args)
     const failed = !!result && typeof result === 'object' && (result as { ok?: unknown }).ok === false

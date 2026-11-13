@@ -1,12 +1,12 @@
 @echo off
-rem VeloPhi 26.62 Android APK (Windows). Double-click to run, or called by scripts\release.cmd.
+rem VeloPhi 26.63 Android APK (Windows). Double-click to run, or called by scripts\release.cmd.
 rem Installs the Android tools when missing (scripts\android\setup-android.ps1), then builds and signs the APK
-rem (scripts\android\build-apk.ps1). Log: .cache\android-26.62.log. No Git write operations of any kind.
+rem (scripts\android\build-apk.ps1). Log: .cache\android-26.63.log. No Git write operations of any kind.
 setlocal
 chcp 65001 >nul
 cd /d "%~dp0\..\.."
 if not exist .cache mkdir .cache
-set "ALOG=%CD%\.cache\android-26.62.log"
+set "ALOG=%CD%\.cache\android-26.63.log"
 rem A Gradle or Kotlin daemon left by an earlier build keeps its log open: stop the Gradle daemons first,
 rem and if the log is still locked, write to a new log file.
 if not defined JAVA_HOME if exist "%LOCALAPPDATA%\VeloPhi-Android\jdk\bin\java.exe" set "JAVA_HOME=%LOCALAPPDATA%\VeloPhi-Android\jdk"
@@ -15,8 +15,8 @@ if exist src-tauri\gen\android\gradlew.bat (
   call gradlew.bat --stop >nul 2>&1
   popd
 )
-(echo VeloPhi 26.62 Android build started %date% %time%) > "%ALOG%" 2>nul || set "ALOG=%CD%\.cache\android-26.62-%RANDOM%.log"
-if not "%ALOG%"=="%CD%\.cache\android-26.62.log" (echo VeloPhi 26.62 Android build started %date% %time%) > "%ALOG%"
+(echo VeloPhi 26.63 Android build started %date% %time%) > "%ALOG%" 2>nul || set "ALOG=%CD%\.cache\android-26.63-%RANDOM%.log"
+if not "%ALOG%"=="%CD%\.cache\android-26.63.log" (echo VeloPhi 26.63 Android build started %date% %time%) > "%ALOG%"
 echo Log: %ALOG%
 echo [android 1/2] tools (JDK, Android SDK and NDK, Rust targets)
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\android\setup-android.ps1 >> "%ALOG%" 2>&1 || goto fail

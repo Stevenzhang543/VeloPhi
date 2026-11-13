@@ -18,6 +18,7 @@ import { DARK, LIGHT } from '../render/renderer'
 import { FONT } from '../render/style'
 import { formatSig } from '../units/units'
 import { textWidth } from './fbd'
+import { escapeHtml } from '../core/text'
 
 /** What the tape measures. */
 export type TapeDirection = 'path' | 'x' | 'y'
@@ -63,7 +64,7 @@ export function tapeData(rec: Recording, o: TapeOptions): TapeData | null {
   return tapeOf(rec, { bodyId: o.bodyId, direction: o.direction, period: o.period, every: o.every, start: o.start, intervals: o.intervals })
 }
 
-const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+const esc = escapeHtml
 const n2 = (v: number) => (Math.round(v * 100) / 100).toString()
 
 /** Lengths in centimetres with the given significant digits. */

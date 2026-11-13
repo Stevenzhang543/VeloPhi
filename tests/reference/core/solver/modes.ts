@@ -45,12 +45,40 @@ export function touchingFeatures(sys: System, poses: Pose[]): Touch[] {
     for (const f of pair.features) {
       const k = contactKin(f, poses)
       if (!inRegion(k) || k.gap > TOL.touch || k.gap < -TOL.deep) continue
+      if (vertexBesideFace(f, k, poses)) continue
       if (local.some(t => Math.abs(t.kin.cx - k.cx) <= 1e-9 && Math.abs(t.kin.cy - k.cy) <= 1e-9)) continue
       local.push({ pair, feature: f, kin: k })
     }
     out.push(...dropCornerPinch(pair, local))
   }
   return out
+}
+
+/**
+ * 26.63 (D231): a polygon vertex exactly at the end of a face (two corners coincide: two equal boxes side by side)
+ * touches that face only if neither edge at the vertex runs down along the face's end or into the face; an edge that
+ * dips under the face's plane beyond its end is fine (a block tipping over a table's edge). Same rule as the Rust core
+ * (modes.rs `vertex_beside_face`).
+ */
+function vertexBesideFace(f: ContactFeature, k: ContactKin, poses: Pose[]): boolean {
+  if (f.kind !== 'pf' || f.A.vertex < 0 || f.A.radius > 0 || Math.min(k.m1, k.m2) > 1e-9) return false
+  const shape = f.A.body.shape
+  if (shape.kind !== 'polygon') return false
+  const verts = shape.verts, n = verts.length, v = f.A.vertex
+  if (v >= n || Math.abs(verts[v].x - f.A.local.x) > 1e-12 || Math.abs(verts[v].y - f.A.local.y) > 1e-12) return false
+  const pa = poses[f.A.body.global], pb = poses[f.B.body.global]
+  const face = f.B
+  const nx = pb.c * face.normal.x - pb.s * face.normal.y, ny = pb.s * face.normal.x + pb.c * face.normal.y
+  const sg = k.m1 <= k.m2 ? 1 : -1
+  const fx = sg * (face.e1.x - face.e0.x) / face.len, fy = sg * (face.e1.y - face.e0.y) / face.len
+  const tx = pb.c * fx - pb.s * fy, ty = pb.s * fx + pb.c * fy
+  for (const w of [verts[(v + n - 1) % n], verts[(v + 1) % n]]) {
+    const lx = w.x - verts[v].x, ly = w.y - verts[v].y
+    const dx = pa.c * lx - pa.s * ly, dy = pa.s * lx + pa.c * ly
+    const len = Math.sqrt(dx * dx + dy * dy)
+    if (nx * dx + ny * dy < -1e-7 * len && tx * dx + ty * dy >= -1e-7 * len) return true
+  }
+  return false
 }
 
 /**

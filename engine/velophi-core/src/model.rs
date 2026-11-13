@@ -161,6 +161,21 @@ pub struct RopeModel {
     /// NaN until build_system resolves it.
     pub length: f64,
     pub movable: bool,
+    /// 26.63 (D231): tension at which the rope breaks (N); infinite: never.
+    pub max_tension: f64,
+    /// Index of the rope among the breakable ones (its slot after `Model::break_base`), None: it cannot break.
+    pub break_index: Option<usize>,
+}
+
+impl Model {
+    /// 26.63 (D231): rope `k` has broken in state `x` (always false for a rope that cannot break).
+    #[inline]
+    pub fn rope_broken(&self, x: &[f64], k: usize) -> bool {
+        match (self.break_base, self.ropes[k].break_index) {
+            (Some(base), Some(j)) => x.get(base + j).is_some_and(|v| *v >= 0.5),
+            _ => false,
+        }
+    }
 }
 
 /// Compiled rod.
@@ -393,6 +408,10 @@ pub struct Model {
     pub zone_pairs: Vec<(usize, usize)>,
     /// 26.60 r2 (D208): springs that only push, in order; frozen in a mode after the zone pairs (pressed: 1, free: −1).
     pub push_springs: Vec<usize>,
+    /// 26.63 (D231): ropes that can break (finite `max_tension`), in order, and the first index of their state
+    /// entries (0: intact, 1: broken; constant between events), set by build_system. None: no rope can break.
+    pub breakable: Vec<usize>,
+    pub break_base: Option<usize>,
     pub liquids: Vec<LiquidModel>,
     pub rails: Vec<RailModel>,
     /// The state carries the ledger entries of these features (and the time when a region alternates).
@@ -1026,7 +1045,7 @@ pub fn compile_model(scene: &Scene) -> SimResult<Model> {
     };
     for c in &scene.connectors {
         match &c.kind {
-            ConnectorKind::Rope { a, b, pulleys: list, length } => {
+            ConnectorKind::Rope { a, b, pulleys: list, length, max_tension } => {
                 let list: Vec<(usize, f64)> =
                     list.iter().filter_map(|(pid, wrap)| pulley_by_id(pid).map(|pi| (pi, if *wrap == Wrap::Ccw { 1.0 } else { -1.0 }))).collect();
                 let movable = list.iter().any(|(pi, _)| pulleys[*pi].body.is_some());
@@ -1038,6 +1057,8 @@ pub fn compile_model(scene: &Scene) -> SimResult<Model> {
                     pulleys: list,
                     length: length.unwrap_or(f64::NAN),
                     movable,
+                    max_tension: max_tension.unwrap_or(f64::INFINITY),
+                    break_index: None,
                 });
             }
             ConnectorKind::Rod { a, b, length } => {
@@ -1306,6 +1327,11 @@ pub fn compile_model(scene: &Scene) -> SimResult<Model> {
         }
     }
     let push_springs: Vec<usize> = springs.iter().enumerate().filter(|(_, s)| s.push_only).map(|(i, _)| i).collect();
+    // 26.63 (D231): the ropes that can break keep their state (intact / broken) in the state vector
+    let breakable: Vec<usize> = ropes.iter().enumerate().filter(|(_, r)| r.max_tension.is_finite()).map(|(i, _)| i).collect();
+    for (j, &k) in breakable.iter().enumerate() {
+        ropes[k].break_index = Some(j);
+    }
     let mut zone_pairs = Vec::new();
     for (zi, z) in zones.iter().enumerate() {
         for &k in &charged {
@@ -1378,6 +1404,8 @@ pub fn compile_model(scene: &Scene) -> SimResult<Model> {
         zones,
         zone_pairs,
         push_springs,
+        breakable,
+        break_base: None,
         liquids,
         rails,
         extra_ledger,

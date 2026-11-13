@@ -137,11 +137,13 @@ pub enum Wrap {
 /// A connector between anchors.
 #[derive(Clone, Debug, PartialEq)]
 pub enum ConnectorKind {
+    /// `max_tension` (26.63, D231): the rope breaks when its tension reaches this value (N); None: it never breaks.
     Rope {
         a: Anchor,
         b: Anchor,
         pulleys: Vec<(String, Wrap)>,
         length: Option<f64>,
+        max_tension: Option<f64>,
     },
     Rod {
         a: Anchor,
@@ -902,6 +904,7 @@ fn parse_connector(v: &Value, path: &str) -> PResult<ConnectorDef> {
                 b: parse_anchor(c.get("b"), &format!("{path}.b"))?,
                 pulleys,
                 length: opt_num(c.get("length"), &format!("{path}.length"))?,
+                max_tension: opt_num(c.get("maxTension"), &format!("{path}.maxTension"))?.filter(|v| *v > 0.0),
             }
         }
         Some("rod") => ConnectorKind::Rod {

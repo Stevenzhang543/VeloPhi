@@ -1,9 +1,11 @@
 <script setup lang="ts">
 /**
- * Application shell: top bar, the three pages (studio, monitor and settings), dialogs and toasts. Pages stay
- * mounted once shown so switching is instant (hidden with content-visibility, layout kept); panels on hidden
- * pages and hidden tabs get `active = false` and stop following playback. The monitor and settings pages are
- * mounted on first use or when the browser is idle after startup, whichever comes first.
+ * Application shell (26.63, D232 "Workbench 3"): the navigation rail at the left, and beside it the context bar of the
+ * page shown, the page, and — for the studio and the monitor — the status bar. Pages: home, studio, lab, library,
+ * classroom, monitor, settings. They stay mounted once shown so switching is instant (hidden with content-visibility,
+ * layout kept); panels on hidden pages and hidden tabs get `active = false` and stop following playback. The lab,
+ * monitor and settings pages are mounted on first use or when the browser is idle after startup, whichever comes
+ * first; home, library and classroom on first use. Phones have no rail: the same list opens as a drawer from the bar.
  */
 import { locale, tl } from '../i18n'
 import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, provide, reactive, ref, watch } from 'vue'
@@ -13,6 +15,8 @@ import { overlapPrompt } from './overlapGate'
 import { deleteObject } from './editing'
 import { openScene, saveScene, newScene } from './files'
 import TopBar from './components/TopBar.vue'
+import NavRail from './components/NavRail.vue'
+import StatusBar from './components/StatusBar.vue'
 import Viewport from './components/Viewport.vue'
 import Timeline from './components/Timeline.vue'
 import TemplateGallery from './components/TemplateGallery.vue'
@@ -53,6 +57,16 @@ const ActivityRunner = defineAsyncComponent(() => import('./components/ActivityR
 const LessonBar = defineAsyncComponent(() => import('./components/LessonBar.vue'))
 const ModelCatalog = defineAsyncComponent(() => import('./components/models/ModelCatalog.vue'))
 const CurriculumDialog = defineAsyncComponent(() => import('./components/CurriculumDialog.vue'))
+// 26.63 (D232–D237): the new pages, the class tally, the share link, the convergence study, the shortcut sheet
+const HomePage = defineAsyncComponent(() => import('./components/HomePage.vue'))
+const LibraryPage = defineAsyncComponent(() => import('./components/LibraryPage.vue'))
+const ClassroomPage = defineAsyncComponent(() => import('./components/ClassroomPage.vue'))
+const TallyBar = defineAsyncComponent(() => import('./components/TallyBar.vue'))
+const ShareDialog = defineAsyncComponent(() => import('./components/ShareDialog.vue'))
+const ConvergenceDialog = defineAsyncComponent(() => import('./components/ConvergenceDialog.vue'))
+const ShortcutSheet = defineAsyncComponent(() => import('./components/ShortcutSheet.vue'))
+import { tally } from './tally'
+import { zoomStudio } from './viewStatus'
 import ProblemPanel from './components/ProblemPanel.vue'
 // 26.57 (D114): the task panel
 import TaskPanel from './components/task/TaskPanel.vue'
@@ -71,23 +85,25 @@ import { isDesktop } from '../platform/files'
 import { PAGE_ACTIVE } from './live'
 import { settings } from './settings'
 import { logEvent } from './trialLog'
-import { phone, setCopilotOpen, shell, syncSideTab } from './layout'
-import type { SheetId } from './layout'
+import { landscape, phone, setCopilotOpen, shell, showSideTab, syncSideTab } from './layout'
+import Icon from './components/Icon.vue'
+import type { SheetId, SideTab } from './layout'
 
 const studioOn = computed(() => state.page === 'studio')
 // The studio page lives in this template; the other pages provide their own flag
 provide(PAGE_ACTIVE, studioOn)
 
 /** Pages mounted so far (kept mounted afterwards). */
-const mounted = reactive<Record<Page, boolean>>({ studio: true, lab: state.page === 'lab', monitor: state.page === 'monitor', settings: state.page === 'settings' })
+const mounted = reactive<Record<Page, boolean>>({ studio: true, home: state.page === 'home', lab: state.page === 'lab', library: state.page === 'library', classroom: state.page === 'classroom', monitor: state.page === 'monitor', settings: state.page === 'settings' })
 /** Pages laid out at least once (hidden pages keep their layout, so showing them again is cheap). */
-const warmed = reactive<Record<Page, boolean>>({ studio: true, lab: false, monitor: false, settings: false })
-watch(() => state.page, p => { mounted[p] = true; logEvent('page.open', { page: p }) })
+const warmed = reactive<Record<Page, boolean>>({ studio: true, home: false, lab: false, library: false, classroom: false, monitor: false, settings: false })
+watch(() => state.page, p => { mounted[p] = true; shell.navOpen = false; logEvent('page.open', { page: p }) })
 // Trial log: which dialogs are used (ids only)
 const DIALOGS = { export: () => state.showExport, courseware: () => state.showCourseware, sweep: () => state.showSweep, solverCompare: () => state.showSolverCompare, report: () => state.showReport, fbd: () => state.showFbd, tape: () => state.showTape, problems: () => state.showProblems, templates: () => state.showTemplates, learning: () => state.showLearning, search: () => state.showPalette } as const
 for (const [dialog, open] of Object.entries(DIALOGS)) watch(open, v => { if (v) logEvent('dialog.open', { dialog }) })
-watch(() => [mounted.lab, mounted.monitor, mounted.settings], () => {
-  for (const p of ['lab', 'monitor', 'settings'] as const) {
+const LATER: Page[] = ['home', 'lab', 'library', 'classroom', 'monitor', 'settings']
+watch(() => LATER.map(p => mounted[p]), () => {
+  for (const p of LATER) {
     if (mounted[p] && !warmed[p]) requestAnimationFrame(() => requestAnimationFrame(() => { warmed[p] = true }))
   }
 })
@@ -103,7 +119,8 @@ function typing(e: KeyboardEvent) {
   return t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable
 }
 
-const PAGE_KEYS: Record<string, Page> = { Digit1: 'studio', Digit2: 'lab', Digit3: 'monitor', Digit4: 'settings' }
+const PAGE_KEYS: Record<string, Page> = { Digit1: 'home', Digit2: 'studio', Digit3: 'lab', Digit4: 'library', Digit5: 'classroom', Digit6: 'monitor' }
+const SIDE_KEYS: Record<string, SideTab> = { Digit1: 'inspect', Digit2: 'analysis', Digit3: 'problem', Digit4: 'ai' }
 
 function onKey(e: KeyboardEvent) {
   // 26.58 (D146): while the tour is shown its own keys (←, →, Enter, Escape) are not shortcuts
@@ -119,11 +136,20 @@ function onKey(e: KeyboardEvent) {
   // 26.59 (D167): Copilot
   if (mod && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'i' && settings.ai.copilot) { e.preventDefault(); setCopilotOpen(!state.showCopilot); return }
   if (e.altKey && !mod && PAGE_KEYS[e.code]) { e.preventDefault(); state.page = PAGE_KEYS[e.code]; return }
+  // 26.63 (D233; the open items of 26.60): the sidebar, its tabs and the curves drawer from the keyboard
+  if (mod && e.altKey && SIDE_KEYS[e.code] && state.page === 'studio' && !phone.value) {
+    const tab = SIDE_KEYS[e.code]
+    if (tab !== 'ai' || settings.ai.copilot) { e.preventDefault(); showSideTab(tab) }
+    return
+  }
+  if (mod && !e.altKey && e.key === '\\' && state.page === 'studio' && !phone.value) { e.preventDefault(); shell.sideOpen = !shell.sideOpen; return }
+  if (mod && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'j' && state.page === 'studio' && !phone.value) { e.preventDefault(); shell.drawerOpen = !shell.drawerOpen; return }
   if (typing(e)) return
+  if (e.key === '?' && !mod && !e.altKey) { e.preventDefault(); shell.shortcuts = !shell.shortcuts; return }
   if (mod && e.key.toLowerCase() === 'z' && !e.shiftKey) { e.preventDefault(); undo(); return }
   if (mod && (e.key.toLowerCase() === 'y' || (e.key.toLowerCase() === 'z' && e.shiftKey))) { e.preventDefault(); redo(); return }
   // Playback and editing keys belong to the studio and monitor pages (the lab has its own)
-  if (state.page === 'settings' || state.page === 'lab') return
+  if (state.page !== 'studio' && state.page !== 'monitor') return
   // Space toggles playback on release, unless it was held to pan the view (Space + drag)
   if (e.key === ' ') { e.preventDefault(); if (!e.repeat) { spaceHeld = true; editor.spacePanned = false } return }
   if (e.key === 'ArrowRight') { pause(); seekFrame(state.frame + (e.shiftKey ? 10 : 1)); return }
@@ -134,13 +160,17 @@ function onKey(e: KeyboardEvent) {
   if (state.page !== 'studio') return
   if ((e.key === 'Delete' || e.key === 'Backspace') && state.selection) { const sel = state.selection; edit(s => deleteObject(s, sel)); state.selection = null; return }
   if (e.key.toLowerCase() === 'v' && !mod) state.tool = 'select'
+  // 26.63 (D233): zoom steps and fit from the keyboard
+  if (!mod && !e.altKey && (e.key === '+' || e.key === '=')) { zoomStudio(1); return }
+  if (!mod && !e.altKey && e.key === '-') { zoomStudio(-1); return }
+  if (!mod && !e.altKey && e.key === '0') { state.cameraRequest++; return }
 }
 
 let spaceHeld = false
 function onKeyUp(e: KeyboardEvent) {
   if (e.key !== ' ' || !spaceHeld) return
   spaceHeld = false
-  if (typing(e) || state.page === 'settings' || state.page === 'lab' || editor.spacePanned) return
+  if (typing(e) || (state.page !== 'studio' && state.page !== 'monitor') || editor.spacePanned) return
   if (state.playing) pause(); else play()
 }
 
@@ -195,73 +225,89 @@ watch(phone, p => { if (!p) shell.sheet = null })
 <template>
   <div class="ambient" aria-hidden="true"><i /><i /><i /><i /></div>
   <div :key="locale.lang" class="app" :class="{ phone }">
-    <TopBar class="top" />
-    <div class="workspace">
-      <div class="pages">
-        <!-- 26.60 (D205): the canvas fills the studio; the tools float on it, one sidebar at the right -->
-        <div v-if="!phone" class="page page-studio" :class="pageClass('studio')" :inert="!studioOn">
-          <main class="center">
+    <NavRail v-if="!phone" />
+    <div class="main">
+      <TopBar class="top" />
+      <div class="workspace">
+        <div class="pages">
+          <!-- 26.60 (D205): the canvas fills the studio; the tools float on it, one sidebar at the right -->
+          <div v-if="!phone" class="page page-studio" :class="pageClass('studio')" :inert="!studioOn">
+            <main class="center">
+              <div class="view">
+                <Viewport variant="studio" /><CanvasPins />
+                <ToolStrip />
+                <TallyBar v-if="tally.open" />
+                <TimeDock v-if="!shell.drawerOpen" part="bar" :active="studioOn" />
+              </div>
+              <TimeDock v-if="shell.drawerOpen" part="drawer" :active="studioOn" />
+            </main>
+            <Sidebar />
+          </div>
+          <!-- 26.60 (D206): phones — full-screen canvas, a slim timeline, sheets over the canvas; 26.63: in landscape
+               the open sheet stands beside the canvas instead of over it -->
+          <div v-else class="page page-studio phone-studio" :class="[pageClass('studio'), { side: landscape && !!shell.sheet }]" :inert="!studioOn">
             <div class="view">
               <Viewport variant="studio" /><CanvasPins />
-              <ToolStrip />
-              <TimeDock v-if="!shell.drawerOpen" part="bar" :active="studioOn" />
+              <TallyBar v-if="tally.open" />
+              <BottomSheet v-if="shell.sheet" :title="tl(SHEET_TITLE[shell.sheet])" @close="shell.sheet = null">
+                <template v-if="sheetOn('tools')">
+                  <div class="sheet-pad">
+                    <ToolPalette touch @pick="shell.sheet = null" />
+                    <div class="snaps">
+                      <label class="snap"><input v-model="settings.editor.objectSnap" type="checkbox" class="switch" /><span>{{ tl('物体吸附') }}</span></label>
+                      <label class="snap"><input v-model="settings.editor.snap" type="checkbox" class="switch" /><span>{{ tl('网格吸附') }}</span></label>
+                    </div>
+                    <div class="ptitle tiny muted">{{ tl('对象') }}</div>
+                    <ObjectList @pick="shell.sheet = 'inspect'" />
+                  </div>
+                </template>
+                <template v-else-if="sheetOn('inspect')">
+                  <div class="chips" role="tablist">
+                    <button role="tab" :class="{ on: state.rightTab !== 'settings' }" @click="state.rightTab = 'inspect'">{{ tl('对象') }}</button>
+                    <button role="tab" :class="{ on: state.rightTab === 'settings' }" @click="state.rightTab = 'settings'">{{ tl('场景') }}</button>
+                  </div>
+                  <div class="sheet-pad"><SettingsPanel v-if="state.rightTab === 'settings'" /><Inspector v-else /></div>
+                </template>
+                <template v-else-if="sheetOn('analysis')">
+                  <div class="chips scroll" role="tablist">
+                    <button v-for="p in PHONE_ANALYSIS" :key="p.id" role="tab" :class="{ on: phonePage === p.id }" @click="pickPhonePage(p.id)">{{ p.label }}</button>
+                  </div>
+                  <div class="fill">
+                    <div v-if="phonePage === 'chart' || phonePage === 'events'" class="abs"><ChartPanel v-if="phonePage === 'chart'" :active="studioOn" /><EventList v-else :active="studioOn" /></div>
+                    <div v-else class="sheet-pad">
+                      <FormulaPanel v-if="phonePage === 'formula'" :active="studioOn" />
+                      <WatchPanel v-else-if="phonePage === 'watch'" :active="studioOn" />
+                      <PredictionPanel v-else-if="phonePage === 'predict'" />
+                      <ProblemPanel v-else-if="phonePage === 'problem' && state.problem" />
+                      <TaskPanel v-else />
+                    </div>
+                  </div>
+                </template>
+                <template v-else-if="sheetOn('ai')">
+                  <div class="fill"><div class="abs"><CopilotPanel /></div></div>
+                </template>
+              </BottomSheet>
             </div>
-            <TimeDock v-if="shell.drawerOpen" part="drawer" :active="studioOn" />
-          </main>
-          <Sidebar />
-        </div>
-        <!-- 26.60 (D206): phones — full-screen canvas, a slim timeline, sheets over the canvas -->
-        <div v-else class="page page-studio phone-studio" :class="pageClass('studio')" :inert="!studioOn">
-          <div class="view">
-            <Viewport variant="studio" /><CanvasPins />
-            <BottomSheet v-if="shell.sheet" :title="tl(SHEET_TITLE[shell.sheet])" @close="shell.sheet = null">
-              <template v-if="sheetOn('tools')">
-                <div class="sheet-pad">
-                  <ToolPalette touch @pick="shell.sheet = null" />
-                  <div class="snaps">
-                    <label class="snap"><input v-model="settings.editor.objectSnap" type="checkbox" class="switch" /><span>{{ tl('物体吸附') }}</span></label>
-                    <label class="snap"><input v-model="settings.editor.snap" type="checkbox" class="switch" /><span>{{ tl('网格吸附') }}</span></label>
-                  </div>
-                  <div class="ptitle tiny muted">{{ tl('对象') }}</div>
-                  <ObjectList @pick="shell.sheet = 'inspect'" />
-                </div>
-              </template>
-              <template v-else-if="sheetOn('inspect')">
-                <div class="chips" role="tablist">
-                  <button role="tab" :class="{ on: state.rightTab !== 'settings' }" @click="state.rightTab = 'inspect'">{{ tl('对象') }}</button>
-                  <button role="tab" :class="{ on: state.rightTab === 'settings' }" @click="state.rightTab = 'settings'">{{ tl('场景') }}</button>
-                </div>
-                <div class="sheet-pad"><SettingsPanel v-if="state.rightTab === 'settings'" /><Inspector v-else /></div>
-              </template>
-              <template v-else-if="sheetOn('analysis')">
-                <div class="chips scroll" role="tablist">
-                  <button v-for="p in PHONE_ANALYSIS" :key="p.id" role="tab" :class="{ on: phonePage === p.id }" @click="pickPhonePage(p.id)">{{ p.label }}</button>
-                </div>
-                <div class="fill">
-                  <div v-if="phonePage === 'chart' || phonePage === 'events'" class="abs"><ChartPanel v-if="phonePage === 'chart'" :active="studioOn" /><EventList v-else :active="studioOn" /></div>
-                  <div v-else class="sheet-pad">
-                    <FormulaPanel v-if="phonePage === 'formula'" :active="studioOn" />
-                    <WatchPanel v-else-if="phonePage === 'watch'" :active="studioOn" />
-                    <PredictionPanel v-else-if="phonePage === 'predict'" />
-                    <ProblemPanel v-else-if="phonePage === 'problem' && state.problem" />
-                    <TaskPanel v-else />
-                  </div>
-                </div>
-              </template>
-              <template v-else-if="sheetOn('ai')">
-                <div class="fill"><div class="abs"><CopilotPanel /></div></div>
-              </template>
-            </BottomSheet>
+            <div class="ptime"><Timeline compact no-play :active="studioOn" /></div>
           </div>
-          <div class="ptime"><Timeline compact no-play :active="studioOn" /></div>
+          <HomePage v-if="mounted.home" class="page" :class="pageClass('home')" :inert="state.page !== 'home'" />
+          <LabPage v-if="mounted.lab" class="page" :class="pageClass('lab')" :inert="state.page !== 'lab'" :active="state.page === 'lab'" />
+          <LibraryPage v-if="mounted.library" class="page" :class="pageClass('library')" :inert="state.page !== 'library'" :active="state.page === 'library'" />
+          <ClassroomPage v-if="mounted.classroom" class="page" :class="pageClass('classroom')" :inert="state.page !== 'classroom'" />
+          <MonitorPage v-if="mounted.monitor" class="page" :class="pageClass('monitor')" :inert="state.page !== 'monitor'" :active="state.page === 'monitor'" />
+          <SettingsPage v-if="mounted.settings" class="page" :class="pageClass('settings')" :inert="state.page !== 'settings'" :active="state.page === 'settings'" />
+          <DetailPanel />
         </div>
-        <LabPage v-if="mounted.lab" class="page" :class="pageClass('lab')" :inert="state.page !== 'lab'" :active="state.page === 'lab'" />
-        <MonitorPage v-if="mounted.monitor" class="page" :class="pageClass('monitor')" :inert="state.page !== 'monitor'" :active="state.page === 'monitor'" />
-        <SettingsPage v-if="mounted.settings" class="page" :class="pageClass('settings')" :inert="state.page !== 'settings'" :active="state.page === 'settings'" />
-        <DetailPanel />
       </div>
+      <StatusBar v-if="!phone && (state.page === 'studio' || state.page === 'monitor')" />
+      <PhoneNav v-if="phone && state.page === 'studio'" />
     </div>
-    <PhoneNav v-if="phone && state.page === 'studio'" />
+    <!-- Phone: the pages as a drawer -->
+    <template v-if="phone && shell.navOpen">
+      <div class="nav-scrim" @click="shell.navOpen = false" />
+      <NavRail drawer @close="shell.navOpen = false" />
+    </template>
+    <!-- A dialog that is also a section of the library page is not opened twice -->
     <TemplateGallery v-if="state.showTemplates" />
     <ExportDialog v-if="state.showExport && state.recording" />
     <AboutDialog v-if="state.showAbout" />
@@ -269,6 +315,9 @@ watch(phone, p => { if (!p) shell.sheet = null })
     <CoursewareDialog v-if="state.showCourseware && state.recording" />
     <SweepDialog v-if="state.showSweep" />
     <SolverCompareDialog v-if="state.showSolverCompare" />
+    <ConvergenceDialog v-if="shell.convergence" />
+    <ShareDialog v-if="shell.share" />
+    <ShortcutSheet v-if="shell.shortcuts" />
     <WelcomeDialog v-if="state.showWelcome" />
     <TourOverlay v-if="state.tourStep !== null" />
     <ReportDialog v-if="state.showReport && state.recording" />
@@ -285,7 +334,7 @@ watch(phone, p => { if (!p) shell.sheet = null })
     <!-- 26.59 (D157): two live regions that always exist (polite status, assertive alert), so every message is announced -->
     <div class="sr-only" role="status" aria-live="polite">{{ state.toast && !state.toast.error ? state.toast.text : '' }}</div>
     <div class="sr-only" role="alert">{{ state.toast?.error ? state.toast.text : '' }}</div>
-    <div v-if="state.toast" class="toast" :class="{ error: state.toast.error }">{{ state.toast.text }}<button v-if="state.toast.action" type="button" class="toast-act" @click="() => { const a = state.toast?.action; state.toast = null; a?.run() }">{{ state.toast.action.label }}</button><button v-if="state.toast.error || state.toast.action" type="button" class="toast-x" :aria-label="tl('关闭')" @click="state.toast = null">×</button></div>
+    <div v-if="state.toast" class="toast" :class="{ error: state.toast.error }"><span class="toast-ico"><Icon :name="state.toast.error ? 'alert' : 'check'" :size="13" /></span><span class="toast-text">{{ state.toast.text }}</span><button v-if="state.toast.action" type="button" class="toast-act" @click="() => { const a = state.toast?.action; state.toast = null; a?.run() }">{{ state.toast.action.label }}</button><button v-if="state.toast.error || state.toast.action" type="button" class="toast-x" :aria-label="tl('关闭')" @click="state.toast = null">×</button></div>
   </div>
 </template>
 
@@ -296,25 +345,29 @@ watch(phone, p => { if (!p) shell.sheet = null })
   height: 100vh;
   height: 100dvh;
   display: flex;
-  flex-direction: column;
-  padding: 0 8px 8px;
+  flex-direction: row;
 }
+.main { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 .top { flex: 0 0 auto; }
 .workspace { flex: 1; min-height: 0; display: flex; }
 .pages { flex: 1; min-width: 0; min-height: 0; display: grid; position: relative; }
 .page { grid-area: 1 / 1; min-width: 0; min-height: 0; }
 /* 26.60 (D205): canvas column and one sidebar */
-.page-studio { display: flex; gap: 8px; position: relative; }
+.page-studio { display: flex; gap: 8px; position: relative; padding: 0 8px 8px; }
 .center { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; container: studio / inline-size; }
 .view { flex: 1; min-height: 160px; position: relative; --float-bottom: 64px; --float-left: 62px; }
 .center:has(.drawer) .view { --float-bottom: 0px; }
 /* 26.60 (D206): phones */
-.app.phone { padding: 0; }
-.app.phone .top { padding: 0 6px; }
-.phone-studio { display: flex; flex-direction: column; gap: 0; }
+.app.phone { flex-direction: column; }
+.phone-studio { display: flex; flex-direction: column; gap: 0; padding: 0; }
 .phone-studio .view { flex: 1; min-height: 0; position: relative; overflow: hidden; --float-bottom: 0px; --float-left: 0px; }
 .phone-studio .view :deep(.viewport) { border-radius: 0; box-shadow: none; }
 .ptime { flex: 0 0 auto; background: var(--pane); border-top: 0.5px solid var(--separator); }
+/* 26.63: a phone held sideways — the sheet is a panel at the right, full height, and the canvas keeps the rest */
+.phone-studio.side .view :deep(.sheet) { left: auto; right: 0; top: 0; bottom: 0; width: min(48%, 400px); height: 100% !important; border-radius: 16px 0 0 16px; animation: side-in 200ms var(--ease-out); }
+.phone-studio.side .view :deep(.sheet .handle) { display: none; }
+@keyframes side-in { from { transform: translateX(30%); opacity: 0.4; } to { transform: none; opacity: 1; } }
+.nav-scrim { position: fixed; inset: 0; z-index: 9050; background: rgba(0, 0, 0, 0.32); animation: fade-in 140ms ease; }
 .sheet-pad { padding: 4px 14px 16px; }
 .snaps { display: flex; gap: 16px; padding: 10px 2px 4px; }
 .snap { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; }

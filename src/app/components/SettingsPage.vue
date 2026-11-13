@@ -22,7 +22,6 @@ import NumField from './NumField.vue'
 import Icon from './Icon.vue'
 import Tex from './Tex.vue'
 import AboutContent from './AboutContent.vue'
-import HandbookView from './HandbookView.vue'
 import { PAGE_ACTIVE } from '../live'
 import { isDesktop } from '../../platform/files'
 import { ask } from '../../platform/ask'
@@ -34,7 +33,7 @@ import type { Orientation } from '../androidBridge'
 const props = withDefaults(defineProps<{ active?: boolean }>(), { active: true })
 provide(PAGE_ACTIVE, computed(() => props.active))
 
-type SectionId = SettingsSection | 'handbook' | 'keys' | 'about'
+type SectionId = SettingsSection | 'keys' | 'about'
 const SECTIONS: Array<{ id: SectionId; label: string; icon: string; desc: string }> = [
   { id: 'general', label: tl('通用'), icon: 'settings', desc: tl('外观、界面缩放、自动重算与新场景的默认值。') },
   { id: 'ai', label: tl('账号与 AI'), icon: 'chat', desc: tl('登录 whitelists.top 使用官方 AI，或填写自己的 API key；AI 读题与 Copilot 的选项。') },
@@ -42,7 +41,6 @@ const SECTIONS: Array<{ id: SectionId; label: string; icon: string; desc: string
   { id: 'display', label: tl('显示'), icon: 'display', desc: tl('画布上默认叠加的内容，以及适合教室投影的投影仪模式。') },
   { id: 'effects', label: tl('视觉效果'), icon: 'sparkle', desc: tl('玻璃质感、动态背景、运动模糊、粒子与拖尾。配置较低的电脑或投影时可降低或关闭。') },
   { id: 'knowledge', label: tl('知识与公式'), icon: 'graduation', desc: tl('按你的课程体系和知识水平决定公式卡片显示哪些公式；超出水平的公式折叠为一行，可随时展开。') },
-  { id: 'handbook', label: tl('学习手册'), icon: 'book', desc: tl('按主题整理的原理讲解与全部公式：符号、适用条件、推导、知识水平与示例；“打开示例”在工作台中载入模板并跳到该公式出现的时刻。') },
   { id: 'editor', label: tl('编辑'), icon: 'pen', desc: tl('在画布上放置、拖动、缩放和旋转物体时的吸附。') },
   { id: 'sim', label: tl('仿真'), icon: 'cpu', desc: tl('计算方式与时间上限。结果与计算方式无关，同一场景逐位一致。') },
   { id: 'export', label: tl('导出'), icon: 'export', desc: tl('视频、图片与 CSV 数据的默认格式。') },
@@ -53,7 +51,7 @@ const SECTIONS: Array<{ id: SectionId; label: string; icon: string; desc: string
 /** Navigation groups (26.52, D56): everyday settings, teaching, system. */
 const NAV_GROUPS: Array<{ title: string; ids: SectionId[] }> = [
   { title: tl('常用'), ids: ['general', 'ai', 'units', 'display', 'effects', 'editor'] },
-  { title: tl('教学'), ids: ['knowledge', 'handbook'] },
+  { title: tl('教学'), ids: ['knowledge'] },
   { title: tl('系统'), ids: ['sim', 'export', 'keys', 'privacy', 'about'] }
 ]
 const byId = (id: SectionId) => SECTIONS.find(s => s.id === id)!
@@ -62,9 +60,11 @@ const current = ref<SectionId>('general')
 const showNav = ref(true)
 function pick(id: SectionId) { current.value = id; showNav.value = false }
 const section = computed(() => SECTIONS.find(s => s.id === current.value)!)
-const resettable = computed(() => current.value !== 'keys' && current.value !== 'about' && current.value !== 'handbook')
+const resettable = computed(() => current.value !== 'keys' && current.value !== 'about')
 // Another part of the app asked for a section (the formula cards open the handbook)
 watch(() => state.settingsSection, id => {
+  // 26.63: the handbook is a section of the library page
+  if (id === 'handbook') { state.settingsSection = null; state.page = 'library'; state.librarySection = 'handbook'; return }
   if (id && SECTIONS.some(s => s.id === id)) { current.value = id as SectionId; showNav.value = false }
   if (id) state.settingsSection = null
 }, { immediate: true })
@@ -227,6 +227,15 @@ async function resetAll() { if (await ask(tl('将所有设置恢复为默认值�
               <div v-slide-indicator class="segmented" role="radiogroup" :aria-label="tl('屏幕方向')">
                 <button v-for="o in ORIENTATIONS" :key="o.id" role="radio" :aria-checked="orientation === o.id" :class="{ on: orientation === o.id }" @click="pickOrientation(o.id)">{{ o.label }}</button>
               </div>
+            </div>
+            <div class="srow"><div class="sl"><b>{{ tl('启动时打开') }}</b><span>{{ tl('首页有搜索、继续上次的场景和按身份的入口；选“工作台”则直接进入画布。') }}</span></div>
+              <div v-slide-indicator class="segmented" role="radiogroup" :aria-label="tl('启动时打开')">
+                <button role="radio" :aria-checked="settings.ui.startPage === 'home'" :class="{ on: settings.ui.startPage === 'home' }" @click="settings.ui.startPage = 'home'">{{ tl('首页') }}</button>
+                <button role="radio" :aria-checked="settings.ui.startPage === 'studio'" :class="{ on: settings.ui.startPage === 'studio' }" @click="settings.ui.startPage = 'studio'">{{ tl('工作台') }}</button>
+              </div>
+            </div>
+            <div class="srow"><div class="sl"><b>{{ tl('导航栏显示文字') }}</b><span>{{ tl('左侧导航栏的图标下面显示页面名称；关闭后只显示图标（指针停留时仍有提示）。') }}</span></div>
+              <div class="sc"><input v-model="settings.ui.railLabels" type="checkbox" class="switch" :aria-label="tl('导航栏显示文字')" /></div>
             </div>
             <div class="srow"><div class="sl"><b>{{ tl('界面缩放') }}</b><span>{{ tl('文字与控件的大小（不影响画布的物理比例）。') }}</span></div>
               <div class="sc range"><input v-model.number="settings.uiScale" type="range" min="0.85" max="1.4" step="0.05" :aria-label="tl('界面缩放')" /><span class="mono val">{{ Math.round(settings.uiScale * 100) }}%</span></div>
@@ -458,11 +467,6 @@ async function resetAll() { if (await ask(tl('将所有设置恢复为默认值�
               <button class="btn danger" :disabled="!logCount" @click="clearLog"><Icon name="trash" :size="14" />{{ tl('清除日志') }}</button>
             </div>
           </div>
-        </template>
-
-        <!-- ---- Learning handbook (26.51, D46) ---- -->
-        <template v-else-if="current === 'handbook'">
-          <HandbookView />
         </template>
 
         <!-- ---- About ---- -->

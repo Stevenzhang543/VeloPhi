@@ -43,7 +43,11 @@ export interface ChatRequest {
   messages: ChatMessage[]
   tools?: ToolDef[]
   tool_choice?: ToolChoice
-  response_format?: { type: 'json_object' | 'text' }
+  /**
+   * `json_schema` (26.63, D238): strict structured output where the service has it (capabilities.ts); elsewhere the
+   * client sends `json_object` and the schema is described in the prompt by the caller.
+   */
+  response_format?: { type: 'json_object' | 'text' } | { type: 'json_schema'; json_schema: { name: string; strict: true; schema: JsonSchema } }
   temperature?: number
   max_tokens?: number
   /**
@@ -70,6 +74,12 @@ export type AiErrorCode =
   | 'rejected' | 'vision' | 'server' | 'invalid_response' | 'not_migrated'
 
 export class AiError extends Error {
+  /** HTTP status of the answer that failed (absent: no answer). */
+  status?: number
+  /** What the service asked for in `Retry-After` (ms); null: nothing. */
+  retryAfterMs?: number | null
+  /** Id of the request (26.63, D238): in the AI log and the repro package, and sent to the service where it is safe. */
+  requestId?: string
   constructor(public code: AiErrorCode, message: string, public detail?: string) {
     super(message)
   }

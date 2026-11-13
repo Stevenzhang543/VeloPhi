@@ -8,6 +8,7 @@
  * scene itself is included only when the user ticks it (geometry and parameters, names replaced by ids).
  */
 import { state } from './store'
+import { aiLog } from '../ai/client'
 import { settings } from './settings'
 import { trialLogEntries } from './trialLog'
 import { serializeScene } from '../core/scene/io'
@@ -74,6 +75,8 @@ export function reproPackage(opts: { withScene?: boolean; steps?: string; expect
     shown: { time: state.time, frame: state.frame, lastEvent: shownEvent ? { t: shownEvent.t, triggers: shownEvent.triggers } : null, page: state.page, rightTab: state.rightTab },
     error: errText(state.simError),
     report: { steps: (opts.steps ?? '').slice(0, 2000), expected: (opts.expected ?? '').slice(0, 500), actual: (opts.actual ?? '').slice(0, 500) },
+    // 26.63 (D238): the last AI requests by id — when, what for, how they ended; never their content
+    ai: aiLog.entries.slice(0, 8).map(e => ({ at: e.at, id: e.id ?? null, attempt: e.attempt ?? 1, purpose: e.purpose, status: e.status.slice(0, 40), ms: e.ms })),
     log: logs
   }
 }

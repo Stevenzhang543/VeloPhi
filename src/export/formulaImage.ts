@@ -24,6 +24,7 @@ import type { UnitChoice } from '../units/units'
 import { formatQuantity } from '../units/units'
 import type { ImageBackground } from './still'
 import { bytesToBase64 } from './zip'
+import { escapeHtml } from '../core/text'
 
 /** Badge text and colour class of each verdict. */
 export const VERDICT_TEXT: Record<Verdict, { text: string; cls: 'ok' | 'warn' | 'bad' | '' }> = trDeep({
@@ -55,7 +56,7 @@ export interface CardImageOptions {
 /** SVG and PNG of a card, its CSS size (px) and the PNG pixel ratio. */
 export interface CardImage { svg: string; png: Uint8Array | null; width: number; height: number; scale: number }
 
-const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+const esc = escapeHtml
 
 function tex(src: string, display: boolean): string {
   try {

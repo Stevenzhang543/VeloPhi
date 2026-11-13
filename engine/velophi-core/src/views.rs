@@ -88,7 +88,8 @@ pub fn model_info(sys: &System) -> Value {
         "ropes": m.ropes.iter().map(|r| with(named(&r.id, &r.name), vec![
             ("a", anchor_json(&r.a)), ("b", anchor_json(&r.b)),
             ("pulleys", Value::Array(r.pulleys.iter().map(|(p, w)| json!({ "pulley": p, "wrap": jnum(*w) })).collect())),
-            ("length", jnum(r.length)), ("movable", json!(r.movable))
+            ("length", jnum(r.length)), ("movable", json!(r.movable)),
+            ("maxTension", if r.max_tension.is_finite() { jnum(r.max_tension) } else { Value::Null })
         ])).collect::<Vec<_>>(),
         "rods": m.rods.iter().map(|r| with(named(&r.id, &r.name), vec![("a", anchor_json(&r.a)), ("b", anchor_json(&r.b)), ("length", jnum(r.length))])).collect::<Vec<_>>(),
         "springs": m.springs.iter().map(|s| with(named(&s.id, &s.name), vec![
@@ -626,7 +627,8 @@ pub fn state_view(sys: &System, x: &[f64], mode: Option<&Mode>, forces: &ForceBo
             let (points, arcs) = rope_drawing(model, &poses, r);
             let (_, path) = rope_kin(model, &poses, r);
             let taut = mode.map(|m| m.taut.get(k).copied().unwrap_or(false)).unwrap_or(true);
-            json!({ "points": blob.f64s(&points), "arcs": blob.f64s(&arcs), "length": jnum(path.length), "taut": taut })
+            let broken = model.rope_broken(x, k);
+            json!({ "points": blob.f64s(&points), "arcs": blob.f64s(&arcs), "length": jnum(path.length), "taut": taut && !broken, "broken": broken })
         })
         .collect();
     let mut solve_error = Value::Null;

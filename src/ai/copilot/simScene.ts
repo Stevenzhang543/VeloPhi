@@ -376,6 +376,14 @@ function normalize(input: O, errors: string[], notes: string[]): { doc: O; rest:
     } else delete c.b
     switch (type) {
       case 'rope': {
+        // 26.63 (D231): tension limit under the names a model tends to write
+        for (const alt of ['maxForce', 'breakTension', 'breakForce', 'tensionLimit', 'strength']) if (c.maxTension === undefined && c[alt] !== undefined) { c.maxTension = c[alt]; notes.push(`${path}: read "${alt}" as "maxTension"`) }
+        for (const alt of ['maxForce', 'breakTension', 'breakForce', 'tensionLimit', 'strength']) delete c[alt]
+        if (c.maxTension !== undefined) {
+          const v = typeof c.maxTension === 'string' ? Number(c.maxTension) : c.maxTension
+          if (typeof v === 'number' && Number.isFinite(v) && v > 0) c.maxTension = v
+          else { if (v !== null && v !== 0) notes.push(`${path}.maxTension: not a positive number, left out (the rope does not break)`); delete c.maxTension }
+        }
         const list = (Array.isArray(c.pulleys) ? c.pulleys : Array.isArray(c.via) ? c.via : []) as unknown[]
         delete c.via
         const ids = list.map(x => (typeof x === 'string' ? x : isObj(x) ? x.pulley : undefined))

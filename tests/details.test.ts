@@ -291,7 +291,7 @@ describe('event detail', () => {
 describe('templates', () => {
   const tri = (t: { zh: string; en: string; de: string }) => LANGS.every(l => t[l].trim().length > 0)
   it('every event function type has a trilingual template', () => {
-    const types: EventType[] = ['contact', 'liftoff', 'leave', 'slip', 'stop', 'slack', 'taut', 'switch', 'pulley', 'limit', 'unlimit', 'mslip', 'mlock', 'rollStart', 'rollStop', 'zone', 'push']
+    const types: EventType[] = ['contact', 'liftoff', 'leave', 'slip', 'stop', 'slack', 'taut', 'switch', 'pulley', 'limit', 'unlimit', 'mslip', 'mlock', 'rollStart', 'rollStop', 'zone', 'push', 'break']
     expect(Object.keys(TRIGGER_TEXT).sort()).toEqual([...types].sort())
     for (const t of types) {
       expect(tri(TRIGGER_TEXT[t].name) && tri(TRIGGER_TEXT[t].meaning), t).toBe(true)
@@ -299,7 +299,7 @@ describe('templates', () => {
     }
   })
   it('every change type has a trilingual template', () => {
-    const types: ChangeType[] = ['impact', 'touch', 'separate', 'stick', 'slip', 'reverse', 'leave', 'slack', 'taut', 'switch', 'timestep', 'pulley', 'limit', 'unlimit', 'motorSlip', 'motorLock', 'rollStop', 'rollStart', 'zoneEnter', 'zoneLeave', 'springRelease', 'springPress']
+    const types: ChangeType[] = ['impact', 'touch', 'separate', 'stick', 'slip', 'reverse', 'leave', 'slack', 'taut', 'switch', 'timestep', 'pulley', 'limit', 'unlimit', 'motorSlip', 'motorLock', 'rollStop', 'rollStart', 'zoneEnter', 'zoneLeave', 'springRelease', 'springPress', 'break']
     expect(Object.keys(CHANGE_TEXT).sort()).toEqual([...types].sort())
     for (const t of types) expect(tri(CHANGE_TEXT[t].name) && tri(CHANGE_TEXT[t].text) && tri(CHANGE_TEXT[t].law), t).toBe(true)
   })

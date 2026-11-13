@@ -77,8 +77,8 @@ export function officialHeaders(json = true): Record<string, string> {
 }
 
 /** A request to the official server; `credentials` for the cookie mode. */
-export function official(path: string, init: { method?: 'GET' | 'POST' | 'DELETE'; body?: unknown; timeoutMs?: number; signal?: AbortSignal; auth?: boolean } = {}): Promise<NetResponse> {
-  const headers = init.auth === false ? (init.body !== undefined ? { 'content-type': 'application/json' } : {}) : officialHeaders(init.body !== undefined)
+export function official(path: string, init: { method?: 'GET' | 'POST' | 'DELETE'; body?: unknown; timeoutMs?: number; signal?: AbortSignal; auth?: boolean; headers?: Record<string, string> } = {}): Promise<NetResponse> {
+  const headers: Record<string, string> = { ...(init.auth === false ? (init.body !== undefined ? { 'content-type': 'application/json' } : {}) : officialHeaders(init.body !== undefined)), ...(init.headers ?? {}) }
   return netRequest({ url: officialBase() + path, method: init.method ?? 'GET', headers, body: init.body === undefined ? undefined : JSON.stringify(init.body), timeoutMs: init.timeoutMs ?? 20000, credentials: cookieMode, signal: init.signal })
 }
 

@@ -724,11 +724,15 @@ fn projectile_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()>
             }
             let s0 = body_vel(&sys, &r.seg(run.segs[0]).x0, b);
             let end_before = r.event_at(run.t1).filter(|e| e.changes.iter().any(|c| matches!(c.kind(), crate::simulation::ChangeType::Impact | crate::simulation::ChangeType::Touch) && c.bodies.contains(&b.id))).map(|e| e.before.clone());
-            let lands = end_before.is_some();
+            let ended = end_before.is_some();
             let s_end = body_vel(&sys, &match end_before {
                 Some(x) => x,
                 None => r.exact(run.t1)?,
             }, b);
+            // 26.63: a flight that ends while the body still rises was stopped by a hit on the way up (a ceiling,
+            // another body), not by landing — the time-of-flight and range formulas take the falling branch
+            let rising = ended && s_end.vy > 1e-9 * (1.0 + s0.vy.abs());
+            let lands = ended && !rising;
             let apex: Lazy<Option<(f64, f64)>> = lazy();
             let view = r.v;
             let (t0, t1) = (run.t0, run.t1);
@@ -748,7 +752,9 @@ fn projectile_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()>
                     let st = body_vel(&sys, &r.exact(t)?, &sys.model.bodies[bg]);
                     if apex.borrow().is_none() {
                         let mut found = None;
-                        if s0.vy > 0.0 {
+                        // 26.63: a flight that still rises when it is stopped has no apex (the velocity's jump at
+                        // the hit is not one)
+                        if s0.vy > 0.0 && !rising {
                             let ts = crossings(&mut r, &mut |_, x, _| Ok(-x[3 * n + 3 * bi + 1]), t0, t1, 1, 1)?;
                             if let Some(&ta) = ts.first() {
                                 found = Some((ta, body_vel(&sys, &r.exact(ta)?, &sys.model.bodies[bg]).y));
@@ -785,7 +791,7 @@ fn projectile_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()>
                             ("E", meas(Some(0.5 * mass * speed * speed + mass * g * st.y), "J", t!("机械能 ½mv² + mgy"))),
                         ],
                         conditions: vec![
-                            cond("lands", t!("记录内落到接触面"), lands, unless(lands, t!("记录内没有落地"))),
+                            cond("lands", t!("记录内落到接触面"), lands, unless(lands, if rising { t!("在上升途中发生碰撞，不是落到接触面") } else { t!("记录内没有落地") })),
                             cond("rises", t!("向上抛出且到达最高点"), s0.vy > 0.0 && ap.is_some(), Text::empty()),
                             cond("fromRest", t!("由静止释放（自由落体）"), from_rest, unless(from_rest, t!("有初速度"))),
                         ],

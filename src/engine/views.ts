@@ -24,7 +24,7 @@ export type ForceKind = 'gravity' | 'normal' | 'limit' | 'friction' | 'tension' 
 export interface ForceVector { x: number; y: number; fx: number; fy: number; kind: ForceKind; label: string }
 
 /** A rope as drawn: points (x, y pairs: A, tangent points in and out at each pulley, B), arcs (x, y, r, from, to, wrap). */
-export interface RopeView { points: Float64Array; arcs: Float64Array; length: number; taut: boolean }
+export interface RopeView { points: Float64Array; arcs: Float64Array; length: number; taut: boolean; /** 26.63 (D231): the rope has broken. */ broken?: boolean }
 
 /** Everything the canvas draws at one instant. */
 export interface FrameView {

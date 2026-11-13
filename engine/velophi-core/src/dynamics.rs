@@ -295,7 +295,11 @@ pub fn build_system(model: Model) -> System {
     let after = aux_base + AUX_FIXED + 2 * pairs.len() + if model.extra_ledger { crate::regions::EXTRA_LEN } else { 0 };
     let timed = model.has_expr || model.timed;
     let time_slot = if timed { Some(after) } else { None };
-    let size = after + usize::from(timed);
+    // 26.63 (D231): one entry per rope that can break, after everything else (other scenes keep their layout)
+    let break_base = if model.breakable.is_empty() { None } else { Some(after + usize::from(timed)) };
+    let size = after + usize::from(timed) + model.breakable.len();
+    let mut model = model;
+    model.break_base = break_base;
     let mut sys = System { model, n, pairs, aux_base, time_slot, extra_slot, size };
     let x0 = initial_state(&sys);
     let mut poses = Vec::new();

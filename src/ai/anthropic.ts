@@ -68,7 +68,7 @@ export function toAnthropic(req: ChatRequest, model: string): AnthropicRequest {
     }
     push('user', blocksOf(m))
   }
-  if (req.response_format?.type === 'json_object') system.push('Answer with one JSON object only, no other text.')
+  if (req.response_format?.type === 'json_object' || req.response_format?.type === 'json_schema') system.push('Answer with one JSON object only, no other text.')
   const out: AnthropicRequest = { model, max_tokens: req.max_tokens ?? 4096, messages }
   if (system.length) out.system = system.join('\n\n')
   if (req.temperature !== undefined) out.temperature = Math.min(1, req.temperature)

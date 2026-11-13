@@ -31,7 +31,7 @@ export const SCENE_VERSION_SOFTSTEP = 8
  */
 export const SCENE_VERSION_ARCS = 9
 /** Engine version written into saved scenes. */
-export const ENGINE_VERSION = '26.62.0'
+export const ENGINE_VERSION = '26.63.0'
 
 /** Shape of a body, in body coordinates (m). */
 export type ShapeDef = PartShapeDef | CompoundShapeDef | ArcShapeDef
@@ -153,6 +153,11 @@ export interface RopeDef {
   pulleys: Array<{ pulley: string; wrap: 'cw' | 'ccw' }>
   /** Rope length (m); null: the initial path length (taut). */
   length: number | null
+  /**
+   * 26.63 (D231): the largest tension the rope bears (N). When the tension reaches it the rope breaks (event `break`)
+   * and exerts no force from then on. Absent or ≤ 0: it never breaks.
+   */
+  maxTension?: number
 }
 /** Rigid rod (distance constraint) between two anchors; `length` (m), null: the initial distance. */
 export interface RodDef { id: string; name: string; type: 'rod'; a: Anchor; b: Anchor; length: number | null }

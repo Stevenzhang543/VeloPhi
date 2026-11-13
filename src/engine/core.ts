@@ -248,8 +248,6 @@ export function core(): CoreBackend {
   return current
 }
 
-/** Whether a core is loaded on this thread. */
-export function coreLoaded(): boolean { return current !== null }
 
 /** Install a core (tests: the Node-API module or a WebAssembly build). */
 export function setCore(b: CoreBackend | null) { current = b; loading = b ? Promise.resolve(b) : null }

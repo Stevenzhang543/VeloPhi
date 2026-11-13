@@ -10,9 +10,14 @@ export function focusables(root: HTMLElement): HTMLElement[] {
   return Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(el => !el.closest('[inert]') && (el.offsetParent !== null || el.getClientRects().length > 0))
 }
 
+/** A dialog component shown inside a page (`.embed-host`, the library page): no trap, no Escape, no focus taken. */
+export function embedded(el: HTMLElement): boolean { return typeof el.closest === 'function' && !!el.closest('.embed-host') }
+
 /** Keydown handler of a dialog root: wraps Tab at both ends and calls `close` on Escape. */
 export function dialogKeys(e: KeyboardEvent, root: HTMLElement | null, close?: () => void): void {
   if (!root) return
+  // 26.63 (D232): the same component shown inside a page (the library) is not a modal dialog
+  if (embedded(root)) return
   if (e.key === 'Escape' && close) {
     // an open <select> or a palette inside the dialog handles its own Escape
     if ((e.target as HTMLElement | null)?.tagName === 'SELECT') return
@@ -42,8 +47,9 @@ export const vDialog = {
     const back = document.activeElement instanceof HTMLElement ? document.activeElement : null
     const st = { back, close: binding.value, onKey: (e: KeyboardEvent) => dialogKeys(e, el, st.close) }
     el.__dlg = st
-    el.setAttribute('aria-modal', 'true')
     el.addEventListener('keydown', st.onKey)
+    if (embedded(el)) { st.back = null; el.setAttribute('role', 'region'); return }
+    el.setAttribute('aria-modal', 'true')
     if (!el.contains(document.activeElement)) {
       const first = focusables(el)[0]
       if (first) first.focus({ preventScroll: true })

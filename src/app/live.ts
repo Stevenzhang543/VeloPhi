@@ -12,8 +12,7 @@
 import { computed, inject, shallowRef, watchEffect } from 'vue'
 import type { InjectionKey, Ref } from 'vue'
 import type { Recording } from '../engine/recording'
-import { frameIsCheap } from '../engine/recording'
-import { quantitiesAtFrames, quantitySeries } from '../engine/observe'
+import { quantitySeries } from '../engine/observe'
 
 /** Provided by each page: true while the page is the one shown. */
 export const PAGE_ACTIVE: InjectionKey<Ref<boolean>> = Symbol('velophi.pageActive')
@@ -103,36 +102,6 @@ export function seriesWindow(rec: Recording, runId: number, ids: string[], w: Se
     todo.forEach((id, j) => c.values.set(id, r.values[j]))
   }
   return { t: c.t, get: (id: string) => c.values.get(id) ?? new Float64Array(c.t.length), stride: c.stride, total: c.t.length, from: c.from }
-}
-
-/** Values of the overview samples by quantity and frame (frames never change once computed). */
-let overview: { runId: number; values: Map<string, Map<number, number>> } | null = null
-
-/**
- * Overview of a whole (long) recording: one sample per chunk start — the state there is the chunk's checkpoint,
- * always in memory — plus the last frame; at most WINDOW_SAMPLES samples (chunks are skipped evenly beyond).
- */
-export function seriesOverview(rec: Recording, runId: number, ids: string[]): SeriesView {
-  const F = rec.chunkFrames
-  const chunks = Math.floor((rec.frameCount - 1) / F) + 1
-  const step = Math.max(1, Math.ceil(chunks / WINDOW_SAMPLES)) * F
-  const ks: number[] = []
-  for (let k = 0; k < rec.frameCount; k += step) if (frameIsCheap(rec, k)) ks.push(k)
-  if (ks[ks.length - 1] !== rec.frameCount - 1) ks.push(rec.frameCount - 1)
-  if (!overview || overview.runId !== runId) overview = { runId, values: new Map() }
-  const cache = overview.values
-  const list = [...new Set(ids)]
-  const maps = list.map(id => { let m = cache.get(id); if (!m) { m = new Map(); cache.set(id, m) } return m })
-  const arrays = list.map(() => new Float64Array(ks.length))
-  // Frames not known yet, evaluated in one call
-  const missing = ks.filter(k => maps.some(m => !m.has(k)))
-  if (missing.length) {
-    const r = quantitiesAtFrames(rec, list, missing)
-    missing.forEach((k, i) => list.forEach((_id, j) => { maps[j].set(k, r.values[j][i]) }))
-  }
-  ks.forEach((k, i) => list.forEach((_id, j) => { arrays[j][i] = maps[j].get(k) ?? NaN }))
-  const byId = new Map(list.map((id, j) => [id, arrays[j]]))
-  return { t: Float64Array.from(ks, k => k * rec.dt), get: (id: string) => byId.get(id) ?? new Float64Array(ks.length), stride: step, total: ks.length, from: 0 }
 }
 
 /**

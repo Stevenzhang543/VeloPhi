@@ -1,4 +1,4 @@
-# VeloPhi 26.61 覆盖矩阵（实施后）
+# VeloPhi 26.63 覆盖矩阵（实施后）
 
 本文件由 `node scripts/coverage.mjs` 根据模型注册数据（src/content/models）、活动注册（src/teaching/activities）、独立参照（tests/fixtures/oracles2656.json）和需求状态（tests/fixtures/coverage/requirements-26.56.json）生成；机器可读版本为 coverage-26.56.json。基线（26.55，提交 f71a4ff）见 COVERAGE_26_56_baseline.md。生成时检查每条证据引用都指向仓库中存在的测试（文件与测试名、Rust `#[test]` 函数、预言值用例数），状态与证据不一致时生成失败。
 
@@ -12,7 +12,7 @@
 
 ## 2 总览
 
-| 项 | 基线 26.55 | 26.61 |
+| 项 | 基线 26.55 | 26.63 |
 | --- | --- | --- |
 | 模型族：已验证 | 80 | 212 |
 | 模型族：部分实现 | 38 | 0 |
@@ -36,7 +36,7 @@
 
 ## 3 需求项（ENG、FOR、EDU、UX）
 
-| 编号 | 优先级 | 需求 | 基线 | 26.61 | 实现与证据 | 自动测试 | 剩余限制 |
+| 编号 | 优先级 | 需求 | 基线 | 26.63 | 实现与证据 | 自动测试 | 剩余限制 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | ENG01 | P0 | 单位与类型 | 部分实现 | **已验证** | Rust expr.rs 与 TS formula/units.ts 统一为七个 SI 基本量纲 L M T I Θ N J（D99）；UnitKind 区分绝对温度与温差，°C 显示为仿射换算；显示单位表增加温度、压强、密度、体积、物质的量等 | test:units2656 dims2656 seven dimensions；test:units2656 Celsius affine；test:units2656 display conversions；test:dims2656 rejects V + m/s² and ln(1 m) | 复合单位仍按表匹配，没有用户自定义单位 |
 | ENG02 | P0 | 常数 材料与数据 | 部分实现 | **已验证** | engine/velophi-core/src/constants.rs：CODATA2018 与 CODATA2022 两套（值、单位、标准不确定度、来源）；康普顿、磁场、核反应、结合能、平行板电容器实验带 constantsSet，新实验默认 2022，旧状态与旧文件保持 2018；运行清单列出数据集（AME2020、PDG 2024） | test:labs2656 magnetMap constants by set；test:labs2656 compton constants by set；test:particles2656 the electron rest energy of the set | 刚体场景的库仑常数保持 26.55 的 CODATA 2018 值，以保留 77 个模板指纹（D97）；切换需要新的 physicsVersion |
@@ -125,14 +125,14 @@
 | ID | 模型族 | 学段 | 优先级 | 几何 | 基线 | 26.56 | 教学 | 完成 | 独立证据 | 关联 | 差距与限制 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | M01 | 匀速运动与参考系 | 初中 | P1 | 质点／集中 | 部分实现 · L2 | **已验证 · L2** | 内容 | — | oracle ×3；test:derivationsC the steps hold numerically in the recognised template situations | T uniform-motion, inertia | L3 需要收敛研究、有效域边界与闭环基准；有内容链接，无带证据的活动；L4 需要学生试用与修订记录 |
-| M02 | 匀变速直线运动 | 高中 | P1 | 质点／集中 | 已验证 · L2 | **已验证 · L2** | 内容 | — | oracle ×3；test:acceptance；test:derivationsC the steps hold numerically in the recognised template situations | T incline-friction, pull-force；P k-pull, e-work | L3 需要收敛研究、有效域边界与闭环基准；有内容链接，无带证据的活动；L4 需要学生试用与修订记录 |
-| M03 | 自由落体与事件时刻 | 高中 | P1 | 质点／集中 | 已验证 · L2 | **已验证 · L3** | 活动＋证据 | 是 | oracle ×3；test:loop1 free fall event time and both sides；test:loop1 step convergence；test:acceptance | T free-fall, ball-into-water, bouncing-ball；P k-free-fall；A act-freefall | L4 需要学生试用与修订记录 |
-| M04 | 斜抛运动 | 高中 | P1 | 质点／集中 | 已验证 · L2 | **已验证 · L2** | 内容 | — | oracle ×3；test:acceptance 5 projectile | T projectile, charge-deflection, oscilloscope, projectile-slope, hump-bridge, projectile-wall；P p-oblique, p-horizontal, p-from-height；A act-projectile | L3 需要收敛研究、有效域边界与闭环基准；有内容链接，无带证据的活动；L4 需要学生试用与修订记录 |
+| M02 | 匀变速直线运动 | 高中 | P1 | 质点／集中 | 已验证 · L2 | **已验证 · L2** | 内容 | — | oracle ×3；test:acceptance；test:derivationsC the steps hold numerically in the recognised template situations | T incline-friction, pull-force, ramp-pull, two-blocks-push；P k-pull, e-work | L3 需要收敛研究、有效域边界与闭环基准；有内容链接，无带证据的活动；L4 需要学生试用与修订记录 |
+| M03 | 自由落体与事件时刻 | 高中 | P1 | 质点／集中 | 已验证 · L2 | **已验证 · L3** | 活动＋证据 | 是 | oracle ×3；test:loop1 free fall event time and both sides；test:loop1 step convergence；test:acceptance | T free-fall, drop-vs-throw, fall-two-masses, ball-into-water, bouncing-ball；P k-free-fall；A act-freefall | L4 需要学生试用与修订记录 |
+| M04 | 斜抛运动 | 高中 | P1 | 质点／集中 | 已验证 · L2 | **已验证 · L2** | 内容 | — | oracle ×3；test:acceptance 5 projectile | T projectile, rope-break-pendulum, drop-vs-throw, monkey-hunter, charge-deflection, oscilloscope, projectile-slope, hump-bridge, projectile-wall；P p-oblique, p-horizontal, p-from-height；A act-projectile | L3 需要收敛研究、有效域边界与闭环基准；有内容链接，无带证据的活动；L4 需要学生试用与修订记录 |
 | M05 | 追及与分段运动 | 高中 | P1 | 质点／集中 | 存在但待验证 · L2 | **已验证 · L2** | 内容 | — | oracle ×3；test:sim2656 M05 pursuit；regress:engine template pursuit（回归） | T pursuit | L3 需要收敛研究、有效域边界与闭环基准；有内容链接，无带证据的活动；L4 需要学生试用与修订记录 |
 | M06 | 两绳悬挂与静力平衡 | 高中 | P1 | 平面运动 | 存在但待验证 · L2 | **已验证 · L2** | 内容 | — | oracle ×4；test:sim2656 M06 two ropes；regress:engine template two-ropes（回归） | T v-groove, charged-pendulum, two-ropes | L3 需要收敛研究、有效域边界与闭环基准；有内容链接，无带证据的活动；L4 需要学生试用与修订记录 |
 | M07 | 粗糙斜面滑动 | 高中 | P1 | 平面运动 | 已验证 · L2 | **已验证 · L3** | 活动＋证据 | 是 | oracle ×4；test:loop1 incline three branches；test:acceptance 1 incline slider；test:ux2656 keyboard M07 | T incline, incline-friction, conveyor-incline, incline-efficiency, slope-up, incline-pulley；P k-incline, f-incline-rest；A act-incline | L4 需要学生试用与修订记录 |
-| M08 | 静摩擦阈值与滑动切换 | 高中 | P1 | 平面运动 | 已验证 · L2 | **已验证 · L3** | 活动＋证据 | 是 | oracle ×5；test:loop1 threshold both sides and re-stick；test:acceptance | T incline, incline-friction, pyramid, ball-pour, table-pulley, pull-force；P k-pull, k-incline, f-incline-rest, f-table-rest, n-table, e-work；A act-static | L4 需要学生试用与修订记录 |
-| M09 | 功 能量与机械效率 | 初中、高中 | P1 | 质点／集中 | 已验证 · L2 | **已验证 · L2** | 内容 | — | oracle ×3；test:acceptance energy ledger closes for every template | T pull-force, incline-efficiency, slope-up, arc-slide, vertical-loop, groove-momentum, spring-drop, spring-launcher, dome-slide；P k-pull, e-work | L3 需要收敛研究、有效域边界与闭环基准；有内容链接，无带证据的活动；L4 需要学生试用与修订记录 |
+| M08 | 静摩擦阈值与滑动切换 | 高中 | P1 | 平面运动 | 已验证 · L2 | **已验证 · L3** | 活动＋证据 | 是 | oracle ×5；test:loop1 threshold both sides and re-stick；test:acceptance | T incline, incline-friction, pyramid, ball-pour, table-pulley, pull-force, ramp-pull；P k-pull, k-incline, f-incline-rest, f-table-rest, n-table, e-work；A act-static | L4 需要学生试用与修订记录 |
+| M09 | 功 能量与机械效率 | 初中、高中 | P1 | 质点／集中 | 已验证 · L2 | **已验证 · L2** | 内容 | — | oracle ×3；test:acceptance energy ledger closes for every template | T pull-force, two-blocks-push, incline-efficiency, slope-up, arc-slide, vertical-loop, groove-momentum, spring-drop, spring-launcher, dome-slide；P k-pull, e-work | L3 需要收敛研究、有效域边界与闭环基准；有内容链接，无带证据的活动；L4 需要学生试用与修订记录 |
 | M10 | 超重 失重与加速度计 | 高中 | P1 | 质点／集中 | 存在但待验证 · L2 | **已验证 · L2** | 内容 | — | oracle ×3；test:sim2656 M10 elevator；regress:engine template elevator（回归） | T elevator | L3 需要收敛研究、有效域边界与闭环基准；有内容链接，无带证据的活动；L4 需要学生试用与修订记录 |
 | M11 | 阿特伍德机 | 高中 | P1 | 平面运动 | 已验证 · L2 | **已验证 · L2** | 内容 | — | oracle ×3；test:acceptance 8b Atwood | T atwood, table-pulley, incline-pulley；P f-table-rest, n-atwood, n-table | L3 需要收敛研究、有效域边界与闭环基准；有内容链接，无带证据的活动；L4 需要学生试用与修订记录 |
 | M12 | 动滑轮与绳长约束 | 初中、高中 | P1 | 平面运动 | 已验证 · L2 | **已验证 · L2** | 内容 | — | oracle ×3；test:pulleys | T movable-pulley | L3 需要收敛研究、有效域边界与闭环基准；有内容链接，无带证据的活动；L4 需要学生试用与修订记录 |
@@ -147,11 +147,11 @@
 | M21 | 杠杆与力矩平衡 | 初中 | P1 | 平面运动 | 已验证 · L2 | **已验证 · L2** | 内容 | — | oracle ×3；test:derivationsC the steps hold numerically in the recognised template situations | T pyramid, dominoes, lever, wheel-axle；P f-lever | L3 需要收敛研究、有效域边界与闭环基准；有内容链接，无带证据的活动；L4 需要学生试用与修订记录 |
 | M22 | 纯滚动 | 大学 | P2 | 平面运动 | 已验证 · L2 | **已验证 · L2** | 内容 | — | oracle ×3；test:acceptance 7 rigid rotation | T ball-pour, rolling, rolling-resistance, v-groove, hoop-disc；P r-rolling | L3 需要收敛研究、有效域边界与闭环基准；有内容链接，无带证据的活动；L4 需要学生试用与修订记录 |
 | M23 | 滑动到滚动 | 大学 | P2 | 平面运动 | 已验证 · L2 | **已验证 · L2** | 内容 | — | oracle ×4；test:models rolling with slipping | T rolling-slip, rolling-resistance；P r-slip | L3 需要收敛研究、有效域边界与闭环基准；有内容链接，无带证据的活动；L4 需要学生试用与修订记录 |
-| M24 | 竖直圆周与轻绳临界条件 | 高中 | P1 | 平面运动 | 已验证 · L2 | **已验证 · L2** | 内容 | — | oracle ×3；test:models vertical circle on a rope | T vertical-circle-rope, uniform-circle, arc-slide, vertical-loop, hump-bridge, dome-slide；P c-uniform, c-rope | L3 需要收敛研究、有效域边界与闭环基准；有内容链接，无带证据的活动；L4 需要学生试用与修订记录 |
-| M25 | 竖直圆周与轻杆 | 高中、大学 | P2 | 平面运动 | 已验证 · L2 | **已验证 · L2** | 内容 | — | oracle ×4；test:models vertical circle on a rod | T vertical-circle-rod, uniform-circle；P c-uniform, c-rod | L3 需要收敛研究、有效域边界与闭环基准；有内容链接，无带证据的活动；L4 需要学生试用与修订记录 |
+| M24 | 竖直圆周与轻绳临界条件 | 高中 | P1 | 平面运动 | 已验证 · L2 | **已验证 · L2** | 内容 | — | oracle ×3；test:models vertical circle on a rope | T vertical-circle-rope, uniform-circle, rope-break-circle, arc-slide, vertical-loop, hump-bridge, dome-slide；P c-uniform, c-rope | L3 需要收敛研究、有效域边界与闭环基准；有内容链接，无带证据的活动；L4 需要学生试用与修订记录 |
+| M25 | 竖直圆周与轻杆 | 高中、大学 | P2 | 平面运动 | 已验证 · L2 | **已验证 · L2** | 内容 | — | oracle ×4；test:models vertical circle on a rod | T vertical-circle-rod, uniform-circle, rope-break-pendulum, rope-break-circle；P c-uniform, c-rod | L3 需要收敛研究、有效域边界与闭环基准；有内容链接，无带证据的活动；L4 需要学生试用与修订记录 |
 | M26 | 两体引力与开普勒轨道 | 高中、大学 | P2 | 平面运动 | 已验证 · L2 | **已验证 · L2** | 内容 | — | oracle ×3；test:physics2651 gravitation | T orbit, binary-star, kepler；P g-circle, g-ellipse | 偏心轨道的长期相位与近地点监控未做 |
 | M27 | 宇宙速度与逃逸 | 高中 | P1 | 平面运动 | 部分实现 · L2 | **已验证 · L2** | 内容 | — | oracle ×3；test:physics2651 a circular orbit about a static planet | T cosmic-velocity | L3 需要收敛研究、有效域边界与闭环基准；有内容链接，无带证据的活动；L4 需要学生试用与修订记录 |
-| M28 | 阻力与终端速度 | 高中、大学 | P2 | 质点／集中 | 已验证 · L2 | **已验证 · L2** | 内容 | — | oracle ×3；test:physics2651 drag | T drag-fall, charged-drop, sinking-ball, ball-into-water；P n-drag | L3 需要收敛研究、有效域边界与闭环基准；有内容链接，无带证据的活动；L4 需要学生试用与修订记录 |
+| M28 | 阻力与终端速度 | 高中、大学 | P2 | 质点／集中 | 已验证 · L2 | **已验证 · L2** | 内容 | — | oracle ×3；test:physics2651 drag | T drag-fall, fall-two-masses, charged-drop, sinking-ball, ball-into-water；P n-drag | L3 需要收敛研究、有效域边界与闭环基准；有内容链接，无带证据的活动；L4 需要学生试用与修订记录 |
 | M29 | 变力 冲量与数值积分 | 大学 | P2 | 质点／集中 | 已验证 · L2 | **已验证 · L2** | 内容 | — | oracle ×3；test:forces variable forces | T variable-force | L3 需要收敛研究、有效域边界与闭环基准；有内容链接，无带证据的活动；L4 需要学生试用与修订记录 |
 | M30 | 弹性杆与梁挠度（受限） | 大学 | P2 | 一维连续体 | 未实现 · L0 | **已验证 · L1** | 内容 | — | oracle ×3 | 模型页 | 连续介质求解、边界约束与网格收敛未做 |
 | M31 | 拉格朗日单摆 | 大学 | P2 | 平面运动 | 部分实现 · L0 | **已验证 · L2** | 内容 | — | oracle ×3；test:acceptance 6 oscillations | T pendulum；P e-pendulum, o-pendulum | L3 需要收敛研究、有效域边界与闭环基准；有内容链接，无带证据的活动；L4 需要学生试用与修订记录 |

@@ -39,6 +39,7 @@ export const EVENTS: Record<string, string> = {
   zoneLeave: '离开场区',
   springRelease: '与不粘连的弹簧分离（弹簧恢复原长）',
   springPress: '压上不粘连的弹簧',
+  break: '绳断（拉力达到绳能承受的最大值）',
   rollStop: '停止滚动',
   limit: '到达滑轨限位'
 }

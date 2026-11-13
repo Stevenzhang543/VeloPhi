@@ -155,6 +155,10 @@ export interface UiSettings {
   learnStage: string
   /** 26.58 (D138): the welcome page has been seen (it opens once on the first start). */
   welcomed: boolean
+  /** 26.63 (D232): the page shown at start. */
+  startPage: 'home' | 'studio'
+  /** 26.63: the navigation rail shows labels under its icons. */
+  railLabels: boolean
 }
 
 /** View of the formula panel (D70–D71). */
@@ -276,7 +280,7 @@ function defaults(): AppSettings {
     sim: { worker: true, progressive: true, budgetSeconds: 60, lookAheadSeconds: 20, memoryMB: defaultMemoryMB(), engine: 'auto' },
     export: { fps: 60, scale: 1, bitrate: 0, csvSeparator: ',', csvDecimal: '.', imageBackground: 'theme', language: 'ui' },
     trialLog: false,
-    ui: { sections: {}, toolRail: false, motion: true, formula: { density: 'compact', group: 'situation', pinned: [], body: '', category: '', verdict: 'all', pinnedOnly: false, timeline: true }, toolTab: 'body', rightTab: 'formula', analysisTab: 'formula', lab: 'circuit', labView: 'topic', learnDone: [], learnStage: 'j', welcomed: false },
+    ui: { sections: {}, toolRail: false, motion: true, formula: { density: 'compact', group: 'situation', pinned: [], body: '', category: '', verdict: 'all', pinnedOnly: false, timeline: true }, toolTab: 'body', rightTab: 'formula', analysisTab: 'formula', lab: 'circuit', labView: 'topic', learnDone: [], learnStage: 'j', welcomed: false, startPage: 'home', railLabels: true },
     teaching: { fbd: { layout: 'actual', body: 'shape', magnitudes: true, decompose: 'none', resultant: false }, tape: { period: 0.02, every: 5 } },
     ai: {
       connection: 'official',
