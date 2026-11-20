@@ -117,7 +117,7 @@ fn uniform_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()> {
             out.push(Situation {
                 key: format!("uni:{}:{}", b.id, js_num(t0)),
                 ty: "uniform",
-                title: t!("{0} 的匀速直线运动", b.name.clone()),
+                title: t!("{0}的匀速直线运动", b.name.clone()),
                 t0,
                 t1,
                 t_event: None,
@@ -217,7 +217,7 @@ fn const_force_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()
             out.push(Situation {
                 key: format!("cf:{}:{}", b.id, js_num(t0)),
                 ty: "const-force",
-                title: t!("{0} 在恒力 F 作用下沿水平面运动", b.name.clone()),
+                title: t!("{0}在恒力 F 作用下沿水平面运动", b.name.clone()),
                 t0,
                 t1,
                 t_event: None,
@@ -349,7 +349,7 @@ fn lever_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()> {
             out.push(Situation {
                 key: format!("lever:{}:{}", bb.id, js_num(t0)),
                 ty: "lever",
-                title: t!("{0} 的杠杆平衡", bn.clone()),
+                title: t!("{0}的杠杆平衡", bn.clone()),
                 t0,
                 t1,
                 t_event: None,
@@ -415,7 +415,7 @@ fn circle_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()> {
             out.push(Situation {
                 key: format!("circ:{}:{}", b.id, js_num(t0)),
                 ty: "circle",
-                title: t!("{0} 的匀速圆周运动", b.name.clone()),
+                title: t!("{0}的匀速圆周运动", b.name.clone()),
                 t0,
                 t1,
                 t_event: None,
@@ -503,7 +503,7 @@ fn orbit_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()> {
         out.push(Situation {
             key: format!("orbit:{}:{}", b.id, js_num(t0)),
             ty: "orbit",
-            title: t!("{0} 绕 {1} 运动", bname.clone(), sname.clone()),
+            title: t!("{0}绕{1}运动", bname.clone(), sname.clone()),
             t0,
             t1,
             t_event: None,
@@ -593,7 +593,7 @@ fn drag_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()> {
             out.push(Situation {
                 key: format!("drag:{}:{}", b.id, js_num(t0)),
                 ty: "drag",
-                title: t!("{0} 在空气阻力下下落", b.name.clone()),
+                title: t!("{0}在空气阻力下下落", b.name.clone()),
                 t0,
                 t1,
                 t_event: None,
@@ -694,7 +694,7 @@ fn damped_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()> {
             out.push(Situation {
                 key: format!("damped:{}:{}", b.id, js_num(t0)),
                 ty: "damped",
-                title: t!("{0} 的阻尼振动", b.name.clone()),
+                title: t!("{0}的阻尼振动", b.name.clone()),
                 t0,
                 t1,
                 t_event: None,
@@ -771,7 +771,7 @@ fn spin_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()> {
             out.push(Situation {
                 key: format!("spin:{}:{}", b.id, js_num(t0)),
                 ty: "spin",
-                title: t!("{0} 在恒定力矩下转动", b.name.clone()),
+                title: t!("{0}在恒定力矩下转动", b.name.clone()),
                 t0,
                 t1,
                 t_event: None,
@@ -864,7 +864,7 @@ fn gear_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()> {
             out.push(Situation {
                 key: format!("gear:{}:{}", gr.id, js_num(t0)),
                 ty: "gear",
-                title: t!("{0} 与 {1} 齿轮传动", an.clone(), bn.clone()),
+                title: t!("{0}与{1}齿轮传动", an.clone(), bn.clone()),
                 t0,
                 t1,
                 t_event: None,

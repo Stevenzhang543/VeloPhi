@@ -37,7 +37,7 @@ function barTitle(b: TimelineBar) {
 .fbar { position: absolute; height: 9px; border: 0; padding: 0; border-radius: 3px; cursor: pointer; background: var(--cat, var(--fill-strong)); box-shadow: inset 0 -3px 0 var(--ver, transparent); min-width: 3px; }
 .fbar:hover { filter: brightness(1.15); z-index: 1; outline: 1.5px solid var(--accent); }
 .fbar.instant { width: 4px; margin-left: -2px; border-radius: 2px; }
-.fbar .pin { position: absolute; right: 1px; top: -4px; font-size: 9px; line-height: 1; color: var(--warning); pointer-events: none; }
+.fbar .pin { position: absolute; right: 1px; top: -4px; font-size: var(--type-tiny); line-height: 1; color: var(--warning); pointer-events: none; }
 .fbar.v-match { --ver: var(--success); }
 .fbar.v-deviate { --ver: var(--danger); }
 .fbar.v-approx { --ver: var(--warning); }

@@ -40,9 +40,18 @@ export function tl(zh: string, params?: ReadonlyArray<unknown> | Record<string, 
   return tIn(activeLang(), zh, params)
 }
 
+/**
+ * 26.65 (D294): the punctuation that code puts between translated parts — the list separator and the colon after a
+ * label. They are not texts of their own (the key extractor only collects texts with Chinese characters), so their
+ * English and German forms live here; before 26.65 the German interface showed “Reihenschaltung：R1、L1”.
+ */
+const PUNCT: Record<string, string> = { '、': ', ', '{0}：{1}': '{0}: {1}', '{0}：': '{0}:' }
+
 /** The text in a given language (exports with their own language). */
 export function tIn(lang: Lang, zh: string, params?: ReadonlyArray<unknown> | Record<string, unknown>): string {
   if (lang === 'zh') return fill(zh, params)
+  const p = PUNCT[zh]
+  if (p !== undefined) return fill(p, params)
   const tr = TABLES[lang][zh]
   if (tr === undefined) { missing.add(zh); return fill(zh, params) }
   return fill(tr, params)

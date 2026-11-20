@@ -18,6 +18,7 @@ const LICENSES: Array<{ name: string; license: string; use: string }> = [
   { name: 'Mediabunny', license: tl('MPL-2.0（未修改）'), use: tl('视频编码') },
   { name: 'Tauri', license: 'MIT / Apache-2.0', use: tl('桌面外壳') },
   { name: 'Rust std, serde, serde_json', license: 'MIT / Apache-2.0', use: tl('Rust 计算引擎（WebAssembly）') },
+  { name: 'Source Sans 3', license: 'OFL-1.1', use: tl('界面西文字体') },
   { name: 'Noto Sans SC', license: 'OFL-1.1', use: tl('中文字体') },
   { name: 'JetBrains Mono', license: 'OFL-1.1', use: tl('等宽数字字体') }
 ]
@@ -55,13 +56,13 @@ const LICENSES: Array<{ name: string; license: string; use: string }> = [
     <div class="licenses small">
       <div v-for="l in LICENSES" :key="l.name" class="lic"><b>{{ l.name }}</b><span class="muted">{{ l.use }}</span><span class="mono tiny">{{ l.license }}</span></div>
     </div>
-    <p class="tiny muted">{{ tl('均未修改，按各自许可证使用；完整清单与许可证全文见安装目录中的 THIRD_PARTY_NOTICES。界面图标为 VeloPhi 自绘，未使用任何第三方或专有图标、字体。') }}</p>
+    <p class="tiny muted">{{ tl('均未修改，按各自许可证使用；完整清单与许可证全文见 THIRD_PARTY_NOTICES.md（随程序安装，也在发布文件中）。界面图标为 VeloPhi 自绘。') }}</p>
   </div>
 </template>
 
 <style scoped>
 .hero { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
-.title { font-size: calc(20px * var(--zoom)); font-weight: 700; letter-spacing: -0.01em; }
+.title { font-size: calc(20px * var(--zoom)); font-weight: var(--weight-strong); letter-spacing: var(--track-display); }
 .ver { font-size: var(--type-small); font-weight: 500; color: var(--text-3); margin-left: 4px; }
 h4 { margin: 14px 0 6px; font-size: var(--type-body); }
 ul { margin: 0; padding-left: 18px; line-height: 1.6; font-size: var(--type-small); }

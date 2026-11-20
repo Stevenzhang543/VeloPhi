@@ -1,23 +1,27 @@
 <script setup lang="ts">
 /**
- * Application shell (26.63, D232 "Workbench 3"): the navigation rail at the left, and beside it the context bar of the
- * page shown, the page, and — for the studio and the monitor — the status bar. Pages: home, studio, lab, library,
- * classroom, monitor, settings. They stay mounted once shown so switching is instant (hidden with content-visibility,
+ * Application shell (26.64, D240): the navigation rail at the left — the five panels 运动 (`studio`), 物理实验 (`lab`),
+ * 化学实验 (`chem`), 资源库 (`library`), 监视 (`monitor`), then search, help and the settings; the mark opens the home
+ * page — and beside it the context bar of the page shown (the home page has none), the page, and for the studio and
+ * the monitor the status bar. Pages stay mounted once shown so switching is instant (hidden with content-visibility,
  * layout kept); panels on hidden pages and hidden tabs get `active = false` and stop following playback. The lab,
  * monitor and settings pages are mounted on first use or when the browser is idle after startup, whichever comes
- * first; home, library and classroom on first use. Phones have no rail: the same list opens as a drawer from the bar.
+ * first; home, chem and library on first use. Phones have no rail: the same list opens as a drawer from the bar.
+ * The classroom page of 26.63 is a section of the library (store.ts redirects the old page id).
  */
 import { locale, tl } from '../i18n'
 import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, provide, reactive, ref, watch } from 'vue'
 import { state, undo, redo, runSimulation, play, pause, seekFrame, edit } from './store'
-import type { Page } from './store'
+import type { Page, ShownPage } from './store'
+import { pageOfKey } from './shortcuts'
 import { overlapPrompt } from './overlapGate'
 import { deleteObject } from './editing'
 import { openScene, saveScene, newScene } from './files'
 import TopBar from './components/TopBar.vue'
+import ScopeTrace from './components/decor/ScopeTrace.vue'
 import NavRail from './components/NavRail.vue'
 import StatusBar from './components/StatusBar.vue'
-import Viewport from './components/Viewport.vue'
+import Viewport from './components/viewport/Viewport.vue'
 import Timeline from './components/Timeline.vue'
 import TemplateGallery from './components/TemplateGallery.vue'
 // 26.60 (D205–D206): the new shell — tool strip, floating timeline, one sidebar; phones: tab bar and sheets
@@ -29,7 +33,7 @@ import BottomSheet from './components/BottomSheet.vue'
 import ToolPalette from './components/ToolPalette.vue'
 import ObjectList from './components/ObjectList.vue'
 import Inspector from './components/Inspector.vue'
-import SettingsPanel from './components/SettingsPanel.vue'
+import ScenePanel from './components/ScenePanel.vue'
 import FormulaPanel from './components/FormulaPanel.vue'
 import WatchPanel from './components/WatchPanel.vue'
 import PredictionPanel from './components/PredictionPanel.vue'
@@ -40,8 +44,10 @@ const AboutDialog = defineAsyncComponent(() => import('./components/AboutDialog.
 const CoursewareDialog = defineAsyncComponent(() => import('./components/CoursewareDialog.vue'))
 const SweepDialog = defineAsyncComponent(() => import('./components/SweepDialog.vue'))
 const SolverCompareDialog = defineAsyncComponent(() => import('./components/SolverCompareDialog.vue'))
-const WelcomeDialog = defineAsyncComponent(() => import('./components/WelcomeDialog.vue'))
-const TourOverlay = defineAsyncComponent(() => import('./components/TourOverlay.vue'))
+// 26.64 (D248–D251): the walkthrough over the real interface, and Help › 入门 / 新变化
+const GuideDialog = defineAsyncComponent(() => import('./components/GuideDialog.vue'))
+const WalkthroughOverlay = defineAsyncComponent(() => import('./components/WalkthroughOverlay.vue'))
+import { initOnboarding, movedHint, walk } from './onboarding/engine'
 const ReportDialog = defineAsyncComponent(() => import('./components/ReportDialog.vue'))
 const FbdDialog = defineAsyncComponent(() => import('./components/FbdDialog.vue'))
 const TapeDialog = defineAsyncComponent(() => import('./components/TapeDialog.vue'))
@@ -60,11 +66,15 @@ const CurriculumDialog = defineAsyncComponent(() => import('./components/Curricu
 // 26.63 (D232–D237): the new pages, the class tally, the share link, the convergence study, the shortcut sheet
 const HomePage = defineAsyncComponent(() => import('./components/HomePage.vue'))
 const LibraryPage = defineAsyncComponent(() => import('./components/LibraryPage.vue'))
-const ClassroomPage = defineAsyncComponent(() => import('./components/ClassroomPage.vue'))
+// 26.64 (D240, D241): the chemistry panel (a mount point until its bench lands) and "open from a link"
+const ChemPage = defineAsyncComponent({ loader: () => import('./components/chem/ChemPage.vue'), loadingComponent: ScopeTrace, delay: 200 })
+const OpenLinkDialog = defineAsyncComponent(() => import('./components/OpenLinkDialog.vue'))
 const TallyBar = defineAsyncComponent(() => import('./components/TallyBar.vue'))
 const ShareDialog = defineAsyncComponent(() => import('./components/ShareDialog.vue'))
 const ConvergenceDialog = defineAsyncComponent(() => import('./components/ConvergenceDialog.vue'))
 const ShortcutSheet = defineAsyncComponent(() => import('./components/ShortcutSheet.vue'))
+// 26.64: the update notice of the desktop and Android apps (it schedules the one check per start); never on the web
+const UpdateNotice = defineAsyncComponent(() => import('./components/UpdateNotice.vue'))
 import { tally } from './tally'
 import { zoomStudio } from './viewStatus'
 import ProblemPanel from './components/ProblemPanel.vue'
@@ -83,25 +93,35 @@ import Spotlight from './components/ai/Spotlight.vue'
 const CopilotPanel = defineAsyncComponent(() => import('./components/ai/CopilotPanel.vue'))
 import { isDesktop } from '../platform/files'
 import { PAGE_ACTIVE } from './live'
+import { installNuclearLinks } from './nuclideLink'
 import { settings } from './settings'
 import { logEvent } from './trialLog'
 import { landscape, phone, setCopilotOpen, shell, showSideTab, syncSideTab } from './layout'
 import Icon from './components/Icon.vue'
 import type { SheetId, SideTab } from './layout'
+import { openEncyFromHash } from '../chem/ency/route'
 
 const studioOn = computed(() => state.page === 'studio')
 // The studio page lives in this template; the other pages provide their own flag
 provide(PAGE_ACTIVE, studioOn)
+// 26.64 (D268): a bench link in the address (#b=…) starts in the chemistry panel, which opens it
+if (typeof location !== 'undefined' && location.hash.startsWith('#b=')) state.page = 'chem'
+// 26.64 (D276, D277): the nuclide pages and the reactor workshop answer the encyclopedia's hooks and the address #n=…
+installNuclearLinks()
+// 26.64 (D271): a link to an element or a substance (#e=Cu, #m=ethanol) opens the encyclopedia over the bench
+if (typeof location !== 'undefined' && openEncyFromHash(location.hash)) state.page = 'chem'
 
 /** Pages mounted so far (kept mounted afterwards). */
-const mounted = reactive<Record<Page, boolean>>({ studio: true, home: state.page === 'home', lab: state.page === 'lab', library: state.page === 'library', classroom: state.page === 'classroom', monitor: state.page === 'monitor', settings: state.page === 'settings' })
+const mounted = reactive<Record<ShownPage, boolean>>({ studio: true, home: state.page === 'home', lab: state.page === 'lab', chem: state.page === 'chem', library: state.page === 'library', monitor: state.page === 'monitor', settings: state.page === 'settings' })
 /** Pages laid out at least once (hidden pages keep their layout, so showing them again is cheap). */
-const warmed = reactive<Record<Page, boolean>>({ studio: true, home: false, lab: false, library: false, classroom: false, monitor: false, settings: false })
-watch(() => state.page, p => { mounted[p] = true; shell.navOpen = false; logEvent('page.open', { page: p }) })
+const warmed = reactive<Record<ShownPage, boolean>>({ studio: true, home: false, lab: false, chem: false, library: false, monitor: false, settings: false })
+/** `state.page` as shown (a legacy id never stays: store.ts redirects it synchronously). */
+const shown = (p: Page): ShownPage => (p === 'classroom' ? 'library' : p)
+watch(() => state.page, p => { mounted[shown(p)] = true; shell.navOpen = false; logEvent('page.open', { page: shown(p) }) })
 // Trial log: which dialogs are used (ids only)
 const DIALOGS = { export: () => state.showExport, courseware: () => state.showCourseware, sweep: () => state.showSweep, solverCompare: () => state.showSolverCompare, report: () => state.showReport, fbd: () => state.showFbd, tape: () => state.showTape, problems: () => state.showProblems, templates: () => state.showTemplates, learning: () => state.showLearning, search: () => state.showPalette } as const
 for (const [dialog, open] of Object.entries(DIALOGS)) watch(open, v => { if (v) logEvent('dialog.open', { dialog }) })
-const LATER: Page[] = ['home', 'lab', 'library', 'classroom', 'monitor', 'settings']
+const LATER: ShownPage[] = ['home', 'lab', 'chem', 'library', 'monitor', 'settings']
 watch(() => LATER.map(p => mounted[p]), () => {
   for (const p of LATER) {
     if (mounted[p] && !warmed[p]) requestAnimationFrame(() => requestAnimationFrame(() => { warmed[p] = true }))
@@ -112,19 +132,16 @@ watch(() => LATER.map(p => mounted[p]), () => {
  * content-visibility: hidden, which skips their rendering while keeping the layout for an instant switch back.
  * A freshly mounted page is laid out once invisibly ("warming") before it is hidden.
  */
-function pageClass(p: Page) { return state.page === p ? 'is-on' : warmed[p] ? 'is-off' : 'is-warming' }
+function pageClass(p: ShownPage) { return state.page === p ? 'is-on' : warmed[p] ? 'is-off' : 'is-warming' }
 
 function typing(e: KeyboardEvent) {
   const t = e.target as HTMLElement
   return t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable
 }
 
-const PAGE_KEYS: Record<string, Page> = { Digit1: 'home', Digit2: 'studio', Digit3: 'lab', Digit4: 'library', Digit5: 'classroom', Digit6: 'monitor' }
 const SIDE_KEYS: Record<string, SideTab> = { Digit1: 'inspect', Digit2: 'analysis', Digit3: 'problem', Digit4: 'ai' }
 
 function onKey(e: KeyboardEvent) {
-  // 26.58 (D146): while the tour is shown its own keys (←, →, Enter, Escape) are not shortcuts
-  if (state.tourStep !== null && ['ArrowLeft', 'ArrowRight', 'Enter', 'Escape'].includes(e.key)) return
   const mod = e.ctrlKey || e.metaKey
   if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); saveScene(e.shiftKey); return }
   if (mod && e.key.toLowerCase() === 'o') { e.preventDefault(); openScene(); return }
@@ -135,7 +152,10 @@ function onKey(e: KeyboardEvent) {
   if (mod && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'k') { e.preventDefault(); state.showPalette = !state.showPalette; return }
   // 26.59 (D167): Copilot
   if (mod && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'i' && settings.ai.copilot) { e.preventDefault(); setCopilotOpen(!state.showCopilot); return }
-  if (e.altKey && !mod && PAGE_KEYS[e.code]) { e.preventDefault(); state.page = PAGE_KEYS[e.code]; return }
+  // 26.64 (D240): Alt+1…5 the panels in rail order, Alt+0 the home page
+  if (e.altKey && !mod && !e.shiftKey) { const p = pageOfKey(e.code); if (p) { e.preventDefault(); state.page = p; return } }
+  // 26.64 (D250): Alt+6 was a page of 26.63 — said once, where it is looked for
+  if (e.altKey && !mod && !e.shiftKey && e.code === 'Digit6') { movedHint('alt6', tl('Alt+1…5 现在对应五个面板；课堂在资源库里。')); return }
   // 26.63 (D233; the open items of 26.60): the sidebar, its tabs and the curves drawer from the keyboard
   if (mod && e.altKey && SIDE_KEYS[e.code] && state.page === 'studio' && !phone.value) {
     const tab = SIDE_KEYS[e.code]
@@ -188,8 +208,9 @@ onMounted(async () => {
   window.addEventListener('keydown', onKey)
   window.addEventListener('keyup', onKeyUp)
   premount()
-  // 26.58 (D138): the welcome page once, on the first start (not during the release self-check)
-  if (!settings.ui.welcomed && !/[?&]selftest/.test(location.search)) setTimeout(() => { if (!settings.ui.welcomed) state.showWelcome = true }, 900)
+  // 26.64 (D248): what this device is offered — the walkthrough on a first run, the list of changes after an update.
+  // Nothing opens by itself: the offer is a block of the home page and a dot on the Help button.
+  initOnboarding()
   if (!isDesktop) { window.addEventListener('beforeunload', beforeUnload); return }
   // Desktop: ask before closing a window with unsaved changes
   const { getCurrentWindow } = await import('@tauri-apps/api/window')
@@ -223,11 +244,12 @@ watch(phone, p => { if (!p) shell.sheet = null })
 </script>
 
 <template>
-  <div class="ambient" aria-hidden="true"><i /><i /><i /><i /></div>
   <div :key="locale.lang" class="app" :class="{ phone }">
     <NavRail v-if="!phone" />
     <div class="main">
-      <TopBar class="top" />
+      <!-- 26.65 (D290): on the desktop only the motion studio and the monitor have a bar here; an experiment panel's
+           name is the rail's selected item and its search is the rail's -->
+      <TopBar v-if="phone || state.page === 'studio' || state.page === 'monitor'" class="top" />
       <div class="workspace">
         <div class="pages">
           <!-- 26.60 (D205): the canvas fills the studio; the tools float on it, one sidebar at the right -->
@@ -266,7 +288,7 @@ watch(phone, p => { if (!p) shell.sheet = null })
                     <button role="tab" :class="{ on: state.rightTab !== 'settings' }" @click="state.rightTab = 'inspect'">{{ tl('对象') }}</button>
                     <button role="tab" :class="{ on: state.rightTab === 'settings' }" @click="state.rightTab = 'settings'">{{ tl('场景') }}</button>
                   </div>
-                  <div class="sheet-pad"><SettingsPanel v-if="state.rightTab === 'settings'" /><Inspector v-else /></div>
+                  <div class="sheet-pad"><ScenePanel v-if="state.rightTab === 'settings' || !state.selection" /><Inspector v-else /></div>
                 </template>
                 <template v-else-if="sheetOn('analysis')">
                   <div class="chips scroll" role="tablist">
@@ -293,7 +315,7 @@ watch(phone, p => { if (!p) shell.sheet = null })
           <HomePage v-if="mounted.home" class="page" :class="pageClass('home')" :inert="state.page !== 'home'" />
           <LabPage v-if="mounted.lab" class="page" :class="pageClass('lab')" :inert="state.page !== 'lab'" :active="state.page === 'lab'" />
           <LibraryPage v-if="mounted.library" class="page" :class="pageClass('library')" :inert="state.page !== 'library'" :active="state.page === 'library'" />
-          <ClassroomPage v-if="mounted.classroom" class="page" :class="pageClass('classroom')" :inert="state.page !== 'classroom'" />
+          <ChemPage v-if="mounted.chem" class="page" :class="pageClass('chem')" :inert="state.page !== 'chem'" :active="state.page === 'chem'" />
           <MonitorPage v-if="mounted.monitor" class="page" :class="pageClass('monitor')" :inert="state.page !== 'monitor'" :active="state.page === 'monitor'" />
           <SettingsPage v-if="mounted.settings" class="page" :class="pageClass('settings')" :inert="state.page !== 'settings'" :active="state.page === 'settings'" />
           <DetailPanel />
@@ -318,8 +340,9 @@ watch(phone, p => { if (!p) shell.sheet = null })
     <ConvergenceDialog v-if="shell.convergence" />
     <ShareDialog v-if="shell.share" />
     <ShortcutSheet v-if="shell.shortcuts" />
-    <WelcomeDialog v-if="state.showWelcome" />
-    <TourOverlay v-if="state.tourStep !== null" />
+    <OpenLinkDialog v-if="shell.openLink" />
+    <GuideDialog v-if="state.showWelcome" />
+    <WalkthroughOverlay v-if="walk.id" />
     <ReportDialog v-if="state.showReport && state.recording" />
     <FbdDialog v-if="state.showFbd && state.recording" />
     <TapeDialog v-if="state.showTape && state.recording" />
@@ -331,6 +354,7 @@ watch(phone, p => { if (!p) shell.sheet = null })
     <ActivityRunner v-if="state.activity" :key="state.activity" />
     <LessonBar v-if="lessonUi.id" :key="lessonUi.id" />
     <Spotlight />
+    <UpdateNotice v-if="isDesktop" />
     <!-- 26.59 (D157): two live regions that always exist (polite status, assertive alert), so every message is announced -->
     <div class="sr-only" role="status" aria-live="polite">{{ state.toast && !state.toast.error ? state.toast.text : '' }}</div>
     <div class="sr-only" role="alert">{{ state.toast?.error ? state.toast.text : '' }}</div>
@@ -364,10 +388,10 @@ watch(phone, p => { if (!p) shell.sheet = null })
 .phone-studio .view :deep(.viewport) { border-radius: 0; box-shadow: none; }
 .ptime { flex: 0 0 auto; background: var(--pane); border-top: 0.5px solid var(--separator); }
 /* 26.63: a phone held sideways — the sheet is a panel at the right, full height, and the canvas keeps the rest */
-.phone-studio.side .view :deep(.sheet) { left: auto; right: 0; top: 0; bottom: 0; width: min(48%, 400px); height: 100% !important; border-radius: 16px 0 0 16px; animation: side-in 200ms var(--ease-out); }
+.phone-studio.side .view :deep(.sheet) { left: auto; right: 0; top: 0; bottom: 0; width: min(48%, 400px); height: 100% !important; border-radius: var(--radius-float) 0 0 var(--radius-float); animation: side-in var(--dur-enter) var(--ease-out); }
 .phone-studio.side .view :deep(.sheet .handle) { display: none; }
 @keyframes side-in { from { transform: translateX(30%); opacity: 0.4; } to { transform: none; opacity: 1; } }
-.nav-scrim { position: fixed; inset: 0; z-index: 9050; background: rgba(0, 0, 0, 0.32); animation: fade-in 140ms ease; }
+.nav-scrim { position: fixed; inset: 0; z-index: 9050; background: var(--scrim); animation: fade-in var(--dur-exit) ease; }
 .sheet-pad { padding: 4px 14px 16px; }
 .snaps { display: flex; gap: 16px; padding: 10px 2px 4px; }
 .snap { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; }
@@ -375,7 +399,7 @@ watch(phone, p => { if (!p) shell.sheet = null })
 .chips { display: flex; gap: 6px; padding: 2px 14px 8px; }
 .chips.scroll { overflow-x: auto; scrollbar-width: none; }
 .chips.scroll::-webkit-scrollbar { display: none; }
-.chips button { flex: 0 0 auto; min-height: 36px; padding: 0 14px; border: 0; border-radius: 999px; background: var(--fill); color: var(--text-2); font: inherit; font-size: var(--type-small); cursor: pointer; }
+.chips button { flex: 0 0 auto; min-height: 36px; padding: 0 14px; border: 0; border-radius: var(--radius-pill); background: var(--fill); color: var(--text-2); font: inherit; font-size: var(--type-small); cursor: pointer; }
 .chips button.on { background: var(--accent); color: var(--on-accent); font-weight: 600; }
 .fill { position: relative; flex: 1; min-height: 0; height: calc(100% - 46px); }
 .abs { position: absolute; inset: 0; overflow: auto; }

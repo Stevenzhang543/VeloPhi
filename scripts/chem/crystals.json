@@ -1,0 +1,176 @@
+{
+  "comment": "Input of build_crystals.py. Lattice constants in angstrom with their citation; sites are the asymmetric unit, ops and centring generate the conventional cell; expect.nearest = [element, neighbour element, distance, tolerance, number of neighbours] is checked at build time against distances known independently of the cell.",
+  "crystals": [
+    {
+      "id": "nacl", "name": {"zh": "氯化钠", "en": "Sodium chloride", "de": "Natriumchlorid"}, "formula": "NaCl",
+      "system": "cubic", "structure": "rock-salt", "a": 5.6402, "centring": "F",
+      "sites": [["Na", "0", "0", "0"], ["Cl", "1/2", "1/2", "1/2"]],
+      "expect": {"atoms": 8, "nearest": [["Na", "Cl", 2.820, 0.002, 6], ["Cl", "Na", 2.820, 0.002, 6]]},
+      "source": "R. W. G. Wyckoff, Crystal Structures, 2nd ed., vol. 1, Interscience, 1963: rock-salt structure, a = 5.6402 A at room temperature"
+    },
+    {
+      "id": "cscl", "name": {"zh": "氯化铯", "en": "Caesium chloride", "de": "Caesiumchlorid"}, "formula": "CsCl",
+      "system": "cubic", "structure": "caesium-chloride", "a": 4.123, "centring": "P",
+      "sites": [["Cs", "0", "0", "0"], ["Cl", "1/2", "1/2", "1/2"]],
+      "expect": {"atoms": 2, "nearest": [["Cs", "Cl", 3.571, 0.002, 8], ["Cl", "Cs", 3.571, 0.002, 8]]},
+      "source": "R. W. G. Wyckoff, Crystal Structures, 2nd ed., vol. 1, Interscience, 1963: caesium chloride structure, a = 4.123 A"
+    },
+    {
+      "id": "zns-sphalerite", "name": {"zh": "闪锌矿（立方硫化锌）", "en": "Sphalerite (zinc blende, ZnS)", "de": "Sphalerit (Zinkblende, ZnS)"}, "formula": "ZnS",
+      "system": "cubic", "structure": "zinc-blende", "a": 5.4093, "centring": "F",
+      "sites": [["Zn", "0", "0", "0"], ["S", "1/4", "1/4", "1/4"]],
+      "expect": {"atoms": 8, "nearest": [["Zn", "S", 2.342, 0.002, 4], ["S", "Zn", 2.342, 0.002, 4]]},
+      "source": "B. J. Skinner, Unit-cell edges of natural and synthetic sphalerites, Am. Mineral. 46, 1399 (1961): a = 5.4093 A; zinc blende structure after R. W. G. Wyckoff, Crystal Structures, vol. 1, 1963"
+    },
+    {
+      "id": "zns-wurtzite", "name": {"zh": "纤锌矿（六方硫化锌）", "en": "Wurtzite (ZnS)", "de": "Wurtzit (ZnS)"}, "formula": "ZnS",
+      "system": "hexagonal", "structure": "wurtzite", "a": 3.8227, "c": 6.2607, "centring": "P",
+      "params": {"u": 0.3748},
+      "ops": ["x,y,z", "-x,-y,z+1/2"],
+      "sites": [["Zn", "1/3", "2/3", "0"], ["S", "1/3", "2/3", "u"]],
+      "expect": {"atoms": 4, "nearest": [["Zn", "S", 2.344, 0.004, 4], ["S", "Zn", 2.344, 0.004, 4]]},
+      "source": "E. H. Kisi, M. M. Elcombe, u parameters for the wurtzite structure of ZnS and ZnO using powder neutron diffraction, Acta Cryst. C45, 1867 (1989): a = 3.8227 A, c = 6.2607 A, u = 0.3748"
+    },
+    {
+      "id": "caf2", "name": {"zh": "萤石（氟化钙）", "en": "Fluorite (calcium fluoride)", "de": "Fluorit (Calciumfluorid)"}, "formula": "CaF2",
+      "system": "cubic", "structure": "fluorite", "a": 5.4626, "centring": "F",
+      "sites": [["Ca", "0", "0", "0"], ["F", "1/4", "1/4", "1/4"], ["F", "1/4", "1/4", "3/4"]],
+      "expect": {"atoms": 12, "nearest": [["Ca", "F", 2.365, 0.002, 8], ["F", "Ca", 2.365, 0.002, 4]]},
+      "source": "CRC Handbook of Chemistry and Physics, 97th ed., 2016, section 4, crystal structures and lattice parameters of inorganic compounds: fluorite, a = 5.4626 A"
+    },
+    {
+      "id": "tio2-rutile", "name": {"zh": "金红石（二氧化钛）", "en": "Rutile (titanium dioxide)", "de": "Rutil (Titandioxid)"}, "formula": "TiO2",
+      "system": "tetragonal", "structure": "rutile", "a": 4.594, "c": 2.959, "centring": "P",
+      "params": {"u": 0.305},
+      "ops": ["x,y,z", "-x,-y,z", "-y+1/2,x+1/2,z+1/2", "y+1/2,-x+1/2,z+1/2"],
+      "sites": [["Ti", "0", "0", "0"], ["O", "u", "u", "0"]],
+      "expect": {"atoms": 6, "nearest": [["Ti", "O", 1.965, 0.025, 6], ["O", "Ti", 1.965, 0.025, 3]]},
+      "source": "S. C. Abrahams, J. L. Bernstein, Rutile: normal probability plot analysis and accurate measurement of crystal structure, J. Chem. Phys. 55, 3206 (1971): a = 4.594 A, c = 2.959 A, oxygen at (u, u, 0) with u = 0.305 (rounded to 0.001)"
+    },
+    {
+      "id": "catio3", "name": {"zh": "钙钛矿（钛酸钙，理想立方晶胞）", "en": "Perovskite (calcium titanate, idealised cubic cell)", "de": "Perowskit (Calciumtitanat, idealisierte kubische Zelle)"}, "formula": "CaTiO3",
+      "system": "cubic", "structure": "perovskite", "derive": {"a": "(5.3796*5.4423*7.6401/4)**(1/3)"}, "centring": "P",
+      "sites": [["Ca", "0", "0", "0"], ["Ti", "1/2", "1/2", "1/2"], ["O", "1/2", "1/2", "0"], ["O", "1/2", "0", "1/2"], ["O", "0", "1/2", "1/2"]],
+      "expect": {"atoms": 5, "nearest": [["Ti", "O", 1.912, 0.002, 6], ["Ca", "O", 2.704, 0.002, 12]]},
+      "note": {"zh": "理想化：真实的钛酸钙在室温下是正交晶系（Pbnm），这里画的是体积相同的立方晶胞。", "en": "Idealised: real calcium titanate is orthorhombic (Pbnm) at room temperature; shown is the cubic cell of the same volume per formula unit.", "de": "Idealisiert: Calciumtitanat ist bei Raumtemperatur orthorhombisch (Pbnm); gezeigt ist die kubische Zelle mit gleichem Volumen je Formeleinheit."},
+      "source": "S. Sasaki, C. T. Prewitt, J. D. Bass, W. A. Schulze, Orthorhombic perovskite CaTiO3 and CdTiO3: structure and space group, Acta Cryst. C43, 1668 (1987): a = 5.3796, b = 5.4423, c = 7.6401 A (Pbnm, Z = 4); the cubic edge used here is (abc/4)^(1/3) = 3.824 A"
+    },
+    {
+      "id": "diamond", "name": {"zh": "金刚石", "en": "Diamond", "de": "Diamant"}, "formula": "C",
+      "system": "cubic", "structure": "diamond", "a": 3.5669, "centring": "F",
+      "sites": [["C", "0", "0", "0"], ["C", "1/4", "1/4", "1/4"]],
+      "expect": {"atoms": 8, "nearest": [["C", "C", 1.5445, 0.001, 4]]},
+      "source": "CRC Handbook of Chemistry and Physics, 97th ed., 2016, section 12, crystal structures and lattice parameters of the elements: diamond, a = 3.5669 A at 25 C"
+    },
+    {
+      "id": "graphite", "name": {"zh": "石墨", "en": "Graphite", "de": "Graphit"}, "formula": "C",
+      "system": "hexagonal", "structure": "graphite", "a": 2.461, "c": 6.708, "centring": "P",
+      "ops": ["x,y,z", "-x,-y,z+1/2"],
+      "sites": [["C", "0", "0", "1/4"], ["C", "1/3", "2/3", "1/4"]],
+      "expect": {"atoms": 4, "nearest": [["C", "C", 1.421, 0.002, 3]]},
+      "source": "R. W. G. Wyckoff, Crystal Structures, 2nd ed., vol. 1, Interscience, 1963: hexagonal graphite (P6_3/mmc), a = 2.461 A, c = 6.708 A"
+    },
+    {
+      "id": "silicon", "name": {"zh": "晶体硅", "en": "Silicon", "de": "Silicium"}, "formula": "Si",
+      "system": "cubic", "structure": "diamond", "a": 5.4310, "centring": "F",
+      "sites": [["Si", "0", "0", "0"], ["Si", "1/4", "1/4", "1/4"]],
+      "expect": {"atoms": 8, "nearest": [["Si", "Si", 2.3517, 0.001, 4]]},
+      "source": "E. Tiesinga, P. J. Mohr, D. B. Newell, B. N. Taylor, CODATA recommended values of the fundamental physical constants: 2018, Rev. Mod. Phys. 93, 025010 (2021): lattice parameter of silicon a = 5.431 020 511 A (22.5 C, vacuum), rounded"
+    },
+    {
+      "id": "sio2-quartz", "name": {"zh": "α-石英（二氧化硅）", "en": "α-Quartz (silicon dioxide)", "de": "α-Quarz (Siliciumdioxid)"}, "formula": "SiO2",
+      "system": "trigonal", "structure": "quartz", "a": 4.916, "c": 5.4054, "centring": "P",
+      "ops": ["x,y,z", "-y,x-y,z+2/3", "-x+y,-x,z+1/3", "x-y,-y,-z", "y,x,-z+2/3", "-x,-x+y,-z+1/3"],
+      "sites": [["Si", "0.4697", "0", "0"], ["O", "0.4135", "0.2669", "0.1191"]],
+      "expect": {"atoms": 9, "nearest": [["Si", "O", 1.6095, 0.006, 4], ["O", "Si", 1.6095, 0.006, 2]]},
+      "note": {"zh": "低温石英（α-石英），不是方石英。", "en": "Low quartz (α-quartz), not cristobalite.", "de": "Tiefquarz (α-Quarz), nicht Cristobalit."},
+      "source": "L. Levien, C. T. Prewitt, D. J. Weidner, Structure and elastic properties of quartz at pressure, Am. Mineral. 65, 920 (1980), data at 1 atm: a = 4.916 A, c = 5.4054 A, space group P3_2 21 with Si at (0.4697, 0, 0) and O at (0.4135, 0.2669, 0.1191)"
+    },
+    {
+      "id": "ice-ih", "name": {"zh": "冰 Ih", "en": "Ice Ih", "de": "Eis Ih"}, "formula": "H2O", "omits": ["H"],
+      "system": "hexagonal", "structure": "ice-ih", "a": 4.518, "c": 7.356, "centring": "P",
+      "ops": ["x,y,z", "-x,-y,z+1/2", "-x,-y,-z", "x,y,-z+1/2"],
+      "sites": [["O", "1/3", "2/3", "1/16"]],
+      "expect": {"atoms": 4, "nearest": [["O", "O", 2.762, 0.006, 4]]},
+      "note": {"zh": "只给出氧原子的位置：氢原子在氢键上是无序的（每个 O–O 之间有两个半占据的位置）。氧的 z 坐标取理想值 1/16。", "en": "Oxygen positions only: the hydrogen atoms are disordered over two half-occupied sites on every O–O link. The oxygen z coordinate is the ideal value 1/16.", "de": "Nur die Sauerstofflagen: Die Wasserstoffatome sind auf zwei halb besetzte Lagen je O–O-Verbindung fehlgeordnet. Die z-Koordinate des Sauerstoffs ist der Idealwert 1/16."},
+      "source": "K. Röttger, A. Endriss, J. Ihringer, S. Doyle, W. F. Kuhs, Lattice constants and thermal expansion of H2O and D2O ice Ih between 10 and 265 K, Acta Cryst. B50, 644 (1994): a = 4.518 A, c = 7.356 A near 250 K (rounded to 0.001); oxygen on 4f (1/3, 2/3, z) of P6_3/mmc"
+    },
+    {
+      "id": "co2", "name": {"zh": "干冰（固态二氧化碳）", "en": "Dry ice (solid carbon dioxide)", "de": "Trockeneis (festes Kohlenstoffdioxid)"}, "formula": "CO2",
+      "system": "cubic", "structure": "dry-ice", "a": 5.624, "centring": "P",
+      "params": {"u": "1.155/(5.624*sqrt(3))"},
+      "ops": ["x,y,z", "-x+1/2,-y,z+1/2", "-x,y+1/2,-z+1/2", "x+1/2,-y+1/2,-z", "-x,-y,-z", "x+1/2,y,-z+1/2", "x,-y+1/2,z+1/2", "-x+1/2,y+1/2,z"],
+      "sites": [["C", "0", "0", "0"], ["O", "u", "u", "u"]],
+      "expect": {"atoms": 12, "nearest": [["C", "O", 1.155, 0.001, 2], ["O", "C", 1.155, 0.001, 1]]},
+      "source": "A. Simon, K. Peters, Single-crystal refinement of the structure of carbon dioxide, Acta Cryst. B36, 2750 (1980): Pa-3, a = 5.624 A at 150 K, C–O = 1.155 A (oxygen at (u, u, u) with u = 1.155/(a sqrt 3))"
+    },
+    {
+      "id": "copper", "name": {"zh": "铜", "en": "Copper", "de": "Kupfer"}, "formula": "Cu",
+      "system": "cubic", "structure": "fcc", "a": 3.6149, "centring": "F",
+      "sites": [["Cu", "0", "0", "0"]],
+      "expect": {"atoms": 4, "nearest": [["Cu", "Cu", 2.556, 0.001, 12]]},
+      "source": "CRC Handbook of Chemistry and Physics, 97th ed., 2016, section 12, crystal structures and lattice parameters of the elements: copper, fcc, a = 3.6149 A at 25 C"
+    },
+    {
+      "id": "iron", "name": {"zh": "α-铁", "en": "α-Iron", "de": "α-Eisen"}, "formula": "Fe",
+      "system": "cubic", "structure": "bcc", "a": 2.8665, "centring": "I",
+      "sites": [["Fe", "0", "0", "0"]],
+      "expect": {"atoms": 2, "nearest": [["Fe", "Fe", 2.4825, 0.001, 8]]},
+      "source": "CRC Handbook of Chemistry and Physics, 97th ed., 2016, section 12, crystal structures and lattice parameters of the elements: alpha-iron, bcc, a = 2.8665 A at 25 C"
+    },
+    {
+      "id": "magnesium", "name": {"zh": "镁", "en": "Magnesium", "de": "Magnesium"}, "formula": "Mg",
+      "system": "hexagonal", "structure": "hcp", "a": 3.2094, "c": 5.2108, "centring": "P",
+      "ops": ["x,y,z", "-x,-y,z+1/2"],
+      "sites": [["Mg", "1/3", "2/3", "1/4"]],
+      "expect": {"atoms": 2, "nearest": [["Mg", "Mg", 3.203, 0.008, 12]]},
+      "source": "CRC Handbook of Chemistry and Physics, 97th ed., 2016, section 12, crystal structures and lattice parameters of the elements: magnesium, hcp, a = 3.2094 A, c = 5.2108 A at 25 C"
+    },
+    {
+      "id": "al2o3-corundum", "name": {"zh": "刚玉（α-氧化铝）", "en": "Corundum (α-aluminium oxide)", "de": "Korund (α-Aluminiumoxid)"}, "formula": "Al2O3",
+      "system": "trigonal", "structure": "corundum", "a": 4.7589, "c": 12.991, "centring": "R",
+      "ops": ["x,y,z", "-y,x-y,z", "-x+y,-x,z", "y,x,-z+1/2", "x-y,-y,-z+1/2", "-x,-x+y,-z+1/2", "-x,-y,-z", "y,-x+y,-z", "x-y,x,-z", "-y,-x,z+1/2", "-x+y,y,z+1/2", "x,x-y,z+1/2"],
+      "sites": [["Al", "0", "0", "0.3520"], ["O", "0.3064", "0", "1/4"]],
+      "expect": {"atoms": 30, "nearest": [["Al", "O", 1.915, 0.065, 6], ["O", "Al", 1.915, 0.065, 4]]},
+      "source": "R. E. Newnham, Y. M. de Haan, Refinement of the alpha Al2O3, Ti2O3, V2O3 and Cr2O3 structures, Z. Kristallogr. 117, 235 (1962): R-3c (hexagonal axes), a = 4.7589 A, c = 12.991 A, Al at (0, 0, 0.3520), O at (0.3064, 0, 1/4)"
+    },
+    {
+      "id": "caco3-calcite", "name": {"zh": "方解石（碳酸钙）", "en": "Calcite (calcium carbonate)", "de": "Calcit (Calciumcarbonat)"}, "formula": "CaCO3",
+      "system": "trigonal", "structure": "calcite", "a": 4.9896, "c": 17.061, "centring": "R",
+      "ops": ["x,y,z", "-y,x-y,z", "-x+y,-x,z", "y,x,-z+1/2", "x-y,-y,-z+1/2", "-x,-x+y,-z+1/2", "-x,-y,-z", "y,-x+y,-z", "x-y,x,-z", "-y,-x,z+1/2", "-x+y,y,z+1/2", "x,x-y,z+1/2"],
+      "sites": [["Ca", "0", "0", "0"], ["C", "0", "0", "1/4"], ["O", "0.2568", "0", "1/4"]],
+      "expect": {"atoms": 30, "nearest": [["C", "O", 1.281, 0.002, 3], ["Ca", "O", 2.36, 0.01, 6]]},
+      "source": "H. Effenberger, K. Mereiter, J. Zemann, Crystal structure refinements of magnesite, calcite, rhodochrosite, siderite, smithonite, and dolomite, Z. Kristallogr. 156, 233 (1981): R-3c (hexagonal axes), a = 4.9896 A, c = 17.061 A, O at (0.2568, 0, 1/4)"
+    },
+    {
+      "id": "cu2o", "name": {"zh": "赤铜矿（氧化亚铜）", "en": "Cuprite (copper(I) oxide)", "de": "Cuprit (Kupfer(I)-oxid)"}, "formula": "Cu2O",
+      "system": "cubic", "structure": "cuprite", "a": 4.2696, "centring": "P",
+      "sites": [["Cu", "1/4", "1/4", "1/4"], ["Cu", "3/4", "3/4", "1/4"], ["Cu", "3/4", "1/4", "3/4"], ["Cu", "1/4", "3/4", "3/4"], ["O", "0", "0", "0"], ["O", "1/2", "1/2", "1/2"]],
+      "expect": {"atoms": 6, "nearest": [["Cu", "O", 1.849, 0.002, 2], ["O", "Cu", 1.849, 0.002, 4]]},
+      "source": "R. W. G. Wyckoff, Crystal Structures, 2nd ed., vol. 1, Interscience, 1963: cuprite (Pn-3m), a = 4.2696 A"
+    },
+    {
+      "id": "iodine", "name": {"zh": "碘晶体", "en": "Iodine (solid)", "de": "Iod (fest)"}, "formula": "I2",
+      "system": "orthorhombic", "structure": "iodine", "a": 7.136, "b": 4.686, "c": 9.784, "centring": "C",
+      "ops": ["x,y,z", "-x,-y+1/2,z+1/2", "-x,y+1/2,-z+1/2", "-x,-y,-z"],
+      "sites": [["I", "0", "0.15434", "0.11741"]],
+      "expect": {"atoms": 8, "nearest": [["I", "I", 2.715, 0.003, 1]]},
+      "source": "F. van Bolhuis, P. B. Koster, T. Migchelsen, Refinement of the crystal structure of iodine at 110 K, Acta Cryst. 23, 90 (1967): Cmca, a = 7.136 A, b = 4.686 A, c = 9.784 A, I at (0, 0.15434, 0.11741), I–I = 2.715 A"
+    },
+    {
+      "id": "sic", "name": {"zh": "碳化硅（3C，立方）", "en": "Silicon carbide (3C, cubic)", "de": "Siliciumcarbid (3C, kubisch)"}, "formula": "SiC",
+      "system": "cubic", "structure": "zinc-blende", "a": 4.3596, "centring": "F",
+      "sites": [["Si", "0", "0", "0"], ["C", "1/4", "1/4", "1/4"]],
+      "expect": {"atoms": 8, "nearest": [["Si", "C", 1.888, 0.002, 4], ["C", "Si", 1.888, 0.002, 4]]},
+      "source": "A. Taylor, R. M. Jones, The crystal structure and thermal expansion of cubic and hexagonal silicon carbide, in Silicon Carbide: A High Temperature Semiconductor, Pergamon, 1960: 3C-SiC, a = 4.3596 A"
+    },
+    {
+      "id": "bn-hexagonal", "name": {"zh": "六方氮化硼", "en": "Hexagonal boron nitride", "de": "Hexagonales Bornitrid"}, "formula": "BN",
+      "system": "hexagonal", "structure": "boron-nitride", "a": 2.504, "c": 6.661, "centring": "P",
+      "ops": ["x,y,z", "-x,-y,z+1/2"],
+      "sites": [["B", "1/3", "2/3", "1/4"], ["N", "2/3", "1/3", "1/4"]],
+      "expect": {"atoms": 4, "nearest": [["B", "N", 1.446, 0.002, 3], ["N", "B", 1.446, 0.002, 3]]},
+      "source": "R. S. Pease, An X-ray study of boron nitride, Acta Cryst. 5, 356 (1952): P6_3/mmc, a = 2.504 A, c = 6.661 A"
+    }
+  ]
+}

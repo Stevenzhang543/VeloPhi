@@ -1152,7 +1152,20 @@ function initialStepGuess(X: Float64Array, f: Float64Array, ctl: { relTol: numbe
 }
 
 /** State at an arbitrary time: one step from the last frame (or the last event) before t, in that mode. */
+/**
+ * 26.65 (P7, engine/velophi-core/src/formula/mod.rs `sample_situation`): while a situation is sampled, the end of its
+ * phase. At that instant states and segments are taken on the side before the event that ends the phase.
+ */
+export const sampling: { end: number | null } = { end: null }
+/** Whether t is the end instant of the phase being sampled (26.65, P7). */
+export function atSampleEnd(t: number): boolean { return sampling.end !== null && Math.abs(t - sampling.end) <= 1e-12 }
+
 export function exactStateAt(rec: Recording, t: number): Float64Array {
+  // 26.65 (P7): at the end of a sampled phase, the state just before the event there
+  if (atSampleEnd(t)) {
+    const e = rec.events.find(ev => Math.abs(ev.t - t) <= 1e-12)
+    if (e) return Float64Array.from(e.before)
+  }
   let k = Math.min(rec.frameCount - 1, Math.max(0, Math.floor(t / rec.dt)))
   if (k + 1 < rec.frameCount && (k + 1) * rec.dt <= t) k++
   while (k > 0 && k * rec.dt > t) k--
@@ -1178,7 +1191,26 @@ export function exactStateAt(rec: Recording, t: number): Float64Array {
   const st = sys.model.settings
   const h = t - t0
   const slot = sys.timeSlot
-  const r = st.integrator === 'rk4' ? rk4Step(rhs, X0, h, undefined, slot) : st.integrator === 'euler' ? eulerStep(rhs, X0, h, 3 * n, undefined, slot) : st.integrator === 'gauss4' ? gauss4Step(rhs, X0, h, undefined, slot) : dopri5Step(rhs, X0, h, { relTol: st.relTol, absTol: st.absTol, count: 6 * n }, undefined, slot)
+  let r = st.integrator === 'rk4' ? rk4Step(rhs, X0, h, undefined, slot) : st.integrator === 'euler' ? eulerStep(rhs, X0, h, 3 * n, undefined, slot) : st.integrator === 'gauss4' ? gauss4Step(rhs, X0, h, undefined, slot) : null
+  if (!r) {
+    const ctl = { relTol: st.relTol, absTol: st.absTol, count: 6 * n }
+    r = dopri5Step(rhs, X0, h, ctl, undefined, slot)
+    // 26.65 (P8, session.rs `step_to`): when the one step from the frame before fails the run's tolerance, the interval
+    // is split into 2, 4, … 1024 equal steps until every step passes
+    let m = 1
+    while (r.err > 1 && m < 1024) {
+      m *= 2
+      const hs = h / m
+      let X = Float64Array.from(X0)
+      let worst = 0
+      for (let i = 0; i < m; i++) {
+        const q = dopri5Step(rhs, X, hs, ctl, undefined, slot)
+        if (!Number.isNaN(q.err)) worst = Math.max(worst, q.err)
+        X = q.X
+      }
+      r = { X, err: worst }
+    }
+  }
   if (slot >= 0) r.X[slot] = t
   return r.X
 }

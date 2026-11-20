@@ -270,7 +270,10 @@ describe('stop conditions', () => {
     const X = frameState(ref, kr)
     for (let k = kr; k < ref.frameCount; k += 37) expect(Array.from(frameState(ref, k))).toEqual(Array.from(X))
     // Nothing that depends on time can rest: a variable force or a running belt keeps the run going
-    const belt = new SimulationRun(buildTemplate('conveyor'), { duration: null })
+    // (26.65, M1: the template itself now ends 0.4 s after the block leaves the belt; without that stop condition)
+    const beltScene = buildTemplate('conveyor')
+    beltScene.settings.stopAt = null
+    const belt = new SimulationRun(beltScene, { duration: null })
     belt.advance(Infinity, 600 * 5)
     expect(belt.finished).toBe(false)
   })

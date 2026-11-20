@@ -1,0 +1,39 @@
+{
+ "id": "06-arc-hallucinated-given",
+ "origin": "handwritten",
+ "note": "Typical mistake: a hallucinated given — an initial speed the problem never states, with an invented quote.",
+ "problem": "半径 R = 0.8 m 的光滑四分之一圆弧轨道竖直固定，底端与光滑水平面相切。质量 0.1 kg 的小球从轨道顶端由静止滑下，求到达底端时的速度和此时轨道对小球的支持力。",
+ "strict": true,
+ "answers": [
+  {
+   "step": "notes",
+   "raw": "对象：水平面 floor；四分之一圆弧轨道 track（上端在左，底端接水平面）；小球 ball。\n关系：ball 在 track 内侧，位于左侧上端（与圆心等高），静止释放。\n已知：R = 0.8 m；质量 0.1 kg；轨道光滑、水平面光滑（μ = 0）。g 未给。\n所求：底端的速度（全过程 ball.v 的最大值）；底端的支持力（contact.ball|track.N 的最大值）。"
+  },
+  {
+   "step": "sketch",
+   "raw": "{\"version\":2,\"route\":\"sketch\",\"title\":\"四分之一圆弧轨道\",\"reason\":\"\",\"templateId\":\"\",\"templateParams\":[],\"gravity\":\"down\",\"movingBodies\":1,\"surfaces\":[{\"id\":\"floor\",\"name\":\"水平面\",\"type\":\"ground\",\"side\":\"\",\"span\":\"\",\"at\":\"\"},{\"id\":\"track\",\"name\":\"圆弧轨道\",\"type\":\"arc\",\"side\":\"left\",\"span\":\"quarter\",\"at\":\"\"}],\"bodies\":[{\"id\":\"ball\",\"name\":\"小球\",\"type\":\"ball\",\"place\":\"inside\",\"ref\":\"track\",\"at\":\"left\",\"ref2\":\"\",\"moves\":\"rest\",\"side\":\"\",\"points\":[]}],\"pulleys\":[],\"connectors\":[],\"values\":[{\"of\":\"track\",\"quantity\":\"radius\",\"value\":0.8,\"unit\":\"m\",\"quote\":\"R = 0.8 m\"},{\"of\":\"ball\",\"quantity\":\"mass\",\"value\":0.1,\"unit\":\"kg\",\"quote\":\"质量 0.1 kg 的小球\"},{\"of\":\"ball|track\",\"quantity\":\"mu\",\"value\":0,\"unit\":\"\",\"quote\":\"光滑四分之一圆弧轨道\"},{\"of\":\"ball|floor\",\"quantity\":\"mu\",\"value\":0,\"unit\":\"\",\"quote\":\"光滑水平面\"},{\"of\":\"ball\",\"quantity\":\"speed\",\"value\":2,\"unit\":\"m/s\",\"quote\":\"以 2 m/s 的初速度\"}],\"expect\":[{\"of\":\"ball\",\"state\":\"moves\"}],\"questions\":[{\"prompt\":\"到达底端时的速度\",\"unit\":\"m/s\",\"kind\":\"extreme\",\"id\":\"ball.v\",\"t\":0,\"event\":\"\",\"side\":\"\",\"body\":\"\",\"which\":\"max\"},{\"prompt\":\"此时轨道对小球的支持力\",\"unit\":\"N\",\"kind\":\"extreme\",\"id\":\"contact.ball|track.N\",\"t\":0,\"event\":\"\",\"side\":\"\",\"body\":\"\",\"which\":\"max\"}]}"
+  },
+  {
+   "step": "patch",
+   "raw": "{\"patch\": [{\"op\": \"set\", \"path\": \"values[4]\", \"value\": \"null\"}]}"
+  }
+ ],
+ "expect": {
+  "ok": true,
+  "via": "sketch",
+  "repairs": 1,
+  "requests": 3,
+  "rounds": [
+   [
+    "L4.quote",
+    "L4.givenUnused"
+   ],
+   []
+  ],
+  "rejected": 0,
+  "answers": [
+   3.9597979746446663,
+   2.94
+  ]
+ }
+}

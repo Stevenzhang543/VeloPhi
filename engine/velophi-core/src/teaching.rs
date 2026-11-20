@@ -463,7 +463,8 @@ fn combo_at(s: &mut Session, terms: &[(String, f64)], t: f64) -> SimResult<(f64,
     let meta = s.meta.clone();
     let customs = s.customs().to_vec();
     let mode = s.segments[seg].mode.clone();
-    let obs = Observation::new(&sys, &meta, &customs, &x, &mode, loss, Some(t))?;
+    let acc = crate::observe::soft_acceleration(s, t)?;
+    let obs = Observation::new(&sys, &meta, &customs, &x, &mode, loss, Some(t))?.with_acc(acc);
     let vals: Vec<f64> = terms.iter().map(|(id, _)| obs.value(id)).collect();
     let g = terms.iter().zip(&vals).fold(0.0, |acc, ((_, c), v)| acc + c * v);
     Ok((g, vals))

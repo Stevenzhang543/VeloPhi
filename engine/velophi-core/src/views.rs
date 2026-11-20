@@ -682,6 +682,10 @@ pub fn frame_view(s: &mut Session, t: f64, exact: bool, forces: &ForceBodies, bl
     let sys = s.system.clone();
     let mode = s.segments[seg].mode.clone();
     let mut v = state_view(&sys, &x, Some(&mode), forces, blob);
+    // 26.65 (P2): the many-body solver's accelerations come from the frames, not from the mode solution
+    if let Some(a) = crate::observe::soft_acceleration(s, tc)? {
+        v["acc"] = blob.f64s(&a);
+    }
     v["t"] = jnum(tc);
     v["frame"] = json!(frame as i64);
     v["segment"] = json!(seg);

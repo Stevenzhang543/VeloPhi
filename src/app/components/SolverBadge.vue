@@ -23,14 +23,16 @@ function open() {
 
 <template>
   <button class="solver-badge" :class="kind" :title="TEXT.title" :aria-label="tl('计算方式：{0}', [TEXT.label])" @click="open">
-    <span class="dot" aria-hidden="true" />{{ TEXT.label }}
+    {{ TEXT.label }}
   </button>
 </template>
 
 <style scoped>
-.solver-badge { display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 9px; border-radius: 12px; border: 1px solid var(--border); background: var(--panel); color: var(--text-2); font-size: var(--type-small, 12px); cursor: pointer; white-space: nowrap; }
-.solver-badge:hover { color: var(--text); border-color: var(--accent); }
-.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--success, #16a34a); }
-.reduced .dot { background: var(--warning); }
-.soft .dot { background: var(--accent); }
+/* 26.65 (D291): in the status bar — text, no pill and no dot (the result's lamp is beside it); the reduced and the
+   many-body solvers are coloured, the exact one is not */
+.solver-badge { display: inline-flex; align-items: center; height: calc(var(--status-h) - 6px); padding: 0 6px; border: 0; border-radius: var(--radius-row); background: none; color: var(--text-2); font: inherit; cursor: pointer; white-space: nowrap; }
+.solver-badge:hover { background: var(--fill); color: var(--text); }
+.dot { display: none; }
+.reduced { color: var(--warning); }
+.soft { color: var(--accent); }
 </style>

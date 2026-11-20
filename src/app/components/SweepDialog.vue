@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { subPlain } from '../../i18n/sub'
 /**
  * Parameter sweep dialog: pick one scene parameter (display units), a range and up to 50 values, and one
  * result per run (time of the first event of a kind, a quantity at a time, its max / min, or its final value).
@@ -233,7 +234,7 @@ function close() { if (running.value) { cancelFlag = true } state.showSweep = fa
               <div class="row"><label>{{ tl('参数') }}</label>
                 <select v-model="paramId" class="field grow" :disabled="running">
                   <optgroup v-for="[g, list] in groups" :key="g" :label="g">
-                    <option v-for="p in list" :key="p.id" :value="p.id">{{ p.label }}</option>
+                    <option v-for="p in list" :key="p.id" :value="p.id">{{ subPlain(p.label) }}</option>
                   </optgroup>
                 </select>
               </div>
@@ -266,7 +267,7 @@ function close() { if (running.value) { cancelFlag = true } state.showSweep = fa
               </template>
               <template v-else>
                 <div class="row"><label>{{ tl('物理量') }}</label>
-                  <select v-model="mQuantity" class="field grow" :disabled="running"><option v-for="q in quantities" :key="q.id" :value="q.id">{{ q.owner }} · {{ q.label }}</option></select>
+                  <select v-model="mQuantity" class="field grow" :disabled="running"><option v-for="q in quantities" :key="q.id" :value="q.id">{{ q.owner }} · {{ subPlain(q.label) }}</option></select>
                 </div>
                 <div v-if="mKind === 'valueAt'" class="row"><label>{{ tl('时刻') }}</label><NumField class="grow" :model-value="mTime" :unit="labelOf('s')" :scale="scaleOf('s')" :min="0" :max="tMax" :disabled="running" @update:model-value="v => (mTime = v)" /></div>
               </template>
@@ -322,7 +323,7 @@ function close() { if (running.value) { cancelFlag = true } state.showSweep = fa
 .plot { background: var(--group); border-radius: var(--radius-group); padding: 6px; min-height: 40px; }
 .table-wrap { max-height: 220px; overflow: auto; margin-top: 8px; }
 table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-th { text-align: left; color: var(--text-3); font-weight: 600; font-size: 11.5px; padding: 4px 6px; position: sticky; top: 0; background: var(--pane); }
+th { text-align: left; color: var(--text-3); font-weight: 600; font-size: var(--type-tiny); padding: 4px 6px; position: sticky; top: 0; background: var(--pane); }
 td { padding: 3px 6px; border-top: 1px solid var(--separator); }
 td .badge { max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
 :deep(.uplot) { font-family: var(--font-ui); color: var(--text-2); }

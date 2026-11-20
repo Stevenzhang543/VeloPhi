@@ -1,0 +1,225 @@
+{
+ "note": "Overruns of the label and tooltip lengths of D243 outside the first-level bars, per file; counts only go down (scripts/copy-lint.mjs).",
+ "files": {
+  "src/app/components/AboutDialog.vue": {
+   "label": 2,
+   "tooltip": 0
+  },
+  "src/app/components/ActivityRunner.vue": {
+   "label": 8,
+   "tooltip": 0
+  },
+  "src/app/components/CaseIndex.vue": {
+   "label": 2,
+   "tooltip": 0
+  },
+  "src/app/components/ChartPanel.vue": {
+   "label": 1,
+   "tooltip": 4
+  },
+  "src/app/components/ClassroomSection.vue": {
+   "label": 3,
+   "tooltip": 3
+  },
+  "src/app/components/ConvergenceDialog.vue": {
+   "label": 1,
+   "tooltip": 1
+  },
+  "src/app/components/CoursewareDialog.vue": {
+   "label": 3,
+   "tooltip": 1
+  },
+  "src/app/components/EnergyBars.vue": {
+   "label": 0,
+   "tooltip": 1
+  },
+  "src/app/components/ExportDialog.vue": {
+   "label": 3,
+   "tooltip": 3
+  },
+  "src/app/components/FbdDialog.vue": {
+   "label": 1,
+   "tooltip": 0
+  },
+  "src/app/components/FormulaPanel.vue": {
+   "label": 2,
+   "tooltip": 5
+  },
+  "src/app/components/HandbookView.vue": {
+   "label": 1,
+   "tooltip": 1
+  },
+  "src/app/components/Inspector.vue": {
+   "label": 4,
+   "tooltip": 4
+  },
+  "src/app/components/LearningPath.vue": {
+   "label": 3,
+   "tooltip": 0
+  },
+  "src/app/components/LessonBar.vue": {
+   "label": 6,
+   "tooltip": 0
+  },
+  "src/app/components/NumField.vue": {
+   "label": 0,
+   "tooltip": 1
+  },
+  "src/app/components/OverlapDialog.vue": {
+   "label": 2,
+   "tooltip": 0
+  },
+  "src/app/components/PredictionPanel.vue": {
+   "label": 2,
+   "tooltip": 0
+  },
+  "src/app/components/ProblemGallery.vue": {
+   "label": 1,
+   "tooltip": 0
+  },
+  "src/app/components/ProblemLock.vue": {
+   "label": 1,
+   "tooltip": 0
+  },
+  "src/app/components/ProblemPanel.vue": {
+   "label": 7,
+   "tooltip": 1
+  },
+  "src/app/components/RegionsSection.vue": {
+   "label": 2,
+   "tooltip": 2
+  },
+  "src/app/components/ReportDialog.vue": {
+   "label": 3,
+   "tooltip": 1
+  },
+  "src/app/components/SettingsPage.vue": {
+   "label": 3,
+   "tooltip": 0
+  },
+  "src/app/components/SettingsPanel.vue": {
+   "label": 6,
+   "tooltip": 1
+  },
+  "src/app/components/ShareDialog.vue": {
+   "label": 1,
+   "tooltip": 0
+  },
+  "src/app/components/StatusBar.vue": {
+   "label": 0,
+   "tooltip": 2
+  },
+  "src/app/components/SweepDialog.vue": {
+   "label": 1,
+   "tooltip": 0
+  },
+  "src/app/components/TallyBar.vue": {
+   "label": 2,
+   "tooltip": 1
+  },
+  "src/app/components/Timeline.vue": {
+   "label": 3,
+   "tooltip": 6
+  },
+  "src/app/components/WatchPanel.vue": {
+   "label": 1,
+   "tooltip": 0
+  },
+  "src/app/components/ai/AiSettings.vue": {
+   "label": 7,
+   "tooltip": 0
+  },
+  "src/app/components/ai/AiSummary.vue": {
+   "label": 1,
+   "tooltip": 0
+  },
+  "src/app/components/ai/CopilotPanel.vue": {
+   "label": 7,
+   "tooltip": 3
+  },
+  "src/app/components/ai/ImportCard.vue": {
+   "label": 3,
+   "tooltip": 0
+  },
+  "src/app/components/chem/BenchInspector.vue": {
+   "label": 0,
+   "tooltip": 1
+  },
+  "src/app/components/chem/ency/Encyclopedia.vue": {
+   "label": 1,
+   "tooltip": 0
+  },
+  "src/app/components/chem/ency/PeriodicTable.vue": {
+   "label": 1,
+   "tooltip": 0
+  },
+  "src/app/components/lab/CapacitorLab.vue": {
+   "label": 0,
+   "tooltip": 1
+  },
+  "src/app/components/lab/CircuitLab.vue": {
+   "label": 2,
+   "tooltip": 5
+  },
+  "src/app/components/lab/DecayLab.vue": {
+   "label": 1,
+   "tooltip": 1
+  },
+  "src/app/components/lab/FieldLab.vue": {
+   "label": 3,
+   "tooltip": 0
+  },
+  "src/app/components/lab/GasLab.vue": {
+   "label": 1,
+   "tooltip": 0
+  },
+  "src/app/components/lab/MagnetLab.vue": {
+   "label": 1,
+   "tooltip": 2
+  },
+  "src/app/components/lab/NuclearLab.vue": {
+   "label": 1,
+   "tooltip": 1
+  },
+  "src/app/components/lab/QuantumConvergence.vue": {
+   "label": 3,
+   "tooltip": 0
+  },
+  "src/app/components/lab/QuantumLab.vue": {
+   "label": 1,
+   "tooltip": 0
+  },
+  "src/app/components/lab/RaysLab.vue": {
+   "label": 2,
+   "tooltip": 0
+  },
+  "src/app/components/lab/WaveOpticsLab.vue": {
+   "label": 0,
+   "tooltip": 1
+  },
+  "src/app/components/models/ModelView.vue": {
+   "label": 4,
+   "tooltip": 1
+  },
+  "src/app/components/models/ParamProblemPanel.vue": {
+   "label": 1,
+   "tooltip": 0
+  },
+  "src/app/components/nuclear/ReactorLab.vue": {
+   "label": 0,
+   "tooltip": 1
+  },
+  "src/app/components/nuclear/ReactorStudies.vue": {
+   "label": 1,
+   "tooltip": 0
+  },
+  "src/app/components/task/TaskPanel.vue": {
+   "label": 8,
+   "tooltip": 8
+  },
+  "src/app/components/viewport/Viewport.vue": {
+   "label": 1,
+   "tooltip": 0
+  }
+ }
+}

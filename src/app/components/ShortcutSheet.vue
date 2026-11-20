@@ -44,7 +44,7 @@ const groups = computed(() => {
 .find { width: 220px; margin-right: 4px; }
 .cols { columns: 3 260px; column-gap: 28px; padding-bottom: 20px; }
 .grp { break-inside: avoid; margin-bottom: 14px; }
-h4 { margin: 6px 0 4px; font-size: var(--type-small); color: var(--text-3); font-weight: 650; }
+h4 { margin: 6px 0 4px; font-size: var(--type-small); color: var(--text-3); font-weight: var(--weight-strong); }
 .line { display: flex; align-items: baseline; gap: 10px; padding: 4px 0; border-bottom: 1px solid var(--separator); font-size: var(--type-small); }
 .what { flex: 1; min-width: 0; }
 .keys { flex: 0 0 auto; text-align: right; }

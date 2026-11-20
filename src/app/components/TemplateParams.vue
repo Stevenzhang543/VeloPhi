@@ -33,6 +33,7 @@ function set(key: string, v: number) {
 .template-params { display: grid; gap: 2px; }
 .tp-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 2px 0 4px; }
 .row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); align-items: center; gap: 8px; min-height: 30px; }
-.row label { color: var(--text-2); font-size: var(--type-small); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 26.65 (D294): a label is never cut off — it takes a second line (German compounds hyphenate) */
+.row label { color: var(--text-2); font-size: var(--type-small); line-height: var(--line-tight); overflow-wrap: break-word; hyphens: auto; }
 .note { margin: 4px 0 0; }
 </style>

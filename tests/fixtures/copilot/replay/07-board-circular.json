@@ -1,0 +1,38 @@
+{
+ "id": "07-board-circular",
+ "origin": "handwritten",
+ "note": "Typical mistake: a circular placement — the board is put on the block that is put on the board.",
+ "problem": "质量 M = 2 kg 的长木板静止在水平地面上，质量 m = 1 kg 的小物块以 v₀ = 4 m/s 的速度滑上木板左端。物块与木板间的动摩擦因数 μ₁ = 0.4，木板与地面间的动摩擦因数 μ₂ = 0.1，木板足够长，g 取 10 m/s²。求物块与木板达到共同速度所需的时间和共同速度。",
+ "strict": true,
+ "answers": [
+  {
+   "step": "notes",
+   "raw": "对象：地面 floor；木板 board；物块 block。\n关系：board 在地面上；block 在 board 上，位于左端，初速度向右 4 m/s。\n已知：M = 2 kg；m = 1 kg；v₀ = 4 m/s；μ₁ = 0.4（block 与 board）；μ₂ = 0.1（board 与 floor）；g = 10 m/s²。木板长度未给（足够长）。\n所求：共速的时刻（事件 stick）；共同速度（该事件之后 block 的速度）。"
+  },
+  {
+   "step": "sketch",
+   "raw": "{\"version\":2,\"route\":\"sketch\",\"title\":\"板块模型\",\"reason\":\"\",\"templateId\":\"\",\"templateParams\":[],\"gravity\":\"down\",\"movingBodies\":2,\"surfaces\":[{\"id\":\"floor\",\"name\":\"地面\",\"type\":\"ground\",\"side\":\"\",\"span\":\"\",\"at\":\"\"}],\"bodies\":[{\"id\":\"board\",\"name\":\"木板\",\"type\":\"board\",\"place\":\"on\",\"ref\":\"block\",\"at\":\"middle\",\"ref2\":\"\",\"moves\":\"rest\",\"side\":\"\",\"points\":[]},{\"id\":\"block\",\"name\":\"物块\",\"type\":\"block\",\"place\":\"on\",\"ref\":\"board\",\"at\":\"left\",\"ref2\":\"\",\"moves\":\"right\",\"side\":\"\",\"points\":[]}],\"pulleys\":[],\"connectors\":[],\"values\":[{\"of\":\"board\",\"quantity\":\"mass\",\"value\":2,\"unit\":\"kg\",\"quote\":\"M = 2 kg\"},{\"of\":\"block\",\"quantity\":\"mass\",\"value\":1,\"unit\":\"kg\",\"quote\":\"m = 1 kg\"},{\"of\":\"block\",\"quantity\":\"speed\",\"value\":4,\"unit\":\"m/s\",\"quote\":\"v₀ = 4 m/s\"},{\"of\":\"block|board\",\"quantity\":\"mu\",\"value\":0.4,\"unit\":\"\",\"quote\":\"μ₁ = 0.4\"},{\"of\":\"board|floor\",\"quantity\":\"mu\",\"value\":0.1,\"unit\":\"\",\"quote\":\"μ₂ = 0.1\"},{\"of\":\"world\",\"quantity\":\"g\",\"value\":10,\"unit\":\"m/s²\",\"quote\":\"g 取 10 m/s²\"}],\"expect\":[{\"of\":\"block\",\"state\":\"moves\"}],\"questions\":[{\"prompt\":\"达到共同速度所需的时间\",\"unit\":\"s\",\"kind\":\"event\",\"id\":\"\",\"t\":0,\"event\":\"stick\",\"side\":\"\",\"body\":\"block\",\"which\":\"\"},{\"prompt\":\"共同速度\",\"unit\":\"m/s\",\"kind\":\"atEvent\",\"id\":\"block.vx\",\"t\":0,\"event\":\"stick\",\"side\":\"after\",\"body\":\"block\",\"which\":\"\"}]}"
+  },
+  {
+   "step": "patch",
+   "raw": "{\"patch\":[{\"op\":\"set\",\"path\":\"bodies[0].ref\",\"value\":\"\\\"floor\\\"\"}]}"
+  }
+ ],
+ "expect": {
+  "ok": true,
+  "via": "sketch",
+  "repairs": 1,
+  "requests": 3,
+  "rounds": [
+   [
+    "L2.cycle"
+   ],
+   []
+  ],
+  "rejected": 0,
+  "answers": [
+   0.8888888888888888,
+   0.4444444444444444
+  ]
+ }
+}

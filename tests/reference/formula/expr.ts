@@ -194,6 +194,25 @@ export function evaluate(node: Node, vars: Record<string, number>): number {
   }
 }
 
+/** 26.65 (P12): the largest finite |value| of the nodes evaluated (expr.rs `evaluate_trace`; the branch of `if` not taken is not evaluated). */
+export function evaluateMaxAbs(node: Node, vars: Record<string, number>): number {
+  let big = 0
+  const go = (n: Node): number => {
+    let v: number
+    if (n.type === 'call' && n.fn === 'if') {
+      const c = go(n.args[0])
+      v = c !== 0 && !Number.isNaN(c) ? go(n.args[1]) : go(n.args[2])
+    } else if (n.type === 'neg') v = -go(n.arg)
+    else if (n.type === 'bin' || n.type === 'cmp') { go(n.left); go(n.right); v = evaluate(n, vars) }
+    else if (n.type === 'call') { for (const a of n.args) go(a); v = evaluate(n, vars) }
+    else v = evaluate(n, vars)
+    if (Number.isFinite(v)) big = Math.max(big, Math.abs(v))
+    return v
+  }
+  go(node)
+  return big
+}
+
 /** Names of the variables used, added to `out`. */
 export function variables(node: Node, out = new Set<string>()): Set<string> {
   if (node.type === 'var') out.add(node.name)

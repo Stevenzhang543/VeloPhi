@@ -14,7 +14,10 @@ import { viewStatus, zoomStudio } from '../viewStatus'
 import { ALL_TOOLS } from '../tools'
 import { shell } from '../layout'
 import { MOD } from '../shortcuts'
+import { material } from '../material'
+import { tierLabel } from '../appearance'
 import Icon from './Icon.vue'
+import SolverBadge from './SolverBadge.vue'
 
 type Tone = 'idle' | 'busy' | 'ok' | 'warn' | 'bad'
 const status = computed((): { tone: Tone; text: string; tip?: string } => {
@@ -25,7 +28,9 @@ const status = computed((): { tone: Tone; text: string; tip?: string } => {
   return { tone: 'ok', text: tl('结果已就绪') }
 })
 const tool = computed(() => ALL_TOOLS.find(t => t.tool === state.tool) ?? null)
-const hint = computed(() => viewStatus.hint || (state.tool === 'select' ? tl('点击选中，拖动移动；滚轮缩放，空格 + 拖动平移；右键打开菜单') : ''))
+// 26.65 (D291): no standing instructions — only the hint of a tool that is placing something (the select tool's
+// gestures are in the shortcut sheet and the tooltips)
+const hint = computed(() => viewStatus.hint || '')
 const unit = computed(() => unitLabel('m'))
 const cursor = computed(() => (viewStatus.cursor ? { x: fmtNum(viewStatus.cursor.x, 'm', 4), y: fmtNum(viewStatus.cursor.y, 'm', 4) } : null))
 const zoom = computed(() => (viewStatus.ppm > 0 ? `${Math.round(viewStatus.ppm)} px/m` : '—'))
@@ -47,6 +52,10 @@ const studio = computed(() => state.page === 'studio')
 <template>
   <footer class="status" role="contentinfo" :aria-label="tl('状态栏')">
     <span class="state" :class="status.tone" :title="status.tip"><i class="lamp" />{{ status.text }}</span>
+    <!-- 26.65 (D291): how the result was computed, beside the result's state (it was a second pill on the bar) -->
+    <SolverBadge v-if="state.page === 'studio'" class="cell" />
+    <!-- 26.64 (D255): the automatic step of the material is said once, here -->
+    <button v-if="material.notice" type="button" class="cell btnlike step" data-ui="tier-notice" role="status" :title="tl('第 95 百分位帧间隔 {0} ms，可在“设置 › 视觉效果”里改回', [material.p95.toFixed(1)])" @click="material.notice = null">{{ tl('为保持流畅，浮层已改用“{0}”外观', [tierLabel(material.notice)]) }}</button>
     <template v-if="studio">
       <span v-if="tool && state.tool !== 'select'" class="tool"><Icon :name="tool.icon" :size="13" />{{ tool.label }}</span>
       <span class="hint" :title="hint">{{ hint }}</span>
@@ -69,7 +78,7 @@ const studio = computed(() => state.page === 'studio')
 <style scoped>
 .status { flex: 0 0 var(--status-h); height: var(--status-h); display: flex; align-items: center; gap: 10px; padding: 0 8px 0 10px; font-size: var(--type-tiny); color: var(--text-2); border-top: 1px solid var(--border); background: var(--chrome); min-width: 0; white-space: nowrap; user-select: none; }
 .state { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; flex: 0 0 auto; }
-.lamp { width: 7px; height: 7px; border-radius: 50%; background: var(--text-3); }
+.lamp { width: 7px; height: 7px; border-radius: var(--radius-round); background: var(--text-3); }
 .state.ok .lamp { background: var(--success); }
 .state.warn { color: var(--warning); } .state.warn .lamp { background: var(--warning); }
 .state.bad { color: var(--danger); } .state.bad .lamp { background: var(--danger); }
@@ -79,10 +88,11 @@ const studio = computed(() => state.page === 'studio')
 .hint { min-width: 0; overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto; color: var(--text-3); }
 .spacer { flex: 1 1 8px; }
 .cell { display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto; }
-.btnlike, .zb { border: 0; background: none; color: inherit; font: inherit; cursor: pointer; height: calc(var(--status-h) - 6px); padding: 0 6px; border-radius: 5px; }
+.btnlike, .zb { border: 0; background: none; color: inherit; font: inherit; cursor: pointer; height: calc(var(--status-h) - 6px); padding: 0 6px; border-radius: var(--radius-row); }
 .zb { padding: 0 3px; display: inline-grid; place-items: center; }
 .btnlike:hover, .zb:hover { background: var(--fill); color: var(--text); }
 .zoom { display: inline-flex; align-items: center; }
+.step { color: var(--warning); font-weight: var(--weight-strong); }
 @media (max-width: 1100px) { .hint { display: none; } }
 @media (max-width: 900px) { .cell.mono:first-of-type { display: none; } }
 </style>

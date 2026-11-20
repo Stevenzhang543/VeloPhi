@@ -52,6 +52,8 @@ beforeEach(() => {
   settings.ai.openai = { baseUrl: 'https://ai.test/v1', model: 'm', vision: true }
   settings.ai.copilotMode = 'act'
   settings.ai.thinking = false
+  // these are the tests of the scene-file builder of 26.60, kept behind the switch in 26.64 (the sketch builder has its own: tests/ai/sketch2664)
+  settings.ai.sceneBuilder = 'legacy'
   setKey('openai', 'sk-test')
   resetCaps()
   simHooks.waitMs = 0

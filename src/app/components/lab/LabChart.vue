@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { fillRich, measureRich } from '../../../i18n/sub'
 /**
  * Line chart of the lab (26.54): curves with axes, ticks, labels, reference markers and a cursor. Only draws the
  * numbers it is given (computed by the core); sizes follow the container and the device pixel ratio.
@@ -92,8 +93,8 @@ function draw() {
   if (y0 < 0 && y1 > 0) { ctx.beginPath(); ctx.moveTo(L, Y(0)); ctx.lineTo(w - R, Y(0)); ctx.stroke() }
   ctx.font = `11px ${FONT}`
   ctx.fillStyle = P.text2
-  if (props.xLabel) ctx.fillText(props.xLabel, w - R - ctx.measureText(props.xLabel).width, h - 4)
-  if (props.yLabel) ctx.fillText(props.yLabel, 4, 10)
+  if (props.xLabel) fillRich(ctx, props.xLabel, w - R - measureRich(ctx, props.xLabel), h - 4)
+  if (props.yLabel) fillRich(ctx, props.yLabel, 4, 10)
   // curves
   ctx.save()
   ctx.beginPath(); ctx.rect(L, T - 2, w - L - R, h - T - B + 4); ctx.clip()
@@ -109,16 +110,22 @@ function draw() {
     ctx.stroke()
   }
   ctx.setLineDash([])
+  // 26.65 (D12): a marker's label on a backing, so the curves running through it do not cover the text
+  const backed = (text: string, x: number, y: number) => {
+    const fill = ctx.fillStyle
+    ctx.fillStyle = P.labelBg; ctx.fillRect(x - 3, y - 11, measureRich(ctx, text) + 6, 15)
+    ctx.fillStyle = fill; fillRich(ctx, text, x, y)
+  }
   for (const m of props.markers) {
     ctx.strokeStyle = m.color ?? P.text2; ctx.fillStyle = m.color ?? P.text2
     if (m.x !== undefined && m.y === undefined) {
       ctx.setLineDash([4, 3]); ctx.lineWidth = 1
       ctx.beginPath(); ctx.moveTo(X(m.x), T); ctx.lineTo(X(m.x), h - B); ctx.stroke(); ctx.setLineDash([])
-      if (m.label) ctx.fillText(m.label, X(m.x) + 4, T + 12)
+      if (m.label) backed(m.label, X(m.x) + 4, T + 12)
     } else if (m.y !== undefined && m.x === undefined) {
       ctx.setLineDash([4, 3]); ctx.lineWidth = 1
       ctx.beginPath(); ctx.moveTo(L, Y(m.y)); ctx.lineTo(w - R, Y(m.y)); ctx.stroke(); ctx.setLineDash([])
-      if (m.label) ctx.fillText(m.label, w - R - ctx.measureText(m.label).width - 2, Y(m.y) - 4)
+      if (m.label) backed(m.label, w - R - measureRich(ctx, m.label) - 2, Y(m.y) - 4)
     } else if (m.x !== undefined && m.y !== undefined) {
       ctx.beginPath(); ctx.arc(X(m.x), Y(m.y), 3.5, 0, Math.PI * 2); ctx.fill()
       if (m.label) ctx.fillText(m.label, X(m.x) + 6, Y(m.y) - 6)

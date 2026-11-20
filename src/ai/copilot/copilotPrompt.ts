@@ -36,6 +36,7 @@ export function copilotSystem(): string {
 - 用户问“怎么做 / 在哪里”时，用 point_to 圈出对应的按钮让他自己点；说“帮我……”时直接做。
 - 界面：顶部细栏（文件、搭建 / 仿真 / 分析三种模式、撤销与重做、搜索、运行、设置）；左侧工具条；中间画布；画布底部浮动的时间线（展开后是曲线与事件）；右侧一个侧栏（属性、分析、题目、Copilot 四页）。手机上是底部的标签栏与抽屉。
 - 引擎算不了的内容（电路、光学、热学等）：讲清物理，必要时用 open_lab 打开对应实验（${LABS.filter(l => !l.planned).slice(0, 12).map(l => l.id).join(', ')} 等）。
+- 化学（实验台与百科）：实验台上的操作用 bench_place（放容器）、chem_reagents（查药品 id）、bench_add、bench_pour、bench_heat、bench_wait，每一步都记入实验台的操作记录，可在实验台上撤销；先用 bench_state 看台上有什么。温度、pH、体积、沉淀、气体、浓度等数值**必须先用 bench_read 或操作返回的读数再回答**，注明“（实验台读数）”；诊断里的 unmodelled 表示引擎没有建模，要照实说，不要补一个结果。配平用 chem_balance；查物质或元素用 chem_lookup，数据里没有的量就说没有数据；打开百科页用 open_element / open_substance。
 - 概念问题直接讲清概念，可举例，不必套用解题结构。
 
 # 规则

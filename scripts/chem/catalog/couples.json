@@ -1,0 +1,1350 @@
+{
+ "format": "velophi-chem-couples",
+ "version": 1,
+ "note": "Electrode couples ox + n e- -> red; E0 in volts against the standard hydrogen electrode at 25 °C, aqueous standard states (gases 1 bar, solids and liquids pure, solutes 1 mol/kg ideal). entry: hand = typed from the reference named in src; network = computed by scripts/chem/check_reactions.py from the half-reactions and constants of src/chem/data/aqueous.json; computed = derived from a hand value as src says; exact = by definition. medium: the couple is written for acid (with H+) or base (with OH-). bench: false = a participant is never at the bench (shown in the electrochemical series only). inert: true = thermodynamically possible but too slow to count at an electrode (nitrate, sulfate, perchlorate): never chosen in the discharge order of an electrolysis.",
+ "sources": {
+  "CRC": "CRC Handbook of Chemistry and Physics, 97th ed. (2016), section 5, \"Electrochemical Series\" (P. Vanysek).",
+  "BPJ": "A. J. Bard, R. Parsons, J. Jordan (eds.): Standard Potentials in Aqueous Solution, IUPAC / Marcel Dekker, New York 1985."
+ },
+ "couples": [
+  {
+   "id": "Li+/Li",
+   "ox": {
+    "Li+": 1
+   },
+   "red": {
+    "Li(s)": 1
+   },
+   "n": 1,
+   "E0": -3.0401,
+   "src": "CRC",
+   "entry": "hand"
+  },
+  {
+   "id": "Cs+/Cs",
+   "ox": {
+    "Cs+": 1
+   },
+   "red": {
+    "Cs(s)": 1
+   },
+   "n": 1,
+   "E0": -3.026,
+   "src": "CRC",
+   "entry": "hand"
+  },
+  {
+   "id": "Rb+/Rb",
+   "ox": {
+    "Rb+": 1
+   },
+   "red": {
+    "Rb(s)": 1
+   },
+   "n": 1,
+   "E0": -2.98,
+   "src": "CRC",
+   "entry": "hand"
+  },
+  {
+   "id": "K+/K",
+   "ox": {
+    "K+": 1
+   },
+   "red": {
+    "K(s)": 1
+   },
+   "n": 1,
+   "E0": -2.931,
+   "src": "CRC",
+   "entry": "hand"
+  },
+  {
+   "id": "Ba+2/Ba",
+   "ox": {
+    "Ba+2": 1
+   },
+   "red": {
+    "Ba(s)": 1
+   },
+   "n": 2,
+   "E0": -2.912,
+   "src": "CRC",
+   "entry": "hand"
+  },
+  {
+   "id": "Sr+2/Sr",
+   "ox": {
+    "Sr+2": 1
+   },
+   "red": {
+    "Sr(s)": 1
+   },
+   "n": 2,
+   "E0": -2.899,
+   "src": "CRC",
+   "entry": "hand"
+  },
+  {
+   "id": "Ca+2/Ca",
+   "ox": {
+    "Ca+2": 1
+   },
+   "red": {
+    "Ca(s)": 1
+   },
+   "n": 2,
+   "E0": -2.868,
+   "src": "CRC",
+   "entry": "hand"
+  },
+  {
+   "id": "Na+/Na",
+   "ox": {
+    "Na+": 1
+   },
+   "red": {
+    "Na(s)": 1
+   },
+   "n": 1,
+   "E0": -2.71,
+   "src": "CRC",
+   "entry": "hand"
+  },
+  {
+   "id": "Mg+2/Mg",
+   "ox": {
+    "Mg+2": 1
+   },
+   "red": {
+    "Mg(s)": 1
+   },
+   "n": 2,
+   "E0": -2.372,
+   "src": "CRC",
+   "entry": "hand"
+  },
+  {
+   "id": "Al+3/Al",
+   "ox": {
+    "Al+3": 1
+   },
+   "red": {
+    "Al(s)": 1
+   },
+   "n": 3,
+   "E0": -1.662,
+   "src": "CRC",
+   "entry": "hand"
+  },
+  {
+   "id": "Mn+2/Mn",
+   "ox": {
+    "Mn+2": 1
+   },
+   "red": {
+    "Mn(s)": 1
+   },
+   "n": 2,
+   "E0": -1.185,
+   "src": "CRC",
+   "entry": "hand"
+  },
+  {
+   "id": "Zn+2/Zn",
+   "ox": {
+    "Zn+2": 1
+   },
+   "red": {
+    "Zn(s)": 1
+   },
+   "n": 2,
+   "E0": -0.7618,
+   "src": "CRC",
+   "entry": "hand"
+  },
+  {
+   "id": "Cr+3/Cr",
+   "ox": {
+    "Cr+3": 1
+   },
+   "red": {
+    "Cr(s)": 1
+   },
+   "n": 3,
+   "E0": -0.744,
+   "src": "CRC",
+   "entry": "hand"
+  },
+  {
+   "id": "Fe+2/Fe",
+   "ox": {
+    "Fe+2": 1
+   },
+   "red": {
+    "Fe(s)": 1
+   },
+   "n": 2,
+   "E0": -0.447,
+   "src": "CRC",
+   "entry": "hand"
+  },
+  {
+   "id": "Cd+2/Cd",
+   "ox": {
+    "Cd+2": 1
+   },
+   "red": {
+    "Cd(s)": 1
+   },
+   "n": 2,
+   "E0": -0.403,
+   "src": "CRC",
+   "entry": "hand"
+  },
+  {
+   "id": "Co+2/Co",
+   "ox": {
+    "Co+2": 1
+   },
+   "red": {
+    "Co(s)": 1
+   },
+   "n": 2,
+   "E0": -0.28,
+   "src": "CRC",
+   "entry": "hand"
+  },
+  {
+   "id": "Ni+2/Ni",
+   "ox": {
+    "Ni+2": 1
+   },
+   "red": {
+    "Ni(s)": 1
+   },
+   "n": 2,
+   "E0": -0.257,
+   "src": "CRC",
+   "entry": "hand"
+  },
+  {
+   "id": "Sn+2/Sn",
+   "ox": {
+    "Sn+2": 1
+   },
+   "red": {
+    "Sn(s)": 1
+   },
+   "n": 2,
+   "E0": -0.1375,
+   "src": "CRC",
+   "entry": "hand"
+  },
+  {
+   "id": "Pb+2/Pb",
+   "ox": {
+    "Pb+2": 1
+   },
+   "red": {
+    "Pb(s)": 1
+   },
+   "n": 2,
+   "E0": -0.1262,
+   "src": "CRC",
+   "entry": "hand"
+  },
+  {
+   "id": "Fe+3/Fe",
+   "ox": {
+    "Fe+3": 1
+   },
+   "red": {
+    "Fe(s)": 1
+   },
+   "n": 3,
+   "E0": -0.037,
+   "src": "CRC",
+   "entry": "hand"
+  },
+  {
+   "id": "H+/H2",
+   "ox": {
+    "H+": 2
+   },
+   "red": {
+    "H2(g)": 1
+   },
+   "n": 2,
+   "medium": "acid",
+   "E0": 0.0,
+   "src": "definition of the standard hydrogen electrode",
+   "entry": "exact"
+  },
+  {
+   "id": "Cu+2/Cu",
+   "ox": {
+    "Cu+2": 1
+   },
+   "red": {
+    "Cu(s)": 1
+   },
+   "n": 2,
+   "E0": 0.3419,
+   "src": "CRC",
+   "entry": "hand"
+  },
+  {
+   "id": "Cu+/Cu",
+   "ox": {
+    "Cu+": 1
+   },
+   "red": {
+    "Cu(s)": 1
+   },
+   "n": 1,
+   "E0": 0.521,
+   "src": "CRC",
+   "entry": "hand",
+   "electrode": false
+  },
+  {
+   "id": "Ag+/Ag",
+   "ox": {
+    "Ag+": 1
+   },
+   "red": {
+    "Ag(s)": 1
+   },
+   "n": 1,
+   "E0": 0.7996,
+   "src": "CRC",
+   "entry": "hand"
+  },
+  {
+   "id": "Hg2+2/Hg",
+   "ox": {
+    "Hg2+2": 1
+   },
+   "red": {
+    "Hg(l)": 2
+   },
+   "n": 2,
+   "E0": 0.7973,
+   "src": "CRC",
+   "entry": "hand",
+   "bench": false
+  },
+  {
+   "id": "Hg+2/Hg",
+   "ox": {
+    "Hg+2": 1
+   },
+   "red": {
+    "Hg(l)": 1
+   },
+   "n": 2,
+   "E0": 0.851,
+   "src": "CRC",
+   "entry": "hand",
+   "bench": false
+  },
+  {
+   "id": "Pt+2/Pt",
+   "ox": {
+    "Pt+2": 1
+   },
+   "red": {
+    "Pt(s)": 1
+   },
+   "n": 2,
+   "E0": 1.18,
+   "src": "CRC",
+   "entry": "hand",
+   "bench": false
+  },
+  {
+   "id": "Au+3/Au",
+   "ox": {
+    "Au+3": 1
+   },
+   "red": {
+    "Au(s)": 1
+   },
+   "n": 3,
+   "E0": 1.498,
+   "src": "CRC",
+   "entry": "hand",
+   "bench": false
+  },
+  {
+   "id": "Cu+2/Cu+",
+   "ox": {
+    "Cu+2": 1
+   },
+   "red": {
+    "Cu+": 1
+   },
+   "n": 1,
+   "E0": 0.153,
+   "src": "CRC",
+   "entry": "hand",
+   "electrode": false
+  },
+  {
+   "id": "Sn+4/Sn+2",
+   "ox": {
+    "Sn+4": 1
+   },
+   "red": {
+    "Sn+2": 1
+   },
+   "n": 2,
+   "E0": 0.151,
+   "src": "CRC",
+   "entry": "hand"
+  },
+  {
+   "id": "Fe+3/Fe+2",
+   "ox": {
+    "Fe+3": 1
+   },
+   "red": {
+    "Fe+2": 1
+   },
+   "n": 1,
+   "E0": 0.771,
+   "src": "CRC",
+   "entry": "hand"
+  },
+  {
+   "id": "Co+3/Co+2",
+   "ox": {
+    "Co+3": 1
+   },
+   "red": {
+    "Co+2": 1
+   },
+   "n": 1,
+   "E0": 1.92,
+   "src": "CRC",
+   "entry": "hand",
+   "bench": false
+  },
+  {
+   "id": "Ferricyanide-3/Ferrocyanide-4",
+   "ox": {
+    "Ferricyanide-3": 1
+   },
+   "red": {
+    "Ferrocyanide-4": 1
+   },
+   "n": 1,
+   "E0": 0.358,
+   "src": "CRC",
+   "entry": "hand"
+  },
+  {
+   "id": "H2O/H2",
+   "ox": {
+    "H2O": 2
+   },
+   "red": {
+    "H2(g)": 1,
+    "OH-": 2
+   },
+   "n": 2,
+   "medium": "base",
+   "E0": -0.8277,
+   "src": "CRC",
+   "entry": "hand"
+  },
+  {
+   "id": "O2/H2O",
+   "ox": {
+    "O2(g)": 1,
+    "H+": 4
+   },
+   "red": {
+    "H2O": 2
+   },
+   "n": 4,
+   "medium": "acid",
+   "E0": 1.229,
+   "src": "CRC",
+   "entry": "hand"
+  },
+  {
+   "id": "O2/OH-",
+   "ox": {
+    "O2(g)": 1,
+    "H2O": 2
+   },
+   "red": {
+    "OH-": 4
+   },
+   "n": 4,
+   "medium": "base",
+   "E0": 0.401,
+   "src": "CRC",
+   "entry": "hand"
+  },
+  {
+   "id": "O2/H2O2",
+   "ox": {
+    "O2(g)": 1,
+    "H+": 2
+   },
+   "red": {
+    "H2O2": 1
+   },
+   "n": 2,
+   "medium": "acid",
+   "E0": 0.695,
+   "src": "CRC",
+   "entry": "hand",
+   "electrode": false
+  },
+  {
+   "id": "H2O2/H2O",
+   "ox": {
+    "H2O2": 1,
+    "H+": 2
+   },
+   "red": {
+    "H2O": 2
+   },
+   "n": 2,
+   "medium": "acid",
+   "E0": 1.776,
+   "src": "CRC",
+   "entry": "hand",
+   "electrode": false
+  },
+  {
+   "id": "HO2-/OH-",
+   "ox": {
+    "HO2-": 1,
+    "H2O": 1
+   },
+   "red": {
+    "OH-": 3
+   },
+   "n": 2,
+   "medium": "base",
+   "E0": 0.878,
+   "src": "CRC",
+   "entry": "hand",
+   "electrode": false
+  },
+  {
+   "id": "O3/O2",
+   "ox": {
+    "O3(g)": 1,
+    "H+": 2
+   },
+   "red": {
+    "O2(g)": 1,
+    "H2O": 1
+   },
+   "n": 2,
+   "medium": "acid",
+   "E0": 2.076,
+   "src": "CRC",
+   "entry": "hand",
+   "bench": false,
+   "electrode": false
+  },
+  {
+   "id": "F2/F-",
+   "ox": {
+    "F2(g)": 1
+   },
+   "red": {
+    "F-": 2
+   },
+   "n": 2,
+   "E0": 2.866,
+   "src": "CRC",
+   "entry": "hand",
+   "bench": false
+  },
+  {
+   "id": "Cl2/Cl-",
+   "ox": {
+    "Cl2(g)": 1
+   },
+   "red": {
+    "Cl-": 2
+   },
+   "n": 2,
+   "E0": 1.35827,
+   "src": "CRC",
+   "entry": "hand"
+  },
+  {
+   "id": "Cl2(aq)/Cl-",
+   "ox": {
+    "Cl2": 1
+   },
+   "red": {
+    "Cl-": 2
+   },
+   "n": 2,
+   "E0": 1.3888,
+   "src": "CRC value for the gas and the Henry constant of the network (Cl2(g) against Cl2)",
+   "entry": "computed",
+   "note": "Bard–Parsons–Jordan give 1.396 V with another solubility of chlorine."
+  },
+  {
+   "id": "Br2/Br-",
+   "ox": {
+    "Br2(l)": 1
+   },
+   "red": {
+    "Br-": 2
+   },
+   "n": 2,
+   "E0": 1.066,
+   "src": "CRC",
+   "entry": "hand"
+  },
+  {
+   "id": "Br2(aq)/Br-",
+   "ox": {
+    "Br2": 1
+   },
+   "red": {
+    "Br-": 2
+   },
+   "n": 2,
+   "E0": 1.0873,
+   "src": "CRC",
+   "entry": "hand"
+  },
+  {
+   "id": "I2/I-",
+   "ox": {
+    "I2(s)": 1
+   },
+   "red": {
+    "I-": 2
+   },
+   "n": 2,
+   "E0": 0.5355,
+   "src": "CRC",
+   "entry": "hand"
+  },
+  {
+   "id": "I2(aq)/I-",
+   "ox": {
+    "I2": 1
+   },
+   "red": {
+    "I-": 2
+   },
+   "n": 2,
+   "E0": 0.6206,
+   "src": "CRC value for the solid and the solubility of iodine in the network (I2(s))",
+   "entry": "computed",
+   "note": "Bard–Parsons–Jordan: 0.621 V."
+  },
+  {
+   "id": "I3-/I-",
+   "ox": {
+    "I3-": 1
+   },
+   "red": {
+    "I-": 3
+   },
+   "n": 2,
+   "E0": 0.536,
+   "src": "CRC",
+   "entry": "hand"
+  },
+  {
+   "id": "ClO-/Cl-",
+   "ox": {
+    "ClO-": 1,
+    "H2O": 1
+   },
+   "red": {
+    "Cl-": 1,
+    "OH-": 2
+   },
+   "n": 2,
+   "medium": "base",
+   "E0": 0.89,
+   "src": "BPJ",
+   "entry": "hand",
+   "note": "The CRC table lists 0.81 V; 0.890 V is the value consistent with the NBS free energies of formation and with HClO/Cl- = 1.482 V.",
+   "electrode": false
+  },
+  {
+   "id": "HClO/Cl-",
+   "ox": {
+    "HClO": 1,
+    "H+": 1
+   },
+   "red": {
+    "Cl-": 1,
+    "H2O": 1
+   },
+   "n": 2,
+   "medium": "acid",
+   "E0": 1.482,
+   "src": "CRC",
+   "entry": "hand",
+   "electrode": false
+  },
+  {
+   "id": "HClO/Cl2",
+   "ox": {
+    "HClO": 2,
+    "H+": 2
+   },
+   "red": {
+    "Cl2(g)": 1,
+    "H2O": 2
+   },
+   "n": 2,
+   "medium": "acid",
+   "E0": 1.611,
+   "src": "CRC",
+   "entry": "hand",
+   "electrode": false
+  },
+  {
+   "id": "ClO3-/Cl-",
+   "ox": {
+    "ClO3-": 1,
+    "H+": 6
+   },
+   "red": {
+    "Cl-": 1,
+    "H2O": 3
+   },
+   "n": 6,
+   "medium": "acid",
+   "E0": 1.451,
+   "src": "CRC",
+   "entry": "hand",
+   "electrode": false
+  },
+  {
+   "id": "ClO4-/ClO3-",
+   "ox": {
+    "ClO4-": 1,
+    "H+": 2
+   },
+   "red": {
+    "ClO3-": 1,
+    "H2O": 1
+   },
+   "n": 2,
+   "medium": "acid",
+   "E0": 1.189,
+   "src": "CRC",
+   "entry": "hand",
+   "inert": true
+  },
+  {
+   "id": "IO3-/I2",
+   "ox": {
+    "IO3-": 2,
+    "H+": 12
+   },
+   "red": {
+    "I2(s)": 1,
+    "H2O": 6
+   },
+   "n": 10,
+   "medium": "acid",
+   "E0": 1.195,
+   "src": "CRC",
+   "entry": "hand",
+   "electrode": false
+  },
+  {
+   "id": "IO3-/I2(aq)",
+   "ox": {
+    "IO3-": 2,
+    "H+": 12
+   },
+   "red": {
+    "I2": 1,
+    "H2O": 6
+   },
+   "n": 10,
+   "medium": "acid",
+   "E0": 1.178,
+   "src": "CRC value for solid iodine and the solubility of iodine in the network",
+   "entry": "computed",
+   "electrode": false
+  },
+  {
+   "id": "BrO3-/Br2",
+   "ox": {
+    "BrO3-": 2,
+    "H+": 12
+   },
+   "red": {
+    "Br2(l)": 1,
+    "H2O": 6
+   },
+   "n": 10,
+   "medium": "acid",
+   "E0": 1.482,
+   "src": "CRC",
+   "entry": "hand",
+   "electrode": false
+  },
+  {
+   "id": "BrO3-/Br2(aq)",
+   "ox": {
+    "BrO3-": 2,
+    "H+": 12
+   },
+   "red": {
+    "Br2": 1,
+    "H2O": 6
+   },
+   "n": 10,
+   "medium": "acid",
+   "E0": 1.4777,
+   "src": "CRC values for liquid bromine and for Br2(aq)/Br-",
+   "entry": "computed",
+   "electrode": false
+  },
+  {
+   "id": "MnO4-/Mn+2",
+   "ox": {
+    "MnO4-": 1,
+    "H+": 8
+   },
+   "red": {
+    "Mn+2": 1,
+    "H2O": 4
+   },
+   "n": 5,
+   "medium": "acid",
+   "E0": 1.507,
+   "src": "CRC",
+   "entry": "hand",
+   "electrode": false
+  },
+  {
+   "id": "MnO4-/MnO2",
+   "ox": {
+    "MnO4-": 1,
+    "H+": 4
+   },
+   "red": {
+    "MnO2(s)": 1,
+    "H2O": 2
+   },
+   "n": 3,
+   "medium": "acid",
+   "E0": 1.679,
+   "src": "CRC",
+   "entry": "hand",
+   "electrode": false
+  },
+  {
+   "id": "MnO4-/MnO2(base)",
+   "ox": {
+    "MnO4-": 1,
+    "H2O": 2
+   },
+   "red": {
+    "MnO2(s)": 1,
+    "OH-": 4
+   },
+   "n": 3,
+   "medium": "base",
+   "E0": 0.595,
+   "src": "CRC",
+   "entry": "hand",
+   "electrode": false
+  },
+  {
+   "id": "MnO4-/MnO4-2",
+   "ox": {
+    "MnO4-": 1
+   },
+   "red": {
+    "MnO4-2": 1
+   },
+   "n": 1,
+   "E0": 0.558,
+   "src": "CRC",
+   "entry": "hand"
+  },
+  {
+   "id": "MnO4-2/MnO2(base)",
+   "ox": {
+    "MnO4-2": 1,
+    "H2O": 2
+   },
+   "red": {
+    "MnO2(s)": 1,
+    "OH-": 4
+   },
+   "n": 2,
+   "medium": "base",
+   "E0": 0.6,
+   "src": "CRC",
+   "entry": "hand",
+   "electrode": false
+  },
+  {
+   "id": "MnO2/Mn+2",
+   "ox": {
+    "MnO2(s)": 1,
+    "H+": 4
+   },
+   "red": {
+    "Mn+2": 1,
+    "H2O": 2
+   },
+   "n": 2,
+   "medium": "acid",
+   "E0": 1.224,
+   "src": "CRC",
+   "entry": "hand"
+  },
+  {
+   "id": "Cr2O7-2/Cr+3",
+   "ox": {
+    "Cr2O7-2": 1,
+    "H+": 14
+   },
+   "red": {
+    "Cr+3": 2,
+    "H2O": 7
+   },
+   "n": 6,
+   "medium": "acid",
+   "E0": 1.36,
+   "src": "CRC",
+   "entry": "hand",
+   "note": "Older tables (and many school books) give 1.33 V or 1.232 V.",
+   "electrode": false
+  },
+  {
+   "id": "CrO4-2/Cr(OH)3",
+   "ox": {
+    "CrO4-2": 1,
+    "H2O": 4
+   },
+   "red": {
+    "Cr(OH)3(am)": 1,
+    "OH-": 5
+   },
+   "n": 3,
+   "medium": "base",
+   "E0": -0.0364,
+   "src": "network (minteq.v4.dat)",
+   "entry": "network",
+   "note": "For the freshly precipitated (amorphous) hydroxide of the bench. The CRC table lists −0.13 V for an unspecified chromium(III) hydroxide; with the crystalline solid the network gives −0.078 V.",
+   "electrode": false
+  },
+  {
+   "id": "PbO2/Pb+2",
+   "ox": {
+    "PbO2(s)": 1,
+    "H+": 4
+   },
+   "red": {
+    "Pb+2": 1,
+    "H2O": 2
+   },
+   "n": 2,
+   "medium": "acid",
+   "E0": 1.455,
+   "src": "CRC",
+   "entry": "hand",
+   "electrode": false
+  },
+  {
+   "id": "PbO2/PbSO4",
+   "ox": {
+    "PbO2(s)": 1,
+    "SO4-2": 1,
+    "H+": 4
+   },
+   "red": {
+    "Anglesite": 1,
+    "H2O": 2
+   },
+   "n": 2,
+   "medium": "acid",
+   "E0": 1.6913,
+   "src": "CRC",
+   "entry": "hand"
+  },
+  {
+   "id": "PbSO4/Pb",
+   "ox": {
+    "Anglesite": 1
+   },
+   "red": {
+    "Pb(s)": 1,
+    "SO4-2": 1
+   },
+   "n": 2,
+   "E0": -0.3588,
+   "src": "CRC",
+   "entry": "hand"
+  },
+  {
+   "id": "NO3-/NO",
+   "ox": {
+    "NO3-": 1,
+    "H+": 4
+   },
+   "red": {
+    "NO(g)": 1,
+    "H2O": 2
+   },
+   "n": 3,
+   "medium": "acid",
+   "E0": 0.957,
+   "src": "CRC",
+   "entry": "hand",
+   "inert": true
+  },
+  {
+   "id": "NO3-/N2O4",
+   "ox": {
+    "NO3-": 2,
+    "H+": 4
+   },
+   "red": {
+    "N2O4(g)": 1,
+    "H2O": 2
+   },
+   "n": 2,
+   "medium": "acid",
+   "E0": 0.803,
+   "src": "CRC",
+   "entry": "hand",
+   "inert": true
+  },
+  {
+   "id": "NO3-/NO2",
+   "ox": {
+    "NO3-": 1,
+    "H+": 2
+   },
+   "red": {
+    "NO2(g)": 1,
+    "H2O": 1
+   },
+   "n": 1,
+   "medium": "acid",
+   "E0": 0.7782,
+   "src": "CRC value for N2O4 and the dimerisation of NO2 (ΔH = −57.2 kJ/mol, ΔS = −175.8 J/(mol·K), as in the reaction N2O4_equilibrium)",
+   "entry": "computed",
+   "inert": true,
+   "note": "School books usually quote 0.80 V, the value of the N2O4 couple."
+  },
+  {
+   "id": "NO3-/NO2-",
+   "ox": {
+    "NO3-": 1,
+    "H+": 2
+   },
+   "red": {
+    "NO2-": 1,
+    "H2O": 1
+   },
+   "n": 2,
+   "medium": "acid",
+   "E0": 0.8451,
+   "src": "network (phreeqc.dat)",
+   "entry": "network",
+   "inert": true,
+   "note": "CRC: NO3-/HNO2 0.934 V; nitrous acid is not a species of the network."
+  },
+  {
+   "id": "NO3-/NH4+",
+   "ox": {
+    "NO3-": 1,
+    "H+": 10
+   },
+   "red": {
+    "NH4+": 1,
+    "H2O": 3
+   },
+   "n": 8,
+   "medium": "acid",
+   "E0": 0.8806,
+   "src": "network (phreeqc.dat)",
+   "entry": "network",
+   "inert": true,
+   "note": "Thermodynamically a strong oxidant, kinetically inert in dilute solution: nitrate is not reduced to ammonium at the bench without a catalyst or a very active metal."
+  },
+  {
+   "id": "SO4-2/SO2",
+   "ox": {
+    "SO4-2": 1,
+    "H+": 4
+   },
+   "red": {
+    "SO2": 1,
+    "H2O": 2
+   },
+   "n": 2,
+   "medium": "acid",
+   "E0": 0.158,
+   "src": "BPJ",
+   "entry": "hand",
+   "inert": true,
+   "note": "The CRC table lists 0.172 V (written with H2SO3); 0.158 V is consistent with the NBS free energies of formation."
+  },
+  {
+   "id": "SO4-2/H2S",
+   "ox": {
+    "SO4-2": 1,
+    "H+": 10
+   },
+   "red": {
+    "H2S": 1,
+    "H2O": 4
+   },
+   "n": 8,
+   "medium": "acid",
+   "E0": 0.3002,
+   "src": "network (phreeqc.dat)",
+   "entry": "network",
+   "inert": true,
+   "note": "Kinetically inert: sulfate is not reduced to sulfide in solution at the bench."
+  },
+  {
+   "id": "S/H2S",
+   "ox": {
+    "S(s)": 1,
+    "H+": 2
+   },
+   "red": {
+    "H2S": 1
+   },
+   "n": 2,
+   "medium": "acid",
+   "E0": 0.142,
+   "src": "CRC",
+   "entry": "hand"
+  },
+  {
+   "id": "S4O6-2/S2O3-2",
+   "ox": {
+    "S4O6-2": 1
+   },
+   "red": {
+    "S2O3-2": 2
+   },
+   "n": 2,
+   "E0": 0.08,
+   "src": "CRC",
+   "entry": "hand",
+   "electrode": false
+  },
+  {
+   "id": "S2O8-2/SO4-2",
+   "ox": {
+    "S2O8-2": 1
+   },
+   "red": {
+    "SO4-2": 2
+   },
+   "n": 2,
+   "E0": 2.01,
+   "src": "CRC",
+   "entry": "hand",
+   "bench": false,
+   "electrode": false
+  },
+  {
+   "id": "AgCl/Ag",
+   "ox": {
+    "Cerargyrite": 1
+   },
+   "red": {
+    "Ag(s)": 1,
+    "Cl-": 1
+   },
+   "n": 1,
+   "E0": 0.22233,
+   "src": "CRC",
+   "entry": "hand"
+  },
+  {
+   "id": "AgBr/Ag",
+   "ox": {
+    "Bromyrite": 1
+   },
+   "red": {
+    "Ag(s)": 1,
+    "Br-": 1
+   },
+   "n": 1,
+   "E0": 0.07133,
+   "src": "CRC",
+   "entry": "hand"
+  },
+  {
+   "id": "AgI/Ag",
+   "ox": {
+    "Iodyrite": 1
+   },
+   "red": {
+    "Ag(s)": 1,
+    "I-": 1
+   },
+   "n": 1,
+   "E0": -0.15224,
+   "src": "CRC",
+   "entry": "hand"
+  },
+  {
+   "id": "Hg2Cl2/Hg",
+   "ox": {
+    "Hg2Cl2(s)": 1
+   },
+   "red": {
+    "Hg(l)": 2,
+    "Cl-": 2
+   },
+   "n": 2,
+   "E0": 0.26808,
+   "src": "CRC",
+   "entry": "hand",
+   "bench": false,
+   "note": "The calomel electrode; mercury is not stocked."
+  },
+  {
+   "id": "Ag(NH3)2+/Ag",
+   "ox": {
+    "Ag(NH3)2+": 1
+   },
+   "red": {
+    "Ag(s)": 1,
+    "NH3": 2
+   },
+   "n": 1,
+   "E0": 0.373,
+   "src": "CRC",
+   "entry": "hand"
+  },
+  {
+   "id": "Ag2O/Ag",
+   "ox": {
+    "Ag2O": 1,
+    "H2O": 1
+   },
+   "red": {
+    "Ag(s)": 2,
+    "OH-": 2
+   },
+   "n": 2,
+   "medium": "base",
+   "E0": 0.342,
+   "src": "CRC",
+   "entry": "hand",
+   "electrode": false
+  },
+  {
+   "id": "Cu+2/CuI",
+   "ox": {
+    "Cu+2": 1,
+    "I-": 1
+   },
+   "red": {
+    "CuI": 1
+   },
+   "n": 1,
+   "E0": 0.86,
+   "src": "CRC",
+   "entry": "hand",
+   "electrode": false
+  },
+  {
+   "id": "Cu2O/Cu",
+   "ox": {
+    "Cuprite": 1,
+    "H2O": 1
+   },
+   "red": {
+    "Cu(s)": 2,
+    "OH-": 2
+   },
+   "n": 2,
+   "medium": "base",
+   "E0": -0.36,
+   "src": "CRC",
+   "entry": "hand",
+   "electrode": false
+  },
+  {
+   "id": "Zn(OH)4-2/Zn",
+   "ox": {
+    "Zn(OH)4-2": 1
+   },
+   "red": {
+    "Zn(s)": 1,
+    "OH-": 4
+   },
+   "n": 2,
+   "medium": "base",
+   "E0": -1.199,
+   "src": "CRC",
+   "entry": "hand"
+  },
+  {
+   "id": "Al(OH)4-/Al",
+   "ox": {
+    "Al(OH)4-": 1
+   },
+   "red": {
+    "Al(s)": 1,
+    "OH-": 4
+   },
+   "n": 3,
+   "medium": "base",
+   "E0": -2.328,
+   "src": "CRC",
+   "entry": "hand"
+  },
+  {
+   "id": "Mg(OH)2/Mg",
+   "ox": {
+    "Brucite": 1
+   },
+   "red": {
+    "Mg(s)": 1,
+    "OH-": 2
+   },
+   "n": 2,
+   "medium": "base",
+   "E0": -2.69,
+   "src": "CRC",
+   "entry": "hand"
+  },
+  {
+   "id": "Fe(OH)3/Fe(OH)2",
+   "ox": {
+    "Fe(OH)3(a)": 1
+   },
+   "red": {
+    "Fe(OH)2(s)": 1,
+    "OH-": 1
+   },
+   "n": 1,
+   "medium": "base",
+   "E0": -0.56,
+   "src": "CRC",
+   "entry": "hand"
+  }
+ ]
+}

@@ -24,7 +24,7 @@ use velophi_core::driver::{RunDriver, BUDGET, FINISHED, PAUSED};
 use velophi_core::message::Message;
 
 /// ABI version of the engine (the same as the WebAssembly core's).
-pub const ABI_VERSION: u32 = 2;
+pub const ABI_VERSION: u32 = 3;
 /// Default look-ahead of an unbounded run (s of simulated time; simJob.ts).
 pub const DEFAULT_LOOK_AHEAD: f64 = 20.0;
 /// Wall-clock time after which the frames of an unfinished chunk are posted anyway.

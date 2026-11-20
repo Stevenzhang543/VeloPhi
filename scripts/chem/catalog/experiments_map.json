@@ -1,0 +1,342 @@
+{
+ "format": "velophi-chem-experiments-map", "version": 1,
+ "note": "The forty guided experiments of D270 and what each needs of the model: reactions (ids of reactions.json), couples (ids of couples.json), network (species of the aqueous network whose equilibria carry the experiment), substances (ids of the substance catalogue it starts from), indicators (elements of supplement_indicators.dat), noReaction (why none is needed), gaps (what the model does not show). The list of the 26 curriculum experiments follows docs/research/2664/chemistry.md §2 and is to be checked against the curriculum standards before the guided experiments are written.",
+ "experiments": [
+  {
+   "id": "j1_crude_salt",
+   "group": "junior",
+   "name": {"zh": "粗盐中难溶性杂质的去除", "en": "Removing insoluble impurities from crude salt", "de": "Abtrennen unlöslicher Verunreinigungen aus Rohsalz"},
+   "network": ["Halite"],
+   "noReaction": "Dissolving, filtering and evaporating: the solubility of Halite in the network, an inert solid for the sand; no declared reaction."
+  },
+  {
+   "id": "j2_oxygen",
+   "group": "junior",
+   "name": {"zh": "氧气的实验室制取与性质", "en": "Preparing oxygen and its properties", "de": "Darstellung und Eigenschaften von Sauerstoff"},
+   "reactions": ["KMnO4_thermal", "H2O2_MnO2", "KClO3_MnO2", "C_burn", "S_burn", "Fe_burn", "P_burn"],
+   "network": ["O2(g)", "O2"],
+   "substances": ["KMnO4(s)", "MnO2(s)", "KClO3(s)", "C(s)", "S(s)", "Fe(s)", "P(s)"]
+  },
+  {
+   "id": "j3_carbon_dioxide",
+   "group": "junior",
+   "name": {"zh": "二氧化碳的实验室制取与性质", "en": "Preparing carbon dioxide and its properties", "de": "Darstellung und Eigenschaften von Kohlenstoffdioxid"},
+   "network": ["Calcite", "CO2(g)", "CO2", "HCO3-", "Portlandite"],
+   "indicators": ["Litmus"],
+   "noReaction": "Marble with hydrochloric acid is the equilibrium of the network plus the dissolution kinetics of calcite chips (section dissolution of reactions.json); CO2 in water and in limewater is equilibrium.",
+   "gaps": "That carbon dioxide puts out a candle is a matter of the flame model, not of a reaction."
+  },
+  {
+   "id": "j4_metals",
+   "group": "junior",
+   "name": {"zh": "常见金属的物理性质和化学性质", "en": "Physical and chemical properties of common metals", "de": "Physikalische und chemische Eigenschaften gebräuchlicher Metalle"},
+   "reactions": ["Mg_burn", "Cu_O2", "Fe_burn", "Mg_acid", "Zn_acid", "Fe_acid", "Cu_acid_none", "Fe_Cu2", "Cu_Ag", "Al_Cu2"],
+   "couples": ["Mg+2/Mg", "Zn+2/Zn", "Fe+2/Fe", "H+/H2", "Cu+2/Cu", "Ag+/Ag"],
+   "substances": ["Mg(s)", "Zn(s)", "Fe(s)", "Cu(s)", "Al(s)"]
+  },
+  {
+   "id": "j5_acids_bases",
+   "group": "junior",
+   "name": {"zh": "常见酸、碱的化学性质", "en": "Chemical properties of common acids and bases", "de": "Chemische Eigenschaften gebräuchlicher Säuren und Basen"},
+   "reactions": ["Zn_acid", "Fe_acid"],
+   "network": ["OH-", "Tenorite", "Hematite", "Cu(OH)2(s)", "Fe(OH)3(a)", "Calcite", "CO2"],
+   "indicators": ["Litmus", "Phph"],
+   "gaps": "Rust and copper oxide dissolve in acid by the network; powders dissolve at once, coarse lumps of these oxides have no dissolution rate."
+  },
+  {
+   "id": "j6_nacl_solution",
+   "group": "junior",
+   "name": {"zh": "一定溶质质量分数的氯化钠溶液的配制", "en": "Making a sodium chloride solution of a given mass fraction", "de": "Herstellen einer Natriumchloridlösung mit vorgegebenem Massenanteil"},
+   "network": ["Halite"],
+   "noReaction": "Weighing, measuring and dissolving only."
+  },
+  {
+   "id": "j7_water",
+   "group": "junior",
+   "name": {"zh": "水的组成及变化的探究", "en": "The composition of water", "de": "Die Zusammensetzung des Wassers"},
+   "reactions": ["H2_burn"],
+   "couples": ["H+/H2", "O2/H2O", "H2O/H2", "O2/OH-"],
+   "network": ["H2(g)", "O2(g)"],
+   "gaps": "Electrolysis is computed from the couples and the overpotentials of the section electrolysis."
+  },
+  {
+   "id": "j8_combustion",
+   "group": "junior",
+   "name": {"zh": "燃烧条件的探究", "en": "The conditions of combustion", "de": "Die Bedingungen der Verbrennung"},
+   "reactions": ["P_burn", "C_burn", "C2H5OH_burn", "candle_burn"],
+   "substances": ["P(s)", "C(s)", "C2H5OH(l)", "Paraffin(s)"],
+   "gaps": "The three conditions are needs.ignite, the ignition temperature Tign of the substance and the oxygen of the gas space. White phosphorus (the classic low ignition point) is not stocked: the comparison uses red phosphorus against charcoal, and ethanol against water on cotton wool."
+  },
+  {
+   "id": "c1_molar_solution",
+   "group": "seniorCompulsory",
+   "name": {"zh": "配制一定物质的量浓度的溶液", "en": "Making a solution of a given amount concentration", "de": "Herstellen einer Lösung bestimmter Stoffmengenkonzentration"},
+   "network": ["Halite"],
+   "noReaction": "Weighing, dissolving, transferring and making up to the mark only."
+  },
+  {
+   "id": "c2_iron",
+   "group": "seniorCompulsory",
+   "name": {"zh": "铁及其化合物的性质", "en": "Properties of iron and its compounds", "de": "Eigenschaften von Eisen und seinen Verbindungen"},
+   "reactions": ["Fe_acid", "Fe_Cu2", "Fe2_Cl2", "Fe2_H2O2", "Fe2_MnO4", "Fe2_O2", "Fe3_Fe", "Fe3_Cu", "Fe3_I", "Fe_steam"],
+   "couples": ["Fe+3/Fe+2", "Fe+2/Fe", "Fe(OH)3/Fe(OH)2"],
+   "network": ["Fe(Thiocyanate)+2", "Fe(OH)2(s)", "Fe(OH)3(a)"],
+   "substances": ["Fe(s)", "Cu(s)"],
+   "gaps": "White Fe(OH)2 turning grey-green and red-brown in air is Fe2_O2 followed by the precipitation of Fe(OH)3 in the network; the green intermediate (green rust) has no species."
+  },
+  {
+   "id": "c3_sulfur",
+   "group": "seniorCompulsory",
+   "name": {"zh": "不同价态含硫物质的转化", "en": "Converting sulfur between its oxidation states", "de": "Umwandlung von Schwefel zwischen seinen Oxidationsstufen"},
+   "reactions": ["SO2_H2S", "MnO4_SO2_acid", "Cl2_SO2", "H2O2_SO2", "Cu_H2SO4_conc", "S_burn", "Fe_S", "Cu_S", "S2O3_acid", "Cl2_H2S", "SO3_O2"],
+   "couples": ["SO4-2/SO2", "S/H2S"],
+   "network": ["SO2", "HSO3-", "SO3-2", "H2S", "HS-", "SO2(g)", "H2S(g)", "FeS(ppt)", "Barite"],
+   "substances": ["S(s)", "Cu(s)", "H2SO4(l)"],
+   "gaps": "Sulfite with acid giving SO2, and FeS with acid giving H2S, are equilibria of the network."
+  },
+  {
+   "id": "c4_salt_purification",
+   "group": "seniorCompulsory",
+   "name": {"zh": "用化学沉淀法去除粗盐中的杂质离子", "en": "Removing impurity ions from crude salt by precipitation", "de": "Entfernen von Fremdionen aus Rohsalz durch Fällung"},
+   "network": ["Barite", "Brucite", "Calcite", "Witherite", "Halite"],
+   "noReaction": "Precipitation and neutralisation: equilibria of the network only."
+  },
+  {
+   "id": "c5_periodicity",
+   "group": "seniorCompulsory",
+   "name": {"zh": "同周期、同主族元素性质的递变", "en": "Trends across a period and down a group", "de": "Eigenschaftsänderungen innerhalb einer Periode und einer Gruppe"},
+   "reactions": ["Na_water", "K_water", "Mg_hot_water", "Al_water_none", "Mg_acid", "Al_acid", "Al_NaOH", "Cl2_Br", "Cl2_I", "Br2_I"],
+   "couples": ["Na+/Na", "K+/K", "Mg+2/Mg", "Al+3/Al", "Cl2/Cl-", "Br2/Br-", "I2/I-"],
+   "network": ["Brucite", "Al(OH)3(a)", "Al(OH)4-"],
+   "substances": ["Na(s)", "K(s)", "Mg(s)", "Al(s)"],
+   "indicators": ["Phph"]
+  },
+  {
+   "id": "c6_rates",
+   "group": "seniorCompulsory",
+   "name": {"zh": "化学反应速率的影响因素", "en": "What changes the rate of a reaction", "de": "Einflüsse auf die Reaktionsgeschwindigkeit"},
+   "reactions": ["S2O3_acid", "H2O2_decomposition", "H2O2_MnO2", "H2O2_Fe3", "H2O2_Cu2", "Zn_acid", "Mg_acid", "Fe_acid", "MnO4_oxalate", "MnO4_oxalate_Mn2"],
+   "network": ["Calcite"],
+   "substances": ["Zn(s)", "Mg(s)", "MnO2(s)"],
+   "gaps": "The effect of the surface (powder against lumps) comes from the forms of the solids; marble with acid from the dissolution table."
+  },
+  {
+   "id": "c7_galvanic",
+   "group": "seniorCompulsory",
+   "name": {"zh": "化学能转化成电能", "en": "Chemical energy into electrical energy", "de": "Chemische Energie in elektrische Energie"},
+   "reactions": ["Zn_acid", "Zn_Cu2"],
+   "couples": ["Zn+2/Zn", "Cu+2/Cu", "H+/H2", "Fe+2/Fe"],
+   "substances": ["Zn(s)", "Cu(s)"],
+   "gaps": "The cell itself is the electrochemistry of the engine (Nernst potentials of the couples, the circuit solver)."
+  },
+  {
+   "id": "c8_models",
+   "group": "seniorCompulsory",
+   "name": {"zh": "搭建球棍模型认识有机化合物分子结构的特点", "en": "Building ball-and-stick models of organic molecules", "de": "Kugel-Stab-Modelle organischer Moleküle bauen"},
+   "noReaction": "Done in the three-dimensional viewer; no bench chemistry."
+  },
+  {
+   "id": "c9_ethanol_acetic",
+   "group": "seniorCompulsory",
+   "name": {"zh": "乙醇、乙酸的主要性质", "en": "Main properties of ethanol and acetic acid", "de": "Wichtige Eigenschaften von Ethanol und Essigsäure"},
+   "reactions": ["C2H5OH_Na", "C2H5OH_burn", "CuO_C2H5OH", "Cu_O2", "MnO4_C2H5OH", "Cr2O7_C2H5OH", "esterification", "Mg_acid"],
+   "network": ["H(Acetate)", "Acetate-", "CO2"],
+   "substances": ["C2H5OH(l)", "CH3COOH(l)", "Na(s)", "Cu(s)", "H2SO4(l)"],
+   "indicators": ["Litmus"]
+  },
+  {
+   "id": "e1_electroplating",
+   "group": "seniorElective",
+   "name": {"zh": "简单的电镀实验", "en": "A simple electroplating experiment", "de": "Ein einfacher Galvanisierversuch"},
+   "couples": ["Cu+2/Cu", "Zn+2/Zn", "Fe+2/Fe", "H+/H2"],
+   "substances": ["Cu(s)", "Fe(s)", "Zn(s)"],
+   "gaps": "Active anode and deposition at the cathode: section electrolysis."
+  },
+  {
+   "id": "e2_fuel_cell",
+   "group": "seniorElective",
+   "name": {"zh": "制作简单的燃料电池", "en": "Making a simple fuel cell", "de": "Bau einer einfachen Brennstoffzelle"},
+   "couples": ["H+/H2", "O2/H2O", "H2O/H2", "O2/OH-"],
+   "network": ["H2(g)", "O2(g)"],
+   "gaps": "Gases stored on the graphite electrodes during electrolysis are then consumed by the two couples; adsorption on the electrode is not modelled."
+  },
+  {
+   "id": "e3_equilibrium",
+   "group": "seniorElective",
+   "name": {"zh": "探究影响化学平衡移动的因素", "en": "What shifts a chemical equilibrium", "de": "Einflüsse auf die Lage des chemischen Gleichgewichts"},
+   "reactions": ["N2O4_equilibrium"],
+   "network": ["Fe(Thiocyanate)+2", "Fe(Thiocyanate)2+", "Cr2O7-2", "CrO4-2", "CuCl4-2", "NO2(g)"],
+   "substances": ["N2O4(g)"]
+  },
+  {
+   "id": "e4_titration",
+   "group": "seniorElective",
+   "name": {"zh": "强酸与强碱的中和滴定", "en": "Titration of a strong acid with a strong base", "de": "Titration einer starken Säure mit einer starken Base"},
+   "network": ["OH-", "H+"],
+   "indicators": ["Phph", "Meor"],
+   "noReaction": "Equilibrium of the network and the indicators."
+  },
+  {
+   "id": "e5_hydrolysis",
+   "group": "seniorElective",
+   "name": {"zh": "盐类水解的应用", "en": "Uses of the hydrolysis of salts", "de": "Anwendungen der Hydrolyse von Salzen"},
+   "reactions": ["fat_saponification"],
+   "network": ["Acetate-", "NH4+", "CO3-2", "HCO3-", "Fe(OH)3(a)", "FeOH+2", "Al(OH)3(a)", "CO2(g)"],
+   "indicators": ["Phph", "Meor", "Litmus"],
+   "gaps": "Colloidal iron(III) hydroxide from boiling water is computed as a precipitate; the colloid and its Tyndall effect have no model."
+  },
+  {
+   "id": "e6_complexes",
+   "group": "seniorElective",
+   "name": {"zh": "简单配合物的形成", "en": "Formation of simple complexes", "de": "Bildung einfacher Komplexe"},
+   "network": ["Cu(NH3)4+2", "Cu(OH)2(s)", "Ag(NH3)2+", "Cerargyrite", "Fe(Thiocyanate)+2", "CuCl4-2", "Ferricyanide-3"],
+   "noReaction": "Complex equilibria of the network only.",
+   "gaps": "The blue precipitate of Fe2+ with hexacyanoferrate(III) is outside the network (its composition varies)."
+  },
+  {
+   "id": "e7_ethyl_acetate",
+   "group": "seniorElective",
+   "name": {"zh": "乙酸乙酯的制备与性质", "en": "Preparation and properties of ethyl acetate", "de": "Darstellung und Eigenschaften von Essigsäureethylester"},
+   "reactions": ["esterification", "ester_hydrolysis_acid", "ester_hydrolysis_base"],
+   "network": ["H(Acetate)", "Acetate-", "CO3-2"],
+   "substances": ["CH3COOH(l)", "C2H5OH(l)", "H2SO4(l)", "CH3COOC2H5(l)"]
+  },
+  {
+   "id": "e8_functional_groups",
+   "group": "seniorElective",
+   "name": {"zh": "有机化合物中常见官能团的检验", "en": "Tests for common functional groups", "de": "Nachweise häufiger funktioneller Gruppen"},
+   "reactions": ["C2H4_Br2", "C2H4_MnO4", "C2H5Br_hydrolysis", "phenol_Br2", "silver_mirror_ethanal", "fehling_ethanal"],
+   "network": ["Bromyrite", "H(Acetate)", "Ag(NH3)2+", "Cu(OH)2(s)"],
+   "substances": ["C2H4(g)", "C2H5Br(l)", "C6H5OH(aq)", "CH3CHO(aq)"],
+   "indicators": ["Litmus"],
+   "gaps": "The violet colour of phenol with iron(III) chloride needs a species of the network that does not exist yet."
+  },
+  {
+   "id": "e9_sugars",
+   "group": "seniorElective",
+   "name": {"zh": "糖类的性质", "en": "Properties of sugars", "de": "Eigenschaften von Zuckern"},
+   "reactions": ["silver_mirror_glucose", "fehling_glucose", "sucrose_hydrolysis", "starch_hydrolysis"],
+   "network": ["Ag(NH3)2+", "Cu(OH)2(s)", "I3-"],
+   "substances": ["Glucose(aq)", "Sucrose(aq)", "Starch(aq)"],
+   "gaps": "The blue of starch with iodine needs a species of the network that does not exist yet."
+  },
+  {
+   "id": "d1_sodium_water",
+   "group": "demo",
+   "name": {"zh": "钠与水", "en": "Sodium with water", "de": "Natrium mit Wasser"},
+   "reactions": ["Na_water"],
+   "couples": ["Na+/Na", "H2O/H2"],
+   "substances": ["Na(s)"],
+   "indicators": ["Phph"]
+  },
+  {
+   "id": "d2_copper_nitric",
+   "group": "demo",
+   "name": {"zh": "铜与浓硝酸和稀硝酸", "en": "Copper with concentrated and dilute nitric acid", "de": "Kupfer mit konzentrierter und verdünnter Salpetersäure"},
+   "reactions": ["Cu_HNO3_conc", "Cu_HNO3_dil", "NO_HNO3_conc", "NO_O2", "NO2_water", "N2O4_equilibrium"],
+   "couples": ["NO3-/NO", "NO3-/NO2", "Cu+2/Cu"],
+   "network": ["NO(g)", "NO2(g)"],
+   "substances": ["Cu(s)"]
+  },
+  {
+   "id": "d3_chlorine",
+   "group": "demo",
+   "name": {"zh": "氯气的制取与性质", "en": "Preparing chlorine and its properties", "de": "Darstellung und Eigenschaften von Chlor"},
+   "reactions": ["MnO2_HCl", "KMnO4_HCl", "Cl2_Br", "Cl2_I", "Fe2_Cl2", "Na_Cl2", "Cu_Cl2", "Fe_Cl2", "H2_Cl2_flame", "HClO_light", "ClO_disproportionation"],
+   "couples": ["Cl2/Cl-", "MnO2/Mn+2", "HClO/Cl-", "ClO-/Cl-"],
+   "network": ["Cl2", "Cl2(g)", "HClO", "ClO-"],
+   "substances": ["MnO2(s)", "Cu(s)", "Fe(s)", "Na(s)"],
+   "indicators": ["Litmus"],
+   "gaps": "Bleaching of a dyed cloth or of litmus by hypochlorous acid has no reaction (the dye is not a species)."
+  },
+  {
+   "id": "d4_ammonia_fountain",
+   "group": "demo",
+   "name": {"zh": "氨的喷泉实验", "en": "The ammonia fountain", "de": "Der Ammoniak-Springbrunnen"},
+   "reactions": ["NH4Cl_CaOH2", "NH3_HCl"],
+   "network": ["NH3(g)", "NH3", "NH4+"],
+   "substances": ["NH4Cl(s)"],
+   "indicators": ["Phph"]
+  },
+  {
+   "id": "d5_thermite",
+   "group": "demo",
+   "name": {"zh": "铝热反应", "en": "The thermite reaction", "de": "Die Thermitreaktion"},
+   "reactions": ["thermite", "Mg_burn"],
+   "network": ["Hematite", "Al2O3"],
+   "substances": ["Al(s)", "Mg(s)", "KClO3(s)"]
+  },
+  {
+   "id": "d6_silver_mirror",
+   "group": "demo",
+   "name": {"zh": "银镜反应", "en": "The silver-mirror reaction", "de": "Die Silberspiegelprobe"},
+   "reactions": ["silver_mirror_ethanal", "silver_mirror_glucose", "Ag_HNO3_dil"],
+   "couples": ["Ag(NH3)2+/Ag"],
+   "network": ["Ag(NH3)2+", "Ag2O"],
+   "substances": ["CH3CHO(aq)", "Glucose(aq)"]
+  },
+  {
+   "id": "d7_flame_test",
+   "group": "demo",
+   "name": {"zh": "焰色试验", "en": "Flame tests", "de": "Flammenfärbung"},
+   "noReaction": "Emission lines of the elements (flames.json); no reaction."
+  },
+  {
+   "id": "d8_zinc_copper_cell",
+   "group": "demo",
+   "name": {"zh": "锌铜原电池", "en": "The zinc–copper cell", "de": "Das Zink-Kupfer-Element"},
+   "reactions": ["Zn_Cu2", "Zn_acid"],
+   "couples": ["Zn+2/Zn", "Cu+2/Cu", "H+/H2"],
+   "substances": ["Zn(s)", "Cu(s)"]
+  },
+  {
+   "id": "d9_electrolysis",
+   "group": "demo",
+   "name": {"zh": "电解水与电解饱和食盐水", "en": "Electrolysis of water and of saturated brine", "de": "Elektrolyse von Wasser und von gesättigter Kochsalzlösung"},
+   "couples": ["H+/H2", "H2O/H2", "O2/H2O", "O2/OH-", "Cl2/Cl-", "Na+/Na"],
+   "network": ["Cl2", "ClO-", "OH-", "H2(g)", "O2(g)", "Cl2(g)"],
+   "indicators": ["Phph"],
+   "gaps": "Discharge order from the section electrolysis; chlorine meeting the alkali of the cathode side gives hypochlorite by the network."
+  },
+  {
+   "id": "d10_neutralisation_heat",
+   "group": "demo",
+   "name": {"zh": "中和热的测定", "en": "Measuring the heat of neutralisation", "de": "Bestimmung der Neutralisationswärme"},
+   "network": ["OH-", "H+"],
+   "noReaction": "Equilibrium of the network and its enthalpies."
+  },
+  {
+   "id": "d11_titration_curves",
+   "group": "demo",
+   "name": {"zh": "滴定曲线（强酸强碱、弱酸强碱、多元酸）", "en": "Titration curves (strong–strong, weak–strong, polyprotic)", "de": "Titrationskurven (stark–stark, schwach–stark, mehrprotonig)"},
+   "network": ["OH-", "H(Acetate)", "H3PO4", "H2PO4-", "HPO4-2"],
+   "indicators": ["Phph", "Meor", "Mered", "Btb"],
+   "noReaction": "Equilibrium of the network and the indicators."
+  },
+  {
+   "id": "d12_precipitate_conversion",
+   "group": "demo",
+   "name": {"zh": "沉淀的转化", "en": "Converting one precipitate into another", "de": "Umwandlung von Niederschlägen"},
+   "network": ["Cerargyrite", "Iodyrite", "Acanthite", "Brucite", "Fe(OH)3(a)"],
+   "noReaction": "Solubility equilibria of the network only."
+  },
+  {
+   "id": "d13_equilibrium_shift",
+   "group": "demo",
+   "name": {"zh": "平衡的移动（NO₂/N₂O₄，Fe³⁺ 与 SCN⁻）", "en": "Shifting equilibria (NO₂/N₂O₄, Fe³⁺ with SCN⁻)", "de": "Gleichgewichtsverschiebung (NO₂/N₂O₄, Fe³⁺ mit SCN⁻)"},
+   "reactions": ["N2O4_equilibrium"],
+   "network": ["NO2(g)", "Fe(Thiocyanate)+2", "Fe(Thiocyanate)2+"],
+   "substances": ["N2O4(g)"]
+  },
+  {
+   "id": "d14_iodine_clock",
+   "group": "demo",
+   "name": {"zh": "碘钟", "en": "The iodine clock", "de": "Die Ioduhr"},
+   "reactions": ["H2O2_I", "H2O2_I_acid", "I2_S2O3"],
+   "couples": ["H2O2/H2O", "I2(aq)/I-", "S4O6-2/S2O3-2"],
+   "network": ["I3-", "S2O3-2", "H2O2"],
+   "substances": ["S4O6-2", "Starch(aq)"],
+   "gaps": "The sudden blue needs the starch–iodine species; without it the clock shows the brown of triiodide."
+  }
+ ]
+}

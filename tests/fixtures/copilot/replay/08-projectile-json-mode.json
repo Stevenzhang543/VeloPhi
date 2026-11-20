@@ -1,0 +1,35 @@
+{
+ "id": "08-projectile-json-mode",
+ "origin": "handwritten",
+ "note": "A connection without strict function calls: JSON mode. The first answer is empty (JSON mode can answer with blanks) and is asked again; the second is a fenced object with default fields left out and a number written as text.",
+ "problem": "小球从离地 1.25 m 高处以 3 m/s 的速度水平抛出，不计空气阻力，g 取 10 m/s²。求小球落地所需的时间和落地前瞬间的速度大小。",
+ "strict": false,
+ "answers": [
+  {
+   "step": "notes",
+   "raw": "对象：地面 floor；小球 ball。\n关系：ball 在空中（air），离 floor 高 1.25 m，初速度水平向右 3 m/s。\n已知：高 1.25 m；速度 3 m/s；g = 10 m/s²。质量未给：取 0.1 kg（quote 留空，作为假设）。\n所求：落地时刻（事件 impact）；落地前瞬间的速度（该事件之前的 ball.v）。"
+  },
+  {
+   "step": "sketch",
+   "raw": "   "
+  },
+  {
+   "step": "sketch",
+   "raw": "```json\n{\n \"route\": \"sketch\",\n \"title\": \"平抛运动\",\n \"movingBodies\": 1,\n \"surfaces\": [\n  {\n   \"id\": \"floor\",\n   \"name\": \"地面\",\n   \"type\": \"ground\"\n  }\n ],\n \"bodies\": [\n  {\n   \"id\": \"ball\",\n   \"name\": \"小球\",\n   \"type\": \"ball\",\n   \"place\": \"air\",\n   \"ref2\": \"floor\",\n   \"moves\": \"right\"\n  }\n ],\n \"values\": [\n  {\n   \"of\": \"ball\",\n   \"quantity\": \"heightAbove\",\n   \"value\": 1.25,\n   \"unit\": \"m\",\n   \"quote\": \"离地 1.25 m 高处\"\n  },\n  {\n   \"of\": \"ball\",\n   \"quantity\": \"speed\",\n   \"value\": \"3\",\n   \"unit\": \"m/s\",\n   \"quote\": \"以 3 m/s 的速度水平抛出\"\n  },\n  {\n   \"of\": \"world\",\n   \"quantity\": \"g\",\n   \"value\": 10,\n   \"unit\": \"m/s²\",\n   \"quote\": \"g 取 10 m/s²\"\n  },\n  {\n   \"of\": \"ball\",\n   \"quantity\": \"mass\",\n   \"value\": 0.1,\n   \"unit\": \"kg\",\n   \"quote\": \"\"\n  }\n ],\n \"expect\": [\n  {\n   \"of\": \"ball\",\n   \"state\": \"moves\"\n  }\n ],\n \"questions\": [\n  {\n   \"prompt\": \"落地所需的时间\",\n   \"unit\": \"s\",\n   \"kind\": \"event\",\n   \"id\": \"\",\n   \"event\": \"impact\",\n   \"side\": \"\",\n   \"body\": \"ball\"\n  },\n  {\n   \"prompt\": \"落地前瞬间的速度大小\",\n   \"unit\": \"m/s\",\n   \"kind\": \"atEvent\",\n   \"id\": \"ball.v\",\n   \"event\": \"impact\",\n   \"side\": \"before\",\n   \"body\": \"ball\"\n  }\n ]\n}\n```"
+  }
+ ],
+ "expect": {
+  "ok": true,
+  "via": "sketch",
+  "repairs": 0,
+  "requests": 3,
+  "rounds": [
+   []
+  ],
+  "rejected": 0,
+  "answers": [
+   0.5,
+   5.830951894845301
+  ]
+ }
+}

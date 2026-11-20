@@ -308,7 +308,7 @@ const tolPct = (q: NumericQuestion) => Math.round((q.tolerance ?? 0.02) * 1000) 
 .problem { padding: 4px 0 14px; display: flex; flex-direction: column; gap: 8px; }
 .head { display: flex; align-items: center; gap: 4px; }
 .chip { font-size: var(--type-tiny); font-weight: 600; color: var(--accent); background: var(--accent-soft); border-radius: var(--radius-pill); padding: 2px 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; max-width: 46%; }
-.title { font-size: 16px; font-weight: 650; margin: 2px 2px 0; }
+.title { font-size: 16px; font-weight: var(--weight-strong); margin: 2px 2px 0; }
 .stem { margin: 0 2px; line-height: 1.65; font-size: 13.5px; }
 .ai-read { margin: 0 2px; padding: 6px 8px; border-radius: var(--radius-group); background: var(--fill); font-size: var(--type-small); display: grid; gap: 6px; }
 .ai-read summary { cursor: pointer; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; color: var(--text-2); min-height: 24px; }
@@ -322,7 +322,7 @@ const tolPct = (q: NumericQuestion) => Math.round((q.tolerance ?? 0.02) * 1000) 
 .q.ok { border-left-color: var(--success); }
 .q.bad { border-left-color: var(--danger); }
 .q-head { display: flex; align-items: flex-start; gap: 8px; }
-.q-num { flex: 0 0 auto; width: 20px; height: 20px; border-radius: 50%; background: var(--fill); display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: var(--text-2); }
+.q-num { flex: 0 0 auto; width: 20px; height: 20px; border-radius: 50%; background: var(--fill); display: inline-flex; align-items: center; justify-content: center; font-size: var(--type-tiny); font-weight: var(--weight-strong); color: var(--text-2); }
 .q-prompt { line-height: 1.55; font-size: 13px; }
 .row > label { width: 72px; flex: 0 0 auto; }
 .row.top { align-items: flex-start; }
@@ -343,7 +343,7 @@ const tolPct = (q: NumericQuestion) => Math.round((q.tolerance ?? 0.02) * 1000) 
 .key { padding-left: 2px; }
 .add-row, .foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .foot { justify-content: space-between; }
-.score { font-weight: 650; }
+.score { font-weight: var(--weight-strong); }
 .legend { line-height: 1.5; margin: 0 2px; }
 @keyframes rise { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .result { animation: none; } }

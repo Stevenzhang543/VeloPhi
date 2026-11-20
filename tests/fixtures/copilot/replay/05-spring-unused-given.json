@@ -1,0 +1,37 @@
+{
+ "id": "05-spring-unused-given",
+ "origin": "handwritten",
+ "note": "Typical mistake: an unused given — a distance for a block whose place the spring fixes.",
+ "problem": "光滑水平面上，劲度系数 k = 100 N/m 的轻弹簧左端固定在墙上，右端连着质量 0.5 kg 的物块。把物块向左推，使弹簧压缩 0.1 m 后由静止释放，求物块的最大速度。",
+ "strict": true,
+ "answers": [
+  {
+   "step": "notes",
+   "raw": "对象：地面 floor；左侧的墙 wall；物块 A；弹簧 spring1。\n关系：弹簧一端在墙上，另一端在 A 的左侧（连着，fastened）；A 在地面上，位置由弹簧决定（at connector）。\n已知：k = 100 N/m；质量 0.5 kg；压缩 0.1 m；光滑（A 与 floor 的 μ = 0）。弹簧原长未给。\n所求：最大速度（全过程 A.v 的最大值）。"
+  },
+  {
+   "step": "sketch",
+   "raw": "{\"version\":2,\"route\":\"sketch\",\"title\":\"弹簧振子\",\"reason\":\"\",\"templateId\":\"\",\"templateParams\":[],\"gravity\":\"down\",\"movingBodies\":1,\"surfaces\":[{\"id\":\"floor\",\"name\":\"水平面\",\"type\":\"ground\",\"side\":\"\",\"span\":\"\",\"at\":\"\"},{\"id\":\"wall\",\"name\":\"墙\",\"type\":\"wall\",\"side\":\"left\",\"span\":\"\",\"at\":\"\"}],\"bodies\":[{\"id\":\"A\",\"name\":\"物块\",\"type\":\"block\",\"place\":\"on\",\"ref\":\"floor\",\"at\":\"connector\",\"ref2\":\"\",\"moves\":\"rest\",\"side\":\"\",\"points\":[]}],\"pulleys\":[],\"connectors\":[{\"id\":\"spring1\",\"name\":\"弹簧\",\"type\":\"spring\",\"path\":[\"wall\",\"A.left\"],\"mode\":\"fastened\"}],\"values\":[{\"of\":\"spring1\",\"quantity\":\"stiffness\",\"value\":100,\"unit\":\"N/m\",\"quote\":\"k = 100 N/m\"},{\"of\":\"A\",\"quantity\":\"mass\",\"value\":0.5,\"unit\":\"kg\",\"quote\":\"质量 0.5 kg 的物块\"},{\"of\":\"spring1\",\"quantity\":\"compression\",\"value\":0.1,\"unit\":\"m\",\"quote\":\"压缩 0.1 m\"},{\"of\":\"A|floor\",\"quantity\":\"mu\",\"value\":0,\"unit\":\"\",\"quote\":\"光滑水平面\"},{\"of\":\"A\",\"quantity\":\"distance\",\"value\":0.1,\"unit\":\"m\",\"quote\":\"压缩 0.1 m\"}],\"expect\":[{\"of\":\"A\",\"state\":\"moves\"}],\"questions\":[{\"prompt\":\"物块的最大速度\",\"unit\":\"m/s\",\"kind\":\"extreme\",\"id\":\"A.v\",\"t\":0,\"event\":\"\",\"side\":\"\",\"body\":\"\",\"which\":\"max\"}]}"
+  },
+  {
+   "step": "patch",
+   "raw": "{\"patch\":[{\"op\":\"set\",\"path\":\"values[4]\",\"value\":\"null\"}]}"
+  }
+ ],
+ "expect": {
+  "ok": true,
+  "via": "sketch",
+  "repairs": 1,
+  "requests": 3,
+  "rounds": [
+   [
+    "L4.givenUnused"
+   ],
+   []
+  ],
+  "rejected": 0,
+  "answers": [
+   1.4142135623730951
+  ]
+ }
+}

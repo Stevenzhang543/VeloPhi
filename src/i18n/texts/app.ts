@@ -1,8 +1,6 @@
 /** Interface texts (app): Chinese source → [English, German]. */
 export const TEXTS_APP: Record<string, readonly [string, string]> = {
   '固定点（世界）': ['Fixed point (world)', 'Fester Punkt (Welt)'],
-  '在画布上选择一个物体或连接件以编辑其参数。': ['Select a body or connector on the canvas to edit its parameters.', 'Einen Körper oder eine Verbindung auf der Zeichenfläche auswählen, um ihre Parameter zu bearbeiten.'],
-  '未选择时可在“场景”页修改重力、时间步长与精度。': ['With nothing selected, gravity, time step and accuracy are on the “Scene” tab.', 'Ohne Auswahl stehen Schwerkraft, Zeitschritt und Genauigkeit auf der Registerkarte „Szene“.'],
   '名称': ['Name', 'Name'],
   '类型': ['Type', 'Typ'],
   '质点（只平动）': ['Particle (translation only)', 'Massenpunkt (nur Translation)'],
@@ -187,7 +185,6 @@ export const TEXTS_APP: Record<string, readonly [string, string]> = {
   '拖动手柄改半径': ['Drag the handle to change the radius', 'Griff ziehen ändert den Radius'],
   '编辑中': ['Editing', 'Bearbeitung'],
   ' · 结果已过期': [' · result out of date', ' · Ergebnis veraltet'],
-  '缩放到运动范围': ['Zoom to the motion', 'Auf die Bewegung zoomen'],
   '工作台': ['Workbench', 'Arbeitsfläche'],
   '渲染与监视': ['Render & monitor', 'Darstellen & Beobachten'],
   '显示速度矢量': ['Show velocity vectors', 'Geschwindigkeitspfeile zeigen'],

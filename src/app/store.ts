@@ -54,15 +54,23 @@ export type Tool =
 /** Selected object, if any. */
 export type Selection = { kind: 'body' | 'connector' | 'pulley'; id: string } | null
 
-/** Top-level page. */
 /**
- * Top-level pages (26.63, D232): home (start: search, roles, continue), the studio, the lab, the library (templates,
- * problems, misconception cases, models, curriculum, handbook), the classroom (lessons, activities, teacher tools),
- * render & monitor, and the settings.
+ * Pages that are shown (26.64, D240): home (opened from the logo), the five panels of the rail — 运动 (`studio`),
+ * 物理实验 (`lab`), 化学实验 (`chem`), 资源库 (`library`), 监视 (`monitor`) — and the settings.
  */
-export type Page = 'home' | 'studio' | 'lab' | 'library' | 'classroom' | 'monitor' | 'settings'
-/** Sections of the library page. */
-export type LibrarySection = 'templates' | 'problems' | 'cases' | 'models' | 'curriculum' | 'path' | 'handbook'
+export type ShownPage = 'home' | 'studio' | 'lab' | 'chem' | 'library' | 'monitor' | 'settings'
+/**
+ * A value `state.page` accepts. `classroom` was a page of 26.63; it became a section of the library, and setting it
+ * (older code, a stored value, Copilot) shows that section — see `resolvePage` and the watcher under `state`.
+ */
+export type Page = ShownPage | 'classroom'
+/** Sections of the library page (26.64: the classroom, and elements and substances). */
+export type LibrarySection = 'templates' | 'problems' | 'cases' | 'classroom' | 'matter' | 'models' | 'curriculum' | 'path' | 'handbook'
+
+/** Where a page id leads: itself, or for the legacy `classroom` the library's classroom section. */
+export function resolvePage(p: Page): { page: ShownPage; section?: LibrarySection } {
+  return p === 'classroom' ? { page: 'library', section: 'classroom' } : { page: p }
+}
 
 /** The run in flight or last run, for the timeline and the solver-information panel (decision D26). */
 export interface RunInfo {
@@ -306,6 +314,14 @@ export const state = reactive<AppState>({
   pendingPlay: false,
   copilotDraft: ''
 }) as AppState
+
+// 26.64 (D240): a legacy page id is redirected at once (synchronously: nothing ever renders or stores `classroom`)
+watch(() => state.page, p => {
+  const to = resolvePage(p)
+  if (to.page === p) return
+  if (to.section) state.librarySection = to.section
+  state.page = to.page
+}, { flush: 'sync' })
 
 // ---- Editing ----
 const HISTORY_LIMIT = 200

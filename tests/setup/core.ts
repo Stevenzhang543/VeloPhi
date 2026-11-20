@@ -36,7 +36,7 @@ function loadNative(): CoreBackend {
     sessionFinish: (h, j) => x.sessionFinish(h, j) === 1, sessionCall: (h, j) => x.sessionCall(h, j), sessionFrameCount: h => x.sessionFrameCount(h),
     sessionState: (h, k, out) => x.sessionState(h, k, out) === 1, sessionCheap: (h, k) => x.sessionCheap(h, k) === 1, sessionSegment: (h, k) => x.sessionSegment(h, k),
     sessionImpactLoss: (h, k) => x.sessionImpactLoss(h, k), sessionInstall: (h, c, bb) => x.sessionInstall(h, c, bb) === 1, sessionFree: h => x.sessionFree(h),
-    calcCall: j => x.calcCall(j), runCreate: j => x.runCreate(j), runInfo: h => x.runInfo(h), runSetUntil: (h, f) => x.runSetUntil(h, f), runAdvance: (h, n) => x.runAdvance(h, n),
+    calcCall: j => x.calcCall(j), chemSessionCreate: j => x.chemSessionCreate(j), chemSessionCall: (h, j) => x.chemSessionCall(h, j), chemSessionFree: h => x.chemSessionFree(h), runCreate: j => x.runCreate(j), runInfo: h => x.runInfo(h), runSetUntil: (h, f) => x.runSetUntil(h, f), runAdvance: (h, n) => x.runAdvance(h, n),
     runTime: h => x.runTime(h), runFrameCount: h => x.runFrameCount(h), runRequestTail: h => x.runRequestTail(h), runTakeDelta: h => x.runTakeDelta(h), runEnd: h => x.runEnd(h),
     runStop: h => x.runStop(h), runCancel: h => x.runCancel(h), runFailBudget: (h, ms) => x.runFailBudget(h, ms), runRebuildChunk: (h, cp, e) => x.runRebuildChunk(h, cp, e), runFree: h => x.runFree(h)
   }
@@ -61,7 +61,9 @@ async function load(): Promise<CoreBackend> {
   const want = process.env.VELOPHI_CORE
   if (want === 'native') return loadNative()
   if (want === 'wasm') return instantiateCore(readFileSync(wasmPath))
-  if (existsSync(nativePath) && statSync(nativePath).mtimeMs >= newestSource(join(root, 'engine', 'velophi-core', 'src'))) return loadNative()
+  // 26.64: the chemistry core and the ABI layer are part of the module too
+  const newest = Math.max(...['velophi-core', 'velophi-chem', 'velophi-wasm', 'velophi-napi'].map(c => newestSource(join(root, 'engine', c, 'src'))))
+  if (existsSync(nativePath) && statSync(nativePath).mtimeMs >= newest) return loadNative()
   return instantiateCore(readFileSync(wasmPath))
 }
 

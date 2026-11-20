@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import Rich from './Rich.vue'
 /**
  * The classroom experiment card (26.61, phase B): over the studio, so the scene, the curves, the event list and the
  * formula cards stay visible; six steps (看现象 → 提交预测 → 操纵一个变量 → 观察指定时刻 → 用证据解释 → 迁移), the
@@ -110,7 +111,7 @@ async function exportSheet(role: 'student' | 'teacher') {
         <!-- The engine's evidence of the lesson (manipulate, observe at) -->
         <table v-if="lessonUi.step === 'manipulate' || lessonUi.step === 'observeAt' || lessonUi.teacher" class="tbl">
           <caption>{{ tl('引擎证据') }} <span :class="allAgree ? 'ok' : 'warn'">{{ allAgree ? tl('与教材规则一致（容差内）') : tl('与教材规则不一致') }}</span></caption>
-          <tbody><tr v-for="(l, i) in evidenceLines" :key="i"><td>{{ l }}</td></tr></tbody>
+          <tbody><tr v-for="(l, i) in evidenceLines" :key="i"><td><Rich :text="l" /></td></tr></tbody>
         </table>
 
         <!-- RC: map the columns of a measured CSV -->

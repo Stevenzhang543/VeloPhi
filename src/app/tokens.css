@@ -1,0 +1,334 @@
+/*
+ * VeloPhi design tokens, version 4 (26.64, D252–D258). The decisions and their reasons are in
+ * docs/design/DESIGN_SYSTEM.md; every token listed there exists here under the same name, and every token here is
+ * listed there. Components use these tokens and never write a colour or a radius themselves
+ * (scripts/token-lint.mjs); scripts/contrast-check.mjs computes the contrast of every text / ground pair registered in
+ * the design file from the values in this file, in the three modes below.
+ *
+ * Modes:
+ *   :root                       light (the default: classrooms project on white boards)
+ *   :root[data-theme="dark"]    dark
+ *   :root.projector             projection (larger type, stronger text and lines, solid materials), light or dark
+ * Classes set on <html> by appearance.ts:
+ *   glass-clear | glass-tinted | glass-solid   the material of floating controls (D255; default: tinted)
+ *   contrast-more                              the system asks for more contrast: stronger text and lines, solid
+ *   density-compact                            the sizes of 26.56
+ *   fx-calm                                    reduced motion: no transitions, decorations stand still
+ *
+ * The names of version 3 are kept where the role did not change, so the components of the other work packages take
+ * the new values without an edit. Deprecated aliases are at the end of each block and are not to be used in new code.
+ */
+
+/* Latin, Greek and figures: Source Sans 3 (SIL OFL 1.1), the Latin companion of Noto Sans SC (design file §3). Only
+   the upright variable files of the three subsets the interface uses are bundled; unicode-range loads them on demand. */
+@font-face {
+  font-family: 'Source Sans 3 Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 900;
+  src: url('../../node_modules/@fontsource-variable/source-sans-3/files/source-sans-3-latin-wght-normal.woff2') format('woff2-variations');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Source Sans 3 Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 900;
+  src: url('../../node_modules/@fontsource-variable/source-sans-3/files/source-sans-3-latin-ext-wght-normal.woff2') format('woff2-variations');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Source Sans 3 Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 900;
+  src: url('../../node_modules/@fontsource-variable/source-sans-3/files/source-sans-3-greek-wght-normal.woff2') format('woff2-variations');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+
+/* 26.65 (D294): the same Latin files for the Chinese interface under another name, with the punctuation that Chinese
+   sets as full-width squares left out of the range — — ― ‘ ’ “ ” … (U+2014, 2015, 2018, 2019, 201C, 201D, 2026) go to
+   Noto Sans SC. With the range above they were drawn half-width by Source Sans 3 ("场景" instead of “场景”). The middle
+   dot · and the en dash – stay Latin (kg·m², v–t 图). */
+@font-face {
+  font-family: 'VP Latin Z';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 900;
+  src: url('../../node_modules/@fontsource-variable/source-sans-3/files/source-sans-3-latin-wght-normal.woff2') format('woff2-variations');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-2013, U+2016-2017, U+201A-201B, U+201E-2025, U+2027-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'VP Latin Z';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 900;
+  src: url('../../node_modules/@fontsource-variable/source-sans-3/files/source-sans-3-latin-ext-wght-normal.woff2') format('woff2-variations');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'VP Latin Z';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 900;
+  src: url('../../node_modules/@fontsource-variable/source-sans-3/files/source-sans-3-greek-wght-normal.woff2') format('woff2-variations');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+
+:root {
+  /* No synthesised italics (Chinese has none; no italic files are bundled); bold synthesis stays for Android's
+     system fonts, which often come in one or two weights */
+  font-synthesis-style: none;
+  /* ---- Type ---- */
+  --font-ui: "Source Sans 3 Variable", "Noto Sans SC Variable", "Microsoft YaHei UI", "Noto Sans CJK SC", "Source Han Sans SC", system-ui, sans-serif;
+  --font-code: "JetBrains Mono Variable", "Cascadia Code", ui-monospace, Consolas, monospace;
+  --ui-scale: 1;
+  --proj-scale: 1;
+  --zoom: calc(var(--ui-scale) * var(--proj-scale));
+  /* The scale (26.65, D294): whole pixels only, nothing under 12 px (Chinese is not legible below it); body 14; panel
+     title 18 (1.29 × body: in a 340 px inspector 20 px was loud); page title 28 (2 × body); the home wordmark 44 */
+  --type-hero: calc(44px * var(--zoom));
+  --type-page: calc(28px * var(--zoom));
+  --type-display: calc(22px * var(--zoom));
+  --type-panel: calc(18px * var(--zoom));
+  --type-subtitle: calc(16px * var(--zoom));
+  --type-body: calc(14px * var(--zoom));
+  --type-small: calc(13px * var(--zoom));
+  --type-tiny: calc(12px * var(--zoom));
+  /* Line heights by language (CJK glyphs fill their em box and need more leading): body text, titles, paragraphs */
+  --line-body: 1.5;
+  --line-tight: 1.2;
+  --line-para: 1.55;
+  /* Tracking of large Latin titles; Chinese is never tracked tighter (clreq: set solid) */
+  --track-display: -0.01em;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-strong: 600;
+  --weight-title: 600;
+
+  /* ---- Space (4 px grid) ---- */
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 20px; --space-6: 24px; --space-8: 32px; --space-10: 40px; --space-12: 48px;
+
+  /* ---- Sizes of the shell and of controls ---- */
+  --rail-w: calc(76px * var(--zoom));
+  --bar-h: calc(48px * var(--zoom));
+  --status-h: calc(26px * var(--zoom));
+  --control-h: calc(32px * var(--zoom));
+  --control-sm: calc(28px * var(--zoom));
+  --control-lg: calc(40px * var(--zoom));
+  --tab-h: calc(26px * var(--zoom));
+  --menu-row: calc(32px * var(--zoom));
+  --touch-min: 44px;
+  --hit-min: 24px;
+  --drawer-w: calc(340px * var(--zoom));
+
+  /* ---- Radii: an instrument has crisp corners; nested radii stay concentric (row 4 in control 6 in panel 8) ---- */
+  --radius-row: 4px;
+  --radius-control: 6px;
+  --radius-group: 6px;
+  --radius-panel: 8px;
+  /* 26.65 (D296): bars floating on a canvas — inner padding 4 + control radius 6, so the corners stay concentric */
+  --radius-bar: 10px;
+  --radius-float: 12px;
+  --radius-pill: 999px;
+  --radius-round: 50%;
+
+  /* ---- Motion (D256): by how often a thing is used; opacity and transform only; critical damping, no bounce ---- */
+  --dur-flash: 160ms;
+  --dur-press: 80ms;
+  --dur-release: 150ms;
+  --dur-fast: 120ms;
+  --dur-enter: 220ms;
+  --dur-exit: 150ms;
+  --dur-slow: 600ms;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --press-scale: 0.97;
+
+  /* ---- Lines of an instrument: the stroke of interface icons and the ticks of a scale ---- */
+  --stroke-icon: 1.5;
+  --tick-step: 8px;
+  --tick-major: 5;
+  --tick-h: 5px;
+  --tick-h-major: 9px;
+
+  /* ---- Colour, light: cool paper grounds, graphite-blue ink, one cobalt accent ---- */
+  --bg: #f3f5f8;
+  --chrome: #e9ecf1;
+  --pane: #fcfdfe;
+  --group: #f1f3f6;
+  --fill: rgba(27, 38, 59, 0.07);
+  --fill-strong: rgba(27, 38, 59, 0.12);
+  --hover: rgba(27, 38, 59, 0.05);
+  --border: rgba(27, 38, 59, 0.14);
+  --separator: rgba(27, 38, 59, 0.16);
+  --tick: rgba(27, 38, 59, 0.34);
+  --tick-minor: rgba(27, 38, 59, 0.18);
+  --text: #161b24;
+  --text-2: #465061;
+  --text-3: #5f6979;
+  --accent: #2450d6;
+  --accent-strong: #1a3da8;
+  --accent-soft: rgba(36, 80, 214, 0.11);
+  --accent-press: rgba(36, 80, 214, 0.2);
+  --on-accent: #ffffff;
+  --ring: rgba(36, 80, 214, 0.36);
+  --success: #15703d;
+  --success-soft: rgba(21, 112, 61, 0.12);
+  --warning: #8f5600;
+  --warning-soft: rgba(176, 110, 0, 0.14);
+  --danger: #c4261a;
+  --danger-soft: rgba(196, 38, 26, 0.11);
+  --raised: #fcfdfe;
+  --knob: #ffffff;
+  --scrim: rgba(13, 18, 28, 0.42);
+  --tip-bg: #1b212c;
+  --tip-text: #eef1f6;
+  --tip-key: rgba(255, 255, 255, 0.16);
+  --canvas-bg: #fbfcfd;
+  --trace: var(--accent);
+  --ink-shadow: rgba(13, 18, 28, 0.1);
+  --ink-shadow-strong: rgba(13, 18, 28, 0.2);
+
+  /* The five panels (D240): the rail's selected indicator, the accent line of the stage, empty-state drawings — nothing else */
+  --panel-motion: #1f6fb5;
+  --panel-physics: #a8610a;
+  --panel-chem: #0a8468;
+  --panel-library: #6657c2;
+  --panel-monitor: #b53d7a;
+
+  /* ---- Elevation: three levels; hairlines first, a short shadow second ---- */
+  --elev-1: 0 0 0 1px var(--border);
+  --elev-2: 0 0 0 1px var(--border), 0 2px 8px var(--ink-shadow);
+  --elev-3: 0 0 0 1px var(--border), 0 12px 36px var(--ink-shadow-strong), 0 2px 6px var(--ink-shadow);
+  --elev-float: 0 10px 30px var(--ink-shadow-strong), 0 1px 3px var(--ink-shadow);
+
+  /* ---- Material (D255): the glass of floating controls. The tier classes below set these five ---- */
+  --glass-fill: rgba(252, 253, 254, 0.9);
+  --glass-blur: 14px;
+  --glass-sat: 1.2;
+  --glass-edge: rgba(27, 38, 59, 0.14);
+  --glass-spec: rgba(255, 255, 255, 0.6);
+  --glass-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+
+  /* ---- Deprecated aliases of version 3 (kept for the components not migrated yet) ---- */
+  --font-mono: var(--font-code);
+  --type-title: var(--type-subtitle);
+  --radius-pane: var(--radius-panel);
+  --shadow: var(--elev-1);
+  --shadow-pop: var(--elev-3);
+  --dur-1: var(--dur-press); --dur-2: var(--dur-fast); --dur-3: var(--dur-enter);
+  --dur-toggle: var(--dur-fast); --dur-panel: var(--dur-enter);
+  --ease-spring: var(--ease-out);
+  --glass-pop: var(--glass-fill);
+  --glass-rim: var(--glass-spec);
+  --glass-blur-small: var(--glass-blur);
+  color-scheme: light;
+
+  /* ---- 26.65 (D7): lines of the canvas (render/renderer.ts CANVAS_TOKENS; the palette there holds the same values) ---- */
+  --canvas-field-line: #0f766e;
+  --canvas-field-faint: rgba(15, 118, 110, 0.34);
+  --canvas-equipotential: rgba(60, 60, 67, 0.58);
+  --canvas-trajectory-ink: #1c1c1e;
+}
+
+/* 26.60 r2: Android draws with its own fonts (Roboto and Noto Sans CJK, chosen by the page language); the bundled
+   variable fonts are not loaded there (platform/device.ts) */
+:root.sysfont {
+  --font-ui: system-ui, "Roboto", "Noto Sans CJK SC", sans-serif;
+  --font-code: ui-monospace, "Droid Sans Mono", monospace;
+}
+
+/* ---- Colour, dark: deep graphite blue, never pure black; the accent is light and carries dark text ---- */
+:root[data-theme="dark"] {
+  --bg: #12161d;
+  --chrome: #0d1016;
+  --pane: #1a1f28;
+  --group: #222833;
+  --fill: rgba(214, 224, 245, 0.09);
+  --fill-strong: rgba(214, 224, 245, 0.15);
+  --hover: rgba(214, 224, 245, 0.06);
+  --border: rgba(214, 224, 245, 0.13);
+  --separator: rgba(214, 224, 245, 0.15);
+  --tick: rgba(214, 224, 245, 0.36);
+  --tick-minor: rgba(214, 224, 245, 0.18);
+  --text: #eceff4;
+  --text-2: #b9c1ce;
+  --text-3: #8f99a8;
+  --accent: #8aa7ff;
+  --accent-strong: #b3c5ff;
+  --accent-soft: rgba(138, 167, 255, 0.16);
+  --accent-press: rgba(138, 167, 255, 0.26);
+  --on-accent: #0b1224;
+  --ring: rgba(138, 167, 255, 0.5);
+  --success: #4cc98a;
+  --success-soft: rgba(76, 201, 138, 0.16);
+  --warning: #f0b35a;
+  --warning-soft: rgba(240, 179, 90, 0.16);
+  --danger: #ff7b6e;
+  --danger-soft: rgba(255, 123, 110, 0.16);
+  --raised: #343b49;
+  --knob: #f4f6fa;
+  --scrim: rgba(3, 5, 9, 0.6);
+  --tip-bg: #e9edf3;
+  --tip-text: #161b24;
+  --tip-key: rgba(13, 18, 28, 0.12);
+  --canvas-bg: #141920;
+  --ink-shadow: rgba(0, 0, 0, 0.36);
+  --ink-shadow-strong: rgba(0, 0, 0, 0.55);
+  --panel-motion: #6fb1f0;
+  --panel-physics: #e0a050;
+  --panel-chem: #4cc7a4;
+  --panel-library: #a99cf0;
+  --panel-monitor: #ee86b8;
+  --glass-fill: rgba(26, 31, 40, 0.9);
+  --glass-edge: rgba(214, 224, 245, 0.16);
+  --glass-spec: rgba(255, 255, 255, 0.07);
+  color-scheme: dark;
+  /* 26.65 (D7): canvas lines that keep their contrast on the dark canvas */
+  --canvas-field-line: #5eead4;
+  --canvas-field-faint: rgba(94, 234, 212, 0.36);
+  --canvas-equipotential: rgba(235, 235, 245, 0.42);
+  --canvas-trajectory-ink: #f5f5f7;
+}
+
+/* ---- Material tiers (D255). 着色 is the default above; 通透 thins the fill and adds blur, saturation and the edge
+   highlight; 实色 has no translucency at all. Projection, "reduce transparency" and "more contrast" resolve to 实色
+   in appearance.ts, so only one of the three classes is ever set. ---- */
+:root.glass-clear { --glass-fill: rgba(252, 253, 254, 0.74); --glass-blur: 22px; --glass-sat: 1.6; --glass-spec: rgba(255, 255, 255, 0.9); }
+:root.glass-clear[data-theme="dark"] { --glass-fill: rgba(26, 31, 40, 0.76); --glass-spec: rgba(255, 255, 255, 0.14); }
+:root.glass-solid { --glass-fill: var(--pane); --glass-blur: 0px; --glass-sat: 1; --glass-spec: transparent; --glass-filter: none; }
+/* Without backdrop-filter the thin fill of 通透 would leave text on the bare canvas: it takes the fill of 着色 */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root.glass-clear { --glass-fill: rgba(252, 253, 254, 0.9); }
+  :root.glass-clear[data-theme="dark"] { --glass-fill: rgba(26, 31, 40, 0.9); }
+}
+
+/* ---- The Chinese interface (26.65, D294): its own Latin face, more leading, no negative tracking ---- */
+:root:lang(zh) {
+  --font-ui: "VP Latin Z", "Noto Sans SC Variable", "Microsoft YaHei UI", "Noto Sans CJK SC", "Source Han Sans SC", system-ui, sans-serif;
+  --line-body: 1.6; --line-tight: 1.3; --line-para: 1.75; --track-display: 0;
+}
+
+/* ---- “紧凑” density: the sizes of 26.56 ---- */
+:root.density-compact {
+  --type-panel: calc(17px * var(--zoom)); --type-subtitle: calc(15px * var(--zoom)); --type-body: calc(13px * var(--zoom)); --type-small: calc(12px * var(--zoom)); --type-tiny: calc(12px * var(--zoom));
+  --control-h: calc(28px * var(--zoom)); --control-sm: calc(26px * var(--zoom)); --tab-h: calc(24px * var(--zoom)); --menu-row: calc(30px * var(--zoom)); --line-body: 1.4;
+}
+
+/* ---- Projection and "more contrast": stronger secondary text and lines; projection also scales the type ---- */
+:root.projector { --proj-scale: 1.18; }
+:root.projector, :root.contrast-more {
+  --bg: #e8ebf0; --chrome: #dcdfe6;
+  --text-2: #2b3340; --text-3: #414b5a;
+  --border: rgba(27, 38, 59, 0.34); --separator: rgba(27, 38, 59, 0.3); --fill: rgba(27, 38, 59, 0.1); --fill-strong: rgba(27, 38, 59, 0.17);
+  --tick: rgba(27, 38, 59, 0.6); --tick-minor: rgba(27, 38, 59, 0.34);
+  --success: #0f5a30; --warning: #744600; --danger: #a81f15;
+}
+:root.projector[data-theme="dark"], :root.contrast-more[data-theme="dark"] {
+  --bg: #06080b; --chrome: #06080b; --pane: #11151b; --group: #1a1f28;
+  --text-2: #dfe4ec; --text-3: #c3cad6;
+  --border: rgba(214, 224, 245, 0.36); --separator: rgba(214, 224, 245, 0.32); --fill: rgba(214, 224, 245, 0.14); --fill-strong: rgba(214, 224, 245, 0.22);
+  --tick: rgba(214, 224, 245, 0.62); --tick-minor: rgba(214, 224, 245, 0.36);
+  --success: #5fd69a; --warning: #f5bf6e; --danger: #ff8d82;
+}

@@ -7,7 +7,7 @@
  * so evictions and rebuilds (a small `budget`) are part of what is compared.
  */
 import type { Scene } from '../../src/core/scene/types'
-import { SimulationRun, exactStateAt, frameLedger } from './core/solver/simulation'
+import { SimulationRun, exactStateAt, frameLedger, sampling } from './core/solver/simulation'
 import type { Recording } from './core/solver/simulation'
 import { StreamRecording } from './core/solver/stream'
 import { DeltaWriter } from './core/solver/transport'
@@ -100,6 +100,13 @@ function situationsOf(sess: RefSession): Situation[] {
 }
 
 const condJson = (c: Condition) => ({ id: c.id, label: c.label, status: c.status, detail: c.detail })
+/** 26.65 (P7): sample a situation as the Rust core does (formula/mod.rs `sample_situation`). */
+function sampleSituation(sit: Situation, t: number): Sample {
+  const prev = sampling.end
+  sampling.end = sit.t1 > sit.t0 + 1e-12 ? sit.t1 : null
+  try { return sit.sample(t) } finally { sampling.end = prev }
+}
+
 function sampleJson(sm: Sample) {
   const vars: Record<string, unknown> = {}, measures: Record<string, unknown> = {}
   for (const [k, v] of Object.entries(sm.vars)) vars[k] = { value: v.value, unit: v.unit, symbol: v.symbol, label: v.label }
@@ -206,12 +213,12 @@ export function refCall(sess: RefSession, req: CalcRequest): unknown {
       const sit = situationsOf(sess).find(x => x.key === req.key)
       if (!sit) throw new Error('no such situation')
       const t = Number(req.t)
-      return { sample: sampleJson(sit.sample(Math.min(Math.max(t, sit.t0), sit.t1))) }
+      return { sample: sampleJson(sampleSituation(sit, Math.min(Math.max(t, sit.t0), sit.t1))) }
     }
     case 'cards': {
       const t = Number(req.t)
       const groups = activeSituations(situationsOf(sess), t).map(sit => {
-        const sm = sit.sample(Math.min(Math.max(t, sit.t0), sit.t1))
+        const sm = sampleSituation(sit, Math.min(Math.max(t, sit.t0), sit.t1))
         return { situation: situationJson(sit), sample: sampleJson(sm), cards: FORMULAS.filter(f => f.situation === sit.type).map(f => cardJson(evaluateCard(f, sit, sm, { digits: 6 }))) }
       })
       return { groups }

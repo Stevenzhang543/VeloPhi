@@ -1,0 +1,550 @@
+{
+ "format": "velophi-xs2g",
+ "version": 1,
+ "generator": {
+  "script": "scripts/chem/build_xs2g.py",
+  "sources": {
+   "nuclides.json": "3a3e438cdda4fb9e071f8d1f3e228e074e60234e88f84020a85524725cd8700e"
+  }
+ },
+ "teaching": "Teaching values for a two-group diffusion model with homogenised cells. Not evaluated nuclear data; not for design or safety analysis.",
+ "sources": {
+  "lamarsh": "J.R. Lamarsh, A.J. Baratta, Introduction to Nuclear Engineering, 3rd ed., Prentice Hall 2001: Tables 5.2, 5.3, 7.5 and the 2200 m/s data of Table II.2",
+  "iaea2d": "IAEA 2-D PWR benchmark, ANL-7416 Supplement 2 (1977), problem 11-A2",
+  "orpheus": "ORPHEUS teaching code, theory manual, reactor kinetics (docs/research/2664/chemistry.md, source 31)",
+  "ijs": "TRIGA reactor simulator physics manual, Jozef Stefan Institute (docs/research/2664/chemistry.md, source 28)",
+  "nubase": "NUBASE2020: F.G. Kondev et al., Chinese Physics C 45 (2021) 030001",
+  "tk": "N.E. Todreas, M.S. Kazimi, Nuclear Systems I, decay heat after long operation P/P0 = 0.066 t^-0.2",
+  "derived": "computed by scripts/chem/build_xs2g.py from the cited inputs",
+  "teaching": "chosen for this teaching model; see the note of the entry"
+ },
+ "groups": {
+  "boundary_eV": 0.625,
+  "T_ref_K": 293.0,
+  "v1_cm_s": 3000000.0,
+  "v2_cm_s": 248000.0,
+  "note": "v2: mean speed of a Maxwellian at 293 K (2/sqrt(pi) times 2200 m/s), grows with the square root of the moderator temperature; v1: chosen so the slowing-down time 1/(v1 Sigma_s12) is 8 microseconds in water and 0.12 ms in graphite",
+  "src": {
+   "v1_cm_s": "teaching",
+   "v2_cm_s": "derived"
+  }
+ },
+ "kinetics": {
+  "beta": [
+   0.0002584,
+   0.00152,
+   0.001391,
+   0.00307,
+   0.001102,
+   0.0002584
+  ],
+  "lambda": [
+   0.013,
+   0.032,
+   0.119,
+   0.318,
+   1.403,
+   3.929
+  ],
+  "src": "orpheus"
+ },
+ "fission": {
+  "energy_J": 3.204e-11,
+  "note": "200 MeV per fission",
+  "src": "lamarsh"
+ },
+ "poisons": {
+  "gammaI": 0.0639,
+  "gammaXe": 0.00237,
+  "gammaPm": 0.01071,
+  "lambdaI": 2.92615e-05,
+  "lambdaXe": 2.10657e-05,
+  "lambdaPm": 3.62737e-06,
+  "sigmaXe_b": 2650000.0,
+  "sigmaSm_b": 41000.0,
+  "src": {
+   "gammaI": "lamarsh",
+   "gammaXe": "lamarsh",
+   "gammaPm": "lamarsh",
+   "lambdaI": "nubase",
+   "lambdaXe": "nubase",
+   "lambdaPm": "nubase",
+   "sigmaXe_b": "ijs",
+   "sigmaSm_b": "lamarsh"
+  },
+  "note": "Yields per fission of U-235 by thermal neutrons; the absorption cross-sections are thermal averages used as they are (no 1/v correction)."
+ },
+ "decayHeat": {
+  "lambda": [
+   0.316228,
+   0.1,
+   0.0316228,
+   0.01,
+   0.00316228,
+   0.001,
+   0.000316228,
+   0.0001,
+   3.16228e-05,
+   1e-05,
+   3.16228e-06,
+   1e-06,
+   3.16228e-07,
+   1e-07,
+   3.16228e-08,
+   1e-08,
+   1e-09
+  ],
+  "a": [
+   0.0248,
+   0.003989,
+   0.0115,
+   0.005064,
+   0.005948,
+   0.003825,
+   0.003457,
+   0.00255,
+   0.002119,
+   0.001637,
+   0.001325,
+   0.001036,
+   0.0008394,
+   0.0006401,
+   0.0005799,
+   0.0002926,
+   0.001685
+  ],
+  "fitError": 0.034,
+  "src": "tk",
+  "note": "Non-negative least-squares fit of 0.066 t^-0.2 by exponential groups on 1 s to 1e8 s (relative error fitError). The sum of a is the decay-heat share of the power in equilibrium."
+ },
+ "materials": [
+  {
+   "id": "fuel_nat",
+   "kind": "fuel",
+   "name": {
+    "zh": "天然铀燃料",
+    "en": "Natural-uranium fuel",
+    "de": "Natururan-Brennstoff"
+   },
+   "xs": {
+    "D1": 1.6,
+    "D2": 2.0,
+    "a1": 0.00069093,
+    "nf1": 0.00031042,
+    "f1": 0.0001219,
+    "a2": 0.0047894,
+    "nf2": 0.0062019,
+    "f2": 0.0025649,
+    "s12": 0.0
+   },
+   "src": {
+    "D1": "teaching",
+    "D2": "teaching",
+    "a1": "derived",
+    "a2": "derived",
+    "s12": "teaching",
+    "nf1": "derived",
+    "nf2": "derived",
+    "f1": "derived",
+    "f2": "derived"
+   },
+   "note": "Uranium metal rod in an otherwise empty channel: 2 % of the cell is uranium (0.711 wt% U-235). Thermal: Maxwellian averages of the 2200 m/s data divided by a self-shielding factor 1.4 (a rod of about 3 cm), plus 1.5e-4 /cm for can, air and impurities. Fast: U-238 resonance capture with an effective resonance integral of 10 b over the lethargy 18.2, fast fission of U-238 with 0.04 b, epithermal U-235 fission 12 b and capture 6 b. D (1.6 and 2.0 cm) chosen between a moderator and a cavity: the channel is mostly empty. For lattices with a large pitch (about 20 cm) in graphite or heavy water.",
+   "dep": {
+    "enrichment": 0.72,
+    "adjustable": false,
+    "base": {
+     "D1": 1.6,
+     "D2": 2.0,
+     "a1": 0.00056976,
+     "nf1": 0.00010826,
+     "f1": 3.8664e-05,
+     "a2": 0.0018021,
+     "nf2": 0.0,
+     "f2": 0.0,
+     "s12": 0.0
+    },
+    "perPercent": {
+     "a1": 0.00016829,
+     "nf1": 0.00028078,
+     "f1": 0.00011561,
+     "a2": 0.0041491,
+     "nf2": 0.0086137,
+     "f2": 0.0035623
+    },
+    "c28": 0.0005311,
+    "doppler": 0.005,
+    "oneOverV": true,
+    "damage_K": 1405.0
+   }
+  },
+  {
+   "id": "fuel_leu",
+   "kind": "fuel",
+   "name": {
+    "zh": "低浓铀燃料",
+    "en": "Low-enriched uranium fuel",
+    "de": "Schwach angereicherter Uranbrennstoff"
+   },
+   "xs": {
+    "D1": 2.0,
+    "D2": 0.85,
+    "a1": 0.017779,
+    "nf1": 0.011968,
+    "f1": 0.0047711,
+    "a2": 0.19466,
+    "nf2": 0.35522,
+    "f2": 0.14691,
+    "s12": 0.0
+   },
+   "src": {
+    "D1": "derived",
+    "D2": "derived",
+    "a1": "derived",
+    "a2": "derived",
+    "s12": "teaching",
+    "nf1": "derived",
+    "nf2": "derived",
+    "f1": "derived",
+    "f2": "derived"
+   },
+   "note": "UO2 rod bundle without moderator: 45 % of the cell is UO2, 12 % zircaloy; enrichment adjustable from 0.72 to 5 wt% (reference 3 %). Thermal: Maxwellian averages divided by a self-shielding factor 1.1. Fast: effective resonance integral 20 b, fast fission of U-238 0.10 b, epithermal U-235 fission 12 b and capture 6 b. For tight lattices (pitch of 1 to 2 cm) with light water.",
+   "dep": {
+    "enrichment": 3.0,
+    "adjustable": true,
+    "min": 0.72,
+    "max": 5.0,
+    "base": {
+     "D1": 2.0,
+     "D2": 0.85,
+     "a1": 0.012517,
+     "nf1": 0.0029232,
+     "f1": 0.001044,
+     "a2": 0.023554,
+     "nf2": 0.0,
+     "f2": 0.0,
+     "s12": 0.0
+    },
+    "perPercent": {
+     "a1": 0.001754,
+     "nf1": 0.0030151,
+     "f1": 0.0012424,
+     "a2": 0.057036,
+     "nf2": 0.11841,
+     "f2": 0.048969
+    },
+    "c28": 0.011473,
+    "doppler": 0.006,
+    "oneOverV": true,
+    "damage_K": 3120.0
+   }
+  },
+  {
+   "id": "water",
+   "kind": "moderator",
+   "name": {
+    "zh": "轻水",
+    "en": "Light water",
+    "de": "Leichtes Wasser"
+   },
+   "xs": {
+    "D1": 1.13,
+    "D2": 0.16,
+    "a1": 0.0,
+    "a2": 0.0197,
+    "s12": 0.0419,
+    "nf1": 0.0,
+    "nf2": 0.0,
+    "f1": 0.0,
+    "f2": 0.0
+   },
+   "src": {
+    "D1": "lamarsh",
+    "D2": "lamarsh",
+    "a2": "lamarsh",
+    "s12": "lamarsh",
+    "a1": "teaching"
+   },
+   "note": "H2O at 293 K (Lamarsh Tables 5.2 and 5.3); fast absorption neglected. Density with temperature by a quadratic fit to pressurised liquid water, 1 - 2.0e-4 dT - 2.6e-6 dT^2 (dT above 293 K; 0.73 at 580 K); the Sigmas follow the density and the void fraction, D its inverse, thermal absorption also 1/v.",
+   "dep": {
+    "density": [
+     0.0002,
+     2.6e-06
+    ],
+    "oneOverV": true
+   }
+  },
+  {
+   "id": "heavy_water",
+   "kind": "moderator",
+   "name": {
+    "zh": "重水",
+    "en": "Heavy water",
+    "de": "Schweres Wasser"
+   },
+   "xs": {
+    "D1": 1.29,
+    "D2": 0.87,
+    "a1": 0.0,
+    "a2": 9.3e-05,
+    "s12": 0.00985,
+    "nf1": 0.0,
+    "nf2": 0.0,
+    "f1": 0.0,
+    "f2": 0.0
+   },
+   "src": {
+    "D1": "lamarsh",
+    "D2": "lamarsh",
+    "a2": "lamarsh",
+    "s12": "lamarsh",
+    "a1": "teaching"
+   },
+   "note": "D2O with 0.25 % H2O at 293 K (Lamarsh Tables 5.2 and 5.3); the same density fit as light water.",
+   "dep": {
+    "density": [
+     0.0002,
+     2.6e-06
+    ],
+    "oneOverV": true
+   }
+  },
+  {
+   "id": "graphite",
+   "kind": "solid",
+   "name": {
+    "zh": "石墨",
+    "en": "Graphite",
+    "de": "Graphit"
+   },
+   "xs": {
+    "D1": 1.016,
+    "D2": 0.84,
+    "a1": 0.0,
+    "a2": 0.00024,
+    "s12": 0.00276,
+    "nf1": 0.0,
+    "nf2": 0.0,
+    "f1": 0.0,
+    "f2": 0.0
+   },
+   "src": {
+    "D1": "lamarsh",
+    "D2": "lamarsh",
+    "a2": "lamarsh",
+    "s12": "lamarsh",
+    "a1": "teaching"
+   },
+   "note": "Reactor graphite, 1.60 g/cm3, at 293 K (Lamarsh Tables 5.2 and 5.3); thermal absorption 1/v with its temperature.",
+   "dep": {
+    "oneOverV": true
+   }
+  },
+  {
+   "id": "steel",
+   "kind": "structure",
+   "name": {
+    "zh": "不锈钢",
+    "en": "Stainless steel",
+    "de": "Edelstahl"
+   },
+   "xs": {
+    "D1": 1.1,
+    "D2": 0.29,
+    "a1": 0.003,
+    "a2": 0.211,
+    "s12": 0.001,
+    "nf1": 0.0,
+    "nf2": 0.0,
+    "f1": 0.0,
+    "f2": 0.0
+   },
+   "src": {
+    "D1": "teaching",
+    "D2": "teaching",
+    "a1": "teaching",
+    "a2": "derived",
+    "s12": "teaching"
+   },
+   "note": "Type 304: thermal absorption from the 2200 m/s cross-sections of Fe, Cr and Ni (2.56, 3.1, 4.5 b) and their number densities; reflector and structure."
+  },
+  {
+   "id": "zircaloy",
+   "kind": "structure",
+   "name": {
+    "zh": "锆合金",
+    "en": "Zircaloy",
+    "de": "Zircaloy"
+   },
+   "xs": {
+    "D1": 1.2,
+    "D2": 1.18,
+    "a1": 0.0005,
+    "a2": 0.00703,
+    "s12": 0.0003,
+    "nf1": 0.0,
+    "nf2": 0.0,
+    "f1": 0.0,
+    "f2": 0.0
+   },
+   "src": {
+    "D1": "teaching",
+    "D2": "derived",
+    "a1": "teaching",
+    "a2": "derived",
+    "s12": "teaching"
+   },
+   "note": "Zirconium, 0.0429 atoms per barn cm, absorption 0.185 b, scattering 6.4 b."
+  },
+  {
+   "id": "b4c",
+   "kind": "absorber",
+   "name": {
+    "zh": "碳化硼控制棒",
+    "en": "Boron-carbide control rod",
+    "de": "Borcarbid-Steuerstab"
+   },
+   "xs": {
+    "D1": 1.2,
+    "D2": 0.3,
+    "a1": 0.008,
+    "a2": 0.4,
+    "s12": 0.005,
+    "nf1": 0.0,
+    "nf2": 0.0,
+    "f1": 0.0,
+    "f2": 0.0
+   },
+   "src": {
+    "D1": "teaching",
+    "D2": "teaching",
+    "a1": "teaching",
+    "a2": "teaching",
+    "s12": "teaching"
+   },
+   "note": "Effective values of a homogenised rod cell: a real B4C rod is black to thermal neutrons, which diffusion theory cannot represent; 0.40 /cm makes a fully inserted cell strongly absorbing. Scale: the rodded assembly of the IAEA benchmark adds 0.045 /cm with rods in about a tenth of its area."
+  },
+  {
+   "id": "agincd",
+   "kind": "absorber",
+   "name": {
+    "zh": "银铟镉控制棒",
+    "en": "Silver-indium-cadmium control rod",
+    "de": "Silber-Indium-Cadmium-Steuerstab"
+   },
+   "xs": {
+    "D1": 1.2,
+    "D2": 0.3,
+    "a1": 0.015,
+    "a2": 0.25,
+    "s12": 0.003,
+    "nf1": 0.0,
+    "nf2": 0.0,
+    "f1": 0.0,
+    "f2": 0.0
+   },
+   "src": {
+    "D1": "teaching",
+    "D2": "teaching",
+    "a1": "teaching",
+    "a2": "teaching",
+    "s12": "teaching"
+   },
+   "note": "Effective values of a homogenised rod cell: weaker than B4C for thermal neutrons, stronger above (resonances of indium and silver)."
+  },
+  {
+   "id": "coolant",
+   "kind": "coolant",
+   "name": {
+    "zh": "冷却剂通道",
+    "en": "Coolant channel",
+    "de": "Kühlkanal"
+   },
+   "xs": {
+    "a1": 5.04e-05,
+    "a2": 0.01055,
+    "s12": 0.02098,
+    "nf1": 0.0,
+    "nf2": 0.0,
+    "f1": 0.0,
+    "f2": 0.0,
+    "D1": 1.651,
+    "D2": 0.304
+   },
+   "src": {
+    "D1": "derived",
+    "D2": "derived",
+    "a1": "derived",
+    "a2": "derived",
+    "s12": "derived"
+   },
+   "note": "A pressure tube with light-water coolant: 50 % water, 10 % zircaloy, 40 % gap (volume-weighted Sigmas, 1/D weighted). The water part follows the coolant temperature and void.",
+   "dep": {
+    "density": [
+     0.0002,
+     2.6e-06
+    ],
+    "oneOverV": true,
+    "liquidShare": {
+     "a2": 0.9336,
+     "s12": 0.9986
+    }
+   }
+  },
+  {
+   "id": "void",
+   "kind": "void",
+   "name": {
+    "zh": "空腔",
+    "en": "Cavity",
+    "de": "Hohlraum"
+   },
+   "xs": {
+    "D1": 5.0,
+    "D2": 5.0,
+    "a1": 1e-06,
+    "a2": 1e-06,
+    "s12": 0.0,
+    "nf1": 0.0,
+    "nf2": 0.0,
+    "f1": 0.0,
+    "f2": 0.0
+   },
+   "src": {
+    "D1": "teaching",
+    "D2": "teaching",
+    "a1": "teaching",
+    "a2": "teaching",
+    "s12": "teaching"
+   },
+   "note": "An empty cell. Neutrons stream through a cavity without collisions, which diffusion theory does not describe; a large diffusion coefficient (5 cm) stands in for it."
+  },
+  {
+   "id": "source",
+   "kind": "source",
+   "name": {
+    "zh": "中子源",
+    "en": "Neutron source",
+    "de": "Neutronenquelle"
+   },
+   "xs": {
+    "D1": 1.1,
+    "D2": 0.6,
+    "a1": 0.001,
+    "a2": 0.02,
+    "s12": 0.001,
+    "nf1": 0.0,
+    "nf2": 0.0,
+    "f1": 0.0,
+    "f2": 0.0
+   },
+   "src": {
+    "D1": "teaching",
+    "D2": "teaching",
+    "a1": "teaching",
+    "a2": "teaching",
+    "s12": "teaching"
+   },
+   "note": "A start-up source in a small steel capsule. The source strength is a property of the reactor document (neutrons per second); the cell itself is a weak absorber."
+  }
+ ]
+}

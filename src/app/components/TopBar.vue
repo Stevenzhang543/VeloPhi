@@ -3,37 +3,35 @@
  * Context bar (26.63, D232; it replaces the top bar of 26.60). Navigation between pages is the rail's; this bar holds
  * what belongs to the page shown.
  *
- * Studio: the document (name, unsaved mark, and a menu with new / open / save, share link, exports), undo and redo, the
- * three modes (搭建 · 仿真 · 分析), then 模板 and 题目, 视图 (what the canvas draws), 教学 (force diagram, tape, v–t area,
- * prediction tally, courseware and report), the run button with the 计算 menu (sweep, solver comparison, convergence
- * study), the solver badge, AI and the sidebar switch. Other pages: their title, search, and for the monitor the run
- * button. Phones: the navigation drawer, the document menu and undo; the rest is in the bottom tab bar.
+ * 运动 (26.65, D291) — 文件 (name, unsaved mark; new / open / save, share link, exports) · 撤销 / 重做 · 模板 ‖ 运行 ·
+ * the sidebar's views [属性] [分析] ([题目] while a problem or task is open) [AI] · 更多. The three "modes" of 26.64 are
+ * gone (they were only layout presets and shared the name 分析 with a sidebar tab); the solver badge is in the status
+ * bar; the sidebar has no tab row of its own — its view is chosen here, and pressing the view shown folds it
+ * (Keynote's inspector buttons). What 26.63 also kept on the bar is
+ * one level down in 更多, under four names: 题目, 视图 (what the canvas draws, the sidebar, light / dark), 教学 (force
+ * diagram, tape, v–t area, class tally, projection), 计算 (sweep, solver comparison, convergence study). Every control
+ * of the bar carries `data-bar-item` (tests/shell/budget2664.test.ts counts them). The experiment panels have no bar
+ * here on the desktop (26.65, D290: their name is the rail's selected item, their search is the rail's); the monitor
+ * keeps its title and run button. Phones: the navigation drawer, the document menu and undo; the rest is in the
+ * bottom tab bar.
  */
 import { tl } from '../../i18n'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { state, undo, redo, runSimulation, cancelSimulation, problemLocked, showToast } from '../store'
-import type { Page } from '../store'
+import { state, undo, redo, runSimulation, cancelSimulation, problemLocked, showToast, resolvePage } from '../store'
 import type { DisplayToggle } from '../settings'
 import { settings } from '../settings'
 import { newScene, openScene, saveScene } from '../files'
 import { MOD } from '../shortcuts'
 import Icon from './Icon.vue'
-import { vSlideIndicator } from '../slideIndicator'
 import TriCheck from './TriCheck.vue'
-import SolverBadge from './SolverBadge.vue'
 import { circularTransition } from '../viewTransition'
-import { STUDIO_MODES, phone, resetStudioMode, setCopilotOpen, setStudioMode, shell } from '../layout'
+import { phone, resetStudioMode, setCopilotOpen, shell, showSideTab, tabOf } from '../layout'
+import type { SideTab } from '../layout'
+// 26.64 (D240): the pages' names and icons are the rail's (panels.ts); the 教学 menu is shared by the experiment panels
+import { pageTitle } from '../panels'
+import TeachMenu from './TeachMenu.vue'
 import { tally } from '../tally'
-
-const PAGE_TITLE = computed((): Record<Page, { label: string; icon: string }> => ({
-  home: { label: tl('首页'), icon: 'home' },
-  studio: { label: tl('工作台'), icon: 'studio' },
-  lab: { label: tl('实验室'), icon: 'flask' },
-  library: { label: tl('资源库'), icon: 'library' },
-  classroom: { label: tl('课堂'), icon: 'classroom' },
-  monitor: { label: tl('渲染与监视'), icon: 'monitor' },
-  settings: { label: tl('设置'), icon: 'settings' }
-}))
+import { roleDefaults } from '../onboarding/state'
 
 /**
  * Display menu (26.54, D86): every overlay switch lives here, grouped, with four presets on top; nothing sits in
@@ -89,7 +87,14 @@ function presetOn(id: PresetId): boolean {
   return Object.entries(PRESET_VALUES[id]).every(([k, v]) => state.display[k as DisplayToggle] === v)
 }
 
-type MenuId = 'doc' | 'view' | 'teach' | 'compute' | null
+type MenuId = 'doc' | 'more' | null
+/** 更多 (D245): the four groups 26.63 kept on the bar; the one opened last is shown again. */
+type MoreGroup = 'problems' | 'view' | 'teach' | 'compute'
+const MORE_GROUPS: MoreGroup[] = ['problems', 'view', 'teach', 'compute']
+const moreGroup = ref<MoreGroup>(settings.ui.role ? roleDefaults(settings.ui.role).moreGroup : 'view')
+/** Open 更多 at one of its groups (the global search and Copilot's pointer use it: `velophi:studio-more`). */
+function showMore(e: Event) { const g = (e as CustomEvent<string>).detail as MoreGroup; if (MORE_GROUPS.includes(g)) moreGroup.value = g; open.value = 'more' }
+function pickedItem(e: MouseEvent) { if ((e.target as Element).closest('[role="menuitem"]')) open.value = null }
 const open = ref<MenuId>(null)
 function toggleMenu(id: MenuId) { open.value = open.value === id ? null : id }
 function closeOnOutside(e: PointerEvent) {
@@ -98,8 +103,8 @@ function closeOnOutside(e: PointerEvent) {
   if (!t.closest('.menu-anchor')) open.value = null
 }
 function closeOnEsc(e: KeyboardEvent) { if (e.key === 'Escape') open.value = null }
-onMounted(() => { window.addEventListener('pointerdown', closeOnOutside); window.addEventListener('keydown', closeOnEsc) })
-onBeforeUnmount(() => { window.removeEventListener('pointerdown', closeOnOutside); window.removeEventListener('keydown', closeOnEsc) })
+onMounted(() => { window.addEventListener('pointerdown', closeOnOutside); window.addEventListener('keydown', closeOnEsc); window.addEventListener('velophi:studio-more', showMore) })
+onBeforeUnmount(() => { window.removeEventListener('pointerdown', closeOnOutside); window.removeEventListener('keydown', closeOnEsc); window.removeEventListener('velophi:studio-more', showMore) })
 
 function act(fn: () => void) { open.value = null; fn() }
 const hasResult = () => !!state.recording && !state.stale
@@ -129,21 +134,38 @@ function toggleTheme(e?: MouseEvent) {
 function setGroup(keys: string[], on: boolean) { for (const k of keys) (state.display as unknown as Record<string, boolean>)[k] = on }
 const SIDE_KEY = `${MOD}+\\`
 const studio = computed(() => state.page === 'studio')
-const title = computed(() => PAGE_TITLE.value[state.page])
+/**
+ * The sidebar's views (26.65, D292). Pressing the view shown folds the sidebar; pressing another opens it there.
+ * 题目 appears while a problem is open or the task panel was chosen.
+ */
+const shownView = computed<SideTab | null>(() => (!shell.sideOpen ? null : state.showCopilot ? 'ai' : tabOf(state.rightTab)))
+const VIEWS = computed((): Array<{ id: SideTab; label: string; tip: string; ui: string }> => [
+  { id: 'inspect', label: tl('属性'), tip: tl('所选物体的参数；没有选择时是整个场景'), ui: 'tab-props' },
+  { id: 'analysis', label: tl('分析'), tip: tl('公式对照、监视读数、预测'), ui: 'tab-analysis' },
+  ...(state.problem || state.rightTab === 'task' || state.rightTab === 'problem' ? [{ id: 'problem' as const, label: tl('题目'), tip: tl('作答与揭晓、任务（已知、所求与核对）'), ui: 'tab-problems' }] : []),
+  ...(settings.ai.copilot ? [{ id: 'ai' as const, label: 'AI', tip: tl('Copilot：讲题、搭场景（{0}+I）', [MOD]), ui: 'copilot' }] : [])
+])
+function pickView(v: SideTab) {
+  if (shownView.value === v) { shell.sideOpen = false; if (v === 'ai') state.showCopilot = false; return }
+  if (v === 'ai') { setCopilotOpen(true); return }
+  showSideTab(v)
+}
+const title = computed(() => pageTitle(resolvePage(state.page).page))
 </script>
 
 <template>
   <header class="ctxbar" :class="{ phone }">
-    <button v-if="phone" type="button" class="btn icon ghost" data-ui="nav" :aria-label="tl('页面')" :aria-expanded="shell.navOpen" @click="shell.navOpen = true"><Icon name="menu" :size="19" /></button>
+    <button v-if="phone" type="button" class="btn icon ghost" data-ui="nav" data-bar-item="phone" :aria-label="tl('页面')" :aria-expanded="shell.navOpen" @click="shell.navOpen = true"><Icon name="menu" :size="19" /></button>
 
     <!-- The document: name and unsaved mark; its menu holds the file commands, the share link and the exports -->
-    <div v-if="studio" class="menu-anchor doc-anchor">
-      <button class="btn ghost doc" data-ui="file" :class="{ active: open === 'doc' }" :aria-expanded="open === 'doc'" :title="tl('文件：新建、打开、保存、分享链接、导出')" @click="toggleMenu('doc')">
+    <div v-if="studio" class="menu-anchor doc-anchor" data-bar-item="studio phone">
+      <button class="btn ghost doc" data-ui="file" :class="{ active: open === 'doc' }" :aria-expanded="open === 'doc'" :title="tl('文件：打开、保存、分享、导出')" @click="toggleMenu('doc')">
         <Icon name="file" :size="15" /><span class="doc-text">{{ state.fileName ?? state.scene.name }}</span><span class="dot" :class="{ on: state.dirty }" :title="tl('有未保存的修改')" /><Icon name="chevron" :size="11" />
       </button>
       <div v-if="open === 'doc'" class="menu doc-menu" role="menu">
         <button role="menuitem" @click="act(newScene)"><Icon name="file" />{{ tl('新建') }}<span class="spacer" /><kbd>{{ MOD }}+N</kbd></button>
         <button role="menuitem" @click="act(openScene)"><Icon name="open" />{{ tl('打开…') }}<span class="spacer" /><kbd>{{ MOD }}+O</kbd></button>
+        <button role="menuitem" data-ui="open-link" @click="act(() => { shell.openLink = true })"><Icon name="link" />{{ tl('从链接打开…') }}</button>
         <button role="menuitem" @click="act(() => saveScene(false))"><Icon name="save" />{{ tl('保存') }}<span class="spacer" /><kbd>{{ MOD }}+S</kbd></button>
         <button role="menuitem" @click="act(() => saveScene(true))"><Icon name="saveas" />{{ tl('另存为…') }}</button>
         <div class="sep" />
@@ -163,27 +185,43 @@ const title = computed(() => PAGE_TITLE.value[state.page])
     </div>
     <div v-else class="ptitle"><span class="pico"><Icon :name="title.icon" :size="17" /></span><span class="ptext">{{ title.label }}</span></div>
 
-    <div v-if="studio" class="group-btns">
+    <div v-if="studio" class="group-btns" role="group" :aria-label="tl('撤销与重做')" data-bar-item="studio phone" data-bar-group>
       <button class="btn icon ghost" data-ui="undo" :title="tl('撤销（{0}+Z）', [MOD])" :aria-label="tl('撤销')" :disabled="!state.past.length" @click="undo"><Icon name="undo" /></button>
       <button v-if="!phone" class="btn icon ghost" :title="tl('重做（{0}+Y）', [MOD])" :aria-label="tl('重做')" :disabled="!state.future.length" @click="redo"><Icon name="redo" /></button>
     </div>
 
-    <!-- The three studio modes -->
-    <nav v-if="!phone && studio" v-slide-indicator class="segmented modes" :aria-label="tl('工作模式')">
-      <button v-for="m in STUDIO_MODES" :key="m.id" :data-ui="`mode-${m.id}`" :class="{ on: shell.mode === m.id }" :aria-current="shell.mode === m.id ? 'true' : undefined" :title="tl(m.tip)" @click="setStudioMode(m.id)"><Icon :name="m.icon" :size="14" /><span class="lbl">{{ tl(m.label) }}</span></button>
-    </nav>
+    <button v-if="!phone && studio" class="btn ghost lib" data-ui="templates" data-bar-item="studio" :title="tl('经典模型模板')" @click="state.showTemplates = true"><Icon name="template" /><span class="lbl">{{ tl('模板') }}</span></button>
 
     <span class="spacer" />
 
-    <template v-if="!phone && studio">
-      <button class="btn ghost lib" data-ui="templates" :title="tl('经典模型模板')" @click="state.showTemplates = true"><Icon name="template" /><span class="lbl">{{ tl('模板') }}</span></button>
-      <button class="btn ghost lib" data-ui="problems" :class="{ active: !!state.problem }" :title="tl('按教材章节的内置题目、导入题目包、用当前场景出题')" @click="state.showProblems = true"><Icon name="problem" /><span class="lbl">{{ tl('题目') }}</span></button>
 
-      <!-- 视图: what the canvas draws (D86), light / dark, the mode's default layout -->
-      <div class="menu-anchor">
-        <button class="btn ghost lib" data-ui="view" :class="{ active: open === 'view' }" :aria-expanded="open === 'view'" :title="tl('画面上显示的内容、深浅色外观')" @click="toggleMenu('view')"><Icon name="eye" /><span class="lbl">{{ tl('视图') }}</span></button>
-        <div v-if="open === 'view'" class="menu right display-panel" role="menu">
-          <div class="menu-title">{{ tl('画面显示') }}</div>
+    <div v-if="!phone && (studio || state.page === 'monitor')" class="run" data-bar-item="studio page" data-bar-group>
+      <button class="btn primary" data-ui="run" :class="{ quiet: !state.stale && !!state.recording, busy: state.computing }" :title="tl('重新计算（{0}+Enter）', [MOD])" :aria-label="state.stale || !state.recording ? tl('运行仿真') : tl('重新计算')" @click="runSimulation()"><Icon name="run" /><span class="lbl">{{ state.stale || !state.recording ? tl('运行') : tl('重算') }}</span></button>
+    </div>
+    <!-- The sidebar's views (D292): one group of plain text buttons; the view shown is pressed -->
+    <div v-if="!phone && studio" class="views" role="group" :aria-label="tl('侧栏')" data-bar-item="studio" data-bar-group>
+      <button v-for="v in VIEWS" :key="v.id" type="button" class="view-btn" :data-ui="v.ui" :class="{ on: shownView === v.id }" :aria-pressed="shownView === v.id" :title="v.tip" @click="pickView(v.id)">{{ v.label }}</button>
+    </div>
+
+    <!-- 更多 (26.64, D245): what 26.63 kept on the bar — 题目, 视图, 教学, 计算 — one level down, under these four names -->
+    <div v-if="!phone && studio" class="menu-anchor" data-bar-item="studio">
+      <button class="btn icon ghost" data-ui="studio-more" :class="{ active: open === 'more' }" aria-haspopup="dialog" :aria-expanded="open === 'more'" :title="tl('更多：题目、视图、教学、计算')" :aria-label="tl('更多')" @click="toggleMenu('more')"><Icon name="more" /></button>
+      <div v-if="open === 'more'" class="menu right more-panel" role="dialog" :aria-label="tl('更多')">
+        <div class="tabs" role="tablist">
+          <button type="button" role="tab" data-ui="problems" :class="{ on: moreGroup === 'problems' }" :aria-selected="moreGroup === 'problems'" @click="moreGroup = 'problems'">{{ tl('题目') }}</button>
+          <button type="button" role="tab" data-ui="view" :class="{ on: moreGroup === 'view' }" :aria-selected="moreGroup === 'view'" @click="moreGroup = 'view'">{{ tl('视图') }}</button>
+          <button type="button" role="tab" data-ui="teach" :class="{ on: moreGroup === 'teach' }" :aria-selected="moreGroup === 'teach'" @click="moreGroup = 'teach'">{{ tl('教学') }}</button>
+          <button type="button" role="tab" data-ui="compute" :class="{ on: moreGroup === 'compute' }" :aria-selected="moreGroup === 'compute'" @click="moreGroup = 'compute'">{{ tl('计算') }}</button>
+        </div>
+
+        <div v-if="moreGroup === 'problems'" class="menu-col" role="menu">
+          <button role="menuitem" data-ui="problems-open" @click="act(() => { state.showProblems = true })"><Icon name="problem" />{{ tl('题目库…') }}</button>
+          <button role="menuitem" @click="act(() => { state.rightTab = 'task'; shell.sideOpen = true })"><Icon name="target" />{{ tl('解一道题（任务）') }}</button>
+          <button role="menuitem" @click="act(() => { state.showLearning = true })"><Icon name="graduation" />{{ tl('学习路径…') }}</button>
+        </div>
+
+        <!-- 视图: what the canvas draws (D86), light / dark, the mode's default layout, the sidebar -->
+        <div v-else-if="moreGroup === 'view'" class="menu-col display-panel" role="menu">
           <div class="presets">
             <button v-for="p in PRESETS" :key="p.id" class="preset" :class="{ on: presetOn(p.id) }" :title="p.tip" @click="applyPreset(p.id)"><Icon :name="p.icon" :size="16" /><span>{{ p.label }}</span></button>
           </div>
@@ -194,34 +232,24 @@ const title = computed(() => PAGE_TITLE.value[state.page])
             </label>
           </template>
           <div class="sep" />
+          <button data-ui="sidebar" :aria-pressed="shell.sideOpen" @click="act(() => { shell.sideOpen = !shell.sideOpen })"><Icon name="sidebar" />{{ shell.sideOpen ? tl('收起侧栏') : tl('展开侧栏') }}<span class="spacer" /><kbd>{{ SIDE_KEY }}</kbd></button>
           <button data-ui="theme" @click="act(() => toggleTheme())"><Icon :name="state.theme === 'dark' ? 'sun' : 'moon'" />{{ state.theme === 'dark' ? tl('浅色外观') : tl('深色外观') }}</button>
-          <button @click="act(resetStudioMode)"><Icon name="undo" />{{ tl('恢复本模式的默认布局') }}</button>
+          <button @click="act(resetStudioMode)"><Icon name="undo" />{{ tl('恢复默认布局') }}</button>
           <button @click="act(() => { state.page = 'settings'; state.settingsSection = 'display' })"><Icon name="sliders" />{{ tl('更多显示与视觉效果设置…') }}</button>
         </div>
-      </div>
 
-      <!-- 教学: representations and classroom tools -->
-      <div class="menu-anchor">
-        <button class="btn ghost lib" data-ui="teach" :class="{ active: open === 'teach' }" :aria-expanded="open === 'teach'" :title="tl('教学工具：受力分析图、纸带、v–t 面积、预测统计')" @click="toggleMenu('teach')"><Icon name="graduation" /><span class="lbl">{{ tl('教学') }}</span></button>
-        <div v-if="open === 'teach'" class="menu right" role="menu">
-          <button role="menuitem" :disabled="!teachReady()" :title="needResult" @click="act(() => { state.showFbd = true })"><Icon name="fbd" />{{ tl('受力分析图…') }}</button>
-          <button role="menuitem" :disabled="!teachReady()" :title="needResult" @click="act(() => { state.showTape = true })"><Icon name="tape" />{{ tl('打点计时器纸带…') }}</button>
-          <button role="menuitem" :disabled="!teachReady()" :title="needResult" @click="act(vtArea)"><Icon name="area" />{{ tl('v–t 图面积') }}</button>
+        <!-- 教学: the studio's representations, then the class tally and projection shared by every experiment panel -->
+        <div v-else-if="moreGroup === 'teach'" class="menu-col" role="menu" @click="pickedItem">
+          <button role="menuitem" :disabled="!teachReady()" :title="needResult" @click="state.showFbd = true"><Icon name="fbd" />{{ tl('受力分析图…') }}</button>
+          <button role="menuitem" :disabled="!teachReady()" :title="needResult" @click="state.showTape = true"><Icon name="tape" />{{ tl('打点计时器纸带…') }}</button>
+          <button role="menuitem" :disabled="!teachReady()" :title="needResult" @click="vtArea"><Icon name="area" />{{ tl('v–t 图面积') }}</button>
+          <button role="menuitem" @click="state.rightTab = 'predict'; shell.sideOpen = true"><Icon name="target" />{{ tl('个人预测（侧栏）') }}</button>
           <div class="sep" />
-          <button role="menuitem" data-ui="tally" @click="act(() => { tally.open = true })"><Icon name="tally" />{{ tl('先猜后看：班级预测统计…') }}</button>
-          <button role="menuitem" @click="act(() => { state.rightTab = 'predict'; shell.sideOpen = true })"><Icon name="target" />{{ tl('个人预测（侧栏）') }}</button>
-          <div class="sep" />
-          <button role="menuitem" @click="act(() => { state.page = 'classroom' })"><Icon name="classroom" />{{ tl('课堂页：课堂实验与活动') }}</button>
+          <TeachMenu inline :tally-action="() => { tally.open = true }" />
         </div>
-      </div>
-    </template>
-    <button v-if="!phone && !studio && state.page !== 'home'" class="btn ghost find" data-ui="search" @click="state.showPalette = true"><Icon name="search" :size="15" /><span class="lbl muted">{{ tl('搜索模板、题目、公式、工具…') }}</span><kbd>{{ MOD }}+K</kbd></button>
 
-    <div v-if="!phone && (studio || state.page === 'monitor')" class="run">
-      <button class="btn primary" data-ui="run" :class="{ quiet: !state.stale && !!state.recording, busy: state.computing }" :title="tl('重新计算（{0}+Enter）', [MOD])" :aria-label="state.stale || !state.recording ? tl('运行仿真') : tl('重新计算')" @click="runSimulation()"><Icon name="run" /><span class="lbl">{{ state.stale || !state.recording ? tl('运行') : tl('重算') }}</span></button>
-      <div class="menu-anchor">
-        <button class="btn icon ghost" data-ui="compute" :class="{ active: open === 'compute' }" :aria-expanded="open === 'compute'" :title="tl('计算：参数扫描、求解器对照、收敛性研究、计算设置')" :aria-label="tl('计算')" @click="toggleMenu('compute')"><Icon name="chevron" :size="13" /></button>
-        <div v-if="open === 'compute'" class="menu right" role="menu">
+        <!-- 计算: the run and its studies -->
+        <div v-else class="menu-col" role="menu">
           <button role="menuitem" @click="act(() => runSimulation())"><Icon name="run" />{{ tl('重新计算') }}<span class="spacer" /><kbd>{{ MOD }}+Enter</kbd></button>
           <button role="menuitem" :disabled="!state.computing" @click="act(cancelSimulation)"><Icon name="stop" />{{ tl('停止计算') }}</button>
           <div class="sep" />
@@ -231,10 +259,7 @@ const title = computed(() => PAGE_TITLE.value[state.page])
           <button role="menuitem" @click="act(() => { state.page = 'studio'; state.rightTab = 'settings' })"><Icon name="settings" />{{ tl('计算设置（场景）') }}</button>
         </div>
       </div>
-      <SolverBadge class="solver" />
     </div>
-    <button v-if="settings.ai.copilot && !phone && studio" class="btn ghost ai-btn" data-ui="copilot" :class="{ active: state.showCopilot && shell.sideOpen }" :aria-pressed="state.showCopilot" :title="tl('Copilot：讲题、生成仿真场景、替你操作（{0}+I）', [MOD])" @click="setCopilotOpen(!(state.showCopilot && shell.sideOpen))"><Icon name="chat" /><span class="lbl">AI</span></button>
-    <button v-if="!phone && studio" class="btn icon ghost" data-ui="sidebar" :class="{ active: shell.sideOpen }" :aria-pressed="shell.sideOpen" :title="shell.sideOpen ? tl('收起侧栏（{0}）', [SIDE_KEY]) : tl('展开侧栏（{0}）', [SIDE_KEY])" :aria-label="tl('侧栏')" @click="shell.sideOpen = !shell.sideOpen"><Icon name="sidebar" /></button>
   </header>
 </template>
 
@@ -242,39 +267,44 @@ const title = computed(() => PAGE_TITLE.value[state.page])
 .ctxbar { display: flex; align-items: center; gap: 4px; padding: 0 8px 0 10px; height: var(--bar-h); flex: 0 0 var(--bar-h); flex-wrap: nowrap; position: relative; z-index: 50; min-width: 0; }
 .doc { gap: 6px; padding: 0 8px; max-width: 280px; min-width: 0; font-weight: 600; }
 .doc-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
-.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--warning); flex: 0 0 auto; visibility: hidden; }
+.dot { width: 7px; height: 7px; border-radius: var(--radius-round); background: var(--warning); flex: 0 0 auto; visibility: hidden; }
 .dot.on { visibility: visible; }
 .doc-anchor { min-width: 0; flex: 0 1 auto; }
-.ptitle { display: inline-flex; align-items: center; gap: 8px; font-weight: 650; font-size: var(--type-title); padding: 0 6px; min-width: 0; }
-.pico { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); flex: 0 0 auto; }
+.ptitle { display: inline-flex; align-items: center; gap: 8px; font-weight: var(--weight-title); font-size: var(--type-panel); line-height: var(--line-tight); padding: 0 6px; min-width: 0; }
+.pico { width: 28px; height: 28px; display: grid; place-items: center; color: var(--text-2); flex: 0 0 auto; }
 .ptext { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.modes { flex: 0 0 auto; margin-left: 8px; }
-.modes button { gap: 5px; padding: 0 14px; }
-.group-btns { display: flex; gap: 2px; flex: 0 0 auto; margin-left: 2px; }
+.group-btns { display: flex; gap: 2px; flex: 0 0 auto; margin-left: 4px; }
 .lib { gap: 5px; padding: 0 9px; }
-.find { gap: 8px; min-width: 260px; justify-content: flex-start; background: var(--fill); box-shadow: none; font-weight: 400; }
-.find .lbl { flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; }
-.run { flex: 0 0 auto; display: flex; align-items: center; gap: 2px; margin-left: 6px; }
+.run { flex: 0 0 auto; display: flex; align-items: center; gap: 2px; margin-left: 12px; }
 .run .btn.primary { min-width: 84px; justify-content: center; gap: 5px; white-space: nowrap; }
 /* With a current result the run button is still there, but quieter */
 .run .btn.primary.quiet { background: var(--pane); color: var(--text); box-shadow: inset 0 0 0 1px var(--border); }
 .run .btn.primary.busy :deep(.icon) { animation: spin 900ms linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
-.ai-btn { gap: 4px; font-weight: 650; color: var(--accent); }
+/* The sidebar's views: text only, quiet until pressed (26.65, D292) */
+.views { flex: 0 0 auto; display: flex; gap: 2px; margin-left: 12px; }
+.view-btn { height: var(--control-h); padding: 0 10px; border: 0; border-radius: var(--radius-control); background: none; color: var(--text-2); font: inherit; font-size: var(--type-body); cursor: pointer; white-space: nowrap; }
+.view-btn:hover { background: var(--hover); color: var(--text); }
+.view-btn.on { background: var(--fill-strong); color: var(--text); font-weight: var(--weight-strong); }
+.view-btn:focus-visible { outline: 2px solid var(--ring); outline-offset: 1px; }
 .menu-anchor { position: relative; flex: 0 0 auto; }
 .menu { top: calc(100% + 6px); left: 0; }
 .menu.right { left: auto; right: 0; }
 .doc-menu { min-width: 250px; }
 .menu-check { justify-content: flex-start; }
 .menu-check:hover { background: var(--hover) !important; color: inherit !important; }
-.display-panel { min-width: 248px; max-height: min(78vh, 640px); overflow: auto; }
+.more-panel { width: min(calc(348px * var(--zoom)), calc(100vw - 24px)); max-height: min(78vh, 640px); overflow: auto; gap: var(--space-1); }
+.more-panel .tabs { flex: 0 0 auto; margin: 2px 2px var(--space-1); }
+.menu-col { display: flex; flex-direction: column; gap: 1px; }
+.menu-col > label { display: flex; align-items: center; gap: 8px; min-height: var(--menu-row); padding: 0 10px; border-radius: var(--radius-control); cursor: pointer; font-size: var(--type-body); }
+.menu-col > button .spacer { flex: 1; }
 .presets { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 2px 8px 6px; }
-.preset { display: flex; flex-direction: column; align-items: center; gap: 2px; border: 0; background: var(--fill); border-radius: 9px; padding: 6px 2px 5px; cursor: pointer; font-size: 11.5px; color: var(--text-2); justify-content: center; }
+.preset { display: flex; flex-direction: column; align-items: center; gap: 2px; border: 0; background: var(--fill); border-radius: var(--radius-control); padding: 6px 2px 5px; cursor: pointer; font-size: var(--type-tiny); color: var(--text-2); justify-content: center; }
 .preset:hover { background: var(--fill-strong); }
 .preset.on { background: var(--accent-soft); color: var(--accent); }
 /* Narrow windows: labels give way first, then the solver badge */
-@media (max-width: 1360px) { .lib .lbl { display: none; } .doc { max-width: 190px; } }
-@media (max-width: 1080px) { .modes .lbl { display: none; } .modes button { padding: 0 10px; } .solver { display: none; } .find { min-width: 0; } .find .lbl, .find kbd { display: none; } }
+@media (max-width: 1360px) { .doc { max-width: 190px; } }
+@media (max-width: 1080px) { .lib .lbl { display: none; } .view-btn { padding: 0 8px; } }
 /* 26.60 (D206): phones — navigation, the document menu and undo */
 .ctxbar.phone { gap: 2px; padding: 0 4px; }
 .ctxbar.phone .doc-anchor { flex: 1 1 auto; position: static; }

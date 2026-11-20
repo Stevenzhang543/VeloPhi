@@ -37,7 +37,7 @@ const attn = (id: SheetId) => shell.attention === id || (id === 'analysis' && sh
 
 <style scoped>
 .pnav { flex: 0 0 auto; display: flex; align-items: stretch; justify-content: space-around; gap: 2px; padding: 4px 6px calc(4px + env(safe-area-inset-bottom, 0px)); background: var(--pane); border-top: 0.5px solid var(--separator); position: relative; z-index: 40; }
-.pi { position: relative; flex: 1 1 0; min-width: 0; min-height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border: 0; background: none; color: var(--text-2); font: inherit; font-size: 11px; border-radius: 12px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.pi { position: relative; flex: 1 1 0; min-width: 0; min-height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border: 0; background: none; color: var(--text-2); font: inherit; font-size: var(--type-tiny); border-radius: 12px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .pi.on { color: var(--accent); background: var(--accent-soft); }
 .pi:active { transform: scale(0.96); }
 .main { flex: 0 0 72px; }

@@ -8,6 +8,7 @@
  * drop). Texts are Chinese source keys read through `trDeep` by the gallery (templates/index.ts).
  */
 import { tl } from '../i18n'
+import { stopAfter } from './bounds'
 import type { Scene, ForceDef, HingeDef, RodDef, RopeDef, SpringDef, RegionDef, RailLoopDef } from '../core/scene/types'
 import { DEG, cos, sin, tan } from '../core/math/dmath'
 import { addBody, addConnector, addGround, addIncline, addPulley, anchor, defaultGravity, emptyScene, onIncline } from '../core/scene/build'
@@ -44,7 +45,8 @@ function massSpectrometer(v: Record<string, number>): Scene {
   // time to the film: acceleration 2d/v, half a turn πm/(qB), the way back to the film
   const tOf = (m: number) => { const vv = Math.sqrt(2 * v.q * MC * v.U / (m * G_)); return 2 / vv + Math.PI * m * G_ / (v.q * MC * v.B) + 0.08 / vv }
   const t1 = tOf(v.m1), t2 = tOf(v.m2)
-  s.settings.stopAt = { on: 'impact', after: num(Math.abs(t2 - t1) + 0.3) }
+  // 26.65 (M5): the stop delay stays within the scene limit (3600 s) for weak fields and small charges
+  s.settings.stopAt = { on: 'impact', after: num(Math.min(3600, Math.abs(t2 - t1) + 0.3)) }
   s.settings.legacyDuration = Math.min(60, Math.max(t1, t2) + 0.2)
   s.view = { center: { x: 0, y: -rmax + 0.1 }, pixelsPerMeter: Math.max(30, Math.min(300, 330 / (2 * rmax + 0.8))) }
   s.watch = ['p1.v', 'p2.v', 'p1.y', 'p2.y', 'ledger.fieldWork']
@@ -180,6 +182,9 @@ function railFall(v: Record<string, number>): Scene {
   const k = v.B * v.B * v.L * v.L / v.R
   s.settings.legacyDuration = Math.min(60, 10 * v.m / Math.max(k, 1e-6))
   const fall = (v.m * v.g / Math.max(k, 1e-9)) * s.settings.legacyDuration
+  // 26.65 (M1): the rails end on a stop 1 m below the farthest the bounded run can fall (v < v_t, so the fall is
+  // below v_t·T): unbounded, the rod lands there and rests instead of falling for ever (B = 0: no terminal speed, none)
+  if (k > 0) addGround(s, { id: 'stop', name: tl('导轨下端'), top: -(fall + 1), left: -v.L / 2 - 0.2, right: v.L / 2 + 0.2, material: { muS: 0, muK: 0, restitution: 0 } })
   s.view = { center: { x: 0, y: -Math.min(40, fall / 2) }, pixelsPerMeter: Math.max(10, Math.min(200, 600 / Math.max(fall + 1, 1))) }
   s.watch = ['rod.vy', 'loop.emf', 'loop.I', 'loop.F', 'ledger.jouleHeat']
   return s
@@ -492,6 +497,8 @@ function pursuit(v: Record<string, number>): Scene {
   addConnector<ForceDef>(s, { id: 'F', name: tl('牵引力'), type: 'force', a: anchor(b), force: { x: v.a, y: 0 } })
   s.settings.gravity = { x: 0, y: -v.g }
   const tm = (v.v + Math.sqrt(v.v * v.v + 2 * v.a * v.d)) / Math.max(v.a, 1e-3)
+  // 26.65 (M1): the run ends 0.5 s after the first separation — the first body leaves the end of its lane
+  stopAfter(s, 0.5)
   s.settings.legacyDuration = Math.min(60, 1.3 * tm)
   s.customQuantities = [{ id: 'gap', name: tl('A 在 B 前方的距离'), expr: 'x(A) - x(B)' }]
   s.view = { center: { x: Math.min(30, (v.d + v.v * tm) / 2), y: 0.6 }, pixelsPerMeter: Math.max(10, Math.min(150, 700 / Math.max(v.d + v.v * tm + 2, 2))) }
@@ -582,10 +589,10 @@ export const TEMPLATES_2655: TemplateInfo[] = [
   { id: 'rising-block', group: '流体', name: '水中释放的木块上浮', description: '浮力大于重力，加速上浮；无阻力时上下振动', params: [p('rhoB', '木块密度 ρ物', 'kg/m³', 500, 1), p('rho', '液体密度 ρ液', 'kg/m³', 1000, 1), p('d', '物体厚度 d', 'm', 0.1, 0.001), gp()], build: risingBlock },
   { id: 'weigh-in-water', group: '流体', name: '称重法测浮力', description: 'F浮 = G − F示', params: [p('rhoB', '金属块密度 ρ物', 'kg/m³', 2700, 1), p('rho', '液体密度 ρ液', 'kg/m³', 1000, 1), p('d', '物体厚度 d', 'm', 0.1, 0.001), gp()], build: weighInWater },
   { id: 'densities', group: '流体', name: '三种物体的沉浮', description: '木块、冰块、铁块：ρ物 < ρ液 漂浮，ρ物 > ρ液 下沉', params: [p('rho', '液体密度 ρ液', 'kg/m³', 1000, 1), p('d', '物体厚度 d', 'm', 0.1, 0.001), p('c', '液体阻力系数', 'N·s/m', 15, 0), gp()], build: densities },
-  { id: 'loaded-boat', group: '流体', name: '船的载重', description: '放上重物后船下沉，F浮 = (M + m)g', params: [p('m', '重物质量 m', 'kg', 2, 0), p('rho', '液体密度 ρ液', 'kg/m³', 1000, 1), p('d', '物体厚度 d', 'm', 0.1, 0.001), p('c', '液体阻力系数', 'N·s/m', 30, 0), gp()], build: loadedBoat },
+  { id: 'loaded-boat', group: '流体', name: '船的载重', description: '放上重物后船下沉，F浮 = (M + m)g', params: [p('m', '重物质量 m', 'kg', 2, 0.001), p('rho', '液体密度 ρ液', 'kg/m³', 1000, 1), p('d', '物体厚度 d', 'm', 0.1, 0.001), p('c', '液体阻力系数', 'N·s/m', 30, 0), gp()], build: loadedBoat },
   { id: 'ball-into-water', group: '流体', name: '小球落入水中', description: '入水后减速、下冲、上浮，最后漂浮', params: [p('h', '下落高度 h', 'm', 0.5, 0, 3), p('rhoB', '木球密度 ρ物', 'kg/m³', 600, 1), p('rho', '液体密度 ρ液', 'kg/m³', 1000, 1), p('d', '物体厚度 d', 'm', 0.1, 0.001), p('c', '液体阻力系数', 'N·s/m', 2, 0), gp()], build: ballIntoWater },
   // Mechanics
-  { id: 'slope-up', group: '斜面与摩擦', name: '物块冲上斜面', description: '上滑与下滑的加速度不同：a = g(sinθ ± μcosθ)', params: [p('theta', '倾角 θ', '°', 37, 1, 80), p('v0', '初速度 v₀', 'm/s', 4, 0.01), p('m', '质量 m', 'kg', 1, 0.01), p('mu', '动摩擦因数 μ', '', 0.25, 0, 2, 0.01), gp()], build: slopeUp },
+  { id: 'slope-up', group: '斜面与摩擦', name: '物块冲上斜面', description: '上滑与下滑的加速度不同：a = g(sinθ ± μcosθ)', params: [p('theta', '倾角 θ', '°', 37, 1, 80), p('v0', '初速度 v₀', 'm/s', 4, 0.01), p('m', '质量 m', 'kg', 1, 0.01), p('mu', '动摩擦因数 μ', '', 0.25, 0, 1.4, 0.01), gp()], build: slopeUp },
   { id: 'incline-pulley', group: '连接体', name: '斜面上的连接体', description: '绳跨过斜面顶端的定滑轮：整体法与隔离法', params: [p('theta', '倾角 θ', '°', 30, 5, 70), p('m1', '斜面上物块 m₁', 'kg', 1, 0.01), p('m2', '悬挂物块 m₂', 'kg', 1, 0.01), p('mu', '动摩擦因数 μ', '', 0.1, 0, 2, 0.01), gp()], build: inclinePulley },
   { id: 'pursuit', group: '直线运动', name: '追及与相遇', description: '匀速与匀加速：速度相等时距离最大', params: [p('v', 'A 的速度 v', 'm/s', 4, 0), p('a', 'B 的加速度 a', 'm/s²', 2, 0.01), p('d', '初始距离 d', 'm', 6, 0), gp()], build: pursuit },
   { id: 'two-ropes', group: '力与平衡', name: '两绳悬挂重物', description: '三力平衡：T₁ = mg·sinβ/sin(α + β)', params: [p('alpha', '绳1与竖直方向夹角 α', '°', 30, 0, 80), p('beta', '绳2与竖直方向夹角 β', '°', 60, 0, 80), p('m', '重物质量 m', 'kg', 2, 0.01), gp()], build: twoRopes },
@@ -595,7 +602,7 @@ export const TEMPLATES_2655: TemplateInfo[] = [
   { id: 'vertical-spring', group: '振动', name: '竖直弹簧振子', description: '平衡位置 x₀ = mg/k，周期 T = 2π√(m/k)', params: [p('k', '劲度系数 k', 'N/m', 20, 0.01), p('m', '质量 m', 'kg', 0.5, 0.001), p('A', '振幅 A', 'm', 0.1, 0.001, 0.5), gp()], build: verticalSpring },
   { id: 'physical-pendulum', group: '刚体转动', name: '复摆', description: 'T = 2π√(I/(mgd))，细杆为 2π√(2L/(3g))', params: [p('L', '杆长 L', 'm', 1, 0.05, 5), p('theta0', '初始偏角 θ₀', '°', 5, 0.1, 90), p('m', '质量 m', 'kg', 1, 0.001), gp()], build: physicalPendulum },
   { id: 'double-pendulum', group: '振动', name: '双摆', description: '混沌运动，机械能守恒', params: [p('theta1', '杆1偏角 θ₁', '°', 90, -180, 180), p('theta2', '杆2偏角 θ₂', '°', 120, -180, 180), p('L1', '杆1长 L₁', 'm', 0.6, 0.05, 3), p('L2', '杆2长 L₂', 'm', 0.6, 0.05, 3), p('m1', '摆球1质量 m₁', 'kg', 1, 0.001), p('m2', '摆球2质量 m₂', 'kg', 1, 0.001), gp()], build: doublePendulum },
-  { id: 'coupled-oscillators', group: '振动', name: '耦合振子', description: '两个简正模式，能量来回转移（拍）', params: [p('k', '弹簧劲度系数 k', 'N/m', 40, 0.01), p('kc', '耦合弹簧 k_c', 'N/m', 4, 0), p('m', '物块质量 m', 'kg', 0.5, 0.001), p('A', '初始位移 A', 'm', 0.15, 0.001, 0.5), gp()], build: coupledOscillators },
+  { id: 'coupled-oscillators', group: '振动', name: '耦合振子', description: '两个简正模式，能量来回转移（拍）', params: [p('k', '弹簧劲度系数 k', 'N/m', 40, 0.01), p('kc', '耦合弹簧 k_c', 'N/m', 4, 0.01), p('m', '物块质量 m', 'kg', 0.5, 0.001), p('A', '初始位移 A', 'm', 0.15, 0.001, 0.5), gp()], build: coupledOscillators },
   { id: 'binary-star', group: '万有引力', name: '双星', description: '绕共同质心转动，r₁/r₂ = M₂/M₁（G = 1）', params: [p('M1', '星体1质量 M₁', 'kg', 300, 0.1), p('M2', '星体2质量 M₂', 'kg', 100, 0.1), p('d', '两星距离 d', 'm', 4, 0.5, 50)], build: binaryStar },
   { id: 'kepler', group: '万有引力', name: '开普勒第三定律', description: '两颗行星：T²/r³ 相同（G = 1）', params: [p('M', '恒星质量 M', 'kg', 1000, 1), p('r1', '内行星轨道半径 r₁', 'm', 3, 0.5, 50), p('r2', '外行星轨道半径 r₂', 'm', 6, 0.5, 100)], build: kepler }
 ]

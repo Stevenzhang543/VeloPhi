@@ -137,8 +137,65 @@ pub fn open_in_browser(url: &str) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     let result = std::process::Command::new("open").arg(url).spawn();
     #[cfg(all(unix, not(target_os = "macos")))]
-    let result = std::process::Command::new("xdg-open").arg(url).spawn();
+    let result = {
+        // The host's xdg-open and browser, without the libraries of an AppImage (26.65)
+        let mut command = std::process::Command::new("xdg-open");
+        clean_appimage_env(&mut command);
+        command.arg(url).spawn()
+    };
     result.map(|_| ()).map_err(|e| e.to_string())
+}
+
+/// Show a local folder in the file manager (Linux: the folder of an update to be installed by hand).
+#[cfg(target_os = "linux")]
+pub fn open_folder(folder: &std::path::Path) -> Result<(), String> {
+    if !folder.is_absolute() || !folder.is_dir() {
+        return Err("not a folder".into());
+    }
+    let mut command = std::process::Command::new("xdg-open");
+    clean_appimage_env(&mut command);
+    command.arg(folder).spawn().map(|_| ()).map_err(|e| format!("io: {e}"))
+}
+
+/// Inside an AppImage (26.65) the runtime and the hooks of the bundled GTK and GStreamer point a series of variables
+/// at the AppImage's mount (`$APPDIR`): `LD_LIBRARY_PATH`, `GTK_PATH`, `GDK_PIXBUF_MODULE_FILE`, `GST_PLUGIN_*`, `PATH`,
+/// `XDG_DATA_DIRS` and more (the list depends on the plugins, so it is not written out here). A program of the host
+/// (xdg-open, the browser) or a new AppImage started with them inherited would load the bundled libraries — and crash
+/// once this process exits and the mount goes away. The changes: the runtime's own variables go (`APPDIR`, `APPIMAGE`,
+/// `ARGV0`, `OWD`), and `GTK_THEME`, which the GTK hook always overwrites with plain Adwaita (the user's own value is
+/// gone by then; without it the host program uses the desktop's theme again); in every other variable whose value
+/// names the mount, the `:`-separated entries inside it go, and the variable goes when nothing is left. Nothing
+/// changes outside an AppImage. Returns (name, new value or None = remove).
+#[cfg(any(all(unix, not(any(target_os = "macos", target_os = "android", target_os = "ios"))), test))]
+pub fn appimage_env_changes(vars: &[(String, String)]) -> Vec<(String, Option<String>)> {
+    let appdir = vars.iter().find(|(k, _)| k == "APPDIR").map(|(_, v)| v.trim_end_matches('/').to_string()).unwrap_or_default();
+    // "/" or nothing: not a mount this could be about
+    if appdir.len() < 2 || !appdir.starts_with('/') {
+        return Vec::new();
+    }
+    let inside = |entry: &str| entry == appdir || entry.strip_prefix(appdir.as_str()).is_some_and(|rest| rest.starts_with('/'));
+    let mut changes = Vec::new();
+    for (key, value) in vars {
+        if matches!(key.as_str(), "APPDIR" | "APPIMAGE" | "ARGV0" | "OWD" | "GTK_THEME") {
+            changes.push((key.clone(), None));
+        } else if value.contains(appdir.as_str()) {
+            let kept: Vec<&str> = value.split(':').filter(|e| !e.is_empty() && !inside(e)).collect();
+            changes.push((key.clone(), (!kept.is_empty()).then(|| kept.join(":"))));
+        }
+    }
+    changes
+}
+
+/// Apply `appimage_env_changes` to a command about to be started (variables that are not UTF-8 are left alone).
+#[cfg(all(unix, not(any(target_os = "macos", target_os = "android", target_os = "ios"))))]
+pub fn clean_appimage_env(command: &mut std::process::Command) {
+    let vars: Vec<(String, String)> = std::env::vars_os().filter_map(|(k, v)| Some((k.into_string().ok()?, v.into_string().ok()?))).collect();
+    for (key, value) in appimage_env_changes(&vars) {
+        match value {
+            Some(v) => command.env(key, v),
+            None => command.env_remove(key),
+        };
+    }
 }
 
 /// Phone: the system browser through the opener plugin.
@@ -168,5 +225,100 @@ mod tests {
         assert!(!allowed_open("https://x.test/\"&calc"));
         assert!(!allowed_open("http://x.test/"));
         assert!(!allowed_open("javascript:alert(1)"));
+    }
+
+    /// The environment of the AppImage as its AppRun and the GTK/GStreamer hooks set it (names and forms from
+    /// squashfs-root/apprun-hooks of the built file and from the running program's environment), started from a mount
+    /// and with --appimage-extract-and-run.
+    #[test]
+    fn appimage_environment() {
+        let env = |pairs: &[(&str, &str)]| pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect::<Vec<_>>();
+        let changes = |pairs: &[(&str, &str)]| {
+            let mut c = appimage_env_changes(&env(pairs));
+            c.sort();
+            c
+        };
+        let m = "/tmp/.mount_VeloPhAbC123";
+        let inside = env(&[
+            ("APPDIR", m),
+            ("APPIMAGE", "/home/u/Apps/VeloPhi-v26.65-linux-x86_64.AppImage"),
+            ("ARGV0", "./VeloPhi-v26.65-linux-x86_64.AppImage"),
+            ("OWD", "/home/u/Apps"),
+            ("PATH", &format!("{m}/usr/bin:/usr/local/bin:/usr/bin:/bin")),
+            ("LD_LIBRARY_PATH", &format!("{m}/usr/lib/:{m}/usr/lib/x86_64-linux-gnu/:/opt/mine/lib")),
+            ("XDG_DATA_DIRS", &format!("{m}/usr/share:/usr/share:/usr/local/share:/usr/share")),
+            ("GTK_DATA_PREFIX", m),
+            ("GTK_EXE_PREFIX", &format!("{m}/usr")),
+            ("GTK_PATH", &format!("{m}/usr/lib/gtk-3.0")),
+            ("GTK_IM_MODULE_FILE", &format!("{m}/usr/lib/gtk-3.0/3.0.0/immodules.cache")),
+            ("GDK_PIXBUF_MODULE_FILE", &format!("{m}/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache")),
+            ("GSETTINGS_SCHEMA_DIR", &format!("{m}/usr/share/glib-2.0/schemas")),
+            ("GIO_MODULE_DIR", &format!("{m}/usr/lib/gio/modules")),
+            ("GST_PLUGIN_SYSTEM_PATH_1_0", &format!("{m}/usr/lib/gstreamer-1.0")),
+            ("GST_PLUGIN_SCANNER_1_0", &format!("{m}/usr/lib/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner")),
+            // The GTK hook writes "$APPDIR//usr/…" (two slashes) and forces plain Adwaita
+            ("GI_TYPELIB_PATH", &format!("{m}//usr/lib/girepository-1.0")),
+            ("GTK_THEME", "Adwaita:light"),
+            ("PYTHONHOME", &format!("{m}/usr/")),
+            ("GST_REGISTRY_REUSE_PLUGIN_SCANNER", "no"),
+            ("HOME", "/home/u"),
+            ("LANG", "zh_CN.UTF-8"),
+            ("APPIMAGE_EXTRACT_AND_RUN", "1"),
+            // A mount whose name merely starts like this one is another mount
+            ("OTHER", &format!("{m}x/usr/lib:/usr/lib")),
+        ]);
+        let mut got = appimage_env_changes(&inside);
+        got.sort();
+        let some = |s: &str| Some(s.to_string());
+        let mut want: Vec<(String, Option<String>)> = vec![
+            ("APPDIR".into(), None),
+            ("APPIMAGE".into(), None),
+            ("ARGV0".into(), None),
+            ("OWD".into(), None),
+            ("PATH".into(), some("/usr/local/bin:/usr/bin:/bin")),
+            ("LD_LIBRARY_PATH".into(), some("/opt/mine/lib")),
+            ("XDG_DATA_DIRS".into(), some("/usr/share:/usr/local/share:/usr/share")),
+            ("GTK_DATA_PREFIX".into(), None),
+            ("GTK_EXE_PREFIX".into(), None),
+            ("GTK_PATH".into(), None),
+            ("GTK_IM_MODULE_FILE".into(), None),
+            ("GDK_PIXBUF_MODULE_FILE".into(), None),
+            ("GSETTINGS_SCHEMA_DIR".into(), None),
+            ("GIO_MODULE_DIR".into(), None),
+            ("GST_PLUGIN_SYSTEM_PATH_1_0".into(), None),
+            ("GST_PLUGIN_SCANNER_1_0".into(), None),
+            ("GI_TYPELIB_PATH".into(), None),
+            ("GTK_THEME".into(), None),
+            ("PYTHONHOME".into(), None),
+            ("OTHER".into(), some(&format!("{m}x/usr/lib:/usr/lib"))),
+        ];
+        want.sort();
+        assert_eq!(got, want);
+        // --appimage-extract-and-run: the same with the extraction folder (a trailing slash in APPDIR is the same)
+        let x = "/tmp/appimage_extracted_0123abcd";
+        assert_eq!(changes(&[("APPDIR", &format!("{x}/")), ("PATH", &format!("{x}/usr/bin:/usr/bin")), ("HOME", "/home/u")]), vec![("APPDIR".into(), None), ("PATH".into(), some("/usr/bin"))]);
+        // Lines as /proc/<pid>/environ of the program showed them (2026-11-19, the 26.64 test build run with
+        // --appimage-extract-and-run): the classic AppRun adds trailing empty entries and Python/Perl/Qt paths
+        let mut real = changes(&[
+            ("APPDIR", x),
+            ("GSETTINGS_SCHEMA_DIR", &format!("{x}/usr/share/glib-2.0/schemas/:{x}//usr/share/glib-2.0/schemas")),
+            ("GST_PLUGIN_SYSTEM_PATH", &format!("{x}/usr/lib/gstreamer:")),
+            ("PERLLIB", &format!("{x}/usr/share/perl5/:{x}/usr/lib/perl5/:")),
+            ("PYTHONPATH", &format!("{x}/usr/share/pyshared/:")),
+            ("QT_PLUGIN_PATH", &format!("{x}/usr/lib/qt4/plugins/:{x}/usr/lib/i386-linux-gnu/qt4/plugins/:")),
+            ("XDG_DATA_DIRS", &format!("{x}/usr/share/:{x}/usr/share:/usr/share:")),
+            ("PYTHONDONTWRITEBYTECODE", "1"),
+            ("GDK_BACKEND", "x11"),
+        ]);
+        real.sort();
+        let mut want_real: Vec<(String, Option<String>)> = ["APPDIR", "GSETTINGS_SCHEMA_DIR", "GST_PLUGIN_SYSTEM_PATH", "PERLLIB", "PYTHONPATH", "QT_PLUGIN_PATH"].iter().map(|k| (k.to_string(), None)).collect();
+        want_real.push(("XDG_DATA_DIRS".into(), some("/usr/share")));
+        want_real.sort();
+        assert_eq!(real, want_real);
+        // Outside an AppImage (deb, rpm, a build of one's own) nothing changes, also not the user's GTK_THEME
+        assert!(changes(&[("PATH", "/usr/bin:/bin"), ("GTK_THEME", "Adwaita:dark"), ("APPIMAGE", "/x")]).is_empty());
+        assert!(changes(&[("APPDIR", "/"), ("PATH", "/usr/bin")]).is_empty());
+        assert!(changes(&[("APPDIR", ""), ("PATH", "/usr/bin")]).is_empty());
+        assert!(changes(&[("APPDIR", "relative/dir"), ("PATH", "relative/dir/bin")]).is_empty());
     }
 }

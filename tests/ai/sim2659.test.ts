@@ -182,6 +182,8 @@ beforeEach(() => {
   settings.ai.copilotMode = 'act'
   settings.ai.learningMode = false
   settings.ai.thinking = false
+  // these are the tests of the scene-file builder of 26.60, kept behind the switch in 26.64 (the sketch builder has its own: tests/ai/sketch2664)
+  settings.ai.sceneBuilder = 'legacy'
   setKey('openai', 'sk-test')
   resetCaps()
   clearCopilot()

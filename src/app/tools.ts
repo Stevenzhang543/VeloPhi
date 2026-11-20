@@ -65,6 +65,8 @@ export const T: Record<string, ToolDef> = trDeep({
   launcher: { tool: 'add-launcher', icon: 'launcher', label: '弹簧弹射', tip: '墙、不粘连的弹簧（200 N/m，原长 0.4 m）和被它压缩 0.1 m 的物块（1 kg）；光滑。释放后弹簧恢复原长时物块离开弹簧' }
 })
 /** Always on top (D86). */
+/** The six tools of the strip at the canvas (26.64, D245); every other tool is in 全部工具, with its name. */
+export const STRIP: ToolDef[] = [T.select, T.pan, T.ball, T.block, T.incline, T.spring]
 export const COMMON: ToolDef[] = [T.select, T.pan, T.ball, T.block, T.ground, T.incline, T.rope, T.spring]
 /** Category pages, one shown at a time (D86). */
 export const PAGES: Array<{ id: string; title: string; tools: ToolDef[] }> = trDeep([

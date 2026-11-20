@@ -432,7 +432,8 @@ export async function buildFromAnswer(b: Bubble): Promise<void> {
       copilot.bubbles.splice(copilot.bubbles.indexOf(item), 1)
       const why = r.refused ? [r.refused] : r.errors
       b.offer = { state: 'failed', errors: why.slice(0, 6) }
-      copilot.bubbles.push({ id: ++ids, role: 'error', text: r.refused ? tl('构建器认为引擎不能模拟这道题：{0}', [r.refused]) : tl('场景搭建失败（试了 {0} 次）：{1}', [r.tries, why.slice(0, 3).join('；')]), actions: [] })
+      // 26.64: the sketch builder says in full what could not be placed and what was (D282)
+      copilot.bubbles.push({ id: ++ids, role: 'error', text: r.refused ? tl('构建器认为引擎不能模拟这道题：{0}', [r.refused]) : r.message ?? tl('场景搭建失败（试了 {0} 次）：{1}', [r.tries, why.slice(0, 3).join('；')]), actions: [] })
     }
   } catch (e) {
     const err = e instanceof AiError ? e : null

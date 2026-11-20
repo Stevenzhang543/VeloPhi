@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import Rich from '../Rich.vue'
 /**
  * Electric field experiment (26.54, D79): point charges (drag to move, add or remove) and an optional uniform field.
  * The core computes the field lines, the equipotentials (`fieldMap`) and the field and potential at the pointer
@@ -18,6 +19,7 @@ import { COULOMB_K } from '../../../core/scene/types'
 import { labRequest, labState, labTaskRequest } from '../../lab/state'
 import { useLabCanvas } from '../../lab/canvas'
 import { FONT, MONO } from '../../../render/style'
+import { backing } from '../../../render/labels'
 import NumField from '../NumField.vue'
 import LabFormula from './LabFormula.vue'
 
@@ -110,14 +112,15 @@ const { canvas, wrap, redraw, at } = useLabCanvas(() => props.active, (ctx, w, h
   for (let y = Math.ceil(region.y0 / step) * step; y <= region.y1; y += step) { ctx.beginPath(); ctx.moveTo(0, Y(y)); ctx.lineTo(w, Y(y)); ctx.stroke() }
   if (map) {
     if (S.equip) {
-      ctx.strokeStyle = P.text2; ctx.globalAlpha = S.focus === 'equip' ? 0.8 : 0.3; ctx.lineWidth = S.focus === 'equip' ? 1.4 : 1; ctx.setLineDash([4, 3])
+      // 26.65 (D7): the canvas tokens of the theme (--canvas-equipotential, --canvas-field-line)
+      ctx.strokeStyle = P.equipotential ?? P.text2; ctx.globalAlpha = S.focus === 'equip' ? 1 : 0.45; ctx.lineWidth = S.focus === 'equip' ? 1.4 : 1; ctx.setLineDash([4, 3])
       const { segs, starts } = map.contours
       ctx.beginPath()
       for (let s = 0; s < (starts[starts.length - 1] ?? 0); s++) { ctx.moveTo(X(segs[4 * s]), Y(segs[4 * s + 1])); ctx.lineTo(X(segs[4 * s + 2]), Y(segs[4 * s + 3])) }
       ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1
     }
     if (S.lines) {
-      const col = P.electric ?? '#0f766e'
+      const col = P.fieldLine ?? P.electric ?? '#0f766e'
       ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 1.5
       ctx.globalAlpha = S.focus === 'direction' ? 1 : 0.35
       const { xy, starts } = map.lines
@@ -157,13 +160,18 @@ const { canvas, wrap, redraw, at } = useLabCanvas(() => props.active, (ctx, w, h
     if (i === selected.value) { ctx.strokeStyle = P.accent; ctx.lineWidth = 3; ctx.stroke() }
     ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.2
     ctx.beginPath(); ctx.moveTo(x - r * 0.5, y); ctx.lineTo(x + r * 0.5, y); if (c.q > 0) { ctx.moveTo(x, y - r * 0.5); ctx.lineTo(x, y + r * 0.5) } ctx.stroke()
-    // the value on its own background, so lines do not run through it
+    // the value on its own background, so lines do not run through it (26.65, D11: drawn after every charge, below)
     ctx.font = `12px ${MONO}`
     const label = `${c.q > 0 ? '+' : ''}${fmtQ(c.q, 'C', 3)}`
-    const tw = ctx.measureText(label).width
-    ctx.fillStyle = P.labelBg; ctx.beginPath(); ctx.roundRect(x + r + 2, y - r - 13, tw + 8, 17, 4); ctx.fill()
-    ctx.fillStyle = col; ctx.fillText(label, x + r + 6, y - r)
+    chargeLabels.push({ label, col, x: x + r + 2, y: y - r - 13, w: ctx.measureText(label).width + 8 })
   })
+  ctx.font = `12px ${MONO}`
+  for (const l of chargeLabels) {
+    backing(ctx, { x: l.x - 1, y: l.y - 1, w: l.w + 2, h: 19 }, P.bg, 5)
+    backing(ctx, { x: l.x, y: l.y, w: l.w, h: 17 }, P.labelBg)
+    ctx.fillStyle = l.col; ctx.fillText(l.label, l.x + 4, l.y + 13)
+  }
+  chargeLabels.length = 0
   // probe
   if (probe.value && probeValues.value) {
     const { x, y } = probe.value, E = probeValues.value.E
@@ -189,11 +197,16 @@ const { canvas, wrap, redraw, at } = useLabCanvas(() => props.active, (ctx, w, h
     ctx.fillStyle = P.velocity; ctx.beginPath(); ctx.arc(X(probeB.value.x), Y(probeB.value.y), 3.5, 0, Math.PI * 2); ctx.fill()
     ctx.font = `12px ${FONT}`; ctx.fillText('B', X(probeB.value.x) + 6, Y(probeB.value.y) + 14)
   }
-  // scale bar
-  ctx.fillStyle = P.text2; ctx.font = `11px ${FONT}`
+  // scale bar (on a backing: the field lines run under it)
+  ctx.font = `11px ${FONT}`
+  const scaleText = fmtQ(0.5, 'm', 2)
+  backing(ctx, { x: 6, y: h - 33, w: Math.max(0.5 * sc, ctx.measureText(scaleText).width) + 12, h: 26 }, P.labelBg)
+  ctx.fillStyle = P.text2
   ctx.fillRect(12, h - 14, 0.5 * sc, 2)
-  ctx.fillText(fmtQ(0.5, 'm', 2), 12, h - 20)
+  ctx.fillText(scaleText, 12, h - 20)
 })
+/** Labels of the charges, drawn after all charges so that no later charge or line covers one (D11). */
+const chargeLabels: Array<{ label: string; col: string; x: number; y: number; w: number }> = []
 watch(() => [S.charges, S.E, S.Edir, S.lines, S.equip, S.scale, S.radius, S.focus, S.testQ, probeB.value], redraw, { deep: true })
 
 const probeValues = computed(() => {
@@ -313,9 +326,9 @@ const probeFormula = computed(() => {
           <p class="tiny note" :class="{ warn: force?.against }">{{ force?.against ? tl('q < 0：受力与场强方向相反（虚线箭头）。场强方向按正试探电荷的受力定义。') : tl('q > 0：受力与场强方向相同（虚线箭头）。') }}</p>
         </template>
         <div v-if="probe && probeValues && probeB && probeBValues" class="lab-kv">
-          <span>{{ tl('B 点电势 φ_B') }}</span><b>{{ fmtQ(probeBValues.V, 'V') }}</b>
-          <span>{{ tl('电势差 U_AB = φ_A − φ_B') }}</span><b class="big">{{ fmtQ(probeValues.V - probeBValues.V, 'V') }}</b>
-          <span>{{ tl('从 A 移到 B 电场力做功 qU_AB') }}</span><b>{{ fmtQ(S.testQ * (probeValues.V - probeBValues.V), 'J') }}</b>
+          <span><Rich :text="tl('B 点电势 φ_B')" /></span><b>{{ fmtQ(probeBValues.V, 'V') }}</b>
+          <span><Rich :text="tl('电势差 U_AB = φ_A − φ_B')" /></span><b class="big">{{ fmtQ(probeValues.V - probeBValues.V, 'V') }}</b>
+          <span><Rich :text="tl('从 A 移到 B 电场力做功 qU_AB')" /></span><b>{{ fmtQ(S.testQ * (probeValues.V - probeBValues.V), 'J') }}</b>
         </div>
       </section>
       <section v-if="probeFormula" class="lab-block">
@@ -336,6 +349,8 @@ const probeFormula = computed(() => {
 
 <style scoped>
 .lab-canvas .hint.top { top: 8px; bottom: auto; }
+/* 26.65 (D11): the hint floats over the field lines: a backing, so no line runs through the text */
+.lab-canvas .hint { background: var(--glass-fill); padding: 2px 8px; border-radius: var(--radius-control); }
 .focus button { height: calc(24px * var(--zoom)); padding: 0 8px; }
 .empty-probe p { margin: 2px 0 6px; line-height: 1.5; color: var(--text-2); }
 .note { margin: 4px 0 0; line-height: 1.45; color: var(--text-2); }

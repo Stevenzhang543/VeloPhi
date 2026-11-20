@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import Note from './Note.vue'
 /**
  * Scene tab of the right panel: the scene's own settings (name, description, g, potential-energy zero,
  * duration mode — unbounded, stop at a time, or stop some seconds after an event (decision D26) — Δt, integrator,
@@ -109,7 +110,7 @@ const reducedFrom = computed(() => rec.value?.reducedFrom ?? null)
         <template v-if="s.gravitation">
           <div class="row"><label>{{ tl('引力常量 G') }}</label><NumField class="grow" :model-value="s.gravitation.G" unit="N·m²/kg²" :min="1e-30" @update:model-value="setGConst" /></div>
           <div class="row"><label /><span class="grow"><button class="btn small" @click="setGConst(G_REAL)">{{ tl('真实值') }}</button> <button class="btn small" @click="setGConst(1)">{{ tl('教学用 G = 1') }}</button></span></div>
-          <div class="tiny muted note">{{ tl('每一对有质量的物体之间都有引力（固定物体也吸引，但自己不动）；引力势能 −Gm₁m₂/r 计入能量账本。研究行星运动时通常把上面的重力设为 0。') }}</div>
+          <Note>{{ tl('每一对有质量的物体之间都有引力（固定物体也吸引，但自己不动）；引力势能 −Gm₁m₂/r 计入能量账本。研究行星运动时通常把上面的重力设为 0。') }}</Note>
         </template>
         <div class="row"><label>{{ tl('势能零点 y₀') }}</label><NumField class="grow" :model-value="s.energyZeroY" unit="m" @update:model-value="v => edit(sc => { sc.settings.energyZeroY = v })" /></div>
       </div>
@@ -125,14 +126,14 @@ const reducedFrom = computed(() => rec.value?.reducedFrom ?? null)
         <div class="row"><label>{{ tl('匀强磁场') }}</label><label class="check grow"><input type="checkbox" :checked="!!s.magnetic" @change="setMagnetic(($event.target as HTMLInputElement).checked)" />{{ tl('运动电荷受洛伦兹力 F = qv×B') }}</label></div>
         <template v-if="s.magnetic">
           <div class="row"><label>{{ tl('磁感应强度 B') }}</label><NumField class="grow" :model-value="s.magnetic.B" unit="T" @update:model-value="setB" /></div>
-          <div class="tiny muted note">{{ tl('磁场垂直于纸面：B > 0 指向纸外（⊙），B < 0 指向纸里（×）。') }}</div>
+          <Note>{{ tl('磁场垂直于纸面：B > 0 指向纸外（⊙），B < 0 指向纸里（×）。') }}</Note>
         </template>
         <div class="row"><label>{{ tl('库仑力') }}</label><label class="check grow"><input type="checkbox" :checked="!!s.coulomb" @change="setCoulomb(($event.target as HTMLInputElement).checked)" />{{ tl('带电体之间 F = kq₁q₂/r²') }}</label></div>
         <template v-if="s.coulomb">
           <div class="row"><label>{{ tl('静电力常量 k') }}</label><NumField class="grow" :model-value="s.coulomb.k" unit="N·m²/C²" :min="1e-30" @update:model-value="setK" /></div>
           <div class="row"><label /><span class="grow"><button class="btn small" @click="setK(COULOMB_K)">{{ tl('真实值') }}</button> <button class="btn small" @click="setK(1)">{{ tl('教学用 k = 1') }}</button></span></div>
         </template>
-        <div class="tiny muted note">{{ charged ? tl('场景中有 {0} 个带电体。电场力与库仑力的电势能计入机械能；洛伦兹力不做功。', [charged]) : tl('在物体的“属性”中设置电荷量 q，或从模板“电与磁”开始。') }}</div>
+        <Note>{{ charged ? tl('场景中有 {0} 个带电体。电场力与库仑力的电势能计入机械能；洛伦兹力不做功。', [charged]) : tl('在物体的“属性”中设置电荷量 q，或从模板“电与磁”开始。') }}</Note>
       </div>
     </Section>
 
@@ -180,9 +181,9 @@ const reducedFrom = computed(() => rec.value?.reducedFrom ?? null)
           <div class="row"><label>{{ tl('子步数') }}</label><NumField class="grow" :model-value="soft.substeps" :min="1" :max="16" :step="1" @update:model-value="v => setSoft({ substeps: Math.round(v) })" /></div>
           <div class="row"><label>{{ tl('步频') }}</label><NumField class="grow" :model-value="soft.stepHz" unit="Hz" :min="30" :max="2000" :step="10" @update:model-value="v => setSoft({ stepHz: v })" /></div>
           <label class="check small"><input type="checkbox" :checked="soft.sleep" @change="setSoft({ sleep: ($event.target as HTMLInputElement).checked })" />{{ tl('静止物体休眠（全部静止时停止计算）') }}</label>
-          <div class="tiny muted note">{{ tl('子步长 h = 1 / (步频 × 子步数) = {0}。子步越多越准、越慢；课堂上可对比 1 与 8 个子步时长链条的伸长。', [fmtQ(1 / (Math.max(soft.stepHz, 1 / s.outputStep) * soft.substeps), 's', 3)]) }}</div>
+          <Note>{{ tl('子步长 h = 1 / (步频 × 子步数) = {0}。子步越多越准、越慢；课堂上可对比 1 与 8 个子步时长链条的伸长。', [fmtQ(1 / (Math.max(soft.stepHz, 1 / s.outputStep) * soft.substeps), 's', 3)]) }}</Note>
         </template>
-        <div v-if="s.integrator === 'gauss4'" class="tiny muted note">{{ tl('隐式辛方法：守恒系统（行星轨道、单摆、弹簧振子）长时间计算时能量只在很小范围内起伏，不会逐渐漂移；有摩擦或阻尼时照常计算，但不再有这一优点。') }}</div>
+        <Note v-if="s.integrator === 'gauss4'">{{ tl('隐式辛方法：守恒系统（行星轨道、单摆、弹簧振子）长时间计算时能量只在很小范围内起伏，不会逐渐漂移；有摩擦或阻尼时照常计算，但不再有这一优点。') }}</Note>
         <div v-if="s.integrator === 'moreau'" class="reduced-note small">
           <span class="badge warn">{{ tl('精度降级') }}</span>
           <span>{{ tl('按 Δt 逐步推进，碰撞与摩擦在每一步内近似处理；事件时刻不再精确定位，公式对照仅供参考。适合接触很多、事件驱动算不动的场景。') }}</span>
@@ -192,11 +193,11 @@ const reducedFrom = computed(() => rec.value?.reducedFrom ?? null)
           <div class="row"><label>{{ tl('相对容差') }}</label><NumField class="grow" :model-value="s.relTol" :min="1e-14" :max="1e-2" @update:model-value="v => edit(sc => { sc.settings.relTol = v })" /></div>
           <div class="row"><label>{{ tl('绝对容差') }}</label><NumField class="grow" :model-value="s.absTol" :min="1e-16" :max="1e-2" @update:model-value="v => edit(sc => { sc.settings.absTol = v })" /></div>
         </template>
-        <div class="tiny muted note">
+        <Note>
           <template v-if="s.duration !== null">{{ tl('共 {0} 帧。', [frames]) }}</template>
           <template v-else>{{ tl('按需计算：始终领先播放位置一段时间（设置页可调），所有物体永久静止时自动停止。') }}</template>
           {{ tl('每个 Δt 记录一帧完整状态；自适应积分的步长不超过 Δt，也不跨越记录时刻。碰撞、开始滑动、共速等事件的时刻单独精确定位（约 10⁻¹² s），不受 Δt 限制。') }}
-        </div>
+        </Note>
       </div>
     </Section>
 
@@ -237,7 +238,7 @@ const reducedFrom = computed(() => rec.value?.reducedFrom ?? null)
         </div>
       </Section>
     </template>
-    <div v-else-if="state.computing" class="tiny muted note">{{ tl('正在计算… {0}%', [Math.round(state.progress * 100)]) }}</div>
+    <Note v-else-if="state.computing">{{ tl('正在计算… {0}%', [Math.round(state.progress * 100)]) }}</Note>
   </div>
 </template>
 

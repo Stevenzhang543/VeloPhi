@@ -1,0 +1,637 @@
+{
+ "format": "velophi-chem-reactions-report",
+ "version": 1,
+ "violations": [],
+ "counts": {
+  "reactions": 211,
+  "couples": 90,
+  "dissolution": 3,
+  "experiments": 40,
+  "indicators": 11,
+  "byClass": {
+   "combustion": 14,
+   "decomposition": 35,
+   "displacement": 38,
+   "organic": 27,
+   "redox": 85,
+   "synthesis": 12
+  },
+  "byLaw": {
+   "catalytic": 5,
+   "instant": 62,
+   "mass": 26,
+   "none": 10,
+   "surface": 72,
+   "thermal": 34,
+   "unmodelled": 2
+  },
+  "teaching": 139,
+  "measured": 7,
+  "hand": 14,
+  "experimentGroups": {
+   "demo": 14,
+   "junior": 8,
+   "seniorCompulsory": 9,
+   "seniorElective": 9
+  },
+  "couplesByEntry": {
+   "computed": 5,
+   "exact": 1,
+   "hand": 80,
+   "network": 4
+  }
+ },
+ "substancesFile": true,
+ "pending": [
+  {
+   "id": "Au+3",
+   "formula": "Au",
+   "phase": "aq",
+   "kind": "series"
+  },
+  {
+   "id": "Co+3",
+   "formula": "Co",
+   "phase": "aq",
+   "kind": "series"
+  },
+  {
+   "id": "F2(g)",
+   "formula": "F2",
+   "phase": "g",
+   "kind": "series"
+  },
+  {
+   "id": "Hg(l)",
+   "formula": "Hg",
+   "phase": "l",
+   "kind": "series"
+  },
+  {
+   "id": "Hg+2",
+   "formula": "Hg",
+   "phase": "aq",
+   "kind": "series"
+  },
+  {
+   "id": "Hg2+2",
+   "formula": "Hg2",
+   "phase": "aq",
+   "kind": "series"
+  },
+  {
+   "id": "Hg2Cl2(s)",
+   "formula": "Hg2Cl2",
+   "phase": "s",
+   "kind": "series"
+  },
+  {
+   "id": "Pt+2",
+   "formula": "Pt",
+   "phase": "aq",
+   "kind": "series"
+  }
+ ],
+ "teaching": [
+  "AgBr_light",
+  "AgCl_light",
+  "AgNO3_thermal",
+  "Ag_HNO3_conc",
+  "Ag_HNO3_dil",
+  "AlOH3_thermal",
+  "Al_Cu2",
+  "Al_NaOH",
+  "Al_acid",
+  "Al_acid_slow",
+  "C2H5Br_hydrolysis",
+  "C2H5OH_Na",
+  "C2H5OH_burn",
+  "C2H5OH_dehydration",
+  "CH3OH_burn",
+  "CO_CuO",
+  "CO_Fe2O3",
+  "C_CO2",
+  "C_CuO",
+  "C_H2SO4_conc",
+  "C_HNO3_conc",
+  "C_burn",
+  "CaC2_water",
+  "CaCO3_thermal",
+  "CaOH2_thermal",
+  "Ca_acid",
+  "Ca_water",
+  "ClO_disproportionation",
+  "Cr2O7_C2H5OH",
+  "Cr2O7_I",
+  "Cu2OH2CO3_thermal",
+  "Cu2O_acid",
+  "CuNO32_thermal",
+  "CuOH2_thermal",
+  "CuO_C2H5OH",
+  "CuSO4_5H2O_step1",
+  "CuSO4_5H2O_step2",
+  "CuSO4_5H2O_step3",
+  "Cu_Ag",
+  "Cu_Cl2",
+  "Cu_H2SO4_conc",
+  "Cu_HNO3_conc",
+  "Cu_HNO3_dil",
+  "Cu_O2",
+  "Cu_S",
+  "Fe3_Cu",
+  "Fe3_Fe",
+  "Fe3_SO2",
+  "Fe3_Zn",
+  "FeOH3_thermal",
+  "Fe_Ag",
+  "Fe_Cl2",
+  "Fe_Cu2",
+  "Fe_HNO3_dil",
+  "Fe_S",
+  "Fe_acid",
+  "Fe_burn",
+  "Fe_steam",
+  "H2O2_Cu2",
+  "H2O2_Fe3",
+  "H2O2_H2S",
+  "H2O2_MnO2",
+  "H2O2_decomposition",
+  "H2S_O2",
+  "H2_CuO",
+  "HClO_light",
+  "HNO3_light",
+  "HSO3_O2",
+  "KClO3_MnO2",
+  "KClO3_thermal",
+  "KMnO4_HCl",
+  "KMnO4_thermal",
+  "KNO3_thermal",
+  "K_acid",
+  "K_water",
+  "Li_water",
+  "MgCO3_thermal",
+  "MgOH2_thermal",
+  "Mg_CO2",
+  "Mg_Cu2",
+  "Mg_acid",
+  "Mg_burn",
+  "Mg_hot_water",
+  "Mg_steam",
+  "MnO2_HCl",
+  "MnO42_disproportionation",
+  "MnO4_Br",
+  "MnO4_C2H5OH",
+  "MnO4_Fe2_neutral",
+  "MnO4_SO2_acid",
+  "MnO4_SO3_base",
+  "MnO4_SO3_neutral",
+  "MnO4_oxalate",
+  "MnO4_oxalate_Mn2",
+  "NH4Cl_CaOH2",
+  "NH4Cl_thermal",
+  "NH4HCO3_thermal",
+  "NO2_water",
+  "NO_HNO3_conc",
+  "Na2CO3_10H2O_step1",
+  "Na2CO3_10H2O_step2",
+  "Na2O2_CO2",
+  "Na2O2_water",
+  "NaCl_H2SO4",
+  "NaHCO3_thermal",
+  "NaNO3_thermal",
+  "Na_Cl2",
+  "Na_acid",
+  "Na_air",
+  "Na_burn",
+  "Na_water",
+  "Ni_acid",
+  "P_burn",
+  "Pb_acid",
+  "S2O3_acid",
+  "SO2_HNO3",
+  "SO3_O2",
+  "S_burn",
+  "Sn_acid",
+  "Zn_Ag",
+  "Zn_Cu2",
+  "Zn_Fe2",
+  "Zn_NaOH",
+  "Zn_Pb2",
+  "Zn_Sn2",
+  "Zn_acid",
+  "candle_burn",
+  "esterification",
+  "fat_saponification",
+  "fehling_ethanal",
+  "fehling_glucose",
+  "gypsum_plaster",
+  "plaster_anhydrite",
+  "silver_mirror_ethanal",
+  "silver_mirror_glucose",
+  "starch_hydrolysis",
+  "sucrose_H2SO4",
+  "sucrose_hydrolysis",
+  "thermite"
+ ],
+ "measured": [
+  "Fe2_H2O2",
+  "Fe2_O2",
+  "H2O2_I",
+  "H2O2_I_acid",
+  "H2O2_iodide",
+  "ester_hydrolysis_acid",
+  "ester_hydrolysis_base"
+ ],
+ "curated": {
+  "org01": [
+   "C2H2_burn",
+   "C2H4_burn",
+   "C2H5OH_burn",
+   "CH3OH_burn",
+   "CH4_burn"
+  ],
+  "org02": [
+   "CH4_Cl2_1",
+   "CH4_Cl2_2",
+   "CH4_Cl2_3",
+   "CH4_Cl2_4"
+  ],
+  "org03": [
+   "C2H4_Br2"
+  ],
+  "org04": [
+   "C2H4_MnO4"
+  ],
+  "org05": [
+   "C2H2_Br2"
+  ],
+  "org06": [
+   "C2H2_MnO4"
+  ],
+  "org07": [
+   "C2H5OH_Na"
+  ],
+  "org08": [
+   "CuO_C2H5OH"
+  ],
+  "org09": [
+   "Cr2O7_C2H5OH",
+   "MnO4_C2H5OH"
+  ],
+  "org10": [
+   "C2H5OH_dehydration"
+  ],
+  "org11": [
+   "esterification"
+  ],
+  "org12": [
+   "ester_hydrolysis_acid"
+  ],
+  "org13": [
+   "ester_hydrolysis_base"
+  ],
+  "org14": [
+   "fat_saponification"
+  ],
+  "org15": [
+   "silver_mirror_ethanal",
+   "silver_mirror_glucose"
+  ],
+  "org16": [
+   "fehling_ethanal",
+   "fehling_glucose"
+  ],
+  "org17": [
+   "sucrose_hydrolysis"
+  ],
+  "org18": [
+   "starch_hydrolysis"
+  ],
+  "org19": [
+   "addition_polymerisation"
+  ],
+  "org20": [
+   "condensation_polymerisation"
+  ],
+  "test": [
+   "C2H5Br_hydrolysis",
+   "phenol_Br2"
+  ]
+ },
+ "extensions": {
+  "beyondModel": [
+   "Al_H2SO4_passive",
+   "C2H5OH_dehydration",
+   "C_H2SO4_conc",
+   "Cu_H2SO4_conc",
+   "Fe_H2SO4_passive",
+   "NaCl_H2SO4",
+   "esterification",
+   "sucrose_H2SO4"
+  ],
+  "lnK with a mass law": [
+   "ester_hydrolysis_acid"
+  ],
+  "rate.gas": [
+   "NO_O2"
+  ]
+ },
+ "e0": [
+  {
+   "id": "H+/H2",
+   "E0": 0.0,
+   "network": -0.0015,
+   "delta_mV": 1.5,
+   "entry": "exact"
+  },
+  {
+   "id": "Cu+2/Cu+",
+   "E0": 0.153,
+   "network": 0.1609,
+   "delta_mV": -7.9,
+   "entry": "hand"
+  },
+  {
+   "id": "Sn+4/Sn+2",
+   "E0": 0.151,
+   "network": 0.1501,
+   "delta_mV": 0.9,
+   "entry": "hand"
+  },
+  {
+   "id": "Fe+3/Fe+2",
+   "E0": 0.771,
+   "network": 0.7703,
+   "delta_mV": 0.7,
+   "entry": "hand"
+  },
+  {
+   "id": "H2O/H2",
+   "E0": -0.8277,
+   "network": -0.8294,
+   "delta_mV": 1.7,
+   "entry": "hand"
+  },
+  {
+   "id": "O2/H2O",
+   "E0": 1.229,
+   "network": 1.2301,
+   "delta_mV": -1.1,
+   "entry": "hand"
+  },
+  {
+   "id": "O2/OH-",
+   "E0": 0.401,
+   "network": 0.4022,
+   "delta_mV": -1.2,
+   "entry": "hand"
+  },
+  {
+   "id": "MnO4-/Mn+2",
+   "E0": 1.507,
+   "network": 1.5124,
+   "delta_mV": -5.4,
+   "entry": "hand"
+  },
+  {
+   "id": "MnO4-/MnO4-2",
+   "E0": 0.558,
+   "network": 0.5552,
+   "delta_mV": 2.8,
+   "entry": "hand"
+  },
+  {
+   "id": "Cr2O7-2/Cr+3",
+   "E0": 1.36,
+   "network": 1.3738,
+   "delta_mV": -13.8,
+   "entry": "hand"
+  },
+  {
+   "id": "CrO4-2/Cr(OH)3",
+   "E0": -0.0364,
+   "network": -0.0364,
+   "delta_mV": 0.0,
+   "entry": "network"
+  },
+  {
+   "id": "NO3-/NO2-",
+   "E0": 0.8451,
+   "network": 0.8451,
+   "delta_mV": 0.0,
+   "entry": "network"
+  },
+  {
+   "id": "NO3-/NH4+",
+   "E0": 0.8806,
+   "network": 0.8806,
+   "delta_mV": 0.0,
+   "entry": "network"
+  },
+  {
+   "id": "SO4-2/H2S",
+   "E0": 0.3002,
+   "network": 0.3002,
+   "delta_mV": 0.0,
+   "entry": "network"
+  },
+  {
+   "id": "Cu+2/CuI",
+   "E0": 0.86,
+   "network": 0.8643,
+   "delta_mV": -4.3,
+   "entry": "hand"
+  },
+  {
+   "id": "Fe(OH)3/Fe(OH)2",
+   "E0": -0.56,
+   "network": -0.5708,
+   "delta_mV": 10.8,
+   "entry": "hand"
+  }
+ ],
+ "indicators": [
+  {
+   "element": "Phph",
+   "master": "Phph-2",
+   "name": "phenolphthalein",
+   "step": 1,
+   "pKa": 9.5,
+   "range": [
+    8.2,
+    10.0
+   ],
+   "acid": "colourless",
+   "base": "pink",
+   "flag": ""
+  },
+  {
+   "element": "Phph",
+   "master": "Phph-2",
+   "name": "phenolphthalein",
+   "step": 2,
+   "pKa": 9.05,
+   "range": [
+    8.2,
+    10.0
+   ],
+   "acid": "colourless",
+   "base": "colourless",
+   "flag": ""
+  },
+  {
+   "element": "Thph",
+   "master": "Thph-",
+   "name": "thymolphthalein",
+   "step": 1,
+   "pKa": 9.9,
+   "range": [
+    9.3,
+    10.5
+   ],
+   "acid": "colourless",
+   "base": "blue",
+   "flag": "effective"
+  },
+  {
+   "element": "Meor",
+   "master": "Meor-",
+   "name": "methyl_orange",
+   "step": 1,
+   "pKa": 3.46,
+   "range": [
+    3.1,
+    4.4
+   ],
+   "acid": "red",
+   "base": "yellow",
+   "flag": ""
+  },
+  {
+   "element": "Mered",
+   "master": "Mered-",
+   "name": "methyl_red",
+   "step": 1,
+   "pKa": 5.0,
+   "range": [
+    4.4,
+    6.2
+   ],
+   "acid": "red",
+   "base": "yellow",
+   "flag": ""
+  },
+  {
+   "element": "Btb",
+   "master": "Btb-2",
+   "name": "bromothymol_blue",
+   "step": 1,
+   "pKa": 7.3,
+   "range": [
+    6.0,
+    7.6
+   ],
+   "acid": "yellow",
+   "base": "blue",
+   "flag": ""
+  },
+  {
+   "element": "Bcg",
+   "master": "Bcg-2",
+   "name": "bromocresol_green",
+   "step": 1,
+   "pKa": 4.9,
+   "range": [
+    3.8,
+    5.4
+   ],
+   "acid": "yellow",
+   "base": "blue",
+   "flag": ""
+  },
+  {
+   "element": "Phred",
+   "master": "Phred-2",
+   "name": "phenol_red",
+   "step": 1,
+   "pKa": 8.0,
+   "range": [
+    6.8,
+    8.4
+   ],
+   "acid": "yellow",
+   "base": "red",
+   "flag": ""
+  },
+  {
+   "element": "Thyb",
+   "master": "Thyb-2",
+   "name": "thymol_blue",
+   "step": 1,
+   "pKa": 9.2,
+   "range": [
+    8.0,
+    9.6
+   ],
+   "acid": "yellow",
+   "base": "blue",
+   "flag": ""
+  },
+  {
+   "element": "Thyb",
+   "master": "Thyb-2",
+   "name": "thymol_blue",
+   "step": 2,
+   "pKa": 1.65,
+   "range": [
+    1.2,
+    2.8
+   ],
+   "acid": "red",
+   "base": "yellow",
+   "flag": ""
+  },
+  {
+   "element": "Litmus",
+   "master": "Litmus-",
+   "name": "litmus",
+   "step": 1,
+   "pKa": 6.5,
+   "range": [
+    5.0,
+    8.0
+   ],
+   "acid": "red",
+   "base": "blue",
+   "flag": "effective"
+  },
+  {
+   "element": "Alyr",
+   "master": "Alyr-2",
+   "name": "alizarin_yellow_R",
+   "step": 1,
+   "pKa": 11.2,
+   "range": [
+    10.1,
+    12.0
+   ],
+   "acid": "yellow",
+   "base": "red",
+   "flag": ""
+  },
+  {
+   "element": "Congo",
+   "master": "Congo-2",
+   "name": "congo_red",
+   "step": 1,
+   "pKa": 4.1,
+   "range": [
+    3.0,
+    5.0
+   ],
+   "acid": "blue",
+   "base": "red",
+   "flag": ""
+  }
+ ]
+}

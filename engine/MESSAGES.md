@@ -122,3 +122,51 @@ Nested in `scene.forceExprInvalid`. The editor checks expressions with the TypeS
 | `abi.noScene` | — |
 | `abi.badOption` | option |
 | `engine.wasmUnavailable` (interface) | detail |
+
+## Chemistry (Rust `velophi-chem`, 26.64)
+
+Errors of the chemistry operations and of a bench session. What a model cannot compute is not an error but a
+diagnostic `{ code, severity, params }` in the result (`CHEM.md`); the interface renders those from their codes.
+
+| Key | Parameters |
+| --- | --- |
+| `chem.noData` | — |
+| `chem.badData` | what |
+| `chem.unknownSpecies` | id |
+| `chem.unknownReagent` | id |
+| `chem.unknownVessel` | id |
+| `chem.badAmount` | what |
+| `chem.notSolved` | vessel, reason (`notConverged`, `noWater`, `negativeTotal`, `singular`) |
+| `chem.unknownAction` | act |
+| `chem.vesselFull` | id, capacity, volume (mL) |
+| `chem.nothingToUndo` | — |
+| `chem.cracked` | id — the vessel cracked (26.65): it takes nothing any more |
+
+## Nuclides and reactor (Rust `velophi-chem/src/nuclear`, `reactor`, 26.64)
+
+The nuclear and reactor operations (`CHEM.md`, "Nuclear operations" and "Reactor operations") report what the model
+did or could not do as diagnostics `{ code, severity, params }` in the result. They are not keys of the message
+renderer (`src/i18n/coreText.ts`): the interface words them from their codes in `src/nuclear/diagText.ts`
+(`diagnosticText`, texts in `src/i18n/texts/v2664nuc.ts`); `tests/nuclear/nuclideViews.test.ts` compares this list
+with the codes in the Rust source and requires a text in three languages for each.
+
+| Code (severity) | Parameters | Returned by |
+| --- | --- | --- |
+| `nuclide.isomerFeeding` (approx) | nuclide, mode, isomer, assumed | `nuclideChain`, `nuclideDecay` |
+| `nuclide.branchSum` (approx) | nuclide, sum | `nuclideChain`, `nuclideDecay` |
+| `nuclide.branchUnknown` (unmodelled) | nuclide | `nuclideChain`, `nuclideDecay` |
+| `nuclide.halfLifeUnknown` (unmodelled) | nuclide | `nuclideChain`, `nuclideDecay` |
+| `nuclide.matrixSolution` (info) | values, of | `nuclideDecay` |
+| `reactor.teachingModel` (info) | — | every reactor operation |
+| `reactor.notConverged` (approx) | k, residual (`reactorCriticality`) | `reactorCriticality`, `reactorAdvance` |
+| `reactor.promptCritical` (unmodelled) | t (s), rho, limit (0.9 β) | `reactorKinetics`, `reactorAdvance` |
+| `reactor.shimPositive` (approx) | shim, k | `reactorAdvance` (`init.power`) |
+| `reactor.solveBudget` (info) | t (s), solves | `reactorAdvance` |
+| `reactor.trip` (info) | reason (`power`, `period`, `fuelTemperature`, `manual`), t (s), value, limit | `reactorAdvance` |
+| `reactor.coreDamage` (error) | t (s), fuelT (K), limit (K) | `reactorAdvance` |
+
+Errors of these operations are currently all `err.internal` with an English `message` that starts with the part that
+failed — `nuclide data: `, `nuclide: `, `decay network: `, `reactor data: `, `reactor: `, `reactor task: ` — followed by
+the detail (`'Xx-1' is not in the table`). The interface names the part in the user's language and shows the detail as
+given (`nuclearErrorText`). Keys of their own (`nuclide.unknown`, `reactor.badLayout` …) would let the detail be
+translated too; that is a change of the core.

@@ -35,7 +35,11 @@ export interface JsonSchema {
   maximum?: number
 }
 
-export interface ToolDef { type: 'function'; function: { name: string; description: string; parameters: JsonSchema } }
+/**
+ * `strict` (26.64, D283): the provider holds the call to the schema (every property required, none besides). Sent only
+ * where the connection has strict function calls (capabilities.ts `strictTools`); dropped elsewhere.
+ */
+export interface ToolDef { type: 'function'; function: { name: string; description: string; parameters: JsonSchema; strict?: boolean } }
 
 export type ToolChoice = 'auto' | 'none' | 'required' | { type: 'function'; function: { name: string } }
 

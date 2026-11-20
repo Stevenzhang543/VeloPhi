@@ -8,7 +8,7 @@
 import type { Camera, Palette } from './renderer'
 import { toScreen } from './renderer'
 import type { RailLoopDef, RegionDef, SceneSettings } from '../core/scene/types'
-import { font, lw, q } from './style'
+import { font, fpx, lw, q } from './style'
 import { tl } from '../i18n'
 
 type Pt = { x: number; y: number }
@@ -101,8 +101,12 @@ function fieldText(r: RegionDef, digits: number): string {
   return parts.join('  ')
 }
 
-/** Draw the field regions and liquids of a scene at time t; `selected` gets a highlighted outline with handles. */
-export function drawRegions(ctx: CanvasRenderingContext2D, cam: Camera, st: SceneSettings, t: number, P: Palette, digits: number, selected: string | null) {
+/**
+ * Draw the field regions and liquids of a scene at time t; `selected` gets a highlighted outline with handles.
+ * 26.65 (D6): `marks` receives the screen boxes other labels must keep off — each region's label and the ripples of a
+ * liquid's surface.
+ */
+export function drawRegions(ctx: CanvasRenderingContext2D, cam: Camera, st: SceneSettings, t: number, P: Palette, digits: number, selected: string | null, marks?: Array<{ x: number; y: number; w: number; h: number }>) {
   const list = st.regions
   if (!list?.length) return
   for (const r of list) {
@@ -122,10 +126,12 @@ export function drawRegions(ctx: CanvasRenderingContext2D, cam: Camera, st: Scen
       ctx.beginPath(); ctx.moveTo(box.x0, box.y0); ctx.lineTo(box.x0, box.y1); ctx.lineTo(box.x1, box.y1); ctx.lineTo(box.x1, box.y0); ctx.stroke()
       ctx.setLineDash([])
       ctx.fillStyle = LIQUID_EDGE; ctx.font = font(11)
-      ctx.fillText(`${r.name}  ρ = ${q(r.density ?? 1000, 'kg/m³', digits)}`, Math.max(box.x0, 0) + 6, box.y0 + 20)
+      const label = `${r.name}  ρ = ${q(r.density ?? 1000, 'kg/m³', digits)}`, lx = Math.max(box.x0, 0) + 6
+      ctx.fillText(label, lx, box.y0 + 20)
+      marks?.push({ x: box.x0, y: box.y0 + 1, w: box.x1 - box.x0, h: 9 }, { x: lx - 2, y: box.y0 + 20 - fpx(11), w: ctx.measureText(label).width + 4, h: fpx(11) + 4 })
     } else {
       const hasB = !!r.B, e = Math.hypot(r.E?.x ?? 0, r.E?.y ?? 0)
-      const col = hasB && !e ? P.magnetic ?? '#a16207' : P.electric ?? '#0f766e'
+      const col = hasB && !e ? P.magnetic ?? '#a16207' : P.fieldLine ?? P.electric ?? '#0f766e'
       regionPath(ctx, cam, r)
       ctx.globalAlpha = 0.07; ctx.fillStyle = col; ctx.fill(); ctx.globalAlpha = 1
       ctx.save()
@@ -134,7 +140,7 @@ export function drawRegions(ctx: CanvasRenderingContext2D, cam: Camera, st: Scen
       if (hasB) bMarks(ctx, cam, box, r.B! > 0, P.magnetic ?? '#a16207')
       if (e > 0) {
         const c = regionPhase(r, t)
-        eLines(ctx, box, r.E!, Math.sign(c), 0.25 + 0.35 * Math.abs(c), P.electric ?? '#0f766e')
+        eLines(ctx, box, r.E!, Math.sign(c), 0.25 + 0.35 * Math.abs(c), P.fieldLine ?? P.electric ?? '#0f766e')
       }
       ctx.restore()
       regionPath(ctx, cam, r)
@@ -145,7 +151,9 @@ export function drawRegions(ctx: CanvasRenderingContext2D, cam: Camera, st: Scen
       const tw = ctx.measureText(label).width
       const above = r.shape === 'circle' || box.x1 - box.x0 < tw + 12
       const lx = above ? Math.min(Math.max(4, (box.x0 + box.x1) / 2 - tw / 2), cam.width - tw - 4) : Math.max(box.x0, 0) + 6
-      ctx.fillText(label, lx, above ? box.y0 - 6 : Math.max(box.y0, 0) + 15)
+      const ly = above ? box.y0 - 6 : Math.max(box.y0, 0) + 15
+      ctx.fillText(label, lx, ly)
+      marks?.push({ x: lx - 2, y: ly - fpx(11), w: tw + 4, h: fpx(11) + 4 })
     }
     if (r.id === selected) {
       regionPath(ctx, cam, r)

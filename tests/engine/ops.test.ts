@@ -22,8 +22,8 @@ function rustOps(file: string, from?: string): Set<string> {
 }
 
 /** Operation names in the first column of the tables of a section of CALC.md (from `## title` to the next `## `). */
-function docOps(title: string): Set<string> {
-  const doc = read('engine/CALC.md')
+function docOps(title: string, file = 'engine/CALC.md'): Set<string> {
+  const doc = read(file)
   const start = doc.indexOf(`## ${title}`)
   const end = doc.indexOf('\n## ', start + 3)
   const part = doc.slice(start, end < 0 ? undefined : end)
@@ -44,7 +44,12 @@ describe('calculation operations', () => {
   const stateless = rustOps('engine/velophi-core/src/calc.rs')
   // 26.54 (D76): the lab operations, dispatched before the others in calc.rs
   const labs = rustOps('engine/velophi-core/src/labs/mod.rs', 'pub fn call(')
-  const calc = new Set([...stateless, ...labs])
+  // 26.64 (D261): the chemistry core, documented in engine/CHEM.md — stateless operations by module and the
+  // operations of a bench session
+  const CHEM: Array<[string, string]> = [['ops.rs', 'Stateless operations'], ['gibbs/api.rs', 'Gas equilibrium operations'], ['color/api.rs', 'Colour operations'], ['mol/api.rs', 'Molecule operations'], ['nuclear/api.rs', 'Nuclear operations'], ['reactor/api.rs', 'Reactor operations']]
+  const chem = CHEM.map(([file]) => rustOps(`engine/velophi-chem/src/${file}`, 'pub fn call('))
+  const bench = rustOps('engine/velophi-chem/src/session.rs', 'pub fn call(')
+  const calc = new Set([...stateless, ...labs, ...chem.flatMap(s => [...s])])
 
   it('the core implements what CALC.md documents', () => {
     expect([...session].sort()).toEqual([...docOps('Session operations')].sort())
@@ -53,10 +58,18 @@ describe('calculation operations', () => {
     expect(labs.size).toBe(29)
   })
 
+  it('the chemistry core implements what CHEM.md documents', () => {
+    CHEM.forEach(([file, title], i) => expect([...chem[i]].sort(), file).toEqual([...docOps(title, 'engine/CHEM.md')].sort()))
+    expect([...bench].sort()).toEqual([...docOps('Bench session operations', 'engine/CHEM.md')].sort())
+    // No operation name is used twice across the two cores
+    const all = [...stateless, ...labs, ...chem.flatMap(s => [...s])]
+    expect(all.length).toBe(new Set(all).size)
+  })
+
   it('every operation the front end sends exists', () => {
     const used = new Set<string>()
     for (const p of walk(join(root, 'src'))) for (const m of readFileSync(p, 'utf8').matchAll(/\bop: '([a-zA-Z]+)'/g)) used.add(m[1])
     expect(used.size).toBeGreaterThan(30)
-    expect([...used].filter(op => !session.has(op) && !calc.has(op))).toEqual([])
+    expect([...used].filter(op => !session.has(op) && !calc.has(op) && !bench.has(op))).toEqual([])
   })
 })

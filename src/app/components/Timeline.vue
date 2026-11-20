@@ -97,7 +97,8 @@ const statusKind = computed(() => (state.buffering ? 'wait' : state.computing ? 
 const statusText = computed(() => {
   const r = rec.value
   if (state.buffering) return tl('缓冲中…')
-  if (state.computing) return state.run.paused ? tl('已算至 {0} {1} · 播放时继续', [fmtShort(tComputed.value), unitLabel('s')]) : tl('计算中 · {0} {1}', [fmtShort(tComputed.value), unitLabel('s')])
+  // 26.65 (D294): short enough for every language; why it paused is the tooltip's
+  if (state.computing) return state.run.paused ? tl('已算至 {0} {1}', [fmtShort(tComputed.value), unitLabel('s')]) : tl('计算中 · {0} {1}', [fmtShort(tComputed.value), unitLabel('s')])
   if (!r || !r.completed) return ''
   if ((r.stopReason === 'rest' || r.stopReason === 'restApprox') && r.frameCount <= 2) return tl('静止：没有物体会运动')
   if (r.stopReason === 'rest' || r.stopReason === 'restApprox') return tl('已静止 · 共 {0} {1}', [fmtShort(tComputed.value), unitLabel('s')])
@@ -275,7 +276,8 @@ async function removeBranch() {
 .sep { width: 1px; height: 18px; background: var(--separator); margin: 0 4px; flex: 0 0 auto; }
 .speed { width: 76px; flex: 0 0 auto; }
 .controls > .btn { flex: 0 0 auto; }
-.status { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--type-small); color: var(--text-2); padding: 2px 9px; border-radius: 999px; background: var(--fill); line-height: 20px; }
+/* 26.65 (D294): the state is never cut off — the track gives way first (the texts are kept short in every language) */
+.status { flex: 0 0 auto; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--type-small); color: var(--text-2); padding: 2px 9px; border-radius: 999px; background: var(--fill); line-height: 20px; }
 .status.busy { color: var(--accent); background: var(--accent-soft); }
 .status.wait { color: var(--warning); background: color-mix(in srgb, var(--warning) 14%, transparent); }
 .status.done { color: var(--success, #16a34a); background: color-mix(in srgb, var(--success, #16a34a) 12%, transparent); }

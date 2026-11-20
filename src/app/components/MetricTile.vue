@@ -72,7 +72,7 @@ const clipId = `spark-${useId().replace(/[^\w-]/g, "-")}`
 .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .owner { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: -1px; }
 .value { display: flex; align-items: baseline; gap: 4px; margin: 2px 0 2px; }
-.num { font-size: calc(19px * var(--zoom)); font-weight: 650; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+.num { font-size: calc(19px * var(--zoom)); font-weight: var(--weight-strong); letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
 .unit { font-size: var(--type-tiny); color: var(--text-3); }
 .spark { display: block; width: 100%; height: 34px; overflow: visible; }
 .spark .ghost { fill: none; stroke: var(--c); stroke-width: 1.2; opacity: 0.22; }

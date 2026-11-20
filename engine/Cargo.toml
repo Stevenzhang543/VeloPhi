@@ -1,11 +1,11 @@
 [workspace]
 resolver = "2"
-members = ["velophi-core", "velophi-cli", "velophi-wasm", "velophi-native"]
+members = ["velophi-core", "velophi-chem", "velophi-cli", "velophi-wasm", "velophi-native"]
 # Test-only Node-API module (built on demand: scripts/build-napi.mjs); not part of the workspace so Windows builds never link it
 exclude = ["velophi-napi"]
 
 [workspace.package]
-version = "26.63.0"
+version = "26.65.0"
 edition = "2021"
 publish = false
 
@@ -19,5 +19,11 @@ panic = "abort"
 [profile.dev.package.velophi-core]
 opt-level = 2
 
+[profile.dev.package.velophi-chem]
+opt-level = 2
+
 [profile.test.package.velophi-core]
+opt-level = 2
+
+[profile.test.package.velophi-chem]
 opt-level = 2

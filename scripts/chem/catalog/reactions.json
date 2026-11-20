@@ -1,0 +1,7054 @@
+{
+ "format": "velophi-chem-reactions",
+ "version": 1,
+ "note": "The declared reactions of the bench (D265): what takes time or transfers electrons. Everything else — acid-base, complexes, precipitation, the solubility of gases — is the instant equilibrium of the aqueous network. eq: { species id: ν }, negative = consumed; ids of the network (src/chem/data/aqueous.json: components and species, dissolved gases by their dissolved id, gases in a gas space by the (g) id) and of the substance catalogue. H+, OH- and H2O are written as the textbook writes them; the equilibrium solver redistributes protons afterwards. A rate is the rate of advancement of eq as written. See engine/CHEM.md, \"Data files\", for the laws, the conditions and the fields beyond the first reader.",
+ "sources": {
+  "school": "The equations and conditions of the secondary-school curriculum as the textbooks of the People's Education Press give them (junior: 九年级化学, 2024; senior: 必修第一、二册 and 选择性必修 1–3, 2019), and the standard classroom demonstrations. No rate data: every rate constant of an entry citing only this source is a teaching value with its basis."
+ },
+ "effectKeys": [
+  "bubbles",
+  "flame",
+  "smoke",
+  "fog",
+  "glow",
+  "spark",
+  "light",
+  "pop",
+  "explosion",
+  "heat",
+  "melt",
+  "dart",
+  "hiss",
+  "crackle",
+  "deposit",
+  "mirror",
+  "char",
+  "molten"
+ ],
+ "flameColours": [
+  "pale",
+  "paleBlue",
+  "blue",
+  "yellow",
+  "white",
+  "lilac"
+ ],
+ "activityOrder": [
+  "K_acid",
+  "Na_acid",
+  "Ca_acid",
+  "Mg_acid",
+  "Al_acid",
+  "Zn_acid",
+  "Fe_acid",
+  "Ni_acid",
+  "Sn_acid",
+  "Pb_acid"
+ ],
+ "curated": {
+  "org01": {
+   "zh": "燃烧",
+   "en": "Combustion",
+   "de": "Verbrennung"
+  },
+  "org02": {
+   "zh": "甲烷与氯气的取代",
+   "en": "Substitution of methane by chlorine",
+   "de": "Substitution von Methan durch Chlor"
+  },
+  "org03": {
+   "zh": "乙烯与溴的加成",
+   "en": "Addition of bromine to ethene",
+   "de": "Addition von Brom an Ethen"
+  },
+  "org04": {
+   "zh": "乙烯被酸性高锰酸钾氧化",
+   "en": "Oxidation of ethene by acidified permanganate",
+   "de": "Oxidation von Ethen durch angesäuertes Permanganat"
+  },
+  "org05": {
+   "zh": "乙炔与溴的加成",
+   "en": "Addition of bromine to ethyne",
+   "de": "Addition von Brom an Ethin"
+  },
+  "org06": {
+   "zh": "乙炔被酸性高锰酸钾氧化",
+   "en": "Oxidation of ethyne by acidified permanganate",
+   "de": "Oxidation von Ethin durch angesäuertes Permanganat"
+  },
+  "org07": {
+   "zh": "乙醇与钠",
+   "en": "Ethanol with sodium",
+   "de": "Ethanol mit Natrium"
+  },
+  "org08": {
+   "zh": "乙醇的催化氧化",
+   "en": "Catalytic oxidation of ethanol",
+   "de": "Katalytische Oxidation von Ethanol"
+  },
+  "org09": {
+   "zh": "乙醇被强氧化剂氧化",
+   "en": "Oxidation of ethanol by strong oxidants",
+   "de": "Oxidation von Ethanol durch starke Oxidationsmittel"
+  },
+  "org10": {
+   "zh": "乙醇的消去（脱水）",
+   "en": "Elimination (dehydration) of ethanol",
+   "de": "Eliminierung (Dehydratisierung) von Ethanol"
+  },
+  "org11": {
+   "zh": "酯化",
+   "en": "Esterification",
+   "de": "Veresterung"
+  },
+  "org12": {
+   "zh": "酯的酸性水解",
+   "en": "Acid hydrolysis of an ester",
+   "de": "Saure Esterhydrolyse"
+  },
+  "org13": {
+   "zh": "酯的碱性水解",
+   "en": "Alkaline hydrolysis of an ester",
+   "de": "Alkalische Esterhydrolyse"
+  },
+  "org14": {
+   "zh": "油脂的皂化",
+   "en": "Saponification of a fat",
+   "de": "Verseifung eines Fettes"
+  },
+  "org15": {
+   "zh": "银镜反应",
+   "en": "Silver-mirror reaction",
+   "de": "Silberspiegelprobe"
+  },
+  "org16": {
+   "zh": "斐林反应",
+   "en": "Fehling test",
+   "de": "Fehling-Probe"
+  },
+  "org17": {
+   "zh": "蔗糖的水解",
+   "en": "Hydrolysis of sucrose",
+   "de": "Hydrolyse von Saccharose"
+  },
+  "org18": {
+   "zh": "淀粉的水解",
+   "en": "Hydrolysis of starch",
+   "de": "Hydrolyse von Stärke"
+  },
+  "org19": {
+   "zh": "加聚",
+   "en": "Addition polymerisation",
+   "de": "Polymerisation"
+  },
+  "org20": {
+   "zh": "缩聚",
+   "en": "Condensation polymerisation",
+   "de": "Polykondensation"
+  }
+ },
+ "reactions": [
+  {
+   "id": "K_acid",
+   "name": {
+    "zh": "钾与稀酸",
+    "en": "Potassium with dilute acid",
+    "de": "Kalium mit verdünnter Säure"
+   },
+   "class": "displacement",
+   "eq": {
+    "K(s)": -2,
+    "H+": -2,
+    "K+": 2,
+    "H2": 1
+   },
+   "rate": {
+    "law": "surface",
+    "on": "K(s)",
+    "k": 5.0,
+    "orders": {
+     "H+": 1
+    },
+    "Ea": 10,
+    "Tref": 298.15
+   },
+   "needs": {
+    "max": {
+     "NO3-": 0.1
+    }
+   },
+   "effects": [
+    "bubbles",
+    "flame",
+    "heat",
+    "melt",
+    "pop"
+   ],
+   "flameColour": "lilac",
+   "teaching": true,
+   "basis": "Far more violent than with water (K_water); the value only keeps the order of the activity series.",
+   "src": "school",
+   "note": {
+    "zh": "极为剧烈，课堂上不做；与水的反应（K_water）同时进行。",
+    "en": "Extremely violent and never done in class; the reaction with water (K_water) runs alongside.",
+    "de": "Äußerst heftig, wird im Unterricht nicht durchgeführt; die Reaktion mit Wasser (K_water) läuft daneben ab."
+   }
+  },
+  {
+   "id": "Na_acid",
+   "name": {
+    "zh": "钠与稀酸",
+    "en": "Sodium with dilute acid",
+    "de": "Natrium mit verdünnter Säure"
+   },
+   "class": "displacement",
+   "eq": {
+    "Na(s)": -2,
+    "H+": -2,
+    "Na+": 2,
+    "H2": 1
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Na(s)",
+    "k": 3.0,
+    "orders": {
+     "H+": 1
+    },
+    "Ea": 10,
+    "Tref": 298.15
+   },
+   "needs": {
+    "max": {
+     "NO3-": 0.1
+    }
+   },
+   "effects": [
+    "bubbles",
+    "heat",
+    "melt",
+    "dart",
+    "pop"
+   ],
+   "teaching": true,
+   "basis": "More violent than with water (Na_water: a pea-sized piece is gone in about 20 s); order of the activity series.",
+   "src": "school",
+   "note": {
+    "zh": "比与水的反应更剧烈，有爆炸危险，课堂上不做。",
+    "en": "More violent than with water, with a risk of explosion; not done in class.",
+    "de": "Heftiger als mit Wasser, Explosionsgefahr; wird im Unterricht nicht durchgeführt."
+   }
+  },
+  {
+   "id": "Ca_acid",
+   "name": {
+    "zh": "钙与稀酸",
+    "en": "Calcium with dilute acid",
+    "de": "Calcium mit verdünnter Säure"
+   },
+   "class": "displacement",
+   "eq": {
+    "Ca(s)": -1,
+    "H+": -2,
+    "Ca+2": 1,
+    "H2": 1
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Ca(s)",
+    "k": 1.0,
+    "orders": {
+     "H+": 1
+    },
+    "Ea": 15,
+    "Tref": 298.15
+   },
+   "needs": {
+    "max": {
+     "NO3-": 0.1
+    }
+   },
+   "effects": [
+    "bubbles",
+    "heat"
+   ],
+   "teaching": true,
+   "basis": "A calcium granule (0.5 g) in 1 mol/L HCl is gone in well under a minute; faster than magnesium, slower than sodium.",
+   "src": "school"
+  },
+  {
+   "id": "Mg_acid",
+   "name": {
+    "zh": "镁与稀酸",
+    "en": "Magnesium with dilute acid",
+    "de": "Magnesium mit verdünnter Säure"
+   },
+   "class": "displacement",
+   "eq": {
+    "Mg(s)": -1,
+    "H+": -2,
+    "Mg+2": 1,
+    "H2": 1
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Mg(s)",
+    "k": 0.12,
+    "orders": {
+     "H+": 1
+    },
+    "Ea": 15,
+    "Tref": 298.15
+   },
+   "needs": {
+    "max": {
+     "NO3-": 0.1
+    }
+   },
+   "effects": [
+    "bubbles",
+    "heat"
+   ],
+   "teaching": true,
+   "basis": "A 3 cm magnesium ribbon (1.3 mmol, 1.8 cm² on both faces) in 1 mol/L HCl dissolves in about 60 s: 0.12 mol/(m²·s).",
+   "src": "school"
+  },
+  {
+   "id": "Al_acid",
+   "name": {
+    "zh": "铝与盐酸",
+    "en": "Aluminium with hydrochloric acid",
+    "de": "Aluminium mit Salzsäure"
+   },
+   "class": "displacement",
+   "eq": {
+    "Al(s)": -2,
+    "H+": -6,
+    "Al+3": 2,
+    "H2": 3
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Al(s)",
+    "k": 0.01,
+    "orders": {
+     "H+": 1
+    },
+    "Ea": 40,
+    "Tref": 298.15
+   },
+   "needs": {
+    "min": {
+     "Cl-": 0.1
+    },
+    "max": {
+     "NO3-": 0.1
+    }
+   },
+   "effects": [
+    "bubbles",
+    "heat"
+   ],
+   "teaching": true,
+   "basis": "Aluminium foil in 2 mol/L HCl: after the oxide film has gone, vigorous and getting hotter; between magnesium and zinc. Rate of advancement of the equation as written (two Al).",
+   "src": "school",
+   "note": {
+    "zh": "真实实验开始时有一段诱导期（氧化膜先溶解），这段时间没有建模：反应从一开始就按稳定速率进行。氯离子破坏氧化膜；没有氯离子时见 Al_acid_slow。",
+    "en": "The real experiment starts with an induction period while the oxide film dissolves; it is not modelled, the reaction runs at its steady rate from the start. Chloride breaks the film; without chloride see Al_acid_slow.",
+    "de": "Der reale Versuch beginnt mit einer Induktionsphase, in der sich die Oxidschicht löst; sie ist nicht modelliert, die Reaktion läuft von Anfang an mit der stationären Geschwindigkeit. Chlorid zerstört die Schicht; ohne Chlorid siehe Al_acid_slow."
+   }
+  },
+  {
+   "id": "Al_acid_slow",
+   "name": {
+    "zh": "铝与稀硫酸（无氯离子）",
+    "en": "Aluminium with dilute sulfuric acid (no chloride)",
+    "de": "Aluminium mit verdünnter Schwefelsäure (ohne Chlorid)"
+   },
+   "class": "displacement",
+   "eq": {
+    "Al(s)": -2,
+    "H+": -6,
+    "Al+3": 2,
+    "H2": 3
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Al(s)",
+    "k": 0.0001,
+    "orders": {
+     "H+": 1
+    },
+    "Ea": 50,
+    "Tref": 298.15
+   },
+   "needs": {
+    "max": {
+     "NO3-": 0.1
+    }
+   },
+   "effects": [
+    "bubbles"
+   ],
+   "teaching": true,
+   "basis": "Aluminium in dilute sulfuric acid of the same H+ concentration gives only a few bubbles in the time hydrochloric acid reacts vigorously: taken as a hundred times slower.",
+   "src": "school",
+   "note": {
+    "zh": "没有氯离子时氧化膜保护着金属，反应很慢。",
+    "en": "Without chloride the oxide film protects the metal and the reaction is very slow.",
+    "de": "Ohne Chlorid schützt die Oxidschicht das Metall, die Reaktion ist sehr langsam."
+   }
+  },
+  {
+   "id": "Zn_acid",
+   "name": {
+    "zh": "锌与稀酸（制氢气）",
+    "en": "Zinc with dilute acid (preparing hydrogen)",
+    "de": "Zink mit verdünnter Säure (Wasserstoffdarstellung)"
+   },
+   "class": "displacement",
+   "eq": {
+    "Zn(s)": -1,
+    "H+": -2,
+    "Zn+2": 1,
+    "H2": 1
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Zn(s)",
+    "k": 0.006,
+    "orders": {
+     "H+": 1
+    },
+    "Ea": 20,
+    "Tref": 298.15
+   },
+   "needs": {
+    "max": {
+     "NO3-": 0.1
+    }
+   },
+   "effects": [
+    "bubbles"
+   ],
+   "teaching": true,
+   "basis": "2 g of zinc granules (about 5 cm²) in 1 mol/L H2SO4 give 10 mL of hydrogen in about 2 min: 6e-3 mol/(m²·s) per unit activity of H+.",
+   "src": "school",
+   "note": {
+    "zh": "纯锌反应较慢；加几滴硫酸铜溶液会明显加快（形成原电池），这一点没有建模。",
+    "en": "Pure zinc reacts rather slowly; a few drops of copper sulfate solution speed it up markedly (local cells) — not modelled.",
+    "de": "Reines Zink reagiert eher langsam; einige Tropfen Kupfersulfatlösung beschleunigen deutlich (Lokalelemente) – nicht modelliert."
+   }
+  },
+  {
+   "id": "Fe_acid",
+   "name": {
+    "zh": "铁与稀酸",
+    "en": "Iron with dilute acid",
+    "de": "Eisen mit verdünnter Säure"
+   },
+   "class": "displacement",
+   "eq": {
+    "Fe(s)": -1,
+    "H+": -2,
+    "Fe+2": 1,
+    "H2": 1
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Fe(s)",
+    "k": 0.0006,
+    "orders": {
+     "H+": 1
+    },
+    "Ea": 30,
+    "Tref": 298.15
+   },
+   "needs": {
+    "max": {
+     "NO3-": 0.1
+    }
+   },
+   "effects": [
+    "bubbles"
+   ],
+   "teaching": true,
+   "basis": "An iron nail in 1 mol/L HCl: slow, steady bubbles, the solution turns pale green over minutes; taken as ten times slower than zinc.",
+   "src": "school"
+  },
+  {
+   "id": "Ni_acid",
+   "name": {
+    "zh": "镍与稀酸",
+    "en": "Nickel with dilute acid",
+    "de": "Nickel mit verdünnter Säure"
+   },
+   "class": "displacement",
+   "eq": {
+    "Ni(s)": -1,
+    "H+": -2,
+    "Ni+2": 1,
+    "H2": 1
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Ni(s)",
+    "k": 5e-05,
+    "orders": {
+     "H+": 1
+    },
+    "Ea": 40,
+    "Tref": 298.15
+   },
+   "needs": {
+    "max": {
+     "NO3-": 0.1
+    }
+   },
+   "effects": [
+    "bubbles"
+   ],
+   "teaching": true,
+   "basis": "Nickel dissolves in dilute acids only slowly; an order of magnitude below iron.",
+   "src": "school"
+  },
+  {
+   "id": "Sn_acid",
+   "name": {
+    "zh": "锡与稀酸",
+    "en": "Tin with dilute acid",
+    "de": "Zinn mit verdünnter Säure"
+   },
+   "class": "displacement",
+   "eq": {
+    "Sn(s)": -1,
+    "H+": -2,
+    "Sn+2": 1,
+    "H2": 1
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Sn(s)",
+    "k": 2e-05,
+    "orders": {
+     "H+": 1
+    },
+    "Ea": 40,
+    "Tref": 298.15
+   },
+   "needs": {
+    "max": {
+     "NO3-": 0.1
+    }
+   },
+   "effects": [
+    "bubbles"
+   ],
+   "teaching": true,
+   "basis": "Tin in dilute hydrochloric acid: a few bubbles only; faster when hot and concentrated.",
+   "src": "school"
+  },
+  {
+   "id": "Pb_acid",
+   "name": {
+    "zh": "铅与稀酸",
+    "en": "Lead with dilute acid",
+    "de": "Blei mit verdünnter Säure"
+   },
+   "class": "displacement",
+   "eq": {
+    "Pb(s)": -1,
+    "H+": -2,
+    "Pb+2": 1,
+    "H2": 1
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Pb(s)",
+    "k": 1e-05,
+    "orders": {
+     "H+": 1
+    },
+    "Ea": 40,
+    "Tref": 298.15
+   },
+   "needs": {
+    "max": {
+     "NO3-": 0.1
+    },
+    "unsaturated": [
+     "Cotunnite",
+     "Anglesite"
+    ]
+   },
+   "effects": [
+    "bubbles"
+   ],
+   "teaching": true,
+   "basis": "Lead barely reacts with dilute acids; the lowest value of the series above hydrogen.",
+   "src": "school",
+   "note": {
+    "zh": "在盐酸和硫酸中，难溶的氯化铅、硫酸铅盖住表面，反应很快停止（钝化）：溶液对这两种盐饱和后本反应不再进行。",
+    "en": "In hydrochloric and sulfuric acid the sparingly soluble lead chloride or sulfate covers the surface and the reaction soon stops (passivation): it no longer runs once the solution is saturated with either salt.",
+    "de": "In Salz- und Schwefelsäure bedeckt schwer lösliches Bleichlorid bzw. -sulfat die Oberfläche, die Reaktion kommt rasch zum Stillstand (Passivierung): Sie läuft nicht mehr, sobald die Lösung an einem der Salze gesättigt ist."
+   }
+  },
+  {
+   "id": "Cu_acid_none",
+   "name": {
+    "zh": "铜与稀盐酸、稀硫酸不反应",
+    "en": "Copper does not react with dilute hydrochloric or sulfuric acid",
+    "de": "Kupfer reagiert nicht mit verdünnter Salz- oder Schwefelsäure"
+   },
+   "class": "displacement",
+   "between": [
+    "Cu(s)",
+    "H+"
+   ],
+   "rate": {
+    "law": "none"
+   },
+   "effects": [],
+   "src": "school; E°(Cu2+/Cu) = +0.34 V (couples)",
+   "note": {
+    "zh": "铜在金属活动性顺序里排在氢后面（E° = +0.34 V），不能置换出酸里的氢。",
+    "en": "Copper stands below hydrogen in the activity series (E° = +0.34 V) and cannot displace hydrogen from acids.",
+    "de": "Kupfer steht in der Spannungsreihe unter Wasserstoff (E° = +0,34 V) und kann ihn nicht aus Säuren verdrängen."
+   }
+  },
+  {
+   "id": "Ag_acid_none",
+   "name": {
+    "zh": "银与稀盐酸、稀硫酸不反应",
+    "en": "Silver does not react with dilute hydrochloric or sulfuric acid",
+    "de": "Silber reagiert nicht mit verdünnter Salz- oder Schwefelsäure"
+   },
+   "class": "displacement",
+   "between": [
+    "Ag(s)",
+    "H+"
+   ],
+   "rate": {
+    "law": "none"
+   },
+   "effects": [],
+   "src": "school; E°(Ag+/Ag) = +0.80 V (couples)",
+   "note": {
+    "zh": "银排在氢后面（E° = +0.80 V），不能置换出酸里的氢。",
+    "en": "Silver stands below hydrogen (E° = +0.80 V) and cannot displace hydrogen from acids.",
+    "de": "Silber steht unter Wasserstoff (E° = +0,80 V) und kann ihn nicht aus Säuren verdrängen."
+   }
+  },
+  {
+   "id": "K_water",
+   "name": {
+    "zh": "钾与水",
+    "en": "Potassium with water",
+    "de": "Kalium mit Wasser"
+   },
+   "class": "displacement",
+   "eq": {
+    "K(s)": -2,
+    "H2O": -2,
+    "K+": 2,
+    "OH-": 2,
+    "H2": 1
+   },
+   "rate": {
+    "law": "surface",
+    "on": "K(s)",
+    "k": 3.0,
+    "orders": {},
+    "Ea": 10,
+    "Tref": 298.15
+   },
+   "effects": [
+    "bubbles",
+    "flame",
+    "heat",
+    "melt",
+    "dart",
+    "hiss",
+    "pop"
+   ],
+   "flameColour": "lilac",
+   "teaching": true,
+   "basis": "A pea-sized piece of potassium (0.2 g, about 1.8 cm²) is gone in under 10 s; the hydrogen catches fire.",
+   "src": "school"
+  },
+  {
+   "id": "Na_water",
+   "name": {
+    "zh": "钠与水",
+    "en": "Sodium with water",
+    "de": "Natrium mit Wasser"
+   },
+   "class": "displacement",
+   "eq": {
+    "Na(s)": -2,
+    "H2O": -2,
+    "Na+": 2,
+    "OH-": 2,
+    "H2": 1
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Na(s)",
+    "k": 1.0,
+    "orders": {},
+    "Ea": 10,
+    "Tref": 298.15
+   },
+   "effects": [
+    "bubbles",
+    "heat",
+    "melt",
+    "dart",
+    "hiss"
+   ],
+   "teaching": true,
+   "basis": "A pea-sized piece of sodium (0.2 g, 8.7 mmol, about 1.7 cm²) is gone in 20 to 30 s: about 1 mol/(m²·s) of the equation as written.",
+   "src": "school",
+   "note": {
+    "zh": "浮、熔、游、响、红：钠熔成小球在水面游动是显示效果；金属的熔化与运动不参与计算。",
+    "en": "It floats, melts into a ball, darts about and hisses: the molten ball skating on the water is a display effect; melting and motion are not part of the calculation.",
+    "de": "Es schwimmt, schmilzt zur Kugel, flitzt umher und zischt: Die auf dem Wasser gleitende Kugel ist ein Anzeigeeffekt; Schmelzen und Bewegung gehen nicht in die Rechnung ein."
+   }
+  },
+  {
+   "id": "Li_water",
+   "name": {
+    "zh": "锂与水",
+    "en": "Lithium with water",
+    "de": "Lithium mit Wasser"
+   },
+   "class": "displacement",
+   "eq": {
+    "Li(s)": -2,
+    "H2O": -2,
+    "Li+": 2,
+    "OH-": 2,
+    "H2": 1
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Li(s)",
+    "k": 0.3,
+    "orders": {},
+    "Ea": 15,
+    "Tref": 298.15
+   },
+   "effects": [
+    "bubbles",
+    "heat"
+   ],
+   "teaching": true,
+   "basis": "Lithium reacts steadily without melting, clearly more slowly than sodium: taken as a third of the sodium value.",
+   "src": "school"
+  },
+  {
+   "id": "Ca_water",
+   "name": {
+    "zh": "钙与冷水",
+    "en": "Calcium with cold water",
+    "de": "Calcium mit kaltem Wasser"
+   },
+   "class": "displacement",
+   "eq": {
+    "Ca(s)": -1,
+    "H2O": -2,
+    "Ca+2": 1,
+    "OH-": 2,
+    "H2": 1
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Ca(s)",
+    "k": 0.15,
+    "orders": {},
+    "Ea": 20,
+    "Tref": 298.15
+   },
+   "effects": [
+    "bubbles",
+    "heat"
+   ],
+   "teaching": true,
+   "basis": "A calcium granule (0.5 g, 12.5 mmol, about 2.3 cm²) in cold water is used up in about 5 min; the water turns milky with calcium hydroxide.",
+   "src": "school",
+   "note": {
+    "zh": "钙的标准电极电势比钠更负，但与水的反应不如钠剧烈：生成的氢氧化钙微溶，盖在表面，钙也不熔化。",
+    "en": "The standard potential of calcium is more negative than that of sodium, yet it reacts less violently with water: the sparingly soluble hydroxide coats the surface and the metal does not melt.",
+    "de": "Das Standardpotential von Calcium ist negativer als das von Natrium, dennoch reagiert es weniger heftig mit Wasser: Das schwer lösliche Hydroxid bedeckt die Oberfläche, und das Metall schmilzt nicht."
+   }
+  },
+  {
+   "id": "Mg_hot_water",
+   "name": {
+    "zh": "镁与热水",
+    "en": "Magnesium with hot water",
+    "de": "Magnesium mit heißem Wasser"
+   },
+   "class": "displacement",
+   "eq": {
+    "Mg(s)": -1,
+    "H2O": -2,
+    "Mg+2": 1,
+    "OH-": 2,
+    "H2": 1
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Mg(s)",
+    "k": 2e-05,
+    "orders": {},
+    "Ea": 50,
+    "Tref": 373.15
+   },
+   "needs": {
+    "Tmin": 333
+   },
+   "effects": [
+    "bubbles"
+   ],
+   "teaching": true,
+   "basis": "Polished magnesium ribbon in boiling water: fine bubbles, phenolphthalein turns pale pink within a minute; nothing visible in cold water.",
+   "src": "school",
+   "note": {
+    "zh": "冷水中几乎看不到反应（60 °C 以下本条不进行）。",
+    "en": "In cold water nothing is seen (below 60 °C this entry does not run).",
+    "de": "In kaltem Wasser ist nichts zu sehen (unter 60 °C läuft dieser Eintrag nicht)."
+   }
+  },
+  {
+   "id": "Mg_steam",
+   "name": {
+    "zh": "镁与水蒸气",
+    "en": "Magnesium with steam",
+    "de": "Magnesium mit Wasserdampf"
+   },
+   "class": "displacement",
+   "eq": {
+    "Mg(s)": -1,
+    "H2O(g)": -1,
+    "Periclase": 1,
+    "H2(g)": 1
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Mg(s)",
+    "k": 0.5,
+    "orders": {
+     "H2O(g)": 1
+    },
+    "Ea": 60,
+    "Tref": 900
+   },
+   "needs": {
+    "Tmin": 773
+   },
+   "effects": [
+    "glow",
+    "light",
+    "heat"
+   ],
+   "teaching": true,
+   "basis": "Heated magnesium burns in a stream of steam within seconds, leaving white magnesium oxide.",
+   "src": "school"
+  },
+  {
+   "id": "Fe_steam",
+   "name": {
+    "zh": "铁与水蒸气",
+    "en": "Iron with steam",
+    "de": "Eisen mit Wasserdampf"
+   },
+   "class": "displacement",
+   "eq": {
+    "Fe(s)": -3,
+    "H2O(g)": -4,
+    "Fe3O4(s)": 1,
+    "H2(g)": 4
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Fe(s)",
+    "k": 0.0002,
+    "orders": {
+     "H2O(g)": 1
+    },
+    "Ea": 80,
+    "Tref": 1000
+   },
+   "needs": {
+    "Tmin": 773
+   },
+   "effects": [
+    "bubbles"
+   ],
+   "teaching": true,
+   "basis": "Reduced iron powder heated strongly in steam gives enough hydrogen for soap-bubble pops within a few minutes.",
+   "src": "school"
+  },
+  {
+   "id": "Al_water_none",
+   "name": {
+    "zh": "铝与水不反应",
+    "en": "Aluminium does not react with water",
+    "de": "Aluminium reagiert nicht mit Wasser"
+   },
+   "class": "displacement",
+   "between": [
+    "Al(s)",
+    "H2O"
+   ],
+   "rate": {
+    "law": "none"
+   },
+   "effects": [],
+   "src": "school",
+   "note": {
+    "zh": "铝表面致密的氧化膜把金属与水隔开，冷水、热水都看不到反应。",
+    "en": "The dense oxide film on aluminium separates the metal from the water; neither cold nor hot water shows a reaction.",
+    "de": "Die dichte Oxidschicht trennt das Aluminium vom Wasser; weder in kaltem noch in heißem Wasser ist eine Reaktion zu sehen."
+   }
+  },
+  {
+   "id": "Zn_Cu2",
+   "name": {
+    "zh": "锌置换铜",
+    "en": "Zinc displaces copper",
+    "de": "Zink verdrängt Kupfer"
+   },
+   "class": "displacement",
+   "eq": {
+    "Zn(s)": -1,
+    "Cu+2": -1,
+    "Zn+2": 1,
+    "Cu(s)": 1
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Zn(s)",
+    "k": 0.01,
+    "orders": {
+     "Cu+2": 1
+    },
+    "Ea": 15,
+    "Tref": 298.15
+   },
+   "effects": [
+    "deposit",
+    "heat"
+   ],
+   "teaching": true,
+   "basis": "Deposition limited by diffusion to the surface: mass-transfer coefficient of about 1e-5 m/s in an unstirred solution, i.e. 1e-2 mol/(m²·s) per mol/L; zinc in copper sulfate solution is coated at once.",
+   "src": "school"
+  },
+  {
+   "id": "Fe_Cu2",
+   "name": {
+    "zh": "铁置换铜（湿法炼铜）",
+    "en": "Iron displaces copper",
+    "de": "Eisen verdrängt Kupfer"
+   },
+   "class": "displacement",
+   "eq": {
+    "Fe(s)": -1,
+    "Cu+2": -1,
+    "Fe+2": 1,
+    "Cu(s)": 1
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Fe(s)",
+    "k": 0.005,
+    "orders": {
+     "Cu+2": 1
+    },
+    "Ea": 15,
+    "Tref": 298.15
+   },
+   "effects": [
+    "deposit"
+   ],
+   "teaching": true,
+   "basis": "Deposition limited by diffusion to the surface: mass-transfer coefficient of about 1e-5 m/s in an unstirred solution, i.e. 1e-2 mol/(m²·s) per mol/L; an iron nail in copper sulfate solution is copper-coloured within seconds and the solution fades over tens of minutes; taken as half the limit.",
+   "src": "school"
+  },
+  {
+   "id": "Mg_Cu2",
+   "name": {
+    "zh": "镁置换铜",
+    "en": "Magnesium displaces copper",
+    "de": "Magnesium verdrängt Kupfer"
+   },
+   "class": "displacement",
+   "eq": {
+    "Mg(s)": -1,
+    "Cu+2": -1,
+    "Mg+2": 1,
+    "Cu(s)": 1
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Mg(s)",
+    "k": 0.01,
+    "orders": {
+     "Cu+2": 1
+    },
+    "Ea": 15,
+    "Tref": 298.15
+   },
+   "effects": [
+    "deposit",
+    "heat"
+   ],
+   "teaching": true,
+   "basis": "Deposition limited by diffusion to the surface: mass-transfer coefficient of about 1e-5 m/s in an unstirred solution, i.e. 1e-2 mol/(m²·s) per mol/L; magnesium in copper sulfate solution is coated at once.",
+   "src": "school",
+   "note": {
+    "zh": "真实实验里同时有少量氢气放出（铜盐溶液水解呈酸性，见 Mg_acid）。",
+    "en": "In the real experiment a little hydrogen is given off as well (the copper salt solution is acidic by hydrolysis; see Mg_acid).",
+    "de": "Im realen Versuch entsteht daneben etwas Wasserstoff (die Kupfersalzlösung reagiert durch Hydrolyse sauer; siehe Mg_acid)."
+   }
+  },
+  {
+   "id": "Al_Cu2",
+   "name": {
+    "zh": "铝置换铜",
+    "en": "Aluminium displaces copper",
+    "de": "Aluminium verdrängt Kupfer"
+   },
+   "class": "displacement",
+   "eq": {
+    "Al(s)": -2,
+    "Cu+2": -3,
+    "Al+3": 2,
+    "Cu(s)": 3
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Al(s)",
+    "k": 0.002,
+    "orders": {
+     "Cu+2": 1
+    },
+    "Ea": 20,
+    "Tref": 298.15
+   },
+   "needs": {
+    "min": {
+     "Cl-": 0.1
+    }
+   },
+   "effects": [
+    "deposit",
+    "heat"
+   ],
+   "teaching": true,
+   "basis": "Deposition limited by diffusion to the surface: mass-transfer coefficient of about 1e-5 m/s in an unstirred solution, i.e. 1e-2 mol/(m²·s) per mol/L; aluminium in copper chloride solution reacts within seconds once the film is broken; rate of the equation as written (two Al).",
+   "src": "school",
+   "note": {
+    "zh": "需要氯离子破坏氧化膜：铝丝放进硫酸铜溶液里长时间没有变化，放进氯化铜溶液或加一点食盐后很快有铜析出。未打磨的铝还有一段诱导期，没有建模。",
+    "en": "Chloride is needed to break the oxide film: aluminium wire in copper sulfate solution shows nothing for a long time, in copper chloride solution or after a pinch of salt copper appears quickly. Unpolished aluminium also shows an induction period, which is not modelled.",
+    "de": "Chlorid ist nötig, um die Oxidschicht zu durchbrechen: Aluminiumdraht in Kupfersulfatlösung zeigt lange nichts, in Kupferchloridlösung oder nach Zugabe von etwas Kochsalz scheidet sich rasch Kupfer ab. Ungeschmirgeltes Aluminium zeigt zudem eine Induktionsphase, die nicht modelliert ist."
+   }
+  },
+  {
+   "id": "Cu_Ag",
+   "name": {
+    "zh": "铜置换银",
+    "en": "Copper displaces silver",
+    "de": "Kupfer verdrängt Silber"
+   },
+   "class": "displacement",
+   "eq": {
+    "Cu(s)": -1,
+    "Ag+": -2,
+    "Cu+2": 1,
+    "Ag(s)": 2
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Cu(s)",
+    "k": 0.005,
+    "orders": {
+     "Ag+": 1
+    },
+    "Ea": 15,
+    "Tref": 298.15
+   },
+   "effects": [
+    "deposit"
+   ],
+   "teaching": true,
+   "basis": "Deposition limited by diffusion to the surface: mass-transfer coefficient of about 1e-5 m/s in an unstirred solution, i.e. 1e-2 mol/(m²·s) per mol/L; a copper wire in silver nitrate solution grows silver needles within a minute and the solution turns blue over an hour.",
+   "src": "school"
+  },
+  {
+   "id": "Zn_Ag",
+   "name": {
+    "zh": "锌置换银",
+    "en": "Zinc displaces silver",
+    "de": "Zink verdrängt Silber"
+   },
+   "class": "displacement",
+   "eq": {
+    "Zn(s)": -1,
+    "Ag+": -2,
+    "Zn+2": 1,
+    "Ag(s)": 2
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Zn(s)",
+    "k": 0.005,
+    "orders": {
+     "Ag+": 1
+    },
+    "Ea": 15,
+    "Tref": 298.15
+   },
+   "effects": [
+    "deposit"
+   ],
+   "teaching": true,
+   "basis": "Deposition limited by diffusion to the surface: mass-transfer coefficient of about 1e-5 m/s in an unstirred solution, i.e. 1e-2 mol/(m²·s) per mol/L; as for copper in silver nitrate.",
+   "src": "school"
+  },
+  {
+   "id": "Fe_Ag",
+   "name": {
+    "zh": "铁置换银",
+    "en": "Iron displaces silver",
+    "de": "Eisen verdrängt Silber"
+   },
+   "class": "displacement",
+   "eq": {
+    "Fe(s)": -1,
+    "Ag+": -2,
+    "Fe+2": 1,
+    "Ag(s)": 2
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Fe(s)",
+    "k": 0.005,
+    "orders": {
+     "Ag+": 1
+    },
+    "Ea": 15,
+    "Tref": 298.15
+   },
+   "effects": [
+    "deposit"
+   ],
+   "teaching": true,
+   "basis": "Deposition limited by diffusion to the surface: mass-transfer coefficient of about 1e-5 m/s in an unstirred solution, i.e. 1e-2 mol/(m²·s) per mol/L; as for copper in silver nitrate.",
+   "src": "school"
+  },
+  {
+   "id": "Zn_Fe2",
+   "name": {
+    "zh": "锌置换铁",
+    "en": "Zinc displaces iron",
+    "de": "Zink verdrängt Eisen"
+   },
+   "class": "displacement",
+   "eq": {
+    "Zn(s)": -1,
+    "Fe+2": -1,
+    "Zn+2": 1,
+    "Fe(s)": 1
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Zn(s)",
+    "k": 0.001,
+    "orders": {
+     "Fe+2": 1
+    },
+    "Ea": 25,
+    "Tref": 298.15
+   },
+   "effects": [
+    "deposit"
+   ],
+   "teaching": true,
+   "basis": "Zinc in iron(II) sulfate solution darkens slowly, over many minutes: a tenth of the diffusion limit.",
+   "src": "school"
+  },
+  {
+   "id": "Zn_Pb2",
+   "name": {
+    "zh": "锌置换铅（铅树）",
+    "en": "Zinc displaces lead (lead tree)",
+    "de": "Zink verdrängt Blei (Bleibaum)"
+   },
+   "class": "displacement",
+   "eq": {
+    "Zn(s)": -1,
+    "Pb+2": -1,
+    "Zn+2": 1,
+    "Pb(s)": 1
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Zn(s)",
+    "k": 0.005,
+    "orders": {
+     "Pb+2": 1
+    },
+    "Ea": 15,
+    "Tref": 298.15
+   },
+   "effects": [
+    "deposit"
+   ],
+   "teaching": true,
+   "basis": "Deposition limited by diffusion to the surface: mass-transfer coefficient of about 1e-5 m/s in an unstirred solution, i.e. 1e-2 mol/(m²·s) per mol/L; a zinc strip in lead nitrate solution grows a lead tree within minutes.",
+   "src": "school"
+  },
+  {
+   "id": "Zn_Sn2",
+   "name": {
+    "zh": "锌置换锡",
+    "en": "Zinc displaces tin",
+    "de": "Zink verdrängt Zinn"
+   },
+   "class": "displacement",
+   "eq": {
+    "Zn(s)": -1,
+    "Sn+2": -1,
+    "Zn+2": 1,
+    "Sn(s)": 1
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Zn(s)",
+    "k": 0.005,
+    "orders": {
+     "Sn+2": 1
+    },
+    "Ea": 15,
+    "Tref": 298.15
+   },
+   "effects": [
+    "deposit"
+   ],
+   "teaching": true,
+   "basis": "Deposition limited by diffusion to the surface: mass-transfer coefficient of about 1e-5 m/s in an unstirred solution, i.e. 1e-2 mol/(m²·s) per mol/L; tin needles grow on zinc in tin(II) chloride solution within minutes.",
+   "src": "school"
+  },
+  {
+   "id": "Al_NaOH",
+   "name": {
+    "zh": "铝与氢氧化钠溶液",
+    "en": "Aluminium with sodium hydroxide solution",
+    "de": "Aluminium mit Natronlauge"
+   },
+   "class": "displacement",
+   "eq": {
+    "Al(s)": -2,
+    "OH-": -2,
+    "H2O": -6,
+    "Al(OH)4-": 2,
+    "H2": 3
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Al(s)",
+    "k": 0.005,
+    "orders": {
+     "OH-": 1
+    },
+    "Ea": 45,
+    "Tref": 298.15
+   },
+   "effects": [
+    "bubbles",
+    "heat"
+   ],
+   "teaching": true,
+   "basis": "Aluminium foil in 2 mol/L NaOH: brisk hydrogen after a few seconds, the foil is gone in minutes; rate of the equation as written (two Al).",
+   "src": "school",
+   "note": {
+    "zh": "碱先溶解氧化膜，再与金属反应；诱导期没有建模。",
+    "en": "The alkali first dissolves the oxide film, then attacks the metal; the induction period is not modelled.",
+    "de": "Die Lauge löst zunächst die Oxidschicht und greift dann das Metall an; die Induktionsphase ist nicht modelliert."
+   }
+  },
+  {
+   "id": "Zn_NaOH",
+   "name": {
+    "zh": "锌与浓氢氧化钠溶液",
+    "en": "Zinc with concentrated sodium hydroxide solution",
+    "de": "Zink mit konzentrierter Natronlauge"
+   },
+   "class": "displacement",
+   "eq": {
+    "Zn(s)": -1,
+    "OH-": -2,
+    "H2O": -2,
+    "Zn(OH)4-2": 1,
+    "H2": 1
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Zn(s)",
+    "k": 0.0001,
+    "orders": {
+     "OH-": 1
+    },
+    "Ea": 45,
+    "Tref": 298.15
+   },
+   "effects": [
+    "bubbles"
+   ],
+   "teaching": true,
+   "basis": "Zinc dissolves in hot concentrated alkali slowly, with fine bubbles; far slower than aluminium.",
+   "src": "school"
+  },
+  {
+   "id": "Cu_HNO3_conc",
+   "name": {
+    "zh": "铜与浓硝酸",
+    "en": "Copper with concentrated nitric acid",
+    "de": "Kupfer mit konzentrierter Salpetersäure"
+   },
+   "class": "redox",
+   "eq": {
+    "Cu(s)": -1,
+    "H+": -4,
+    "NO3-": -2,
+    "Cu+2": 1,
+    "NO2": 2,
+    "H2O": 2
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Cu(s)",
+    "k": 0.02,
+    "orders": {},
+    "Ea": 30,
+    "Tref": 298.15
+   },
+   "needs": {
+    "min": {
+     "H+": 6,
+     "NO3-": 6
+    }
+   },
+   "effects": [
+    "bubbles",
+    "heat"
+   ],
+   "teaching": true,
+   "basis": "Threshold (classroom rule): activities of H+ and NO3- above 6, i.e. nitric acid above about 8 mol/L, count as concentrated. Copper foil (1 cm²) in concentrated nitric acid: violent at once, about 0.1 mL of brown gas per second.",
+   "src": "school",
+   "note": {
+    "zh": "红棕色的二氧化氮有毒，真实实验必须在通风橱里做。浓酸超出了活度模型的范围，读数标为近似。",
+    "en": "Brown nitrogen dioxide is toxic; the real experiment belongs in a fume cupboard. Concentrated acid is outside the range of the activity model; readings are marked approximate.",
+    "de": "Braunes Stickstoffdioxid ist giftig; der reale Versuch gehört unter den Abzug. Konzentrierte Säure liegt außerhalb des Aktivitätsmodells; Messwerte sind als Näherung markiert."
+   }
+  },
+  {
+   "id": "Cu_HNO3_dil",
+   "name": {
+    "zh": "铜与稀硝酸",
+    "en": "Copper with dilute nitric acid",
+    "de": "Kupfer mit verdünnter Salpetersäure"
+   },
+   "class": "redox",
+   "eq": {
+    "Cu(s)": -3,
+    "H+": -8,
+    "NO3-": -2,
+    "Cu+2": 3,
+    "NO": 2,
+    "H2O": 4
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Cu(s)",
+    "k": 0.0001,
+    "orders": {
+     "H+": 1,
+     "NO3-": 1
+    },
+    "Ea": 60,
+    "Tref": 298.15
+   },
+   "needs": {
+    "min": {
+     "H+": 0.5,
+     "NO3-": 0.5,
+     "OH-": 1e-15
+    }
+   },
+   "effects": [
+    "bubbles"
+   ],
+   "teaching": true,
+   "basis": "Dilute means activities of H+ and NO3- from 0.5 up to the threshold of concentrated acid (the upper limit is written as a lower limit on OH-: a(OH-) above 2e-15 is a(H+) below about 5). Copper foil in 4 mol/L nitric acid: slow at first, a few microlitres of colourless gas per second and cm², clearly faster when warmed.",
+   "src": "school",
+   "note": {
+    "zh": "无色的一氧化氮遇空气变成红棕色（NO_O2）。真实反应有自催化（亚硝酸），开始很慢、随后加快，这一点没有建模。",
+    "en": "Colourless nitrogen monoxide turns brown in air (NO_O2). The real reaction is autocatalytic (nitrous acid): slow at first, then faster — not modelled.",
+    "de": "Farbloses Stickstoffmonoxid wird an der Luft braun (NO_O2). Die reale Reaktion ist autokatalytisch (salpetrige Säure): anfangs langsam, dann schneller – nicht modelliert."
+   }
+  },
+  {
+   "id": "NO_HNO3_conc",
+   "name": {
+    "zh": "一氧化氮被浓硝酸氧化",
+    "en": "Nitrogen monoxide is oxidised by concentrated nitric acid",
+    "de": "Stickstoffmonoxid wird von konzentrierter Salpetersäure oxidiert"
+   },
+   "class": "redox",
+   "eq": {
+    "NO": -1,
+    "H+": -2,
+    "NO3-": -2,
+    "NO2": 3,
+    "H2O": 1
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "needs": {
+    "min": {
+     "H+": 6,
+     "NO3-": 6
+    }
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "Threshold (classroom rule): activities of H+ and NO3- above 6, i.e. nitric acid above about 8 mol/L, count as concentrated. This is why concentrated nitric acid gives NO2 and dilute acid NO.",
+   "src": "school",
+   "note": {
+    "zh": "浓硝酸里一氧化氮不能存在：它被硝酸氧化成二氧化氮。",
+    "en": "Nitrogen monoxide cannot persist in concentrated nitric acid: the acid oxidises it to nitrogen dioxide.",
+    "de": "In konzentrierter Salpetersäure ist Stickstoffmonoxid nicht beständig: Die Säure oxidiert es zu Stickstoffdioxid."
+   }
+  },
+  {
+   "id": "Ag_HNO3_conc",
+   "name": {
+    "zh": "银与浓硝酸",
+    "en": "Silver with concentrated nitric acid",
+    "de": "Silber mit konzentrierter Salpetersäure"
+   },
+   "class": "redox",
+   "eq": {
+    "Ag(s)": -1,
+    "H+": -2,
+    "NO3-": -1,
+    "Ag+": 1,
+    "NO2": 1,
+    "H2O": 1
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Ag(s)",
+    "k": 0.01,
+    "orders": {},
+    "Ea": 30,
+    "Tref": 298.15
+   },
+   "needs": {
+    "min": {
+     "H+": 6,
+     "NO3-": 6
+    }
+   },
+   "effects": [
+    "bubbles"
+   ],
+   "teaching": true,
+   "basis": "Threshold (classroom rule): activities of H+ and NO3- above 6, i.e. nitric acid above about 8 mol/L, count as concentrated. Silver dissolves briskly in concentrated nitric acid, somewhat more slowly than copper.",
+   "src": "school"
+  },
+  {
+   "id": "Ag_HNO3_dil",
+   "name": {
+    "zh": "银与稀硝酸（洗去银镜）",
+    "en": "Silver with dilute nitric acid (removing a silver mirror)",
+    "de": "Silber mit verdünnter Salpetersäure (Entfernen eines Silberspiegels)"
+   },
+   "class": "redox",
+   "eq": {
+    "Ag(s)": -3,
+    "H+": -4,
+    "NO3-": -1,
+    "Ag+": 3,
+    "NO": 1,
+    "H2O": 2
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Ag(s)",
+    "k": 5e-05,
+    "orders": {
+     "H+": 1,
+     "NO3-": 1
+    },
+    "Ea": 60,
+    "Tref": 298.15
+   },
+   "needs": {
+    "min": {
+     "H+": 0.5,
+     "NO3-": 0.5,
+     "OH-": 2e-15
+    }
+   },
+   "effects": [
+    "bubbles"
+   ],
+   "teaching": true,
+   "basis": "Dilute means activities of H+ and NO3- from 0.5 up to the threshold of concentrated acid (the upper limit is written as a lower limit on OH-: a(OH-) above 2e-15 is a(H+) below about 5). A silver mirror is rinsed away by warm dilute nitric acid within a minute; slower than copper.",
+   "src": "school"
+  },
+  {
+   "id": "Fe_HNO3_dil",
+   "name": {
+    "zh": "铁与稀硝酸",
+    "en": "Iron with dilute nitric acid",
+    "de": "Eisen mit verdünnter Salpetersäure"
+   },
+   "class": "redox",
+   "eq": {
+    "Fe(s)": -1,
+    "H+": -4,
+    "NO3-": -1,
+    "Fe+3": 1,
+    "NO": 1,
+    "H2O": 2
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Fe(s)",
+    "k": 0.0005,
+    "orders": {
+     "H+": 1,
+     "NO3-": 1
+    },
+    "Ea": 50,
+    "Tref": 298.15
+   },
+   "needs": {
+    "min": {
+     "H+": 0.5,
+     "NO3-": 0.5,
+     "OH-": 2e-15
+    }
+   },
+   "effects": [
+    "bubbles",
+    "heat"
+   ],
+   "teaching": true,
+   "basis": "Dilute means activities of H+ and NO3- from 0.5 up to the threshold of concentrated acid (the upper limit is written as a lower limit on OH-: a(OH-) above 2e-15 is a(H+) below about 5). Iron filings in 2 to 4 mol/L nitric acid react steadily with a colourless gas; faster than copper.",
+   "src": "school",
+   "note": {
+    "zh": "铁过量时，生成的 Fe³⁺ 再被铁还原成 Fe²⁺（Fe3_Fe）。",
+    "en": "With excess iron the Fe³⁺ formed is reduced to Fe²⁺ by the metal (Fe3_Fe).",
+    "de": "Bei Eisenüberschuss wird das gebildete Fe³⁺ vom Metall zu Fe²⁺ reduziert (Fe3_Fe)."
+   }
+  },
+  {
+   "id": "Zn_HNO3_unmodelled",
+   "name": {
+    "zh": "锌与硝酸（未建模）",
+    "en": "Zinc with nitric acid (not modelled)",
+    "de": "Zink mit Salpetersäure (nicht modelliert)"
+   },
+   "class": "redox",
+   "between": [
+    "Zn(s)",
+    "H+",
+    "NO3-"
+   ],
+   "rate": {
+    "law": "unmodelled"
+   },
+   "needs": {
+    "min": {
+     "NO3-": 0.1,
+     "H+": 0.01
+    }
+   },
+   "effects": [],
+   "src": "school",
+   "note": {
+    "zh": "活泼金属与硝酸的还原产物随浓度而变（NO₂、NO、N₂O、N₂、NH₄⁺ 的混合物），没有可靠的产物分配数据，所以不计算；硝酸里不会放出氢气。",
+    "en": "The reduction products of nitric acid with an active metal change with the concentration (a mixture of NO₂, NO, N₂O, N₂ and NH₄⁺); without reliable data on their shares nothing is computed. Hydrogen is not what nitric acid gives.",
+    "de": "Die Reduktionsprodukte der Salpetersäure mit einem unedlen Metall hängen von der Konzentration ab (ein Gemisch aus NO₂, NO, N₂O, N₂ und NH₄⁺); ohne verlässliche Daten zu den Anteilen wird nichts berechnet. Wasserstoff entsteht mit Salpetersäure nicht."
+   }
+  },
+  {
+   "id": "Mg_HNO3_unmodelled",
+   "name": {
+    "zh": "镁与硝酸（未建模）",
+    "en": "Magnesium with nitric acid (not modelled)",
+    "de": "Magnesium mit Salpetersäure (nicht modelliert)"
+   },
+   "class": "redox",
+   "between": [
+    "Mg(s)",
+    "H+",
+    "NO3-"
+   ],
+   "rate": {
+    "law": "unmodelled"
+   },
+   "needs": {
+    "min": {
+     "NO3-": 0.1,
+     "H+": 0.01
+    }
+   },
+   "effects": [],
+   "src": "school",
+   "note": {
+    "zh": "活泼金属与硝酸的还原产物随浓度而变（NO₂、NO、N₂O、N₂、NH₄⁺ 的混合物），没有可靠的产物分配数据，所以不计算；硝酸里不会放出氢气。",
+    "en": "The reduction products of nitric acid with an active metal change with the concentration (a mixture of NO₂, NO, N₂O, N₂ and NH₄⁺); without reliable data on their shares nothing is computed. Hydrogen is not what nitric acid gives.",
+    "de": "Die Reduktionsprodukte der Salpetersäure mit einem unedlen Metall hängen von der Konzentration ab (ein Gemisch aus NO₂, NO, N₂O, N₂ und NH₄⁺); ohne verlässliche Daten zu den Anteilen wird nichts berechnet. Wasserstoff entsteht mit Salpetersäure nicht."
+   }
+  },
+  {
+   "id": "Cu_H2SO4_conc",
+   "name": {
+    "zh": "铜与浓硫酸（加热）",
+    "en": "Copper with hot concentrated sulfuric acid",
+    "de": "Kupfer mit heißer konzentrierter Schwefelsäure"
+   },
+   "class": "redox",
+   "eq": {
+    "Cu(s)": -1,
+    "H2SO4(l)": -2,
+    "CuSO4(s)": 1,
+    "SO2(g)": 1,
+    "H2O": 2
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Cu(s)",
+    "k": 0.001,
+    "orders": {},
+    "Ea": 80,
+    "Tref": 473.15
+   },
+   "needs": {
+    "Tmin": 423
+   },
+   "effects": [
+    "bubbles"
+   ],
+   "teaching": true,
+   "basis": "Copper turnings in boiling concentrated sulfuric acid: steady sulfur dioxide after a minute of heating, nothing in the cold. Onset taken as 150 °C.",
+   "src": "school",
+   "note": {
+    "zh": "浓硫酸在水溶液活度模型之外：产物按固体无水硫酸铜（灰白色）和二氧化硫气体记，把反应后的混合物倒进水里才出现蓝色。真实实验里铜表面还会变黑（硫化亚铜等副产物），没有建模。",
+    "en": "Concentrated sulfuric acid is outside the aqueous activity model: the products are booked as solid anhydrous copper sulfate (grey-white) and sulfur dioxide gas; the blue colour appears only when the mixture is poured into water. In the real experiment the copper also turns black (copper(I) sulfide and other by-products) — not modelled.",
+    "de": "Konzentrierte Schwefelsäure liegt außerhalb des wässrigen Aktivitätsmodells: Die Produkte werden als festes wasserfreies Kupfersulfat (grauweiß) und Schwefeldioxidgas gebucht; die blaue Farbe erscheint erst beim Eingießen in Wasser. Im realen Versuch wird das Kupfer zudem schwarz (Kupfer(I)-sulfid und andere Nebenprodukte) – nicht modelliert."
+   },
+   "beyondModel": true
+  },
+  {
+   "id": "C_H2SO4_conc",
+   "name": {
+    "zh": "碳与浓硫酸（加热）",
+    "en": "Carbon with hot concentrated sulfuric acid",
+    "de": "Kohlenstoff mit heißer konzentrierter Schwefelsäure"
+   },
+   "class": "redox",
+   "eq": {
+    "C(s)": -1,
+    "H2SO4(l)": -2,
+    "CO2(g)": 1,
+    "SO2(g)": 2,
+    "H2O": 2
+   },
+   "rate": {
+    "law": "surface",
+    "on": "C(s)",
+    "k": 0.0001,
+    "orders": {},
+    "Ea": 90,
+    "Tref": 473.15
+   },
+   "needs": {
+    "Tmin": 423
+   },
+   "effects": [
+    "bubbles"
+   ],
+   "teaching": true,
+   "basis": "Charcoal in boiling concentrated sulfuric acid gives a slow stream of gas; onset taken as 150 °C.",
+   "src": "school",
+   "beyondModel": true
+  },
+  {
+   "id": "C_HNO3_conc",
+   "name": {
+    "zh": "碳与浓硝酸（加热）",
+    "en": "Carbon with hot concentrated nitric acid",
+    "de": "Kohlenstoff mit heißer konzentrierter Salpetersäure"
+   },
+   "class": "redox",
+   "eq": {
+    "C(s)": -1,
+    "H+": -4,
+    "NO3-": -4,
+    "CO2": 1,
+    "NO2": 4,
+    "H2O": 2
+   },
+   "rate": {
+    "law": "surface",
+    "on": "C(s)",
+    "k": 0.0001,
+    "orders": {},
+    "Ea": 80,
+    "Tref": 363.15
+   },
+   "needs": {
+    "Tmin": 343,
+    "min": {
+     "H+": 6,
+     "NO3-": 6
+    }
+   },
+   "effects": [
+    "bubbles",
+    "glow"
+   ],
+   "teaching": true,
+   "basis": "Threshold (classroom rule): activities of H+ and NO3- above 6, i.e. nitric acid above about 8 mol/L, count as concentrated. Glowing charcoal dropped into hot concentrated nitric acid keeps reacting with brown fumes.",
+   "src": "school"
+  },
+  {
+   "id": "Fe_HNO3_passive",
+   "name": {
+    "zh": "铁在冷的浓硝酸中钝化",
+    "en": "Iron is passivated by cold concentrated nitric acid",
+    "de": "Eisen wird von kalter konzentrierter Salpetersäure passiviert"
+   },
+   "class": "redox",
+   "between": [
+    "Fe(s)",
+    "H+",
+    "NO3-"
+   ],
+   "rate": {
+    "law": "none"
+   },
+   "needs": {
+    "min": {
+     "H+": 6,
+     "NO3-": 6
+    },
+    "Tmax": 323
+   },
+   "effects": [],
+   "src": "school",
+   "note": {
+    "zh": "常温下浓硝酸在铁表面生成一层致密的氧化膜，金属不再溶解（钝化），所以可以用铁制容器盛放冷的浓硝酸。加热或稀释后膜被破坏，反应才进行。",
+    "en": "At room temperature concentrated nitric acid forms a dense oxide film on iron and the metal no longer dissolves (passivation); this is why cold concentrated nitric acid can be kept in iron vessels. Heating or dilution destroys the film.",
+    "de": "Bei Raumtemperatur bildet konzentrierte Salpetersäure auf Eisen eine dichte Oxidschicht, das Metall löst sich nicht mehr (Passivierung); deshalb lässt sich kalte konzentrierte Salpetersäure in Gefäßen aus Eisen aufbewahren. Erhitzen oder Verdünnen zerstört die Schicht."
+   }
+  },
+  {
+   "id": "Fe_H2SO4_passive",
+   "name": {
+    "zh": "铁在冷的浓硫酸中钝化",
+    "en": "Iron is passivated by cold concentrated sulfuric acid",
+    "de": "Eisen wird von kalter konzentrierter Schwefelsäure passiviert"
+   },
+   "class": "redox",
+   "between": [
+    "Fe(s)",
+    "H2SO4(l)"
+   ],
+   "rate": {
+    "law": "none"
+   },
+   "needs": {
+    "Tmax": 323
+   },
+   "effects": [],
+   "src": "school",
+   "note": {
+    "zh": "常温下浓硫酸使铁钝化：表面生成致密的氧化膜，反应停止。加热时膜被破坏，生成二氧化硫（这一步没有建模）。",
+    "en": "At room temperature concentrated sulfuric acid passivates iron: a dense oxide film forms and the reaction stops. On heating the film breaks down and sulfur dioxide forms (that step is not modelled).",
+    "de": "Bei Raumtemperatur passiviert konzentrierte Schwefelsäure Eisen: Es bildet sich eine dichte Oxidschicht, die Reaktion kommt zum Stillstand. Beim Erhitzen bricht die Schicht auf, und es entsteht Schwefeldioxid (dieser Schritt ist nicht modelliert)."
+   },
+   "beyondModel": true
+  },
+  {
+   "id": "Al_HNO3_passive",
+   "name": {
+    "zh": "铝在冷的浓硝酸中钝化",
+    "en": "Aluminium is passivated by cold concentrated nitric acid",
+    "de": "Aluminium wird von kalter konzentrierter Salpetersäure passiviert"
+   },
+   "class": "redox",
+   "between": [
+    "Al(s)",
+    "H+",
+    "NO3-"
+   ],
+   "rate": {
+    "law": "none"
+   },
+   "needs": {
+    "min": {
+     "H+": 6,
+     "NO3-": 6
+    },
+    "Tmax": 323
+   },
+   "effects": [],
+   "src": "school",
+   "note": {
+    "zh": "常温下浓硝酸在铝表面生成一层致密的氧化膜，金属不再溶解（钝化），所以可以用铝制容器盛放冷的浓硝酸。加热或稀释后膜被破坏，反应才进行。",
+    "en": "At room temperature concentrated nitric acid forms a dense oxide film on aluminium and the metal no longer dissolves (passivation); this is why cold concentrated nitric acid can be kept in aluminium vessels. Heating or dilution destroys the film.",
+    "de": "Bei Raumtemperatur bildet konzentrierte Salpetersäure auf Aluminium eine dichte Oxidschicht, das Metall löst sich nicht mehr (Passivierung); deshalb lässt sich kalte konzentrierte Salpetersäure in Gefäßen aus Aluminium aufbewahren. Erhitzen oder Verdünnen zerstört die Schicht."
+   }
+  },
+  {
+   "id": "Al_H2SO4_passive",
+   "name": {
+    "zh": "铝在冷的浓硫酸中钝化",
+    "en": "Aluminium is passivated by cold concentrated sulfuric acid",
+    "de": "Aluminium wird von kalter konzentrierter Schwefelsäure passiviert"
+   },
+   "class": "redox",
+   "between": [
+    "Al(s)",
+    "H2SO4(l)"
+   ],
+   "rate": {
+    "law": "none"
+   },
+   "needs": {
+    "Tmax": 323
+   },
+   "effects": [],
+   "src": "school",
+   "note": {
+    "zh": "常温下浓硫酸使铝钝化：表面生成致密的氧化膜，反应停止。加热时膜被破坏，生成二氧化硫（这一步没有建模）。",
+    "en": "At room temperature concentrated sulfuric acid passivates aluminium: a dense oxide film forms and the reaction stops. On heating the film breaks down and sulfur dioxide forms (that step is not modelled).",
+    "de": "Bei Raumtemperatur passiviert konzentrierte Schwefelsäure Aluminium: Es bildet sich eine dichte Oxidschicht, die Reaktion kommt zum Stillstand. Beim Erhitzen bricht die Schicht auf, und es entsteht Schwefeldioxid (dieser Schritt ist nicht modelliert)."
+   },
+   "beyondModel": true
+  },
+  {
+   "id": "H2O2_decomposition",
+   "name": {
+    "zh": "过氧化氢的分解（无催化剂）",
+    "en": "Decomposition of hydrogen peroxide (uncatalysed)",
+    "de": "Zerfall von Wasserstoffperoxid (ohne Katalysator)"
+   },
+   "class": "decomposition",
+   "eq": {
+    "H2O2": -2,
+    "H2O": 2,
+    "O2": 1
+   },
+   "rate": {
+    "law": "mass",
+    "k": 1e-09,
+    "orders": {
+     "H2O2": 1
+    },
+    "Ea": 75,
+    "Tref": 298.15
+   },
+   "effects": [
+    "bubbles"
+   ],
+   "teaching": true,
+   "basis": "A clean solution loses a few per cent of its peroxide per year at room temperature: first-order constant of the order of 1e-9 s⁻¹ (rate of the equation as written).",
+   "src": "Activation energies of the decomposition of hydrogen peroxide as given in general-chemistry texts (e.g. Moelwyn-Hughes, Physical Chemistry, 2nd ed. 1961; Petrucci et al., General Chemistry): about 75 kJ/mol uncatalysed, 58 kJ/mol on MnO2, 56 kJ/mol with iodide. "
+  },
+  {
+   "id": "H2O2_MnO2",
+   "name": {
+    "zh": "过氧化氢在二氧化锰催化下分解（制氧气）",
+    "en": "Decomposition of hydrogen peroxide on manganese dioxide (preparing oxygen)",
+    "de": "Zerfall von Wasserstoffperoxid an Braunstein (Sauerstoffdarstellung)"
+   },
+   "class": "decomposition",
+   "eq": {
+    "H2O2": -2,
+    "H2O": 2,
+    "O2": 1
+   },
+   "rate": {
+    "law": "catalytic",
+    "catalyst": "MnO2(s)",
+    "k": 0.03,
+    "orders": {
+     "H2O2": 1
+    },
+    "Ea": 58,
+    "Tref": 298.15
+   },
+   "effects": [
+    "bubbles",
+    "heat"
+   ],
+   "teaching": true,
+   "basis": "0.5 g of MnO2 powder in 10 mL of 5 % H2O2: brisk oxygen, half of the peroxide gone in about 20 s. k is per mole of MnO2 present (the area of the powder is not resolved).",
+   "src": "Activation energies of the decomposition of hydrogen peroxide as given in general-chemistry texts (e.g. Moelwyn-Hughes, Physical Chemistry, 2nd ed. 1961; Petrucci et al., General Chemistry): about 75 kJ/mol uncatalysed, 58 kJ/mol on MnO2, 56 kJ/mol with iodide. "
+  },
+  {
+   "id": "H2O2_iodide",
+   "name": {
+    "zh": "过氧化氢在碘离子催化下分解",
+    "en": "Decomposition of hydrogen peroxide catalysed by iodide",
+    "de": "Iodidkatalysierter Zerfall von Wasserstoffperoxid"
+   },
+   "class": "decomposition",
+   "eq": {
+    "H2O2": -2,
+    "H2O": 2,
+    "O2": 1
+   },
+   "rate": {
+    "law": "catalytic",
+    "catalyst": "I-",
+    "k": 0.0115,
+    "orders": {
+     "H2O2": 1
+    },
+    "Ea": 56,
+    "Tref": 298.15
+   },
+   "needs": {
+    "min": {
+     "OH-": 1e-10
+    }
+   },
+   "effects": [
+    "bubbles",
+    "heat"
+   ],
+   "entry": "hand",
+   "src": "H. A. Liebhafsky, A. Mohammad, J. Am. Chem. Soc. 55, 3977 (1933): rate-determining step H2O2 + I- -> HOI + OH-, k = 0.0115 L/(mol·s) at 25 °C, Ea about 56 kJ/mol; in neutral solution HOI reacts with a second H2O2 and iodide is regenerated.",
+   "note": {
+    "zh": "“大象牙膏”的反应。pH 低于 4 时碘离子不再只是催化剂，而是被氧化成碘（H2O2_I）。",
+    "en": "The reaction of the \"elephant's toothpaste\". Below pH 4 iodide is no longer just a catalyst but is oxidised to iodine (H2O2_I).",
+    "de": "Die Reaktion der „Elefantenzahnpasta“. Unterhalb von pH 4 ist Iodid nicht mehr nur Katalysator, sondern wird zu Iod oxidiert (H2O2_I)."
+   }
+  },
+  {
+   "id": "H2O2_Fe3",
+   "name": {
+    "zh": "过氧化氢在 Fe³⁺ 催化下分解",
+    "en": "Decomposition of hydrogen peroxide catalysed by Fe³⁺",
+    "de": "Fe³⁺-katalysierter Zerfall von Wasserstoffperoxid"
+   },
+   "class": "decomposition",
+   "eq": {
+    "H2O2": -2,
+    "H2O": 2,
+    "O2": 1
+   },
+   "rate": {
+    "law": "catalytic",
+    "catalyst": "Fe+3",
+    "k": 0.05,
+    "orders": {
+     "H2O2": 1
+    },
+    "Ea": 50,
+    "Tref": 298.15
+   },
+   "effects": [
+    "bubbles"
+   ],
+   "teaching": true,
+   "basis": "2 mL of 5 % H2O2 with two drops of 0.1 mol/L FeCl3: steady bubbles, about half decomposed in ten minutes; clearly faster than with CuSO4.",
+   "src": "school"
+  },
+  {
+   "id": "H2O2_Cu2",
+   "name": {
+    "zh": "过氧化氢在 Cu²⁺ 催化下分解",
+    "en": "Decomposition of hydrogen peroxide catalysed by Cu²⁺",
+    "de": "Cu²⁺-katalysierter Zerfall von Wasserstoffperoxid"
+   },
+   "class": "decomposition",
+   "eq": {
+    "H2O2": -2,
+    "H2O": 2,
+    "O2": 1
+   },
+   "rate": {
+    "law": "catalytic",
+    "catalyst": "Cu+2",
+    "k": 0.005,
+    "orders": {
+     "H2O2": 1
+    },
+    "Ea": 55,
+    "Tref": 298.15
+   },
+   "effects": [
+    "bubbles"
+   ],
+   "teaching": true,
+   "basis": "The textbook comparison of catalysts: with CuSO4 the bubbles are clearly slower than with FeCl3; taken as a tenth.",
+   "src": "school"
+  },
+  {
+   "id": "KMnO4_thermal",
+   "name": {
+    "zh": "高锰酸钾受热分解（制氧气）",
+    "en": "Thermal decomposition of potassium permanganate (preparing oxygen)",
+    "de": "Thermische Zersetzung von Kaliumpermanganat (Sauerstoffdarstellung)"
+   },
+   "class": "decomposition",
+   "eq": {
+    "KMnO4(s)": -2,
+    "K2MnO4(s)": 1,
+    "MnO2(s)": 1,
+    "O2(g)": 1
+   },
+   "rate": {
+    "law": "thermal",
+    "A": 270000000000.0,
+    "Ea": 150
+   },
+   "needs": {
+    "Tmin": 513
+   },
+   "effects": [
+    "crackle"
+   ],
+   "teaching": true,
+   "basis": "A test tube of KMnO4 over a burner gives a steady stream of oxygen for a few minutes: half-life of 2 min at 300 °C, activation energy of the usual size for such solids.",
+   "src": "school; onset about 240 °C: CRC Handbook of Chemistry and Physics, 97th ed., \"Physical Constants of Inorganic Compounds\" (hand)"
+  },
+  {
+   "id": "KClO3_thermal",
+   "name": {
+    "zh": "氯酸钾受热分解",
+    "en": "Thermal decomposition of potassium chlorate",
+    "de": "Thermische Zersetzung von Kaliumchlorat"
+   },
+   "class": "decomposition",
+   "eq": {
+    "KClO3(s)": -2,
+    "Sylvite": 2,
+    "O2(g)": 3
+   },
+   "rate": {
+    "law": "thermal",
+    "A": 1610000000000.0,
+    "Ea": 200
+   },
+   "needs": {
+    "Tmin": 673
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "Without a catalyst oxygen appears only well above the melting point: half-life of 2 min at 450 °C.",
+   "src": "school; melts at 356 °C and gives off oxygen from about 400 °C (CRC, hand)"
+  },
+  {
+   "id": "KClO3_MnO2",
+   "name": {
+    "zh": "氯酸钾在二氧化锰催化下分解（制氧气）",
+    "en": "Decomposition of potassium chlorate with manganese dioxide (preparing oxygen)",
+    "de": "Zersetzung von Kaliumchlorat mit Braunstein (Sauerstoffdarstellung)"
+   },
+   "class": "decomposition",
+   "eq": {
+    "KClO3(s)": -2,
+    "Sylvite": 2,
+    "O2(g)": 3
+   },
+   "rate": {
+    "law": "thermal",
+    "A": 997000000.0,
+    "Ea": 120
+   },
+   "needs": {
+    "Tmin": 423,
+    "min": {
+     "MnO2(s)": 1
+    }
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "Mixed with MnO2 the chlorate gives oxygen briskly below its melting point: half-life of 1 min at 300 °C. The catalyst must be present in the same vessel (min: MnO2(s) = 1).",
+   "src": "school; with MnO2 the decomposition sets in between 150 and 300 °C (textbook value)",
+   "note": {
+    "zh": "真实实验的安全提示：氯酸钾与可燃物、硫、磷混合会爆炸，二氧化锰必须纯净。",
+    "en": "Safety of the real experiment: potassium chlorate explodes when mixed with combustible material, sulfur or phosphorus; the manganese dioxide must be pure.",
+    "de": "Sicherheit im realen Versuch: Kaliumchlorat explodiert im Gemisch mit brennbaren Stoffen, Schwefel oder Phosphor; der Braunstein muss rein sein."
+   }
+  },
+  {
+   "id": "MnO2_HCl",
+   "name": {
+    "zh": "二氧化锰与浓盐酸（制氯气）",
+    "en": "Manganese dioxide with concentrated hydrochloric acid (preparing chlorine)",
+    "de": "Braunstein mit konzentrierter Salzsäure (Chlordarstellung)"
+   },
+   "class": "redox",
+   "eq": {
+    "MnO2(s)": -1,
+    "H+": -4,
+    "Cl-": -2,
+    "Mn+2": 1,
+    "Cl2": 1,
+    "H2O": 2
+   },
+   "rate": {
+    "law": "surface",
+    "on": "MnO2(s)",
+    "k": 0.0001,
+    "orders": {},
+    "Ea": 60,
+    "Tref": 353.15
+   },
+   "needs": {
+    "Tmin": 333,
+    "min": {
+     "H+": 4,
+     "Cl-": 4
+    }
+   },
+   "effects": [
+    "bubbles"
+   ],
+   "teaching": true,
+   "basis": "5 g of MnO2 powder with warm concentrated hydrochloric acid give about 1 mmol of chlorine per minute. Thresholds (classroom rule): heating above about 60 °C, and activities of H+ and Cl- above 4 (hydrochloric acid above about 6 mol/L) — the reaction stops when the acid has become dilute.",
+   "src": "school",
+   "note": {
+    "zh": "氯气有毒，真实实验在通风橱里做，尾气用氢氧化钠溶液吸收。盐酸变稀后反应停止，所以二氧化锰过量时盐酸也不会用完。",
+    "en": "Chlorine is toxic: the real experiment is done in a fume cupboard and the excess gas is absorbed in sodium hydroxide solution. The reaction stops when the acid has become dilute, so the acid is never used up even with excess manganese dioxide.",
+    "de": "Chlor ist giftig: Der reale Versuch wird unter dem Abzug durchgeführt, überschüssiges Gas in Natronlauge absorbiert. Die Reaktion endet, wenn die Säure verdünnt ist; auch bei Braunsteinüberschuss wird die Säure daher nie vollständig verbraucht."
+   }
+  },
+  {
+   "id": "KMnO4_HCl",
+   "name": {
+    "zh": "高锰酸钾与浓盐酸（制氯气）",
+    "en": "Potassium permanganate with concentrated hydrochloric acid (preparing chlorine)",
+    "de": "Kaliumpermanganat mit konzentrierter Salzsäure (Chlordarstellung)"
+   },
+   "class": "redox",
+   "eq": {
+    "MnO4-": -2,
+    "H+": -16,
+    "Cl-": -10,
+    "Mn+2": 2,
+    "Cl2": 5,
+    "H2O": 8
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "needs": {
+    "min": {
+     "H+": 2,
+     "Cl-": 2
+    }
+   },
+   "effects": [
+    "bubbles"
+   ],
+   "teaching": true,
+   "basis": "Threshold (classroom rule): no heating needed, but the acid must be concentrated (activities of H+ and Cl- above 2); permanganate acidified with dilute hydrochloric acid oxidises chloride only slowly, which is not modelled.",
+   "src": "school",
+   "note": {
+    "zh": "这就是高锰酸钾溶液不用盐酸酸化的原因。",
+    "en": "This is why permanganate solutions are not acidified with hydrochloric acid.",
+    "de": "Deshalb säuert man Permanganatlösungen nicht mit Salzsäure an."
+   }
+  },
+  {
+   "id": "NH4Cl_CaOH2",
+   "name": {
+    "zh": "氯化铵与氢氧化钙共热（制氨气）",
+    "en": "Ammonium chloride heated with calcium hydroxide (preparing ammonia)",
+    "de": "Ammoniumchlorid mit Calciumhydroxid erhitzt (Ammoniakdarstellung)"
+   },
+   "class": "synthesis",
+   "eq": {
+    "NH4Cl(s)": -2,
+    "Portlandite": -1,
+    "CaCl2(s)": 1,
+    "NH3(g)": 2,
+    "H2O(g)": 2
+   },
+   "rate": {
+    "law": "thermal",
+    "A": 294000.0,
+    "Ea": 60,
+    "of": "NH4Cl(s)"
+   },
+   "needs": {
+    "Tmin": 313
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "The ground mixture smells of ammonia already when warm and gives a steady stream on heating: half-life of 1 min at 150 °C.",
+   "src": "school"
+  },
+  {
+   "id": "NaCl_H2SO4",
+   "name": {
+    "zh": "氯化钠与浓硫酸（制氯化氢）",
+    "en": "Sodium chloride with concentrated sulfuric acid (preparing hydrogen chloride)",
+    "de": "Natriumchlorid mit konzentrierter Schwefelsäure (Chlorwasserstoffdarstellung)"
+   },
+   "class": "synthesis",
+   "eq": {
+    "Halite": -1,
+    "H2SO4(l)": -1,
+    "NaHSO4(s)": 1,
+    "HCl(g)": 1
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Halite",
+    "k": 0.001,
+    "orders": {},
+    "Ea": 40,
+    "Tref": 298.15
+   },
+   "needs": {
+    "min": {
+     "H2SO4(l)": 1
+    }
+   },
+   "effects": [
+    "bubbles",
+    "fog"
+   ],
+   "teaching": true,
+   "basis": "Concentrated sulfuric acid on table salt fumes at once and gives a steady stream of hydrogen chloride on gentle warming.",
+   "src": "school",
+   "note": {
+    "zh": "微热时生成硫酸氢钠；强热（500 °C 以上）才进一步生成硫酸钠，那一步没有收入。",
+    "en": "On gentle warming sodium hydrogensulfate forms; only strong heating (above 500 °C) leads on to sodium sulfate — that step is not included.",
+    "de": "Bei gelindem Erwärmen entsteht Natriumhydrogensulfat; erst starkes Erhitzen (über 500 °C) führt weiter zum Natriumsulfat – dieser Schritt ist nicht enthalten."
+   },
+   "beyondModel": true
+  },
+  {
+   "id": "CaC2_water",
+   "name": {
+    "zh": "电石与水（制乙炔）",
+    "en": "Calcium carbide with water (preparing ethyne)",
+    "de": "Calciumcarbid mit Wasser (Ethindarstellung)"
+   },
+   "class": "synthesis",
+   "eq": {
+    "CaC2(s)": -1,
+    "H2O": -2,
+    "Ca+2": 1,
+    "OH-": 2,
+    "C2H2(g)": 1
+   },
+   "rate": {
+    "law": "surface",
+    "on": "CaC2(s)",
+    "k": 0.3,
+    "orders": {},
+    "Ea": 20,
+    "Tref": 298.15
+   },
+   "effects": [
+    "bubbles",
+    "heat"
+   ],
+   "teaching": true,
+   "basis": "A 1 g lump of carbide (16 mmol, about 3 cm²) in water fizzes away in about 3 min.",
+   "src": "school",
+   "note": {
+    "zh": "反应很剧烈，实验室用饱和食盐水代替水来减慢它（没有建模）。电石里的杂质使气体带臭味（硫化氢、磷化氢），这里按纯碳化钙计。",
+    "en": "The reaction is violent; in the laboratory saturated brine is used instead of water to slow it down (not modelled). Impurities of the carbide give the gas its smell (hydrogen sulfide, phosphine); pure calcium carbide is assumed here.",
+    "de": "Die Reaktion ist heftig; im Labor nimmt man gesättigte Kochsalzlösung statt Wasser, um sie zu bremsen (nicht modelliert). Verunreinigungen des Carbids geben dem Gas seinen Geruch (Schwefelwasserstoff, Phosphan); hier wird reines Calciumcarbid angenommen."
+   }
+  },
+  {
+   "id": "Na2O2_water",
+   "name": {
+    "zh": "过氧化钠与水",
+    "en": "Sodium peroxide with water",
+    "de": "Natriumperoxid mit Wasser"
+   },
+   "class": "redox",
+   "eq": {
+    "Na2O2(s)": -2,
+    "H2O": -2,
+    "Na+": 4,
+    "OH-": 4,
+    "O2": 1
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Na2O2(s)",
+    "k": 0.05,
+    "orders": {},
+    "Ea": 20,
+    "Tref": 298.15
+   },
+   "effects": [
+    "bubbles",
+    "heat"
+   ],
+   "teaching": true,
+   "basis": "A spatula tip of sodium peroxide in water gives off its oxygen within seconds; the tube gets hot.",
+   "src": "school",
+   "note": {
+    "zh": "真实反应先生成过氧化氢，随后分解；所以滴入酚酞先变红后褪色，这一点没有建模。",
+    "en": "The real reaction first gives hydrogen peroxide, which then decomposes; this is why phenolphthalein turns pink and then fades — not modelled.",
+    "de": "Die reale Reaktion liefert zunächst Wasserstoffperoxid, das dann zerfällt; deshalb wird Phenolphthalein erst rosa und verblasst dann – nicht modelliert."
+   }
+  },
+  {
+   "id": "Na2O2_CO2",
+   "name": {
+    "zh": "过氧化钠与二氧化碳",
+    "en": "Sodium peroxide with carbon dioxide",
+    "de": "Natriumperoxid mit Kohlenstoffdioxid"
+   },
+   "class": "redox",
+   "eq": {
+    "Na2O2(s)": -2,
+    "CO2(g)": -2,
+    "Na2CO3(s)": 2,
+    "O2(g)": 1
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Na2O2(s)",
+    "k": 0.001,
+    "orders": {
+     "CO2(g)": 1
+    },
+    "Ea": 30,
+    "Tref": 298.15
+   },
+   "effects": [
+    "heat"
+   ],
+   "teaching": true,
+   "basis": "Cotton wool wrapped round sodium peroxide catches fire within seconds when carbon dioxide is blown on it; rate per atmosphere of CO2.",
+   "src": "school"
+  },
+  {
+   "id": "Fe2_Cl2",
+   "name": {
+    "zh": "氯气（氯水）氧化 Fe²⁺",
+    "en": "Chlorine oxidises Fe²⁺",
+    "de": "Chlor oxidiert Fe²⁺"
+   },
+   "class": "redox",
+   "eq": {
+    "Fe+2": -2,
+    "Cl2": -1,
+    "Fe+3": 2,
+    "Cl-": 2
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "effects": [],
+   "src": "school"
+  },
+  {
+   "id": "Fe2_Br2",
+   "name": {
+    "zh": "溴水氧化 Fe²⁺",
+    "en": "Bromine water oxidises Fe²⁺",
+    "de": "Bromwasser oxidiert Fe²⁺"
+   },
+   "class": "redox",
+   "eq": {
+    "Fe+2": -2,
+    "Br2": -1,
+    "Fe+3": 2,
+    "Br-": 2
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "effects": [],
+   "src": "school"
+  },
+  {
+   "id": "Fe2_H2O2",
+   "name": {
+    "zh": "过氧化氢氧化 Fe²⁺",
+    "en": "Hydrogen peroxide oxidises Fe²⁺",
+    "de": "Wasserstoffperoxid oxidiert Fe²⁺"
+   },
+   "class": "redox",
+   "eq": {
+    "Fe+2": -2,
+    "H2O2": -1,
+    "H+": -2,
+    "Fe+3": 2,
+    "H2O": 2
+   },
+   "rate": {
+    "law": "mass",
+    "k": 57,
+    "orders": {
+     "Fe+2": 1,
+     "H2O2": 1
+    },
+    "Ea": 39.3,
+    "Tref": 298.15
+   },
+   "effects": [],
+   "entry": "hand",
+   "src": "W. G. Barb, J. H. Baxendale, P. George, K. R. Hargrave, Trans. Faraday Soc. 47, 462 (1951): −d[H2O2]/dt = k[Fe2+][H2O2], k = 4.45e8·exp(−9400 cal/RT) L/(mol·s), i.e. 57 L/(mol·s) at 25 °C (C. Walling, Acc. Chem. Res. 8, 125 (1975) recommends 76)."
+  },
+  {
+   "id": "Fe2_MnO4",
+   "name": {
+    "zh": "酸性高锰酸钾氧化 Fe²⁺",
+    "en": "Acidified permanganate oxidises Fe²⁺",
+    "de": "Angesäuertes Permanganat oxidiert Fe²⁺"
+   },
+   "class": "redox",
+   "eq": {
+    "MnO4-": -1,
+    "Fe+2": -5,
+    "H+": -8,
+    "Mn+2": 1,
+    "Fe+3": 5,
+    "H2O": 4
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "needs": {
+    "min": {
+     "H+": 0.001
+    }
+   },
+   "effects": [],
+   "src": "school"
+  },
+  {
+   "id": "Fe2_Cr2O7",
+   "name": {
+    "zh": "酸性重铬酸钾氧化 Fe²⁺",
+    "en": "Acidified dichromate oxidises Fe²⁺",
+    "de": "Angesäuertes Dichromat oxidiert Fe²⁺"
+   },
+   "class": "redox",
+   "eq": {
+    "Cr2O7-2": -1,
+    "Fe+2": -6,
+    "H+": -14,
+    "Cr+3": 2,
+    "Fe+3": 6,
+    "H2O": 7
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "needs": {
+    "min": {
+     "H+": 0.001
+    }
+   },
+   "effects": [],
+   "src": "school"
+  },
+  {
+   "id": "Fe2_O2",
+   "name": {
+    "zh": "Fe²⁺ 被空气中的氧气氧化",
+    "en": "Oxidation of Fe²⁺ by oxygen of the air",
+    "de": "Oxidation von Fe²⁺ durch Luftsauerstoff"
+   },
+   "class": "redox",
+   "eq": {
+    "Fe+2": -4,
+    "O2(g)": -1,
+    "H+": -4,
+    "Fe+3": 4,
+    "H2O": 2
+   },
+   "rate": {
+    "law": "mass",
+    "k": 333000000000.0,
+    "orders": {
+     "Fe+2": 1,
+     "OH-": 2,
+     "O2(g)": 1
+    },
+    "Ea": 29,
+    "Tref": 293.15
+   },
+   "effects": [],
+   "entry": "hand",
+   "src": "W. Stumm, G. F. Lee, Ind. Eng. Chem. 53, 143 (1961): −d[Fe(II)]/dt = k[Fe(II)][OH-]²·pO2 with k = 8.0 (±2.5)e13 L²/(mol²·atm·min) at 20 °C; here k/4/60 for the equation as written (four Fe). Temperature dependence at constant [OH-]: 29 kJ/mol, F. J. Millero, S. Sotolongo, M. Izaguirre, Geochim. Cosmochim. Acta 51, 793 (1987).",
+   "note": {
+    "zh": "酸性溶液里很慢（速率与 [OH⁻]² 成正比），中性和碱性时很快：这也是白色的氢氧化亚铁在空气里迅速变成灰绿色、最后变成红褐色氢氧化铁的原因——生成的 Fe³⁺ 由平衡计算沉淀出来。氧气从空气进入溶液的速度没有建模，所以敞口放置时算出的速率是上限。",
+    "en": "Very slow in acid (the rate goes with [OH⁻]²), fast in neutral and alkaline solution: this is also why white iron(II) hydroxide turns grey-green and finally red-brown in air — the Fe³⁺ formed is precipitated by the equilibrium calculation. The transfer of oxygen from the air into the solution is not modelled, so the rate computed for an open vessel is an upper limit.",
+    "de": "In saurer Lösung sehr langsam (die Geschwindigkeit geht mit [OH⁻]²), neutral und alkalisch schnell: Deshalb wird weißes Eisen(II)-hydroxid an der Luft rasch graugrün und schließlich rotbraun – das gebildete Fe³⁺ fällt die Gleichgewichtsrechnung aus. Der Übergang des Sauerstoffs aus der Luft in die Lösung ist nicht modelliert; die für ein offenes Gefäß berechnete Geschwindigkeit ist daher eine Obergrenze."
+   }
+  },
+  {
+   "id": "Fe3_I",
+   "name": {
+    "zh": "Fe³⁺ 氧化碘离子（可逆）",
+    "en": "Fe³⁺ oxidises iodide (reversible)",
+    "de": "Fe³⁺ oxidiert Iodid (umkehrbar)"
+   },
+   "class": "redox",
+   "eq": {
+    "Fe+3": -2,
+    "I-": -2,
+    "Fe+2": 2,
+    "I2": 1
+   },
+   "rate": {
+    "law": "instant",
+    "lnK": [
+     11.708,
+     0.0
+    ],
+    "reversible": true
+   },
+   "via": [
+    "Fe+3/Fe+2",
+    "I2(aq)/I-"
+   ],
+   "effects": [],
+   "src": "school; K from the couples Fe+3/Fe+2 and I2(aq)/I-",
+   "note": {
+    "zh": "课本里说明“反应有限度”的例子：碘离子过量时溶液里仍能用硫氰化钾检出 Fe³⁺。",
+    "en": "The textbook example of a reaction with a limit: even with excess iodide Fe³⁺ can still be detected with thiocyanate.",
+    "de": "Das Lehrbuchbeispiel einer unvollständig ablaufenden Reaktion: Selbst bei Iodidüberschuss lässt sich Fe³⁺ noch mit Thiocyanat nachweisen."
+   }
+  },
+  {
+   "id": "Fe3_Fe",
+   "name": {
+    "zh": "Fe³⁺ 与铁",
+    "en": "Fe³⁺ with iron",
+    "de": "Fe³⁺ mit Eisen"
+   },
+   "class": "redox",
+   "eq": {
+    "Fe+3": -2,
+    "Fe(s)": -1,
+    "Fe+2": 3
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Fe(s)",
+    "k": 0.005,
+    "orders": {
+     "Fe+3": 1
+    },
+    "Ea": 20,
+    "Tref": 298.15
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "Iron powder shaken with iron(III) chloride solution turns it pale green within a minute or two: half the diffusion limit of 1e-2 mol/(m²·s) per mol/L.",
+   "src": "school"
+  },
+  {
+   "id": "Fe3_Cu",
+   "name": {
+    "zh": "Fe³⁺ 与铜（腐蚀印刷电路板）",
+    "en": "Fe³⁺ with copper (etching circuit boards)",
+    "de": "Fe³⁺ mit Kupfer (Ätzen von Leiterplatten)"
+   },
+   "class": "redox",
+   "eq": {
+    "Fe+3": -2,
+    "Cu(s)": -1,
+    "Fe+2": 2,
+    "Cu+2": 1
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Cu(s)",
+    "k": 0.002,
+    "orders": {
+     "Fe+3": 1
+    },
+    "Ea": 30,
+    "Tref": 298.15
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "Copper foil 35 µm thick is etched through by 1 to 2 mol/L iron(III) chloride in 10 to 20 min at room temperature: about 2e-3 mol/(m²·s) per unit activity.",
+   "src": "school"
+  },
+  {
+   "id": "Fe3_Zn",
+   "name": {
+    "zh": "Fe³⁺ 与锌",
+    "en": "Fe³⁺ with zinc",
+    "de": "Fe³⁺ mit Zink"
+   },
+   "class": "redox",
+   "eq": {
+    "Fe+3": -2,
+    "Zn(s)": -1,
+    "Fe+2": 2,
+    "Zn+2": 1
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Zn(s)",
+    "k": 0.005,
+    "orders": {
+     "Fe+3": 1
+    },
+    "Ea": 20,
+    "Tref": 298.15
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "As for iron in iron(III) solution: half the diffusion limit.",
+   "src": "school"
+  },
+  {
+   "id": "Fe3_SO2",
+   "name": {
+    "zh": "Fe³⁺ 氧化二氧化硫",
+    "en": "Fe³⁺ oxidises sulfur dioxide",
+    "de": "Fe³⁺ oxidiert Schwefeldioxid"
+   },
+   "class": "redox",
+   "eq": {
+    "Fe+3": -2,
+    "SO2": -1,
+    "H2O": -2,
+    "Fe+2": 2,
+    "SO4-2": 1,
+    "H+": 4
+   },
+   "rate": {
+    "law": "mass",
+    "k": 0.5,
+    "orders": {
+     "Fe+3": 1,
+     "SO2": 1
+    },
+    "Ea": 50,
+    "Tref": 298.15
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "Sulfur dioxide passed into iron(III) chloride solution: the yellow colour gives way to pale green within a few minutes.",
+   "src": "school"
+  },
+  {
+   "id": "Fe3_H2S",
+   "name": {
+    "zh": "Fe³⁺ 氧化硫化氢",
+    "en": "Fe³⁺ oxidises hydrogen sulfide",
+    "de": "Fe³⁺ oxidiert Schwefelwasserstoff"
+   },
+   "class": "redox",
+   "eq": {
+    "Fe+3": -2,
+    "H2S": -1,
+    "Fe+2": 2,
+    "S(s)": 1,
+    "H+": 2
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "effects": [],
+   "src": "school"
+  },
+  {
+   "id": "Fe3_Sn2",
+   "name": {
+    "zh": "Fe³⁺ 与 Sn²⁺",
+    "en": "Fe³⁺ with Sn²⁺",
+    "de": "Fe³⁺ mit Sn²⁺"
+   },
+   "class": "redox",
+   "eq": {
+    "Fe+3": -2,
+    "Sn+2": -1,
+    "Fe+2": 2,
+    "Sn+4": 1
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "effects": [],
+   "src": "school"
+  },
+  {
+   "id": "Ag_Fe2",
+   "name": {
+    "zh": "Ag⁺ 与 Fe²⁺（可逆）",
+    "en": "Ag⁺ with Fe²⁺ (reversible)",
+    "de": "Ag⁺ mit Fe²⁺ (umkehrbar)"
+   },
+   "class": "redox",
+   "eq": {
+    "Ag+": -1,
+    "Fe+2": -1,
+    "Ag(s)": 1,
+    "Fe+3": 1
+   },
+   "rate": {
+    "law": "instant",
+    "lnK": [
+     1.113,
+     0.0
+    ],
+    "reversible": true
+   },
+   "via": [
+    "Ag+/Ag",
+    "Fe+3/Fe+2"
+   ],
+   "effects": [],
+   "src": "school; K from the couples Ag+/Ag and Fe+3/Fe+2",
+   "note": {
+    "zh": "平衡常数只有 3 左右：反应明显不完全，两个方向都能进行（加入 Fe³⁺ 可以把银溶解一部分）。",
+    "en": "The equilibrium constant is only about 3: the reaction is plainly incomplete and runs both ways (added Fe³⁺ dissolves some of the silver again).",
+    "de": "Die Gleichgewichtskonstante beträgt nur etwa 3: Die Reaktion ist deutlich unvollständig und läuft in beide Richtungen (zugesetztes Fe³⁺ löst einen Teil des Silbers wieder auf)."
+   }
+  },
+  {
+   "id": "Cu2O_acid",
+   "name": {
+    "zh": "氧化亚铜与稀酸（Cu⁺ 的歧化）",
+    "en": "Copper(I) oxide with dilute acid (disproportionation of Cu⁺)",
+    "de": "Kupfer(I)-oxid mit verdünnter Säure (Disproportionierung von Cu⁺)"
+   },
+   "class": "redox",
+   "eq": {
+    "Cuprite": -1,
+    "H+": -2,
+    "Cu(s)": 1,
+    "Cu+2": 1,
+    "H2O": 1
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "needs": {
+    "min": {
+     "H+": 0.001
+    }
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "Classroom rule: in dilute acid (taken as pH below 3) red copper(I) oxide gives copper and a blue solution; in neutral and alkaline solution the oxide is stable (with the constants of the network the reaction stops at a(Cu2+) = 10^(4.7 − 2 pH)).",
+   "src": "school; E°(Cu+/Cu) = 0.521 V against E°(Cu2+/Cu+) = 0.153 V (couples): K = 1.7e6 for 2 Cu+ -> Cu + Cu2+",
+   "note": {
+    "zh": "游离的 Cu⁺ 在水里不稳定，歧化成铜和 Cu²⁺；难溶的碘化亚铜、氯化亚铜和碱性条件下的氧化亚铜是稳定的。",
+    "en": "Free Cu⁺ is unstable in water and disproportionates to copper and Cu²⁺; the sparingly soluble iodide and chloride, and the oxide in alkaline solution, are stable.",
+    "de": "Freies Cu⁺ ist in Wasser instabil und disproportioniert zu Kupfer und Cu²⁺; das schwer lösliche Iodid und Chlorid sowie das Oxid in alkalischer Lösung sind beständig."
+   }
+  },
+  {
+   "id": "Cu2_I",
+   "name": {
+    "zh": "Cu²⁺ 氧化碘离子（碘量法测铜）",
+    "en": "Cu²⁺ oxidises iodide (iodometric copper)",
+    "de": "Cu²⁺ oxidiert Iodid (iodometrische Kupferbestimmung)"
+   },
+   "class": "redox",
+   "eq": {
+    "Cu+2": -2,
+    "I-": -4,
+    "CuI": 2,
+    "I2": 1
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "effects": [],
+   "src": "school"
+  },
+  {
+   "id": "MnO4_oxalate",
+   "name": {
+    "zh": "高锰酸钾氧化草酸（起始的慢反应）",
+    "en": "Permanganate oxidises oxalic acid (the slow start)",
+    "de": "Permanganat oxidiert Oxalsäure (langsamer Beginn)"
+   },
+   "class": "redox",
+   "eq": {
+    "MnO4-": -2,
+    "H2(Oxalate)": -5,
+    "H+": -6,
+    "Mn+2": 2,
+    "CO2": 10,
+    "H2O": 8
+   },
+   "rate": {
+    "law": "mass",
+    "k": 0.05,
+    "orders": {
+     "MnO4-": 1,
+     "H2(Oxalate)": 1
+    },
+    "Ea": 50,
+    "Tref": 298.15
+   },
+   "needs": {
+    "min": {
+     "H+": 0.001
+    }
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "4 mL of 0.01 mol/L KMnO4 with 2 mL of 0.1 mol/L oxalic acid, acidified: about a tenth of the colour is lost in the first 40 s at room temperature.",
+   "src": "school"
+  },
+  {
+   "id": "MnO4_oxalate_Mn2",
+   "name": {
+    "zh": "高锰酸钾氧化草酸（Mn²⁺ 自催化）",
+    "en": "Permanganate oxidises oxalic acid (autocatalysis by Mn²⁺)",
+    "de": "Permanganat oxidiert Oxalsäure (Autokatalyse durch Mn²⁺)"
+   },
+   "class": "redox",
+   "eq": {
+    "MnO4-": -2,
+    "H2(Oxalate)": -5,
+    "H+": -6,
+    "Mn+2": 2,
+    "CO2": 10,
+    "H2O": 8
+   },
+   "rate": {
+    "law": "catalytic",
+    "catalyst": "Mn+2",
+    "k": 250,
+    "orders": {
+     "MnO4-": 1,
+     "H2(Oxalate)": 1
+    },
+    "Ea": 50,
+    "Tref": 298.15
+   },
+   "needs": {
+    "min": {
+     "H+": 0.001
+    }
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "The same mixture is colourless after one to two minutes: once Mn2+ has formed the reaction is ten times faster. A teaching value for the autocatalysis, not a measured rate law (the real mechanism runs through manganese(III) oxalate complexes).",
+   "src": "school",
+   "note": {
+    "zh": "反应生成的 Mn²⁺ 是催化剂：开始褪色很慢，随后越来越快。速率常数是教学用的数量级，不是测量值。",
+    "en": "The Mn²⁺ formed is the catalyst: the colour fades slowly at first, then faster and faster. The rate constants are classroom orders of magnitude, not measured values.",
+    "de": "Das gebildete Mn²⁺ ist der Katalysator: Die Farbe verblasst erst langsam, dann immer schneller. Die Geschwindigkeitskonstanten sind Größenordnungen für den Unterricht, keine Messwerte."
+   }
+  },
+  {
+   "id": "MnO4_H2O2",
+   "name": {
+    "zh": "酸性高锰酸钾与过氧化氢",
+    "en": "Acidified permanganate with hydrogen peroxide",
+    "de": "Angesäuertes Permanganat mit Wasserstoffperoxid"
+   },
+   "class": "redox",
+   "eq": {
+    "MnO4-": -2,
+    "H2O2": -5,
+    "H+": -6,
+    "Mn+2": 2,
+    "O2": 5,
+    "H2O": 8
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "needs": {
+    "min": {
+     "H+": 0.001
+    }
+   },
+   "effects": [
+    "bubbles"
+   ],
+   "src": "school"
+  },
+  {
+   "id": "MnO4_SO2_acid",
+   "name": {
+    "zh": "酸性高锰酸钾氧化二氧化硫（亚硫酸盐）",
+    "en": "Acidified permanganate oxidises sulfur dioxide (sulfite)",
+    "de": "Angesäuertes Permanganat oxidiert Schwefeldioxid (Sulfit)"
+   },
+   "class": "redox",
+   "eq": {
+    "MnO4-": -2,
+    "SO2": -5,
+    "H2O": -2,
+    "Mn+2": 2,
+    "SO4-2": 5,
+    "H+": 4
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "needs": {
+    "min": {
+     "H+": 0.001
+    }
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "pH windows (classroom rule): Mn2+ below pH 3, MnO2 from pH 3 to 13, manganate above pH 13. ",
+   "src": "school"
+  },
+  {
+   "id": "MnO4_SO3_neutral",
+   "name": {
+    "zh": "中性高锰酸钾氧化亚硫酸盐",
+    "en": "Permanganate oxidises sulfite in neutral solution",
+    "de": "Permanganat oxidiert Sulfit in neutraler Lösung"
+   },
+   "class": "redox",
+   "eq": {
+    "MnO4-": -2,
+    "SO3-2": -3,
+    "H2O": -1,
+    "MnO2(s)": 2,
+    "SO4-2": 3,
+    "OH-": 2
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "needs": {
+    "min": {
+     "OH-": 1e-11,
+     "H+": 1e-13
+    }
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "pH windows (classroom rule): Mn2+ below pH 3, MnO2 from pH 3 to 13, manganate above pH 13. ",
+   "src": "school"
+  },
+  {
+   "id": "MnO4_SO3_base",
+   "name": {
+    "zh": "强碱性高锰酸钾氧化亚硫酸盐",
+    "en": "Permanganate oxidises sulfite in strongly alkaline solution",
+    "de": "Permanganat oxidiert Sulfit in stark alkalischer Lösung"
+   },
+   "class": "redox",
+   "eq": {
+    "MnO4-": -2,
+    "SO3-2": -1,
+    "OH-": -2,
+    "MnO4-2": 2,
+    "SO4-2": 1,
+    "H2O": 1
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "needs": {
+    "min": {
+     "OH-": 0.1
+    }
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "pH windows (classroom rule): Mn2+ below pH 3, MnO2 from pH 3 to 13, manganate above pH 13. ",
+   "src": "school"
+  },
+  {
+   "id": "MnO42_disproportionation",
+   "name": {
+    "zh": "锰酸根在酸性或中性溶液中歧化",
+    "en": "Disproportionation of manganate in acid or neutral solution",
+    "de": "Disproportionierung von Manganat in saurer oder neutraler Lösung"
+   },
+   "class": "redox",
+   "eq": {
+    "MnO4-2": -3,
+    "H+": -4,
+    "MnO4-": 2,
+    "MnO2(s)": 1,
+    "H2O": 2
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "needs": {
+    "min": {
+     "H+": 1e-12
+    }
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "Classroom rule: green manganate is stable only in strongly alkaline solution (taken as pH above 12).",
+   "src": "school"
+  },
+  {
+   "id": "MnO4_I",
+   "name": {
+    "zh": "酸性高锰酸钾氧化碘离子",
+    "en": "Acidified permanganate oxidises iodide",
+    "de": "Angesäuertes Permanganat oxidiert Iodid"
+   },
+   "class": "redox",
+   "eq": {
+    "MnO4-": -2,
+    "I-": -10,
+    "H+": -16,
+    "Mn+2": 2,
+    "I2": 5,
+    "H2O": 8
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "needs": {
+    "min": {
+     "H+": 0.001
+    }
+   },
+   "effects": [],
+   "src": "school"
+  },
+  {
+   "id": "MnO4_Br",
+   "name": {
+    "zh": "酸性高锰酸钾氧化溴离子",
+    "en": "Acidified permanganate oxidises bromide",
+    "de": "Angesäuertes Permanganat oxidiert Bromid"
+   },
+   "class": "redox",
+   "eq": {
+    "MnO4-": -2,
+    "Br-": -10,
+    "H+": -16,
+    "Mn+2": 2,
+    "Br2": 5,
+    "H2O": 8
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "needs": {
+    "min": {
+     "H+": 0.1
+    }
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "Classroom rule: needs a clearly acid solution (activity of H+ above 0.1).",
+   "src": "school"
+  },
+  {
+   "id": "MnO4_NO2",
+   "name": {
+    "zh": "酸性高锰酸钾氧化亚硝酸盐",
+    "en": "Acidified permanganate oxidises nitrite",
+    "de": "Angesäuertes Permanganat oxidiert Nitrit"
+   },
+   "class": "redox",
+   "eq": {
+    "MnO4-": -2,
+    "NO2-": -5,
+    "H+": -6,
+    "Mn+2": 2,
+    "NO3-": 5,
+    "H2O": 3
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "needs": {
+    "min": {
+     "H+": 0.001
+    }
+   },
+   "effects": [],
+   "src": "school"
+  },
+  {
+   "id": "MnO4_H2S",
+   "name": {
+    "zh": "酸性高锰酸钾氧化硫化氢",
+    "en": "Acidified permanganate oxidises hydrogen sulfide",
+    "de": "Angesäuertes Permanganat oxidiert Schwefelwasserstoff"
+   },
+   "class": "redox",
+   "eq": {
+    "MnO4-": -2,
+    "H2S": -5,
+    "H+": -6,
+    "Mn+2": 2,
+    "S(s)": 5,
+    "H2O": 8
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "needs": {
+    "min": {
+     "H+": 0.001
+    }
+   },
+   "effects": [],
+   "src": "school"
+  },
+  {
+   "id": "MnO4_Fe2_neutral",
+   "name": {
+    "zh": "中性高锰酸钾氧化 Fe²⁺",
+    "en": "Permanganate oxidises Fe²⁺ in neutral solution",
+    "de": "Permanganat oxidiert Fe²⁺ in neutraler Lösung"
+   },
+   "class": "redox",
+   "eq": {
+    "MnO4-": -1,
+    "Fe+2": -3,
+    "H2O": -2,
+    "MnO2(s)": 1,
+    "Fe+3": 3,
+    "OH-": 4
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "needs": {
+    "min": {
+     "OH-": 1e-11,
+     "H+": 1e-13
+    }
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "pH windows (classroom rule): Mn2+ below pH 3, MnO2 from pH 3 to 13, manganate above pH 13. The Fe3+ formed precipitates as hydroxide by the equilibrium calculation.",
+   "src": "school"
+  },
+  {
+   "id": "Cr2O7_I",
+   "name": {
+    "zh": "酸性重铬酸钾氧化碘离子",
+    "en": "Acidified dichromate oxidises iodide",
+    "de": "Angesäuertes Dichromat oxidiert Iodid"
+   },
+   "class": "redox",
+   "eq": {
+    "Cr2O7-2": -1,
+    "I-": -6,
+    "H+": -14,
+    "Cr+3": 2,
+    "I2": 3,
+    "H2O": 7
+   },
+   "rate": {
+    "law": "mass",
+    "k": 0.6,
+    "orders": {
+     "Cr2O7-2": 1,
+     "I-": 1,
+     "H+": 2
+    },
+    "Ea": 40,
+    "Tref": 298.15
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "Standardising thiosulfate against dichromate: with 0.1 mol/L iodide and 0.4 mol/L acid the liberation of iodine takes about 5 min in the dark.",
+   "src": "school"
+  },
+  {
+   "id": "Cr2O7_SO2",
+   "name": {
+    "zh": "酸性重铬酸钾氧化二氧化硫",
+    "en": "Acidified dichromate oxidises sulfur dioxide",
+    "de": "Angesäuertes Dichromat oxidiert Schwefeldioxid"
+   },
+   "class": "redox",
+   "eq": {
+    "Cr2O7-2": -1,
+    "SO2": -3,
+    "H+": -2,
+    "Cr+3": 2,
+    "SO4-2": 3,
+    "H2O": 1
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "needs": {
+    "min": {
+     "H+": 0.001
+    }
+   },
+   "effects": [],
+   "src": "school"
+  },
+  {
+   "id": "Cr2O7_H2S",
+   "name": {
+    "zh": "酸性重铬酸钾氧化硫化氢",
+    "en": "Acidified dichromate oxidises hydrogen sulfide",
+    "de": "Angesäuertes Dichromat oxidiert Schwefelwasserstoff"
+   },
+   "class": "redox",
+   "eq": {
+    "Cr2O7-2": -1,
+    "H2S": -3,
+    "H+": -8,
+    "Cr+3": 2,
+    "S(s)": 3,
+    "H2O": 7
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "needs": {
+    "min": {
+     "H+": 0.001
+    }
+   },
+   "effects": [],
+   "src": "school"
+  },
+  {
+   "id": "Cl2_Br",
+   "name": {
+    "zh": "氯气置换溴",
+    "en": "Chlorine displaces bromine",
+    "de": "Chlor verdrängt Brom"
+   },
+   "class": "displacement",
+   "eq": {
+    "Cl2": -1,
+    "Br-": -2,
+    "Cl-": 2,
+    "Br2": 1
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "effects": [],
+   "src": "school"
+  },
+  {
+   "id": "Cl2_I",
+   "name": {
+    "zh": "氯气置换碘",
+    "en": "Chlorine displaces iodine",
+    "de": "Chlor verdrängt Iod"
+   },
+   "class": "displacement",
+   "eq": {
+    "Cl2": -1,
+    "I-": -2,
+    "Cl-": 2,
+    "I2": 1
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "effects": [],
+   "src": "school",
+   "note": {
+    "zh": "氯水过量时碘会被继续氧化成碘酸（无色），这一步没有收入。",
+    "en": "Excess chlorine water oxidises the iodine further to colourless iodic acid; that step is not included.",
+    "de": "Überschüssiges Chlorwasser oxidiert das Iod weiter zu farbloser Iodsäure; dieser Schritt ist nicht enthalten."
+   }
+  },
+  {
+   "id": "Br2_I",
+   "name": {
+    "zh": "溴置换碘",
+    "en": "Bromine displaces iodine",
+    "de": "Brom verdrängt Iod"
+   },
+   "class": "displacement",
+   "eq": {
+    "Br2": -1,
+    "I-": -2,
+    "Br-": 2,
+    "I2": 1
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "effects": [],
+   "src": "school"
+  },
+  {
+   "id": "Cl2_SO2",
+   "name": {
+    "zh": "氯气与二氧化硫在水中反应",
+    "en": "Chlorine with sulfur dioxide in water",
+    "de": "Chlor mit Schwefeldioxid in Wasser"
+   },
+   "class": "redox",
+   "eq": {
+    "Cl2": -1,
+    "SO2": -1,
+    "H2O": -2,
+    "Cl-": 2,
+    "SO4-2": 1,
+    "H+": 4
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "effects": [],
+   "src": "school",
+   "note": {
+    "zh": "两种有漂白性的气体等物质的量通入水中，漂白性消失。次氯酸盐与亚硫酸盐的反应是同一个反应（按组分算）。",
+    "en": "Equal amounts of the two bleaching gases passed into water lose their bleaching power. Hypochlorite with sulfite is the same reaction (in terms of components).",
+    "de": "Leitet man gleiche Stoffmengen der beiden bleichenden Gase in Wasser, geht die Bleichwirkung verloren. Hypochlorit mit Sulfit ist dieselbe Reaktion (auf Komponentenebene)."
+   }
+  },
+  {
+   "id": "Br2_SO2",
+   "name": {
+    "zh": "溴水与二氧化硫",
+    "en": "Bromine water with sulfur dioxide",
+    "de": "Bromwasser mit Schwefeldioxid"
+   },
+   "class": "redox",
+   "eq": {
+    "Br2": -1,
+    "SO2": -1,
+    "H2O": -2,
+    "Br-": 2,
+    "SO4-2": 1,
+    "H+": 4
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "effects": [],
+   "src": "school"
+  },
+  {
+   "id": "I2_SO2",
+   "name": {
+    "zh": "碘水与二氧化硫",
+    "en": "Iodine solution with sulfur dioxide",
+    "de": "Iodlösung mit Schwefeldioxid"
+   },
+   "class": "redox",
+   "eq": {
+    "I2": -1,
+    "SO2": -1,
+    "H2O": -2,
+    "I-": 2,
+    "SO4-2": 1,
+    "H+": 4
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "effects": [],
+   "src": "school"
+  },
+  {
+   "id": "Cl2_H2S",
+   "name": {
+    "zh": "氯气氧化硫化氢",
+    "en": "Chlorine oxidises hydrogen sulfide",
+    "de": "Chlor oxidiert Schwefelwasserstoff"
+   },
+   "class": "redox",
+   "eq": {
+    "Cl2": -1,
+    "H2S": -1,
+    "Cl-": 2,
+    "S(s)": 1,
+    "H+": 2
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "effects": [],
+   "src": "school"
+  },
+  {
+   "id": "Br2_H2S",
+   "name": {
+    "zh": "溴水氧化硫化氢",
+    "en": "Bromine water oxidises hydrogen sulfide",
+    "de": "Bromwasser oxidiert Schwefelwasserstoff"
+   },
+   "class": "redox",
+   "eq": {
+    "Br2": -1,
+    "H2S": -1,
+    "Br-": 2,
+    "S(s)": 1,
+    "H+": 2
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "effects": [],
+   "src": "school"
+  },
+  {
+   "id": "I2_H2S",
+   "name": {
+    "zh": "碘氧化硫化氢",
+    "en": "Iodine oxidises hydrogen sulfide",
+    "de": "Iod oxidiert Schwefelwasserstoff"
+   },
+   "class": "redox",
+   "eq": {
+    "I2": -1,
+    "H2S": -1,
+    "I-": 2,
+    "S(s)": 1,
+    "H+": 2
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "effects": [],
+   "src": "school"
+  },
+  {
+   "id": "ClO_I",
+   "name": {
+    "zh": "次氯酸盐氧化碘离子",
+    "en": "Hypochlorite oxidises iodide",
+    "de": "Hypochlorit oxidiert Iodid"
+   },
+   "class": "redox",
+   "eq": {
+    "ClO-": -1,
+    "I-": -2,
+    "H2O": -1,
+    "Cl-": 1,
+    "I2": 1,
+    "OH-": 2
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "effects": [],
+   "src": "school",
+   "note": {
+    "zh": "次氯酸盐（漂白液、漂白粉）作氧化剂。按组分算，这与氯气的同一反应相同；单独写出，是为了溶液里没有氯离子时也能进行。",
+    "en": "Hypochlorite (bleach, bleaching powder) as the oxidant. In terms of components this is the same reaction as that of chlorine; it is written separately so that it also runs when the solution holds no chloride.",
+    "de": "Hypochlorit (Bleichlauge, Chlorkalk) als Oxidationsmittel. Auf Komponentenebene ist dies dieselbe Reaktion wie die des Chlors; sie ist eigens geschrieben, damit sie auch abläuft, wenn die Lösung kein Chlorid enthält."
+   }
+  },
+  {
+   "id": "ClO_Fe2",
+   "name": {
+    "zh": "次氯酸盐氧化 Fe²⁺",
+    "en": "Hypochlorite oxidises Fe²⁺",
+    "de": "Hypochlorit oxidiert Fe²⁺"
+   },
+   "class": "redox",
+   "eq": {
+    "ClO-": -1,
+    "Fe+2": -2,
+    "H2O": -1,
+    "Cl-": 1,
+    "Fe+3": 2,
+    "OH-": 2
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "effects": [],
+   "src": "school",
+   "note": {
+    "zh": "次氯酸盐（漂白液、漂白粉）作氧化剂。按组分算，这与氯气的同一反应相同；单独写出，是为了溶液里没有氯离子时也能进行。",
+    "en": "Hypochlorite (bleach, bleaching powder) as the oxidant. In terms of components this is the same reaction as that of chlorine; it is written separately so that it also runs when the solution holds no chloride.",
+    "de": "Hypochlorit (Bleichlauge, Chlorkalk) als Oxidationsmittel. Auf Komponentenebene ist dies dieselbe Reaktion wie die des Chlors; sie ist eigens geschrieben, damit sie auch abläuft, wenn die Lösung kein Chlorid enthält."
+   }
+  },
+  {
+   "id": "ClO_SO3",
+   "name": {
+    "zh": "次氯酸盐氧化亚硫酸盐",
+    "en": "Hypochlorite oxidises sulfite",
+    "de": "Hypochlorit oxidiert Sulfit"
+   },
+   "class": "redox",
+   "eq": {
+    "ClO-": -1,
+    "SO3-2": -1,
+    "Cl-": 1,
+    "SO4-2": 1
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "effects": [],
+   "src": "school",
+   "note": {
+    "zh": "次氯酸盐（漂白液、漂白粉）作氧化剂。按组分算，这与氯气的同一反应相同；单独写出，是为了溶液里没有氯离子时也能进行。",
+    "en": "Hypochlorite (bleach, bleaching powder) as the oxidant. In terms of components this is the same reaction as that of chlorine; it is written separately so that it also runs when the solution holds no chloride.",
+    "de": "Hypochlorit (Bleichlauge, Chlorkalk) als Oxidationsmittel. Auf Komponentenebene ist dies dieselbe Reaktion wie die des Chlors; sie ist eigens geschrieben, damit sie auch abläuft, wenn die Lösung kein Chlorid enthält."
+   }
+  },
+  {
+   "id": "ClO_H2O2",
+   "name": {
+    "zh": "次氯酸盐与过氧化氢",
+    "en": "Hypochlorite with hydrogen peroxide",
+    "de": "Hypochlorit mit Wasserstoffperoxid"
+   },
+   "class": "redox",
+   "eq": {
+    "ClO-": -1,
+    "H2O2": -1,
+    "Cl-": 1,
+    "O2": 1,
+    "H2O": 1
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "effects": [
+    "bubbles"
+   ],
+   "src": "school",
+   "note": {
+    "zh": "漂白液与过氧化氢混合放出氧气，两种消毒剂互相消耗。",
+    "en": "Bleach mixed with hydrogen peroxide gives off oxygen: the two disinfectants use each other up.",
+    "de": "Bleichlauge und Wasserstoffperoxid setzen beim Mischen Sauerstoff frei: Die beiden Desinfektionsmittel verbrauchen einander."
+   }
+  },
+  {
+   "id": "ClO_disproportionation",
+   "name": {
+    "zh": "次氯酸盐受热歧化为氯酸盐",
+    "en": "Hot hypochlorite disproportionates to chlorate",
+    "de": "Heißes Hypochlorit disproportioniert zu Chlorat"
+   },
+   "class": "redox",
+   "eq": {
+    "ClO-": -3,
+    "ClO3-": 1,
+    "Cl-": 2
+   },
+   "rate": {
+    "law": "mass",
+    "k": 0.001,
+    "orders": {
+     "ClO-": 2
+    },
+    "Ea": 100,
+    "Tref": 353.15
+   },
+   "needs": {
+    "Tmin": 343
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "Chlorine passed into hot (above 70 °C) alkali gives chlorate within minutes, in cold alkali only hypochlorite: second order in hypochlorite, about 1e-3 kg/(mol·s) at 80 °C, activation energy of about 100 kJ/mol as reported for the bimolecular step (M. W. Lister, Can. J. Chem. 34, 465 (1956), not re-read).",
+   "src": "school",
+   "note": {
+    "zh": "氯气与冷的氢氧化钠溶液生成次氯酸钠（由平衡计算）；与热的浓碱才生成氯酸钠。",
+    "en": "Chlorine with cold sodium hydroxide gives hypochlorite (by the equilibrium calculation); only hot concentrated alkali gives chlorate.",
+    "de": "Chlor gibt mit kalter Natronlauge Hypochlorit (über die Gleichgewichtsrechnung); erst heiße konzentrierte Lauge liefert Chlorat."
+   }
+  },
+  {
+   "id": "I2_disproportionation",
+   "name": {
+    "zh": "碘的歧化与归中（碘与碱；碘酸盐、碘化物与酸）",
+    "en": "Iodine in alkali, and iodate with iodide in acid (one equilibrium)",
+    "de": "Iod in Lauge, und Iodat mit Iodid in Säure (ein Gleichgewicht)"
+   },
+   "class": "redox",
+   "eq": {
+    "I2": -3,
+    "H2O": -3,
+    "IO3-": 1,
+    "I-": 5,
+    "H+": 6
+   },
+   "rate": {
+    "law": "instant",
+    "lnK": [
+     -108.475,
+     0.0
+    ],
+    "reversible": true
+   },
+   "via": [
+    "I2(aq)/I-",
+    "IO3-/I2(aq)"
+   ],
+   "effects": [],
+   "src": "school; K from the couples I2(aq)/I- and IO3-/I2(aq)",
+   "note": {
+    "zh": "向右：碘遇氢氧化钠溶液褪色（先生成的次碘酸盐很快歧化，这里直接写成碘酸盐）。向左：碘酸钾、碘化钾和酸生成碘，使淀粉变蓝——检验加碘盐的反应。方向由 pH 决定：pH 6 以下全在碘一侧，pH 10 以上全在碘酸盐一侧。",
+    "en": "To the right: iodine is decolourised by sodium hydroxide solution (the hypoiodite formed first disproportionates quickly; the equation is written straight to iodate). To the left: potassium iodate, potassium iodide and acid give iodine, which turns starch blue — the test for iodised salt. The pH decides: below pH 6 everything is iodine, above pH 10 everything is iodate.",
+    "de": "Nach rechts: Iod wird von Natronlauge entfärbt (das zunächst gebildete Hypoiodit disproportioniert rasch; die Gleichung ist direkt bis zum Iodat geschrieben). Nach links: Kaliumiodat, Kaliumiodid und Säure geben Iod, das Stärke blau färbt – der Nachweis für iodiertes Speisesalz. Der pH-Wert entscheidet: unter pH 6 liegt alles als Iod vor, über pH 10 alles als Iodat."
+   }
+  },
+  {
+   "id": "Br2_disproportionation",
+   "name": {
+    "zh": "溴的歧化与归中（溴水与碱）",
+    "en": "Bromine in alkali (and bromate with bromide in acid)",
+    "de": "Brom in Lauge (und Bromat mit Bromid in Säure)"
+   },
+   "class": "redox",
+   "eq": {
+    "Br2": -3,
+    "H2O": -3,
+    "BrO3-": 1,
+    "Br-": 5,
+    "H+": 6
+   },
+   "rate": {
+    "law": "instant",
+    "lnK": [
+     -75.975,
+     0.0
+    ],
+    "reversible": true
+   },
+   "via": [
+    "Br2(aq)/Br-",
+    "BrO3-/Br2(aq)"
+   ],
+   "effects": [],
+   "src": "school; K from the couples Br2(aq)/Br- and BrO3-/Br2(aq)",
+   "note": {
+    "zh": "溴水遇氢氧化钠溶液褪色。冷的稀碱里先生成次溴酸盐，它在室温下很快歧化，这里直接写成溴酸盐；酸化后又生成溴。",
+    "en": "Bromine water is decolourised by sodium hydroxide solution. In cold dilute alkali hypobromite forms first and disproportionates quickly at room temperature; the equation is written straight to bromate. Acidifying gives bromine back.",
+    "de": "Bromwasser wird von Natronlauge entfärbt. In kalter verdünnter Lauge entsteht zunächst Hypobromit, das bei Raumtemperatur rasch disproportioniert; die Gleichung ist direkt bis zum Bromat geschrieben. Ansäuern liefert wieder Brom."
+   }
+  },
+  {
+   "id": "I2_S2O3",
+   "name": {
+    "zh": "碘与硫代硫酸钠",
+    "en": "Iodine with thiosulfate",
+    "de": "Iod mit Thiosulfat"
+   },
+   "class": "redox",
+   "eq": {
+    "I2": -1,
+    "S2O3-2": -2,
+    "I-": 2,
+    "S4O6-2": 1
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "effects": [],
+   "src": "school",
+   "note": {
+    "zh": "碘量法的滴定反应，也是碘钟里“扣住”碘的那一步。",
+    "en": "The titration reaction of iodometry, and the step that holds back the iodine in the iodine clock.",
+    "de": "Die Titrationsreaktion der Iodometrie und der Schritt, der in der Ioduhr das Iod zurückhält."
+   }
+  },
+  {
+   "id": "H2O2_I",
+   "name": {
+    "zh": "过氧化氢氧化碘离子（碘钟的慢反应）",
+    "en": "Hydrogen peroxide oxidises iodide (the slow step of the iodine clock)",
+    "de": "Wasserstoffperoxid oxidiert Iodid (der langsame Schritt der Ioduhr)"
+   },
+   "class": "redox",
+   "eq": {
+    "H2O2": -1,
+    "I-": -2,
+    "H+": -2,
+    "I2": 1,
+    "H2O": 2
+   },
+   "rate": {
+    "law": "mass",
+    "k": 0.0115,
+    "orders": {
+     "H2O2": 1,
+     "I-": 1
+    },
+    "Ea": 56,
+    "Tref": 298.15
+   },
+   "needs": {
+    "min": {
+     "H+": 0.0001
+    }
+   },
+   "effects": [],
+   "entry": "hand",
+   "src": "H. A. Liebhafsky, A. Mohammad, J. Am. Chem. Soc. 55, 3977 (1933): −d[H2O2]/dt = (k1 + k2[H+])[H2O2][I-], k1 = 0.0115 L/(mol·s) and k2 = 0.175 L²/(mol²·s) at 25 °C; activation energy of k1 about 56 kJ/mol."
+  },
+  {
+   "id": "H2O2_I_acid",
+   "name": {
+    "zh": "过氧化氢氧化碘离子（酸催化的途径）",
+    "en": "Hydrogen peroxide oxidises iodide (the acid-catalysed path)",
+    "de": "Wasserstoffperoxid oxidiert Iodid (säurekatalysierter Weg)"
+   },
+   "class": "redox",
+   "eq": {
+    "H2O2": -1,
+    "I-": -2,
+    "H+": -2,
+    "I2": 1,
+    "H2O": 2
+   },
+   "rate": {
+    "law": "mass",
+    "k": 0.175,
+    "orders": {
+     "H2O2": 1,
+     "I-": 1,
+     "H+": 1
+    },
+    "Ea": 43,
+    "Tref": 298.15
+   },
+   "needs": {
+    "min": {
+     "H+": 0.0001
+    }
+   },
+   "effects": [],
+   "entry": "hand",
+   "src": "H. A. Liebhafsky, A. Mohammad, J. Am. Chem. Soc. 55, 3977 (1933): −d[H2O2]/dt = (k1 + k2[H+])[H2O2][I-], k1 = 0.0115 L/(mol·s) and k2 = 0.175 L²/(mol²·s) at 25 °C; activation energy of k1 about 56 kJ/mol. Activation energy of the k2 path about 43 kJ/mol (typed from memory of the same paper, to be checked)."
+  },
+  {
+   "id": "H2O2_SO2",
+   "name": {
+    "zh": "过氧化氢氧化二氧化硫",
+    "en": "Hydrogen peroxide oxidises sulfur dioxide",
+    "de": "Wasserstoffperoxid oxidiert Schwefeldioxid"
+   },
+   "class": "redox",
+   "eq": {
+    "H2O2": -1,
+    "SO2": -1,
+    "SO4-2": 1,
+    "H+": 2
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "effects": [],
+   "src": "school"
+  },
+  {
+   "id": "H2O2_H2S",
+   "name": {
+    "zh": "过氧化氢氧化硫化氢",
+    "en": "Hydrogen peroxide oxidises hydrogen sulfide",
+    "de": "Wasserstoffperoxid oxidiert Schwefelwasserstoff"
+   },
+   "class": "redox",
+   "eq": {
+    "H2O2": -1,
+    "H2S": -1,
+    "S(s)": 1,
+    "H2O": 2
+   },
+   "rate": {
+    "law": "mass",
+    "k": 0.5,
+    "orders": {
+     "H2O2": 1,
+     "H2S": 1
+    },
+    "Ea": 50,
+    "Tref": 298.15
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "Hydrogen sulfide water turns milky with sulfur within a minute of adding dilute hydrogen peroxide.",
+   "src": "school"
+  },
+  {
+   "id": "S2O3_acid",
+   "name": {
+    "zh": "硫代硫酸钠与酸",
+    "en": "Thiosulfate with acid",
+    "de": "Thiosulfat mit Säure"
+   },
+   "class": "redox",
+   "eq": {
+    "S2O3-2": -1,
+    "H+": -2,
+    "S(s)": 1,
+    "SO2": 1,
+    "H2O": 1
+   },
+   "rate": {
+    "law": "mass",
+    "k": 0.0005,
+    "orders": {
+     "S2O3-2": 1
+    },
+    "Ea": 50,
+    "Tref": 298.15
+   },
+   "needs": {
+    "min": {
+     "H+": 0.01
+    }
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "The classic rate experiment: 0.1 mol/L thiosulfate with excess acid hides the cross in about 40 s at 20 °C (roughly 2 mmol/L of sulfur); first order in thiosulfate, zero order in acid as school investigations find; the rate doubles for about 10 K (50 kJ/mol).",
+   "src": "school"
+  },
+  {
+   "id": "SO2_H2S",
+   "name": {
+    "zh": "二氧化硫与硫化氢",
+    "en": "Sulfur dioxide with hydrogen sulfide",
+    "de": "Schwefeldioxid mit Schwefelwasserstoff"
+   },
+   "class": "redox",
+   "eq": {
+    "SO2": -1,
+    "H2S": -2,
+    "S(s)": 3,
+    "H2O": 2
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "effects": [],
+   "src": "school",
+   "note": {
+    "zh": "两种气体在有水的条件下反应，生成淡黄色的硫。",
+    "en": "The two gases react in the presence of water and give pale yellow sulfur.",
+    "de": "Die beiden Gase reagieren in Gegenwart von Wasser zu hellgelbem Schwefel."
+   },
+   "needs": {
+    "min": {
+     "H+": 1e-05
+    }
+   }
+  },
+  {
+   "id": "SO2_O2_none",
+   "name": {
+    "zh": "二氧化硫与氧气（无催化剂时不反应）",
+    "en": "Sulfur dioxide with oxygen (no reaction without a catalyst)",
+    "de": "Schwefeldioxid mit Sauerstoff (ohne Katalysator keine Reaktion)"
+   },
+   "class": "redox",
+   "between": [
+    "SO2(g)",
+    "O2(g)"
+   ],
+   "rate": {
+    "law": "none"
+   },
+   "effects": [],
+   "src": "school",
+   "note": {
+    "zh": "二氧化硫与氧气生成三氧化硫在热力学上可行，但没有催化剂时慢得看不到；工业上用五氧化二钒在 400–500 °C 催化。三氧化硫不在物种库里。",
+    "en": "The oxidation of sulfur dioxide to sulfur trioxide is thermodynamically possible but immeasurably slow without a catalyst; industry uses vanadium(V) oxide at 400–500 °C. Sulfur trioxide is not in the species list.",
+    "de": "Die Oxidation von Schwefeldioxid zu Schwefeltrioxid ist thermodynamisch möglich, ohne Katalysator aber unmessbar langsam; die Technik nutzt Vanadium(V)-oxid bei 400–500 °C. Schwefeltrioxid ist nicht in der Stoffliste."
+   }
+  },
+  {
+   "id": "HSO3_O2",
+   "name": {
+    "zh": "亚硫酸（氢）盐溶液被空气氧化",
+    "en": "Hydrogensulfite solution is oxidised by air",
+    "de": "Hydrogensulfitlösung wird von Luft oxidiert"
+   },
+   "class": "redox",
+   "eq": {
+    "HSO3-": -2,
+    "O2(g)": -1,
+    "SO4-2": 2,
+    "H+": 2
+   },
+   "rate": {
+    "law": "mass",
+    "k": 2e-05,
+    "orders": {
+     "HSO3-": 1,
+     "O2(g)": 1
+    },
+    "Ea": 50,
+    "Tref": 298.15
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "Sulfite solutions open to the air lose their strength over days, and the pH of collected acid rain falls over hours to days: half-life of about a day in air (the real rate depends on traces of metal ions).",
+   "src": "school"
+  },
+  {
+   "id": "SO3_O2",
+   "name": {
+    "zh": "亚硫酸钠溶液被空气氧化",
+    "en": "Sulfite solution is oxidised by air",
+    "de": "Sulfitlösung wird von Luft oxidiert"
+   },
+   "class": "redox",
+   "eq": {
+    "SO3-2": -2,
+    "O2(g)": -1,
+    "SO4-2": 2
+   },
+   "rate": {
+    "law": "mass",
+    "k": 2e-05,
+    "orders": {
+     "SO3-2": 1,
+     "O2(g)": 1
+    },
+    "Ea": 50,
+    "Tref": 298.15
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "Sulfite solutions open to the air lose their strength over days, and the pH of collected acid rain falls over hours to days: half-life of about a day in air (the real rate depends on traces of metal ions).",
+   "src": "school"
+  },
+  {
+   "id": "SO2_HNO3",
+   "name": {
+    "zh": "硝酸氧化二氧化硫",
+    "en": "Nitric acid oxidises sulfur dioxide",
+    "de": "Salpetersäure oxidiert Schwefeldioxid"
+   },
+   "class": "redox",
+   "eq": {
+    "SO2": -3,
+    "NO3-": -2,
+    "H2O": -2,
+    "SO4-2": 3,
+    "NO": 2,
+    "H+": 4
+   },
+   "rate": {
+    "law": "mass",
+    "k": 0.01,
+    "orders": {
+     "SO2": 1,
+     "NO3-": 1,
+     "H+": 1
+    },
+    "Ea": 50,
+    "Tref": 298.15
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "Sulfur dioxide passed into acidified barium nitrate solution gives a white precipitate of barium sulfate within about a minute.",
+   "src": "school",
+   "note": {
+    "zh": "所以二氧化硫通入硝酸钡溶液会生成硫酸钡沉淀。",
+    "en": "This is why sulfur dioxide gives a precipitate of barium sulfate with barium nitrate solution.",
+    "de": "Deshalb gibt Schwefeldioxid mit Bariumnitratlösung einen Niederschlag von Bariumsulfat."
+   }
+  },
+  {
+   "id": "H2S_O2",
+   "name": {
+    "zh": "氢硫酸被空气氧化",
+    "en": "Hydrogen sulfide water is oxidised by air",
+    "de": "Schwefelwasserstoffwasser wird von Luft oxidiert"
+   },
+   "class": "redox",
+   "eq": {
+    "H2S": -2,
+    "O2(g)": -1,
+    "S(s)": 2,
+    "H2O": 2
+   },
+   "rate": {
+    "law": "mass",
+    "k": 2.4e-05,
+    "orders": {
+     "H2S": 1,
+     "O2(g)": 1
+    },
+    "Ea": 50,
+    "Tref": 298.15
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "Hydrogen sulfide water left open turns turbid with sulfur within a day: half-life of about a day in air.",
+   "src": "school"
+  },
+  {
+   "id": "NO2_I",
+   "name": {
+    "zh": "亚硝酸盐氧化碘离子",
+    "en": "Nitrite oxidises iodide",
+    "de": "Nitrit oxidiert Iodid"
+   },
+   "class": "redox",
+   "eq": {
+    "NO2-": -2,
+    "I-": -2,
+    "H+": -4,
+    "NO": 2,
+    "I2": 1,
+    "H2O": 2
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "needs": {
+    "min": {
+     "H+": 0.001
+    }
+   },
+   "effects": [],
+   "src": "school"
+  },
+  {
+   "id": "NO2_water",
+   "name": {
+    "zh": "二氧化氮与水",
+    "en": "Nitrogen dioxide with water",
+    "de": "Stickstoffdioxid mit Wasser"
+   },
+   "class": "redox",
+   "eq": {
+    "NO2": -3,
+    "H2O": -1,
+    "H+": 2,
+    "NO3-": 2,
+    "NO": 1
+   },
+   "rate": {
+    "law": "mass",
+    "k": 70000000.0,
+    "orders": {
+     "NO2": 2
+    },
+    "Ea": 0,
+    "Tref": 298.15
+   },
+   "needs": {
+    "min": {
+     "OH-": 2e-15
+    }
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "Not in concentrated acid, where NO_HNO3_conc holds the nitrogen as NO2 (a(OH-) above 2e-15 is a(H+) below about 5). Dissolved NO2 reacts within a fraction of a second; order of magnitude of the measured bimolecular step 2 NO2(aq) + H2O -> HNO2 + H+ + NO3- (about 1e8 L/(mol·s): Y.-N. Lee, S. E. Schwartz, J. Phys. Chem. 85, 840 (1981), not re-read), lumped with the slower disproportionation of nitrous acid into the school equation.",
+   "src": "school",
+   "note": {
+    "zh": "真实过程分两步（先生成亚硝酸和硝酸，亚硝酸再歧化），这里合并成课本上的总反应；亚硝酸不在物种库里。",
+    "en": "The real process has two steps (nitrous and nitric acid first, then the disproportionation of nitrous acid); they are lumped into the textbook equation. Nitrous acid is not in the species list.",
+    "de": "Der reale Vorgang hat zwei Schritte (zunächst salpetrige Säure und Salpetersäure, dann die Disproportionierung der salpetrigen Säure); sie sind zur Lehrbuchgleichung zusammengefasst. Salpetrige Säure ist nicht in der Stoffliste."
+   }
+  },
+  {
+   "id": "HClO_light",
+   "name": {
+    "zh": "次氯酸见光分解",
+    "en": "Hypochlorous acid decomposes in light",
+    "de": "Hypochlorige Säure zerfällt im Licht"
+   },
+   "class": "decomposition",
+   "eq": {
+    "HClO": -2,
+    "H+": 2,
+    "Cl-": 2,
+    "O2": 1
+   },
+   "rate": {
+    "law": "mass",
+    "k": 5e-05,
+    "orders": {
+     "HClO": 1
+    },
+    "Ea": 0,
+    "Tref": 298.15
+   },
+   "needs": {
+    "light": true
+   },
+   "effects": [
+    "bubbles"
+   ],
+   "teaching": true,
+   "basis": "Chlorine water in sunlight loses its bleaching power within a few hours: half-life of the hypochlorous acid about 2 h.",
+   "src": "school"
+  },
+  {
+   "id": "HNO3_light",
+   "name": {
+    "zh": "浓硝酸见光分解",
+    "en": "Concentrated nitric acid decomposes in light",
+    "de": "Konzentrierte Salpetersäure zerfällt im Licht"
+   },
+   "class": "decomposition",
+   "eq": {
+    "H+": -4,
+    "NO3-": -4,
+    "NO2": 4,
+    "O2": 1,
+    "H2O": 2
+   },
+   "rate": {
+    "law": "mass",
+    "k": 1e-07,
+    "orders": {},
+    "Ea": 0,
+    "Tref": 298.15
+   },
+   "needs": {
+    "light": true,
+    "min": {
+     "H+": 6,
+     "NO3-": 6
+    }
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "Concentrated nitric acid in a clear bottle turns yellow with dissolved NO2 over days: of the order of 1e-7 mol/(kg·s).",
+   "src": "school"
+  },
+  {
+   "id": "AgCl_light",
+   "name": {
+    "zh": "氯化银见光分解",
+    "en": "Silver chloride decomposes in light",
+    "de": "Silberchlorid zerfällt im Licht"
+   },
+   "class": "decomposition",
+   "eq": {
+    "Cerargyrite": -2,
+    "Ag(s)": 2,
+    "Cl2": 1
+   },
+   "rate": {
+    "law": "thermal",
+    "A": 0.0005,
+    "Ea": 0
+   },
+   "needs": {
+    "light": true
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "A fresh precipitate of silver chloride turns grey-violet in daylight within minutes; only the surface reacts in reality, the first-order constant of 5e-4 s⁻¹ is for the display.",
+   "src": "school"
+  },
+  {
+   "id": "AgBr_light",
+   "name": {
+    "zh": "溴化银见光分解（感光）",
+    "en": "Silver bromide decomposes in light (photography)",
+    "de": "Silberbromid zerfällt im Licht (Fotografie)"
+   },
+   "class": "decomposition",
+   "eq": {
+    "Bromyrite": -2,
+    "Ag(s)": 2,
+    "Br2": 1
+   },
+   "rate": {
+    "law": "thermal",
+    "A": 0.001,
+    "Ea": 0
+   },
+   "needs": {
+    "light": true
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "Silver bromide darkens in daylight faster than the chloride; first-order constant of 1e-3 s⁻¹ for the display.",
+   "src": "school"
+  },
+  {
+   "id": "NO_O2",
+   "name": {
+    "zh": "一氧化氮与氧气",
+    "en": "Nitrogen monoxide with oxygen",
+    "de": "Stickstoffmonoxid mit Sauerstoff"
+   },
+   "class": "redox",
+   "eq": {
+    "NO(g)": -2,
+    "O2(g)": -1,
+    "NO2(g)": 2
+   },
+   "rate": {
+    "law": "instant",
+    "gas": {
+     "k": 7300.0,
+     "orders": {
+      "NO(g)": 2,
+      "O2(g)": 1
+     },
+     "Ea": 0,
+     "Tref": 298.15,
+     "units": "L²/(mol²·s), concentrations in mol/L; rate of the equation as written = −d[O2]/dt"
+    }
+   },
+   "effects": [],
+   "entry": "hand",
+   "src": "R. Atkinson et al. (IUPAC), Atmos. Chem. Phys. 4, 1461 (2004): 2 NO + O2 -> 2 NO2, k = 3.3e-39·exp(530 K/T) cm⁶/(molecule²·s), 2.0e-38 at 298 K, i.e. 7.3e3 L²/(mol²·s); the rate falls slightly with rising temperature (carried as Ea = 0).",
+   "note": {
+    "zh": "无色的一氧化氮遇空气立即变成红棕色。在实验的浓度下不到一秒就完成，所以按瞬时处理；测得的三级速率常数记在 rate.gas 里。",
+    "en": "Colourless nitrogen monoxide turns brown at once in air. At bench concentrations it is complete within a second and is treated as instant; the measured third-order constant is kept in rate.gas.",
+    "de": "Farbloses Stickstoffmonoxid wird an der Luft sofort braun. Bei Laborkonzentrationen ist die Reaktion in weniger als einer Sekunde beendet und wird als augenblicklich behandelt; die gemessene Konstante dritter Ordnung steht in rate.gas."
+   }
+  },
+  {
+   "id": "N2O4_equilibrium",
+   "name": {
+    "zh": "二氧化氮与四氧化二氮的平衡",
+    "en": "Equilibrium of nitrogen dioxide and dinitrogen tetroxide",
+    "de": "Gleichgewicht von Stickstoffdioxid und Distickstofftetroxid"
+   },
+   "class": "synthesis",
+   "eq": {
+    "NO2(g)": -2,
+    "N2O4(g)": 1
+   },
+   "rate": {
+    "law": "instant",
+    "lnK": [
+     -21.1439,
+     6879.58
+    ],
+    "reversible": true
+   },
+   "effects": [],
+   "entry": "hand",
+   "src": "ΔH° = −57.2 kJ/mol and ΔS° = −175.8 J/(mol·K) for 2 NO2(g) -> N2O4(g) (NIST-JANAF Thermochemical Tables, 4th ed. 1998, as quoted in physical-chemistry texts; hand): ln K = −21.14 + 6880/T, K = 6.9 at 25 °C with pressures in bar.",
+   "note": {
+    "zh": "升温颜色加深（平衡向红棕色的二氧化氮移动），降温颜色变浅。这是一个可逆的气相平衡：两个方向都要按平衡常数来算。",
+    "en": "Warming deepens the colour (the equilibrium shifts towards brown nitrogen dioxide), cooling makes it paler. A reversible gas-phase equilibrium: both directions follow the equilibrium constant.",
+    "de": "Erwärmen vertieft die Farbe (das Gleichgewicht verschiebt sich zum braunen Stickstoffdioxid), Abkühlen hellt sie auf. Ein umkehrbares Gasgleichgewicht: Beide Richtungen folgen der Gleichgewichtskonstante."
+   }
+  },
+  {
+   "id": "NH3_HCl",
+   "name": {
+    "zh": "氨气与氯化氢生成白烟",
+    "en": "Ammonia and hydrogen chloride give white smoke",
+    "de": "Ammoniak und Chlorwasserstoff geben weißen Rauch"
+   },
+   "class": "synthesis",
+   "eq": {
+    "NH3(g)": -1,
+    "HCl(g)": -1,
+    "NH4Cl(s)": 1
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "needs": {
+    "Tmax": 611
+   },
+   "effects": [
+    "smoke"
+   ],
+   "src": "school",
+   "note": {
+    "zh": "两根分别蘸有浓氨水和浓盐酸的玻璃棒靠近时产生白烟。338 °C 以上氯化铵离解，本反应不进行（见 NH4Cl_thermal）。",
+    "en": "Two glass rods dipped in concentrated ammonia and concentrated hydrochloric acid give white smoke when brought together. Above 338 °C ammonium chloride dissociates and this reaction does not run (see NH4Cl_thermal).",
+    "de": "Zwei Glasstäbe, in konzentrierte Ammoniaklösung und konzentrierte Salzsäure getaucht, geben beim Annähern weißen Rauch. Oberhalb von 338 °C dissoziiert Ammoniumchlorid, diese Reaktion läuft dann nicht ab (siehe NH4Cl_thermal)."
+   }
+  },
+  {
+   "id": "H2_Cl2_light",
+   "name": {
+    "zh": "氢气与氯气（光照爆炸）",
+    "en": "Hydrogen with chlorine (explosion in light)",
+    "de": "Wasserstoff mit Chlor (Explosion im Licht)"
+   },
+   "class": "synthesis",
+   "eq": {
+    "H2(g)": -1,
+    "Cl2(g)": -1,
+    "HCl(g)": 2
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "needs": {
+    "light": true
+   },
+   "effects": [
+    "explosion",
+    "fog"
+   ],
+   "src": "school",
+   "note": {
+    "zh": "混合气体在强光下爆炸（链反应），真实实验有危险。",
+    "en": "The mixture explodes in strong light (a chain reaction); the real experiment is dangerous.",
+    "de": "Das Gemisch explodiert in starkem Licht (Kettenreaktion); der reale Versuch ist gefährlich."
+   }
+  },
+  {
+   "id": "H2_Cl2_flame",
+   "name": {
+    "zh": "氢气在氯气中燃烧",
+    "en": "Hydrogen burns in chlorine",
+    "de": "Wasserstoff verbrennt in Chlor"
+   },
+   "class": "synthesis",
+   "eq": {
+    "H2(g)": -1,
+    "Cl2(g)": -1,
+    "HCl(g)": 2
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "needs": {
+    "ignite": true
+   },
+   "effects": [
+    "flame",
+    "fog"
+   ],
+   "flameColour": "pale",
+   "src": "school"
+  },
+  {
+   "id": "H2_burn",
+   "name": {
+    "zh": "氢气的燃烧",
+    "en": "Combustion of hydrogen",
+    "de": "Verbrennung von Wasserstoff"
+   },
+   "class": "combustion",
+   "eq": {
+    "H2(g)": -2,
+    "O2(g)": -1,
+    "H2O(g)": 2
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "needs": {
+    "ignite": true,
+    "min": {
+     "H2(g)": 0.04
+    },
+    "max": {
+     "H2(g)": 0.75
+    }
+   },
+   "effects": [
+    "flame",
+    "pop"
+   ],
+   "flameColour": "paleBlue",
+   "entry": "hand",
+   "src": "Flammability limits in air (lower limit as needs.min, upper as needs.max, partial pressure in atm at 1 atm): M. G. Zabetakis, Flammability Characteristics of Combustible Gases and Vapors, U.S. Bureau of Mines Bulletin 627 (1965), hand. Hydrogen 4.0 to 75 %.",
+   "note": {
+    "zh": "纯净的氢气安静地燃烧，火焰淡蓝色；与空气混合后点燃会爆鸣，所以点燃前要验纯。",
+    "en": "Pure hydrogen burns quietly with a pale blue flame; mixed with air it pops when lit, which is why the gas is tested for purity first.",
+    "de": "Reiner Wasserstoff brennt ruhig mit blassblauer Flamme; im Gemisch mit Luft knallt er beim Entzünden – deshalb vorher die Knallgasprobe."
+   }
+  },
+  {
+   "id": "CO_burn",
+   "name": {
+    "zh": "一氧化碳的燃烧",
+    "en": "Combustion of carbon monoxide",
+    "de": "Verbrennung von Kohlenstoffmonoxid"
+   },
+   "class": "combustion",
+   "eq": {
+    "CO(g)": -2,
+    "O2(g)": -1,
+    "CO2(g)": 2
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "needs": {
+    "ignite": true,
+    "min": {
+     "CO(g)": 0.125
+    },
+    "max": {
+     "CO(g)": 0.74
+    }
+   },
+   "effects": [
+    "flame"
+   ],
+   "flameColour": "blue",
+   "entry": "hand",
+   "src": "Flammability limits in air (lower limit as needs.min, upper as needs.max, partial pressure in atm at 1 atm): M. G. Zabetakis, Flammability Characteristics of Combustible Gases and Vapors, U.S. Bureau of Mines Bulletin 627 (1965), hand. Carbon monoxide 12.5 to 74 %."
+  },
+  {
+   "id": "CH4_burn",
+   "name": {
+    "zh": "甲烷的燃烧",
+    "en": "Combustion of methane",
+    "de": "Verbrennung von Methan"
+   },
+   "class": "combustion",
+   "curated": "org01",
+   "eq": {
+    "CH4(g)": -1,
+    "O2(g)": -2,
+    "CO2(g)": 1,
+    "H2O(g)": 2
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "needs": {
+    "ignite": true,
+    "min": {
+     "CH4(g)": 0.05
+    },
+    "max": {
+     "CH4(g)": 0.15
+    }
+   },
+   "effects": [
+    "flame"
+   ],
+   "flameColour": "blue",
+   "entry": "hand",
+   "src": "Flammability limits in air (lower limit as needs.min, upper as needs.max, partial pressure in atm at 1 atm): M. G. Zabetakis, Flammability Characteristics of Combustible Gases and Vapors, U.S. Bureau of Mines Bulletin 627 (1965), hand. Methane 5.0 to 15.0 %."
+  },
+  {
+   "id": "C2H4_burn",
+   "name": {
+    "zh": "乙烯的燃烧",
+    "en": "Combustion of ethene",
+    "de": "Verbrennung von Ethen"
+   },
+   "class": "combustion",
+   "curated": "org01",
+   "eq": {
+    "C2H4(g)": -1,
+    "O2(g)": -3,
+    "CO2(g)": 2,
+    "H2O(g)": 2
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "needs": {
+    "ignite": true,
+    "min": {
+     "C2H4(g)": 0.027
+    },
+    "max": {
+     "C2H4(g)": 0.36
+    }
+   },
+   "effects": [
+    "flame",
+    "smoke"
+   ],
+   "flameColour": "yellow",
+   "entry": "hand",
+   "src": "Flammability limits in air (lower limit as needs.min, upper as needs.max, partial pressure in atm at 1 atm): M. G. Zabetakis, Flammability Characteristics of Combustible Gases and Vapors, U.S. Bureau of Mines Bulletin 627 (1965), hand. Ethene 2.7 to 36 %.",
+   "note": {
+    "zh": "火焰明亮，带黑烟（含碳量高，燃烧不完全的碳粒没有建模）。",
+    "en": "A bright, sooty flame (high carbon content; the soot of incomplete combustion is not modelled).",
+    "de": "Helle, rußende Flamme (hoher Kohlenstoffgehalt; der Ruß der unvollständigen Verbrennung ist nicht modelliert)."
+   }
+  },
+  {
+   "id": "C2H2_burn",
+   "name": {
+    "zh": "乙炔的燃烧",
+    "en": "Combustion of ethyne",
+    "de": "Verbrennung von Ethin"
+   },
+   "class": "combustion",
+   "curated": "org01",
+   "eq": {
+    "C2H2(g)": -2,
+    "O2(g)": -5,
+    "CO2(g)": 4,
+    "H2O(g)": 2
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "needs": {
+    "ignite": true,
+    "min": {
+     "C2H2(g)": 0.025
+    }
+   },
+   "effects": [
+    "flame",
+    "smoke"
+   ],
+   "flameColour": "yellow",
+   "entry": "hand",
+   "src": "Flammability limits in air (lower limit as needs.min, upper as needs.max, partial pressure in atm at 1 atm): M. G. Zabetakis, Flammability Characteristics of Combustible Gases and Vapors, U.S. Bureau of Mines Bulletin 627 (1965), hand. Ethyne 2.5 to 100 %.",
+   "note": {
+    "zh": "火焰明亮，有浓烈的黑烟。",
+    "en": "A bright flame with thick black smoke.",
+    "de": "Helle Flamme mit dichtem schwarzem Rauch."
+   }
+  },
+  {
+   "id": "C2H5OH_burn",
+   "name": {
+    "zh": "乙醇的燃烧",
+    "en": "Combustion of ethanol",
+    "de": "Verbrennung von Ethanol"
+   },
+   "class": "combustion",
+   "curated": "org01",
+   "eq": {
+    "C2H5OH(l)": -1,
+    "O2(g)": -3,
+    "CO2(g)": 2,
+    "H2O(g)": 3
+   },
+   "rate": {
+    "law": "thermal",
+    "A": 0.007,
+    "Ea": 0,
+    "of": "C2H5OH(l)"
+   },
+   "needs": {
+    "ignite": true
+   },
+   "effects": [
+    "flame"
+   ],
+   "flameColour": "paleBlue",
+   "teaching": true,
+   "basis": "About 10 mL of ethanol in a dish burns off in two to three minutes once lit: 7e-3 s⁻¹. The surface of a liquid is not resolved: first order in the amount of liquid. Large pools burn at about 0.015 kg/(m²·s) (V. Babrauskas, Fire Technology 19, 251 (1983), not re-read).",
+   "src": "school"
+  },
+  {
+   "id": "CH3OH_burn",
+   "name": {
+    "zh": "甲醇的燃烧",
+    "en": "Combustion of methanol",
+    "de": "Verbrennung von Methanol"
+   },
+   "class": "combustion",
+   "curated": "org01",
+   "eq": {
+    "CH3OH(l)": -2,
+    "O2(g)": -3,
+    "CO2(g)": 2,
+    "H2O(g)": 4
+   },
+   "rate": {
+    "law": "thermal",
+    "A": 0.008,
+    "Ea": 0,
+    "of": "CH3OH(l)"
+   },
+   "needs": {
+    "ignite": true
+   },
+   "effects": [
+    "flame"
+   ],
+   "flameColour": "paleBlue",
+   "teaching": true,
+   "basis": "About 10 mL of methanol in a dish burns off in about two minutes once lit: 8e-3 s⁻¹. The surface of a liquid is not resolved: first order in the amount of liquid. Large pools burn at about 0.017 kg/(m²·s) (V. Babrauskas, Fire Technology 19, 251 (1983), not re-read).",
+   "src": "school"
+  },
+  {
+   "id": "candle_burn",
+   "name": {
+    "zh": "蜡烛的燃烧",
+    "en": "A burning candle",
+    "de": "Brennende Kerze"
+   },
+   "class": "combustion",
+   "eq": {
+    "Paraffin(s)": -1,
+    "O2(g)": -38,
+    "CO2(g)": 25,
+    "H2O(g)": 26
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Paraffin(s)",
+    "k": 0.003,
+    "orders": {
+     "O2(g)": 1
+    },
+    "Ea": 0,
+    "Tref": 298.15
+   },
+   "needs": {
+    "ignite": true
+   },
+   "effects": [
+    "flame"
+   ],
+   "flameColour": "yellow",
+   "teaching": true,
+   "basis": "A candle burns about 0.1 g of wax per minute (5 µmol/s of C25H52); the wick, not the surface of the wax, sets the rate, so the constant is tied to a candle-sized lump.",
+   "src": "school"
+  },
+  {
+   "id": "S_burn",
+   "name": {
+    "zh": "硫的燃烧",
+    "en": "Combustion of sulfur",
+    "de": "Verbrennung von Schwefel"
+   },
+   "class": "combustion",
+   "eq": {
+    "S(s)": -1,
+    "O2(g)": -1,
+    "SO2(g)": 1
+   },
+   "rate": {
+    "law": "surface",
+    "on": "S(s)",
+    "k": 1.0,
+    "orders": {
+     "O2(g)": 1
+    },
+    "Ea": 0,
+    "Tref": 298.15
+   },
+   "needs": {
+    "ignite": true
+   },
+   "effects": [
+    "flame"
+   ],
+   "flameColour": "blue",
+   "teaching": true,
+   "basis": "Burning of a solid, per square metre of burning surface and atmosphere of oxygen: a spoonful of sulfur (0.5 g, about 1 cm² of melt) burns for about a minute in air and several times faster, with a bright blue-violet flame, in oxygen.",
+   "src": "school"
+  },
+  {
+   "id": "P_burn",
+   "name": {
+    "zh": "红磷的燃烧",
+    "en": "Combustion of red phosphorus",
+    "de": "Verbrennung von rotem Phosphor"
+   },
+   "class": "combustion",
+   "eq": {
+    "P(s)": -4,
+    "O2(g)": -5,
+    "P4O10(s)": 1
+   },
+   "rate": {
+    "law": "surface",
+    "on": "P(s)",
+    "k": 0.5,
+    "orders": {
+     "O2(g)": 1
+    },
+    "Ea": 0,
+    "Tref": 298.15
+   },
+   "needs": {
+    "ignite": true
+   },
+   "effects": [
+    "flame",
+    "smoke"
+   ],
+   "flameColour": "yellow",
+   "teaching": true,
+   "basis": "Burning of a solid, per square metre of burning surface and atmosphere of oxygen: a spoonful of red phosphorus burns off within about half a minute in air, giving dense white smoke; rate of the equation as written (four P).",
+   "src": "school",
+   "note": {
+    "zh": "测定空气中氧气含量的经典实验用的就是这个反应。只收红磷；白磷有剧毒且自燃，不在药品架上。",
+    "en": "This is the reaction of the classic determination of the oxygen content of air. Only red phosphorus is stocked; white phosphorus is highly toxic and ignites by itself and is not on the shelf.",
+    "de": "Dies ist die Reaktion der klassischen Bestimmung des Sauerstoffgehalts der Luft. Nur roter Phosphor ist vorrätig; weißer Phosphor ist hochgiftig und selbstentzündlich und steht nicht im Regal."
+   }
+  },
+  {
+   "id": "C_burn",
+   "name": {
+    "zh": "木炭的燃烧",
+    "en": "Combustion of charcoal",
+    "de": "Verbrennung von Holzkohle"
+   },
+   "class": "combustion",
+   "eq": {
+    "C(s)": -1,
+    "O2(g)": -1,
+    "CO2(g)": 1
+   },
+   "rate": {
+    "law": "surface",
+    "on": "C(s)",
+    "k": 2.0,
+    "orders": {
+     "O2(g)": 1
+    },
+    "Ea": 0,
+    "Tref": 298.15
+   },
+   "needs": {
+    "ignite": true
+   },
+   "effects": [
+    "glow"
+   ],
+   "teaching": true,
+   "basis": "Burning of a solid, per square metre of burning surface and atmosphere of oxygen: a 1 g lump of charcoal (about 3 cm²) only glows in air and burns away with white light in one to two minutes in oxygen.",
+   "src": "school",
+   "note": {
+    "zh": "氧气不足时生成一氧化碳，这一分支没有收入。",
+    "en": "With too little oxygen carbon monoxide forms; that branch is not included.",
+    "de": "Bei Sauerstoffmangel entsteht Kohlenstoffmonoxid; dieser Zweig ist nicht enthalten."
+   }
+  },
+  {
+   "id": "Mg_burn",
+   "name": {
+    "zh": "镁条的燃烧",
+    "en": "Combustion of magnesium ribbon",
+    "de": "Verbrennung von Magnesiumband"
+   },
+   "class": "combustion",
+   "eq": {
+    "Mg(s)": -2,
+    "O2(g)": -1,
+    "Periclase": 2
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Mg(s)",
+    "k": 3.4,
+    "orders": {
+     "O2(g)": 1
+    },
+    "Ea": 0,
+    "Tref": 298.15
+   },
+   "needs": {
+    "ignite": true
+   },
+   "effects": [
+    "flame",
+    "light",
+    "smoke"
+   ],
+   "flameColour": "white",
+   "teaching": true,
+   "basis": "Burning of a solid, per square metre of burning surface and atmosphere of oxygen: a 3 cm magnesium ribbon (1.3 mmol, 1.8 cm²) burns in about 5 s in air: 0.72 mol/(m²·s) of the equation as written at 0.21 atm.",
+   "src": "school",
+   "note": {
+    "zh": "耀眼的白光，不要直视。空气中还生成少量氮化镁，没有收入。",
+    "en": "Dazzling white light: do not look straight at it. In air a little magnesium nitride forms as well; it is not included.",
+    "de": "Blendend weißes Licht: nicht direkt hineinsehen. An der Luft entsteht daneben etwas Magnesiumnitrid; es ist nicht enthalten."
+   }
+  },
+  {
+   "id": "Fe_burn",
+   "name": {
+    "zh": "铁丝在氧气中燃烧",
+    "en": "Iron wire burns in oxygen",
+    "de": "Eisendraht verbrennt in Sauerstoff"
+   },
+   "class": "combustion",
+   "eq": {
+    "Fe(s)": -3,
+    "O2(g)": -2,
+    "Fe3O4(s)": 1
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Fe(s)",
+    "k": 1.0,
+    "orders": {
+     "O2(g)": 1
+    },
+    "Ea": 0,
+    "Tref": 298.15
+   },
+   "needs": {
+    "ignite": true,
+    "min": {
+     "O2(g)": 0.5
+    }
+   },
+   "effects": [
+    "spark",
+    "molten"
+   ],
+   "teaching": true,
+   "basis": "Burning of a solid, per square metre of burning surface and atmosphere of oxygen: a thin iron wire burns away in a jar of oxygen within about 10 s, throwing sparks. Threshold (classroom rule): it does not burn in air; an oxygen pressure above 0.5 atm is required.",
+   "src": "school",
+   "note": {
+    "zh": "集气瓶底要预先放少量水或细沙，防止熔融的四氧化三铁溅落炸裂瓶底。",
+    "en": "A little water or sand at the bottom of the jar keeps the molten iron oxide from cracking the glass.",
+    "de": "Etwas Wasser oder Sand am Boden des Standzylinders verhindert, dass das geschmolzene Eisenoxid das Glas sprengt."
+   }
+  },
+  {
+   "id": "Na_air",
+   "name": {
+    "zh": "钠在空气中缓慢氧化",
+    "en": "Sodium tarnishes in air",
+    "de": "Natrium läuft an der Luft an"
+   },
+   "class": "redox",
+   "eq": {
+    "Na(s)": -4,
+    "O2(g)": -1,
+    "Na2O(s)": 2
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Na(s)",
+    "k": 1e-05,
+    "orders": {
+     "O2(g)": 1
+    },
+    "Ea": 20,
+    "Tref": 298.15
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "A freshly cut surface of sodium turns dull within a minute: a film of the order of 0.1 µm.",
+   "src": "school",
+   "note": {
+    "zh": "常温下生成的是氧化钠（白色）：氧气穿过膜的量有限，金属过量。真实的膜会变厚减速，没有建模。",
+    "en": "At room temperature the product is sodium oxide (white): little oxygen passes the film and the metal is in excess. The real film thickens and slows down; not modelled.",
+    "de": "Bei Raumtemperatur entsteht Natriumoxid (weiß): Nur wenig Sauerstoff durchdringt die Schicht, das Metall ist im Überschuss. Die reale Schicht wird dicker und bremst; nicht modelliert."
+   }
+  },
+  {
+   "id": "Na_burn",
+   "name": {
+    "zh": "钠在空气中燃烧",
+    "en": "Sodium burns in air",
+    "de": "Natrium verbrennt an der Luft"
+   },
+   "class": "combustion",
+   "eq": {
+    "Na(s)": -2,
+    "O2(g)": -1,
+    "Na2O2(s)": 1
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Na(s)",
+    "k": 2.0,
+    "orders": {
+     "O2(g)": 1
+    },
+    "Ea": 0,
+    "Tref": 298.15
+   },
+   "needs": {
+    "ignite": true
+   },
+   "effects": [
+    "flame",
+    "melt",
+    "smoke"
+   ],
+   "flameColour": "yellow",
+   "teaching": true,
+   "basis": "Burning of a solid, per square metre of burning surface and atmosphere of oxygen: a pea-sized piece of sodium heated in a crucible burns off within about 10 s.",
+   "src": "school",
+   "note": {
+    "zh": "加热燃烧时生成淡黄色的过氧化钠：氧气充足、温度高，氧化钠被进一步氧化。",
+    "en": "Burning on heating gives pale yellow sodium peroxide: with plenty of oxygen at high temperature the oxide is oxidised further.",
+    "de": "Beim Verbrennen entsteht blassgelbes Natriumperoxid: Bei reichlich Sauerstoff und hoher Temperatur wird das Oxid weiter oxidiert."
+   }
+  },
+  {
+   "id": "Na_Cl2",
+   "name": {
+    "zh": "钠在氯气中燃烧",
+    "en": "Sodium burns in chlorine",
+    "de": "Natrium verbrennt in Chlor"
+   },
+   "class": "synthesis",
+   "eq": {
+    "Na(s)": -2,
+    "Cl2(g)": -1,
+    "Halite": 2
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Na(s)",
+    "k": 2.0,
+    "orders": {
+     "Cl2(g)": 1
+    },
+    "Ea": 0,
+    "Tref": 298.15
+   },
+   "needs": {
+    "Tmin": 371
+   },
+   "effects": [
+    "flame",
+    "smoke"
+   ],
+   "flameColour": "yellow",
+   "teaching": true,
+   "basis": "Molten sodium (above its melting point, 98 °C) lowered into chlorine burns off within about 10 s with a yellow flame and white smoke.",
+   "src": "school"
+  },
+  {
+   "id": "Cu_Cl2",
+   "name": {
+    "zh": "铜在氯气中燃烧",
+    "en": "Copper burns in chlorine",
+    "de": "Kupfer verbrennt in Chlor"
+   },
+   "class": "synthesis",
+   "eq": {
+    "Cu(s)": -1,
+    "Cl2(g)": -1,
+    "Melanothallite": 1
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Cu(s)",
+    "k": 0.2,
+    "orders": {
+     "Cl2(g)": 1
+    },
+    "Ea": 0,
+    "Tref": 298.15
+   },
+   "needs": {
+    "Tmin": 573
+   },
+   "effects": [
+    "glow",
+    "smoke"
+   ],
+   "teaching": true,
+   "basis": "A red-hot copper wire in chlorine glows on and fills the jar with brown-yellow smoke within seconds. Onset taken as 300 °C.",
+   "src": "school"
+  },
+  {
+   "id": "Fe_Cl2",
+   "name": {
+    "zh": "铁在氯气中燃烧",
+    "en": "Iron burns in chlorine",
+    "de": "Eisen verbrennt in Chlor"
+   },
+   "class": "synthesis",
+   "eq": {
+    "Fe(s)": -2,
+    "Cl2(g)": -3,
+    "FeCl3(s)": 2
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Fe(s)",
+    "k": 0.2,
+    "orders": {
+     "Cl2(g)": 1
+    },
+    "Ea": 0,
+    "Tref": 298.15
+   },
+   "needs": {
+    "Tmin": 573
+   },
+   "effects": [
+    "glow",
+    "smoke"
+   ],
+   "teaching": true,
+   "basis": "Red-hot iron wool in chlorine glows on and gives brown smoke of iron(III) chloride within seconds. Onset taken as 300 °C.",
+   "src": "school"
+  },
+  {
+   "id": "Cu_O2",
+   "name": {
+    "zh": "铜在空气中受热变黑",
+    "en": "Copper blackens when heated in air",
+    "de": "Kupfer wird beim Erhitzen an der Luft schwarz"
+   },
+   "class": "redox",
+   "eq": {
+    "Cu(s)": -2,
+    "O2(g)": -1,
+    "Tenorite": 2
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Cu(s)",
+    "k": 6e-05,
+    "orders": {
+     "O2(g)": 1
+    },
+    "Ea": 80,
+    "Tref": 773.15
+   },
+   "needs": {
+    "Tmin": 473
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "A copper wire held in a flame is black within half a minute: an oxide layer of about 1 µm (8e-4 mol of Cu per m²). The real layer grows ever more slowly (parabolic law); not modelled.",
+   "src": "school"
+  },
+  {
+   "id": "Cu_S",
+   "name": {
+    "zh": "铜与硫共热",
+    "en": "Copper heated with sulfur",
+    "de": "Kupfer mit Schwefel erhitzt"
+   },
+   "class": "synthesis",
+   "eq": {
+    "Cu(s)": -2,
+    "S(s)": -1,
+    "Chalcocite": 1
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Cu(s)",
+    "k": 0.02,
+    "orders": {},
+    "Ea": 60,
+    "Tref": 673.15
+   },
+   "needs": {
+    "Tmin": 573
+   },
+   "effects": [
+    "glow"
+   ],
+   "teaching": true,
+   "basis": "A copper foil in boiling sulfur glows and is converted to brittle copper(I) sulfide within about a minute. Onset taken as 300 °C.",
+   "src": "school",
+   "note": {
+    "zh": "硫的氧化性比氯气弱：只把铜氧化到 +1 价。",
+    "en": "Sulfur is a weaker oxidant than chlorine: it takes copper only to the +1 state.",
+    "de": "Schwefel ist ein schwächeres Oxidationsmittel als Chlor: Er oxidiert Kupfer nur bis zur Stufe +1."
+   }
+  },
+  {
+   "id": "Fe_S",
+   "name": {
+    "zh": "铁粉与硫粉共热",
+    "en": "Iron powder heated with sulfur",
+    "de": "Eisenpulver mit Schwefel erhitzt"
+   },
+   "class": "synthesis",
+   "eq": {
+    "Fe(s)": -1,
+    "S(s)": -1,
+    "FeS(ppt)": 1
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Fe(s)",
+    "k": 0.02,
+    "orders": {},
+    "Ea": 60,
+    "Tref": 673.15
+   },
+   "needs": {
+    "Tmin": 573
+   },
+   "effects": [
+    "glow",
+    "heat"
+   ],
+   "teaching": true,
+   "basis": "Once started at one end the mixture glows through by itself within about half a minute. Onset taken as 300 °C.",
+   "src": "school",
+   "note": {
+    "zh": "硫只把铁氧化到 +2 价。产物记作网络里的硫化亚铁（FeS），它与酸生成硫化氢。",
+    "en": "Sulfur takes iron only to the +2 state. The product is booked as the iron(II) sulfide of the network, which gives hydrogen sulfide with acids.",
+    "de": "Schwefel oxidiert Eisen nur bis zur Stufe +2. Das Produkt wird als das Eisen(II)-sulfid des Netzwerks gebucht, das mit Säuren Schwefelwasserstoff gibt."
+   }
+  },
+  {
+   "id": "thermite",
+   "name": {
+    "zh": "铝热反应",
+    "en": "Thermite reaction",
+    "de": "Thermitreaktion"
+   },
+   "class": "displacement",
+   "eq": {
+    "Al(s)": -2,
+    "Hematite": -1,
+    "Al2O3": 1,
+    "Fe(s)": 2
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Al(s)",
+    "k": 5.0,
+    "orders": {},
+    "Ea": 0,
+    "Tref": 298.15
+   },
+   "needs": {
+    "ignite": true
+   },
+   "effects": [
+    "light",
+    "spark",
+    "molten",
+    "smoke",
+    "heat"
+   ],
+   "teaching": true,
+   "basis": "Once ignited with a magnesium fuse a 50 g charge burns through in a few seconds.",
+   "src": "school",
+   "note": {
+    "zh": "需要用镁条和氯酸钾引燃。产物是熔融的铁（约 2500 °C）；温度模型没有熔化、汽化和辐射散热，算出的最高温度只是一个上限，标为近似。真实实验必须在沙盘上、远离可燃物进行。",
+    "en": "It has to be started with a magnesium ribbon and potassium chlorate. The product is molten iron (about 2500 °C); the temperature model has no melting, boiling or radiation, so the computed peak temperature is only an upper bound and is marked approximate. The real experiment is done on a tray of sand, far from anything that burns.",
+    "de": "Sie muss mit Magnesiumband und Kaliumchlorat gezündet werden. Das Produkt ist flüssiges Eisen (etwa 2500 °C); das Temperaturmodell kennt weder Schmelzen und Sieden noch Strahlung, die berechnete Spitzentemperatur ist daher nur eine Obergrenze und als Näherung markiert. Der reale Versuch wird auf einer Sandschale fern von Brennbarem durchgeführt."
+   }
+  },
+  {
+   "id": "Mg_CO2",
+   "name": {
+    "zh": "镁在二氧化碳中燃烧",
+    "en": "Magnesium burns in carbon dioxide",
+    "de": "Magnesium verbrennt in Kohlenstoffdioxid"
+   },
+   "class": "displacement",
+   "eq": {
+    "Mg(s)": -2,
+    "CO2(g)": -1,
+    "Periclase": 2,
+    "C(s)": 1
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Mg(s)",
+    "k": 1.0,
+    "orders": {
+     "CO2(g)": 1
+    },
+    "Ea": 0,
+    "Tref": 298.15
+   },
+   "needs": {
+    "ignite": true
+   },
+   "effects": [
+    "flame",
+    "light",
+    "smoke"
+   ],
+   "flameColour": "white",
+   "teaching": true,
+   "basis": "A burning magnesium ribbon keeps burning in a jar of carbon dioxide, somewhat more slowly than in air, leaving white oxide and black specks of carbon.",
+   "src": "school"
+  },
+  {
+   "id": "H2_CuO",
+   "name": {
+    "zh": "氢气还原氧化铜",
+    "en": "Hydrogen reduces copper(II) oxide",
+    "de": "Wasserstoff reduziert Kupfer(II)-oxid"
+   },
+   "class": "redox",
+   "eq": {
+    "Tenorite": -1,
+    "H2(g)": -1,
+    "Cu(s)": 1,
+    "H2O(g)": 1
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Tenorite",
+    "k": 0.0001,
+    "orders": {
+     "H2(g)": 1
+    },
+    "Ea": 60,
+    "Tref": 573.15
+   },
+   "needs": {
+    "Tmin": 473
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "Reduction of the heated oxide, per square metre of oxide and atmosphere of the gas: a gram of black copper oxide powder heated in a stream of hydrogen turns red within a few minutes. Onset taken as 200 °C.",
+   "src": "school"
+  },
+  {
+   "id": "CO_CuO",
+   "name": {
+    "zh": "一氧化碳还原氧化铜",
+    "en": "Carbon monoxide reduces copper(II) oxide",
+    "de": "Kohlenstoffmonoxid reduziert Kupfer(II)-oxid"
+   },
+   "class": "redox",
+   "eq": {
+    "Tenorite": -1,
+    "CO(g)": -1,
+    "Cu(s)": 1,
+    "CO2(g)": 1
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Tenorite",
+    "k": 0.0001,
+    "orders": {
+     "CO(g)": 1
+    },
+    "Ea": 60,
+    "Tref": 573.15
+   },
+   "needs": {
+    "Tmin": 473
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "Reduction of the heated oxide, per square metre of oxide and atmosphere of the gas: as with hydrogen: red copper within a few minutes. Onset taken as 200 °C.",
+   "src": "school"
+  },
+  {
+   "id": "C_CuO",
+   "name": {
+    "zh": "木炭还原氧化铜",
+    "en": "Charcoal reduces copper(II) oxide",
+    "de": "Holzkohle reduziert Kupfer(II)-oxid"
+   },
+   "class": "redox",
+   "eq": {
+    "Tenorite": -2,
+    "C(s)": -1,
+    "Cu(s)": 2,
+    "CO2(g)": 1
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Tenorite",
+    "k": 0.0001,
+    "orders": {},
+    "Ea": 150,
+    "Tref": 1173.15
+   },
+   "needs": {
+    "Tmin": 1073
+   },
+   "effects": [
+    "glow"
+   ],
+   "teaching": true,
+   "basis": "The powdered mixture heated strongly (burner with a wire-gauze hood, about 900 °C) gives red copper and carbon dioxide within a few minutes. Onset taken as 800 °C.",
+   "src": "school"
+  },
+  {
+   "id": "CO_Fe2O3",
+   "name": {
+    "zh": "一氧化碳还原氧化铁（炼铁的原理）",
+    "en": "Carbon monoxide reduces iron(III) oxide (the chemistry of the blast furnace)",
+    "de": "Kohlenstoffmonoxid reduziert Eisen(III)-oxid (Chemie des Hochofens)"
+   },
+   "class": "redox",
+   "eq": {
+    "Hematite": -1,
+    "CO(g)": -3,
+    "Fe(s)": 2,
+    "CO2(g)": 3
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Hematite",
+    "k": 3e-05,
+    "orders": {
+     "CO(g)": 1
+    },
+    "Ea": 80,
+    "Tref": 1073.15
+   },
+   "needs": {
+    "Tmin": 873
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "Reduction of the heated oxide, per square metre of oxide and atmosphere of the gas: red iron oxide powder heated strongly in carbon monoxide turns black within several minutes. Onset taken as 600 °C.",
+   "src": "school",
+   "note": {
+    "zh": "真实的还原分步进行（Fe₂O₃ → Fe₃O₄ → FeO → Fe），这里合并成一步。",
+    "en": "The real reduction goes in steps (Fe₂O₃ → Fe₃O₄ → FeO → Fe); they are lumped into one.",
+    "de": "Die reale Reduktion verläuft stufenweise (Fe₂O₃ → Fe₃O₄ → FeO → Fe); die Stufen sind zusammengefasst."
+   }
+  },
+  {
+   "id": "C_CO2",
+   "name": {
+    "zh": "二氧化碳与炽热的碳",
+    "en": "Carbon dioxide with glowing carbon",
+    "de": "Kohlenstoffdioxid mit glühendem Kohlenstoff"
+   },
+   "class": "redox",
+   "eq": {
+    "C(s)": -1,
+    "CO2(g)": -1,
+    "CO(g)": 2
+   },
+   "rate": {
+    "law": "surface",
+    "on": "C(s)",
+    "k": 0.0001,
+    "orders": {
+     "CO2(g)": 1
+    },
+    "Ea": 200,
+    "Tref": 1273.15
+   },
+   "needs": {
+    "Tmin": 1073
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "Carbon dioxide passed over red-hot charcoal (about 1000 °C) is largely converted in a tube of ordinary length. Onset taken as 800 °C.",
+   "src": "school"
+  },
+  {
+   "id": "CaCO3_thermal",
+   "name": {
+    "zh": "碳酸钙高温分解（煅烧石灰石）",
+    "en": "Thermal decomposition of calcium carbonate (burning lime)",
+    "de": "Thermische Zersetzung von Calciumcarbonat (Kalkbrennen)"
+   },
+   "class": "decomposition",
+   "eq": {
+    "Calcite": -1,
+    "Lime": 1,
+    "CO2(g)": 1
+   },
+   "rate": {
+    "law": "thermal",
+    "A": 300000.0,
+    "Ea": 190
+   },
+   "needs": {
+    "Tmin": 1098
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "Teaching rate: marble chips at 950 °C (blast burner) are half converted in about 5 min; activation energy of the usual size for calcination (about 190 kJ/mol).",
+   "src": "Onset 825 °C: CRC Handbook of Chemistry and Physics, 97th ed. (2016), \"Physical Constants of Inorganic Compounds\" (hand); the pressure of CO2 over calcite reaches 1 atm at about 900 °C (E. H. Baker, J. Chem. Soc. 1962, 464: log10 p/atm = 7.079 − 8308/T; hand)."
+  },
+  {
+   "id": "NaHCO3_thermal",
+   "name": {
+    "zh": "碳酸氢钠受热分解",
+    "en": "Thermal decomposition of sodium hydrogencarbonate",
+    "de": "Thermische Zersetzung von Natriumhydrogencarbonat"
+   },
+   "class": "decomposition",
+   "eq": {
+    "Nahcolite": -2,
+    "Na2CO3(s)": 1,
+    "H2O(g)": 1,
+    "CO2(g)": 1
+   },
+   "rate": {
+    "law": "thermal",
+    "A": 2430000000.0,
+    "Ea": 102
+   },
+   "needs": {
+    "Tmin": 323
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "Teaching rate: half-life of about a minute at 200 °C and of hours at 100 °C, with an activation energy of about 102 kJ/mol — the order of the thermogravimetric results of W. Hu, J. M. Smith, T. Doğu, G. Doğu, AIChE J. 32, 1483 (1986), not re-read.",
+   "src": "Decomposes slowly from about 50 °C, rapidly above 100 °C (CRC Handbook of Chemistry and Physics, 97th ed. (2016), \"Physical Constants of Inorganic Compounds\" (hand)).",
+   "note": {
+    "zh": "碳酸钠受热不分解：这是鉴别两者的方法。",
+    "en": "Sodium carbonate does not decompose on heating: this distinguishes the two.",
+    "de": "Natriumcarbonat zersetzt sich beim Erhitzen nicht: So lassen sich die beiden unterscheiden."
+   }
+  },
+  {
+   "id": "NH4HCO3_thermal",
+   "name": {
+    "zh": "碳酸氢铵受热分解",
+    "en": "Thermal decomposition of ammonium hydrogencarbonate",
+    "de": "Thermische Zersetzung von Ammoniumhydrogencarbonat"
+   },
+   "class": "decomposition",
+   "eq": {
+    "NH4HCO3(s)": -1,
+    "NH3(g)": 1,
+    "H2O(g)": 1,
+    "CO2(g)": 1
+   },
+   "rate": {
+    "law": "thermal",
+    "A": 20200000000.0,
+    "Ea": 80
+   },
+   "needs": {
+    "Tmin": 309
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "Teaching rate: half-life of 2 min at 60 °C: the solid disappears completely on gentle warming.",
+   "src": "Decomposes from about 36 °C (CRC Handbook of Chemistry and Physics, 97th ed. (2016), \"Physical Constants of Inorganic Compounds\" (hand))."
+  },
+  {
+   "id": "NH4Cl_thermal",
+   "name": {
+    "zh": "氯化铵受热分解",
+    "en": "Thermal dissociation of ammonium chloride",
+    "de": "Thermische Dissoziation von Ammoniumchlorid"
+   },
+   "class": "decomposition",
+   "eq": {
+    "NH4Cl(s)": -1,
+    "NH3(g)": 1,
+    "HCl(g)": 1
+   },
+   "rate": {
+    "law": "thermal",
+    "A": 5040000000.0,
+    "Ea": 150
+   },
+   "needs": {
+    "Tmin": 611
+   },
+   "effects": [
+    "smoke"
+   ],
+   "teaching": true,
+   "basis": "Teaching rate: half-life of 1 min at 400 °C.",
+   "src": "Sublimes with dissociation at 338 °C (CRC Handbook of Chemistry and Physics, 97th ed. (2016), \"Physical Constants of Inorganic Compounds\" (hand)).",
+   "note": {
+    "zh": "两种气体在试管上部较冷处又结合成氯化铵（NH3_HCl），看起来像升华。",
+    "en": "The two gases recombine to ammonium chloride on the cooler upper part of the tube (NH3_HCl), which looks like sublimation.",
+    "de": "Die beiden Gase vereinigen sich im kühleren oberen Teil des Reagenzglases wieder zu Ammoniumchlorid (NH3_HCl), was wie eine Sublimation aussieht."
+   }
+  },
+  {
+   "id": "Cu2OH2CO3_thermal",
+   "name": {
+    "zh": "碱式碳酸铜受热分解",
+    "en": "Thermal decomposition of basic copper carbonate",
+    "de": "Thermische Zersetzung von basischem Kupfercarbonat"
+   },
+   "class": "decomposition",
+   "eq": {
+    "Malachite": -1,
+    "Tenorite": 2,
+    "H2O(g)": 1,
+    "CO2(g)": 1
+   },
+   "rate": {
+    "law": "thermal",
+    "A": 8130000000.0,
+    "Ea": 130
+   },
+   "needs": {
+    "Tmin": 473
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "Teaching rate: the green powder in a test tube over a burner is black within one to two minutes: half-life of 1 min at 300 °C.",
+   "src": "Decomposes at about 200 °C (CRC Handbook of Chemistry and Physics, 97th ed. (2016), \"Physical Constants of Inorganic Compounds\" (hand))."
+  },
+  {
+   "id": "CuOH2_thermal",
+   "name": {
+    "zh": "氢氧化铜受热分解",
+    "en": "Thermal decomposition of copper(II) hydroxide",
+    "de": "Thermische Zersetzung von Kupfer(II)-hydroxid"
+   },
+   "class": "decomposition",
+   "eq": {
+    "Cu(OH)2(s)": -1,
+    "Tenorite": 1,
+    "H2O": 1
+   },
+   "rate": {
+    "law": "thermal",
+    "A": 204000000000.0,
+    "Ea": 90
+   },
+   "needs": {
+    "Tmin": 353
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "Teaching rate: the suspension blackens within a minute when brought to the boil: half-life of 30 s at 90 °C.",
+   "src": "school; the blue precipitate turns black at about 80 °C (textbook value)"
+  },
+  {
+   "id": "FeOH3_thermal",
+   "name": {
+    "zh": "氢氧化铁受热分解",
+    "en": "Thermal decomposition of iron(III) hydroxide",
+    "de": "Thermische Zersetzung von Eisen(III)-hydroxid"
+   },
+   "class": "decomposition",
+   "eq": {
+    "Fe(OH)3(a)": -2,
+    "Hematite": 1,
+    "H2O(g)": 3
+   },
+   "rate": {
+    "law": "thermal",
+    "A": 23700000.0,
+    "Ea": 120
+   },
+   "needs": {
+    "Tmin": 523
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "Teaching rate: the dried precipitate ignited in a crucible gives red-brown iron(III) oxide within minutes: half-life of 1 min at 400 °C. Onset taken as 250 °C (the range in which iron oxide-hydroxides lose their water).",
+   "src": "school"
+  },
+  {
+   "id": "AlOH3_thermal",
+   "name": {
+    "zh": "氢氧化铝受热分解",
+    "en": "Thermal decomposition of aluminium hydroxide",
+    "de": "Thermische Zersetzung von Aluminiumhydroxid"
+   },
+   "class": "decomposition",
+   "eq": {
+    "Al(OH)3(a)": -2,
+    "Al2O3": 1,
+    "H2O(g)": 3
+   },
+   "rate": {
+    "law": "thermal",
+    "A": 28400000.0,
+    "Ea": 130
+   },
+   "needs": {
+    "Tmin": 573
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "Teaching rate: half-life of 1 min at 450 °C.",
+   "src": "Decomposes at about 300 °C (CRC Handbook of Chemistry and Physics, 97th ed. (2016), \"Physical Constants of Inorganic Compounds\" (hand))."
+  },
+  {
+   "id": "MgOH2_thermal",
+   "name": {
+    "zh": "氢氧化镁受热分解",
+    "en": "Thermal decomposition of magnesium hydroxide",
+    "de": "Thermische Zersetzung von Magnesiumhydroxid"
+   },
+   "class": "decomposition",
+   "eq": {
+    "Brucite": -1,
+    "Periclase": 1,
+    "H2O(g)": 1
+   },
+   "rate": {
+    "law": "thermal",
+    "A": 28400000.0,
+    "Ea": 130
+   },
+   "needs": {
+    "Tmin": 623
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "Teaching rate: half-life of 1 min at 450 °C.",
+   "src": "Decomposes at 350 °C (CRC Handbook of Chemistry and Physics, 97th ed. (2016), \"Physical Constants of Inorganic Compounds\" (hand))."
+  },
+  {
+   "id": "CaOH2_thermal",
+   "name": {
+    "zh": "氢氧化钙受热分解",
+    "en": "Thermal decomposition of calcium hydroxide",
+    "de": "Thermische Zersetzung von Calciumhydroxid"
+   },
+   "class": "decomposition",
+   "eq": {
+    "Portlandite": -1,
+    "Lime": 1,
+    "H2O(g)": 1
+   },
+   "rate": {
+    "law": "thermal",
+    "A": 3550000.0,
+    "Ea": 150
+   },
+   "needs": {
+    "Tmin": 853
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "Teaching rate: half-life of 1 min at 650 °C.",
+   "src": "Loses water at about 580 °C (CRC Handbook of Chemistry and Physics, 97th ed. (2016), \"Physical Constants of Inorganic Compounds\" (hand))."
+  },
+  {
+   "id": "MgCO3_thermal",
+   "name": {
+    "zh": "碳酸镁受热分解",
+    "en": "Thermal decomposition of magnesium carbonate",
+    "de": "Thermische Zersetzung von Magnesiumcarbonat"
+   },
+   "class": "decomposition",
+   "eq": {
+    "Magnesite": -1,
+    "Periclase": 1,
+    "CO2(g)": 1
+   },
+   "rate": {
+    "law": "thermal",
+    "A": 157000000.0,
+    "Ea": 150
+   },
+   "needs": {
+    "Tmin": 623
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "Teaching rate: half-life of 1 min at 500 °C.",
+   "src": "Decomposes at about 350 °C (CRC Handbook of Chemistry and Physics, 97th ed. (2016), \"Physical Constants of Inorganic Compounds\" (hand))."
+  },
+  {
+   "id": "KNO3_thermal",
+   "name": {
+    "zh": "硝酸钾受热分解",
+    "en": "Thermal decomposition of potassium nitrate",
+    "de": "Thermische Zersetzung von Kaliumnitrat"
+   },
+   "class": "decomposition",
+   "eq": {
+    "KNO3(s)": -2,
+    "KNO2(s)": 2,
+    "O2(g)": 1
+   },
+   "rate": {
+    "law": "thermal",
+    "A": 1530000000.0,
+    "Ea": 180
+   },
+   "needs": {
+    "Tmin": 673
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "Teaching rate: half-life of 2 min at 550 °C.",
+   "src": "Melts at 334 °C and gives off oxygen from about 400 °C (CRC Handbook of Chemistry and Physics, 97th ed. (2016), \"Physical Constants of Inorganic Compounds\" (hand)).",
+   "note": {
+    "zh": "活泼金属的硝酸盐分解成亚硝酸盐和氧气。",
+    "en": "The nitrates of the most active metals decompose to nitrite and oxygen.",
+    "de": "Die Nitrate der unedelsten Metalle zerfallen in Nitrit und Sauerstoff."
+   }
+  },
+  {
+   "id": "NaNO3_thermal",
+   "name": {
+    "zh": "硝酸钠受热分解",
+    "en": "Thermal decomposition of sodium nitrate",
+    "de": "Thermische Zersetzung von Natriumnitrat"
+   },
+   "class": "decomposition",
+   "eq": {
+    "NaNO3(s)": -2,
+    "NaNO2(s)": 2,
+    "O2(g)": 1
+   },
+   "rate": {
+    "law": "thermal",
+    "A": 1530000000.0,
+    "Ea": 180
+   },
+   "needs": {
+    "Tmin": 653
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "Teaching rate: half-life of 2 min at 550 °C.",
+   "src": "Melts at 307 °C and decomposes from about 380 °C (CRC Handbook of Chemistry and Physics, 97th ed. (2016), \"Physical Constants of Inorganic Compounds\" (hand))."
+  },
+  {
+   "id": "CuNO32_thermal",
+   "name": {
+    "zh": "硝酸铜受热分解",
+    "en": "Thermal decomposition of copper(II) nitrate",
+    "de": "Thermische Zersetzung von Kupfer(II)-nitrat"
+   },
+   "class": "decomposition",
+   "eq": {
+    "Cu(NO3)2:3H2O(s)": -2,
+    "Tenorite": 2,
+    "NO2(g)": 4,
+    "O2(g)": 1,
+    "H2O(g)": 6
+   },
+   "rate": {
+    "law": "thermal",
+    "A": 11100000000.0,
+    "Ea": 120
+   },
+   "needs": {
+    "Tmin": 443
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "Teaching rate: half-life of 1 min at 250 °C: brown fumes and a black residue.",
+   "src": "The trihydrate decomposes from about 170 °C (CRC Handbook of Chemistry and Physics, 97th ed. (2016), \"Physical Constants of Inorganic Compounds\" (hand)).",
+   "note": {
+    "zh": "较不活泼金属的硝酸盐分解成氧化物、二氧化氮和氧气。结晶水一并失去。",
+    "en": "The nitrates of less active metals decompose to the oxide, nitrogen dioxide and oxygen. The water of crystallisation is lost in the same step.",
+    "de": "Die Nitrate weniger unedler Metalle zerfallen in Oxid, Stickstoffdioxid und Sauerstoff. Das Kristallwasser entweicht im selben Schritt."
+   }
+  },
+  {
+   "id": "AgNO3_thermal",
+   "name": {
+    "zh": "硝酸银受热分解",
+    "en": "Thermal decomposition of silver nitrate",
+    "de": "Thermische Zersetzung von Silbernitrat"
+   },
+   "class": "decomposition",
+   "eq": {
+    "AgNO3(s)": -2,
+    "Ag(s)": 2,
+    "NO2(g)": 2,
+    "O2(g)": 1
+   },
+   "rate": {
+    "law": "thermal",
+    "A": 745000000.0,
+    "Ea": 160
+   },
+   "needs": {
+    "Tmin": 713
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "Teaching rate: half-life of 1 min at 500 °C.",
+   "src": "Melts at 210 °C and decomposes at about 440 °C (CRC Handbook of Chemistry and Physics, 97th ed. (2016), \"Physical Constants of Inorganic Compounds\" (hand)).",
+   "note": {
+    "zh": "不活泼金属的硝酸盐分解成金属、二氧化氮和氧气。",
+    "en": "The nitrates of noble metals decompose to the metal, nitrogen dioxide and oxygen.",
+    "de": "Die Nitrate edler Metalle zerfallen in Metall, Stickstoffdioxid und Sauerstoff."
+   }
+  },
+  {
+   "id": "CuSO4_5H2O_step1",
+   "name": {
+    "zh": "胆矾失水（第一步，到三水合物）",
+    "en": "Dehydration of copper sulfate pentahydrate (step 1, to the trihydrate)",
+    "de": "Entwässerung von Kupfersulfat-Pentahydrat (Stufe 1, zum Trihydrat)"
+   },
+   "class": "decomposition",
+   "eq": {
+    "Chalcanthite": -1,
+    "CuSO4:3H2O(s)": 1,
+    "H2O(g)": 2
+   },
+   "rate": {
+    "law": "thermal",
+    "A": 931000000.0,
+    "Ea": 80
+   },
+   "needs": {
+    "Tmin": 375
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "Teaching rate: half-life of 1 min a little above the step temperature.",
+   "src": "Steps at 102 °C (−2 H2O), 113 °C (−2 H2O) and 258 °C (−H2O) as given in the standard Chinese inorganic chemistry textbooks (e.g. 北京师范大学等《无机化学》第四版下册; hand). Thermal analysis finds lower step temperatures at slow heating rates and low humidity."
+  },
+  {
+   "id": "CuSO4_5H2O_step2",
+   "name": {
+    "zh": "胆矾失水（第二步，到一水合物）",
+    "en": "Dehydration of copper sulfate (step 2, to the monohydrate)",
+    "de": "Entwässerung von Kupfersulfat (Stufe 2, zum Monohydrat)"
+   },
+   "class": "decomposition",
+   "eq": {
+    "CuSO4:3H2O(s)": -1,
+    "CuSO4:H2O(s)": 1,
+    "H2O(g)": 2
+   },
+   "rate": {
+    "law": "thermal",
+    "A": 7410000000.0,
+    "Ea": 90
+   },
+   "needs": {
+    "Tmin": 386
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "Teaching rate: half-life of 1 min a little above the step temperature.",
+   "src": "Steps at 102 °C (−2 H2O), 113 °C (−2 H2O) and 258 °C (−H2O) as given in the standard Chinese inorganic chemistry textbooks (e.g. 北京师范大学等《无机化学》第四版下册; hand). Thermal analysis finds lower step temperatures at slow heating rates and low humidity."
+  },
+  {
+   "id": "CuSO4_5H2O_step3",
+   "name": {
+    "zh": "胆矾失水（第三步，到白色无水硫酸铜）",
+    "en": "Dehydration of copper sulfate (step 3, to the white anhydrous salt)",
+    "de": "Entwässerung von Kupfersulfat (Stufe 3, zum weißen wasserfreien Salz)"
+   },
+   "class": "decomposition",
+   "eq": {
+    "CuSO4:H2O(s)": -1,
+    "CuSO4(s)": 1,
+    "H2O(g)": 1
+   },
+   "rate": {
+    "law": "thermal",
+    "A": 2480000000.0,
+    "Ea": 120
+   },
+   "needs": {
+    "Tmin": 531
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "Teaching rate: half-life of 1 min a little above the step temperature.",
+   "src": "Steps at 102 °C (−2 H2O), 113 °C (−2 H2O) and 258 °C (−H2O) as given in the standard Chinese inorganic chemistry textbooks (e.g. 北京师范大学等《无机化学》第四版下册; hand). Thermal analysis finds lower step temperatures at slow heating rates and low humidity.",
+   "note": {
+    "zh": "蓝色变白色；无水硫酸铜遇水又变蓝（由平衡计算），可用来检验水。",
+    "en": "Blue turns white; anhydrous copper sulfate turns blue again with water (by the equilibrium calculation), which serves as a test for water.",
+    "de": "Blau wird weiß; wasserfreies Kupfersulfat wird mit Wasser wieder blau (über die Gleichgewichtsrechnung) – ein Nachweis für Wasser."
+   }
+  },
+  {
+   "id": "Na2CO3_10H2O_step1",
+   "name": {
+    "zh": "碳酸钠晶体风化（失去九个结晶水）",
+    "en": "Washing soda loses nine molecules of water",
+    "de": "Kristallsoda verliert neun Moleküle Wasser"
+   },
+   "class": "decomposition",
+   "eq": {
+    "Natron": -1,
+    "Thermonatrite": 1,
+    "H2O(g)": 9
+   },
+   "rate": {
+    "law": "thermal",
+    "A": 11500000.0,
+    "Ea": 60
+   },
+   "needs": {
+    "Tmin": 306
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "Teaching rate: half-life of 5 min at 50 °C.",
+   "src": "The decahydrate melts in its own water of crystallisation at 32 to 34 °C and effloresces in dry air (CRC Handbook of Chemistry and Physics, 97th ed. (2016), \"Physical Constants of Inorganic Compounds\" (hand)).",
+   "note": {
+    "zh": "室温下在干燥空气里也会慢慢风化，这里只在 33 °C 以上进行。",
+    "en": "In dry air it also effloresces slowly at room temperature; here it runs only above 33 °C.",
+    "de": "An trockener Luft verwittert es auch bei Raumtemperatur langsam; hier läuft die Reaktion erst oberhalb von 33 °C."
+   }
+  },
+  {
+   "id": "Na2CO3_10H2O_step2",
+   "name": {
+    "zh": "一水碳酸钠失水",
+    "en": "Sodium carbonate monohydrate loses its water",
+    "de": "Natriumcarbonat-Monohydrat verliert sein Wasser"
+   },
+   "class": "decomposition",
+   "eq": {
+    "Thermonatrite": -1,
+    "Na2CO3(s)": 1,
+    "H2O(g)": 1
+   },
+   "rate": {
+    "law": "thermal",
+    "A": 246000000.0,
+    "Ea": 80
+   },
+   "needs": {
+    "Tmin": 373
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "Teaching rate: half-life of 2 min at 120 °C.",
+   "src": "Loses its water at about 100 °C (CRC Handbook of Chemistry and Physics, 97th ed. (2016), \"Physical Constants of Inorganic Compounds\" (hand))."
+  },
+  {
+   "id": "gypsum_plaster",
+   "name": {
+    "zh": "生石膏加热成熟石膏",
+    "en": "Gypsum to plaster of Paris",
+    "de": "Gips zu Stuckgips (Halbhydrat)"
+   },
+   "class": "decomposition",
+   "eq": {
+    "Gypsum": -1,
+    "CaSO4:0.5H2O(s)": 1,
+    "H2O(g)": 1.5
+   },
+   "rate": {
+    "law": "thermal",
+    "A": 5100000000.0,
+    "Ea": 100
+   },
+   "needs": {
+    "Tmin": 401
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "Teaching rate: half-life of 5 min at 150 °C.",
+   "src": "Loses 1.5 H2O at about 128 °C and the rest at about 163 °C (CRC Handbook of Chemistry and Physics, 97th ed. (2016), \"Physical Constants of Inorganic Compounds\" (hand)).",
+   "note": {
+    "zh": "熟石膏加水调成糊状后重新结成生石膏而硬化：那是溶解再结晶，由溶解与平衡计算，不是这里的反应。",
+    "en": "Plaster mixed with water sets by turning back into gypsum: that is dissolution and recrystallisation, computed by dissolution and equilibrium, not a reaction of this table.",
+    "de": "Mit Wasser angerührter Stuckgips bindet ab, indem er wieder zu Gips wird: Das ist Auflösen und Umkristallisieren, berechnet über Auflösung und Gleichgewicht, keine Reaktion dieser Tabelle."
+   }
+  },
+  {
+   "id": "plaster_anhydrite",
+   "name": {
+    "zh": "熟石膏继续失水",
+    "en": "Plaster loses its remaining water",
+    "de": "Stuckgips verliert das restliche Wasser"
+   },
+   "class": "decomposition",
+   "eq": {
+    "CaSO4:0.5H2O(s)": -1,
+    "Anhydrite": 1,
+    "H2O(g)": 0.5
+   },
+   "rate": {
+    "law": "thermal",
+    "A": 3220000000.0,
+    "Ea": 110
+   },
+   "needs": {
+    "Tmin": 436
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "Teaching rate: half-life of 5 min at 200 °C.",
+   "src": "Loses 1.5 H2O at about 128 °C and the rest at about 163 °C (CRC Handbook of Chemistry and Physics, 97th ed. (2016), \"Physical Constants of Inorganic Compounds\" (hand))."
+  },
+  {
+   "id": "sucrose_H2SO4",
+   "name": {
+    "zh": "浓硫酸使蔗糖脱水炭化",
+    "en": "Concentrated sulfuric acid chars sucrose",
+    "de": "Konzentrierte Schwefelsäure verkohlt Saccharose"
+   },
+   "class": "decomposition",
+   "eq": {
+    "Sucrose(s)": -1,
+    "C(s)": 12,
+    "H2O": 11
+   },
+   "rate": {
+    "law": "thermal",
+    "A": 375000000.0,
+    "Ea": 60
+   },
+   "needs": {
+    "min": {
+     "H2SO4(l)": 1
+    }
+   },
+   "effects": [
+    "char",
+    "heat",
+    "bubbles"
+   ],
+   "teaching": true,
+   "basis": "Sugar moistened with a little water and covered with concentrated sulfuric acid turns black and rises as a column of carbon within one to two minutes. The acid must be present in the vessel (min: H2SO4(l) = 1).",
+   "src": "school",
+   "note": {
+    "zh": "“黑面包”实验，显示浓硫酸的脱水性。同时有少量碳被浓硫酸氧化（生成二氧化碳和二氧化硫，使炭疏松膨胀），见 C_H2SO4_conc；这里只在加热时计算那一步。",
+    "en": "The \"black bread\" experiment showing the dehydrating power of concentrated sulfuric acid. Some carbon is oxidised by the acid at the same time (carbon dioxide and sulfur dioxide puff up the char), see C_H2SO4_conc; that step is computed only on heating.",
+    "de": "Der Versuch „schwarzes Brot“ zeigt die wasserentziehende Wirkung konzentrierter Schwefelsäure. Zugleich wird etwas Kohlenstoff von der Säure oxidiert (Kohlenstoffdioxid und Schwefeldioxid blähen die Kohle auf), siehe C_H2SO4_conc; dieser Schritt wird nur beim Erhitzen berechnet."
+   },
+   "beyondModel": true
+  },
+  {
+   "id": "CH4_Cl2_1",
+   "name": {
+    "zh": "甲烷的氯代（第 1 步，生成一氯甲烷）",
+    "en": "Chlorination of methane (step 1, to chloromethane)",
+    "de": "Chlorierung von Methan (Stufe 1, zu Chlormethan)"
+   },
+   "class": "organic",
+   "curated": "org02",
+   "eq": {
+    "CH4(g)": -1,
+    "Cl2(g)": -1,
+    "CH3Cl(g)": 1,
+    "HCl(g)": 1
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "needs": {
+    "light": true
+   },
+   "effects": [
+    "fog"
+   ],
+   "src": "school",
+   "note": {
+    "zh": "光照下的取代反应（自由基链反应）。四步同时进行，得到的是混合物；各步的相对速率没有数据，按“光照即反应到限量反应物”处理，所以产物的比例只是示意。强光下可能爆炸。",
+    "en": "A substitution in light (a radical chain reaction). The four steps run side by side and give a mixture; there are no data here on their relative rates, each step simply runs to its limiting reagent while the light is on, so the shares of the products are only indicative. In strong light the mixture may explode.",
+    "de": "Eine Substitution im Licht (Radikalkettenreaktion). Die vier Stufen laufen nebeneinander ab und liefern ein Gemisch; zu ihren relativen Geschwindigkeiten liegen hier keine Daten vor, jede Stufe läuft bei Licht einfach bis zum begrenzenden Reaktanten, die Produktanteile sind daher nur ein Anhalt. In starkem Licht kann das Gemisch explodieren."
+   }
+  },
+  {
+   "id": "CH4_Cl2_2",
+   "name": {
+    "zh": "甲烷的氯代（第 2 步，生成二氯甲烷）",
+    "en": "Chlorination of methane (step 2, to dichloromethane)",
+    "de": "Chlorierung von Methan (Stufe 2, zu Dichlormethan)"
+   },
+   "class": "organic",
+   "curated": "org02",
+   "eq": {
+    "CH3Cl(g)": -1,
+    "Cl2(g)": -1,
+    "CH2Cl2(l)": 1,
+    "HCl(g)": 1
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "needs": {
+    "light": true
+   },
+   "effects": [
+    "fog"
+   ],
+   "src": "school",
+   "note": {
+    "zh": "光照下的取代反应（自由基链反应）。四步同时进行，得到的是混合物；各步的相对速率没有数据，按“光照即反应到限量反应物”处理，所以产物的比例只是示意。强光下可能爆炸。",
+    "en": "A substitution in light (a radical chain reaction). The four steps run side by side and give a mixture; there are no data here on their relative rates, each step simply runs to its limiting reagent while the light is on, so the shares of the products are only indicative. In strong light the mixture may explode.",
+    "de": "Eine Substitution im Licht (Radikalkettenreaktion). Die vier Stufen laufen nebeneinander ab und liefern ein Gemisch; zu ihren relativen Geschwindigkeiten liegen hier keine Daten vor, jede Stufe läuft bei Licht einfach bis zum begrenzenden Reaktanten, die Produktanteile sind daher nur ein Anhalt. In starkem Licht kann das Gemisch explodieren."
+   }
+  },
+  {
+   "id": "CH4_Cl2_3",
+   "name": {
+    "zh": "甲烷的氯代（第 3 步，生成三氯甲烷）",
+    "en": "Chlorination of methane (step 3, to trichloromethane)",
+    "de": "Chlorierung von Methan (Stufe 3, zu Trichlormethan)"
+   },
+   "class": "organic",
+   "curated": "org02",
+   "eq": {
+    "CH2Cl2(l)": -1,
+    "Cl2(g)": -1,
+    "CHCl3(l)": 1,
+    "HCl(g)": 1
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "needs": {
+    "light": true
+   },
+   "effects": [
+    "fog"
+   ],
+   "src": "school",
+   "note": {
+    "zh": "光照下的取代反应（自由基链反应）。四步同时进行，得到的是混合物；各步的相对速率没有数据，按“光照即反应到限量反应物”处理，所以产物的比例只是示意。强光下可能爆炸。",
+    "en": "A substitution in light (a radical chain reaction). The four steps run side by side and give a mixture; there are no data here on their relative rates, each step simply runs to its limiting reagent while the light is on, so the shares of the products are only indicative. In strong light the mixture may explode.",
+    "de": "Eine Substitution im Licht (Radikalkettenreaktion). Die vier Stufen laufen nebeneinander ab und liefern ein Gemisch; zu ihren relativen Geschwindigkeiten liegen hier keine Daten vor, jede Stufe läuft bei Licht einfach bis zum begrenzenden Reaktanten, die Produktanteile sind daher nur ein Anhalt. In starkem Licht kann das Gemisch explodieren."
+   }
+  },
+  {
+   "id": "CH4_Cl2_4",
+   "name": {
+    "zh": "甲烷的氯代（第 4 步，生成四氯化碳）",
+    "en": "Chlorination of methane (step 4, to tetrachloromethane)",
+    "de": "Chlorierung von Methan (Stufe 4, zu Tetrachlormethan)"
+   },
+   "class": "organic",
+   "curated": "org02",
+   "eq": {
+    "CHCl3(l)": -1,
+    "Cl2(g)": -1,
+    "CCl4(l)": 1,
+    "HCl(g)": 1
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "needs": {
+    "light": true
+   },
+   "effects": [
+    "fog"
+   ],
+   "src": "school",
+   "note": {
+    "zh": "光照下的取代反应（自由基链反应）。四步同时进行，得到的是混合物；各步的相对速率没有数据，按“光照即反应到限量反应物”处理，所以产物的比例只是示意。强光下可能爆炸。",
+    "en": "A substitution in light (a radical chain reaction). The four steps run side by side and give a mixture; there are no data here on their relative rates, each step simply runs to its limiting reagent while the light is on, so the shares of the products are only indicative. In strong light the mixture may explode.",
+    "de": "Eine Substitution im Licht (Radikalkettenreaktion). Die vier Stufen laufen nebeneinander ab und liefern ein Gemisch; zu ihren relativen Geschwindigkeiten liegen hier keine Daten vor, jede Stufe läuft bei Licht einfach bis zum begrenzenden Reaktanten, die Produktanteile sind daher nur ein Anhalt. In starkem Licht kann das Gemisch explodieren."
+   }
+  },
+  {
+   "id": "C2H4_Br2",
+   "name": {
+    "zh": "乙烯使溴水褪色（加成）",
+    "en": "Ethene decolourises bromine water (addition)",
+    "de": "Ethen entfärbt Bromwasser (Addition)"
+   },
+   "class": "organic",
+   "curated": "org03",
+   "eq": {
+    "C2H4(g)": -1,
+    "Br2": -1,
+    "C2H4Br2(l)": 1
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "effects": [],
+   "src": "school",
+   "note": {
+    "zh": "生成 1,2-二溴乙烷（无色油状液体）。在溴水里还会生成一些溴乙醇，没有收入。",
+    "en": "1,2-Dibromoethane forms (a colourless oily liquid). In bromine water some bromoethanol forms as well; it is not included.",
+    "de": "Es entsteht 1,2-Dibromethan (farblose ölige Flüssigkeit). In Bromwasser bildet sich daneben etwas Bromethanol; es ist nicht enthalten."
+   }
+  },
+  {
+   "id": "C2H4_MnO4",
+   "name": {
+    "zh": "乙烯使酸性高锰酸钾褪色",
+    "en": "Ethene decolourises acidified permanganate",
+    "de": "Ethen entfärbt angesäuertes Permanganat"
+   },
+   "class": "organic",
+   "curated": "org04",
+   "eq": {
+    "C2H4(g)": -5,
+    "MnO4-": -12,
+    "H+": -36,
+    "CO2": 10,
+    "Mn+2": 12,
+    "H2O": 28
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "needs": {
+    "min": {
+     "H+": 0.001
+    }
+   },
+   "effects": [],
+   "src": "school",
+   "note": {
+    "zh": "课本的写法：乙烯被氧化成二氧化碳。所以不能用酸性高锰酸钾除去甲烷里的乙烯。",
+    "en": "As the textbook writes it: ethene is oxidised to carbon dioxide. This is why acidified permanganate cannot be used to remove ethene from methane.",
+    "de": "Wie im Lehrbuch geschrieben: Ethen wird zu Kohlenstoffdioxid oxidiert. Deshalb eignet sich angesäuertes Permanganat nicht, um Ethen aus Methan zu entfernen."
+   }
+  },
+  {
+   "id": "C2H2_Br2",
+   "name": {
+    "zh": "乙炔使溴水褪色（加成）",
+    "en": "Ethyne decolourises bromine water (addition)",
+    "de": "Ethin entfärbt Bromwasser (Addition)"
+   },
+   "class": "organic",
+   "curated": "org05",
+   "eq": {
+    "C2H2(g)": -1,
+    "Br2": -2,
+    "C2H2Br4(l)": 1
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "effects": [],
+   "src": "school",
+   "note": {
+    "zh": "两步加成合并写成 1,1,2,2-四溴乙烷。",
+    "en": "The two additions are lumped to 1,1,2,2-tetrabromoethane.",
+    "de": "Die beiden Additionen sind zu 1,1,2,2-Tetrabromethan zusammengefasst."
+   }
+  },
+  {
+   "id": "C2H2_MnO4",
+   "name": {
+    "zh": "乙炔使酸性高锰酸钾褪色",
+    "en": "Ethyne decolourises acidified permanganate",
+    "de": "Ethin entfärbt angesäuertes Permanganat"
+   },
+   "class": "organic",
+   "curated": "org06",
+   "eq": {
+    "C2H2(g)": -1,
+    "MnO4-": -2,
+    "H+": -6,
+    "CO2": 2,
+    "Mn+2": 2,
+    "H2O": 4
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "needs": {
+    "min": {
+     "H+": 0.001
+    }
+   },
+   "effects": [],
+   "src": "school"
+  },
+  {
+   "id": "C2H5OH_Na",
+   "name": {
+    "zh": "乙醇与钠",
+    "en": "Ethanol with sodium",
+    "de": "Ethanol mit Natrium"
+   },
+   "class": "organic",
+   "curated": "org07",
+   "eq": {
+    "C2H5OH(l)": -2,
+    "Na(s)": -2,
+    "C2H5ONa(s)": 2,
+    "H2(g)": 1
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Na(s)",
+    "k": 0.02,
+    "orders": {},
+    "Ea": 30,
+    "Tref": 298.15
+   },
+   "effects": [
+    "bubbles"
+   ],
+   "teaching": true,
+   "basis": "A pea-sized piece of sodium in ethanol sinks and gives a steady stream of bubbles for several minutes without melting: about fifty times slower than with water.",
+   "src": "school",
+   "note": {
+    "zh": "钠沉在乙醇底部，反应平缓，不熔化：乙醇羟基上的氢不如水里的活泼。",
+    "en": "The sodium sinks and reacts gently without melting: the hydroxyl hydrogen of ethanol is less reactive than that of water.",
+    "de": "Das Natrium sinkt und reagiert ruhig, ohne zu schmelzen: Der Hydroxylwasserstoff des Ethanols ist weniger reaktiv als der des Wassers."
+   }
+  },
+  {
+   "id": "CuO_C2H5OH",
+   "name": {
+    "zh": "乙醇的催化氧化（灼热的氧化铜）",
+    "en": "Catalytic oxidation of ethanol (on hot copper oxide)",
+    "de": "Katalytische Oxidation von Ethanol (an heißem Kupferoxid)"
+   },
+   "class": "organic",
+   "curated": "org08",
+   "eq": {
+    "C2H5OH(l)": -1,
+    "Tenorite": -1,
+    "CH3CHO(aq)": 1,
+    "Cu(s)": 1,
+    "H2O": 1
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Tenorite",
+    "k": 0.005,
+    "orders": {},
+    "Ea": 50,
+    "Tref": 573.15
+   },
+   "needs": {
+    "Tmin": 473
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "A copper spiral blackened in the flame turns bright red again within a second or two when dipped hot into ethanol (an oxide film of about 1 µm).",
+   "src": "school",
+   "note": {
+    "zh": "铜丝在空气里加热变黑（Cu_O2），趁热插入乙醇又变红，反复进行：铜是催化剂，总反应是 2 C₂H₅OH + O₂ → 2 CH₃CHO + 2 H₂O。乙醛留在液体里（按溶质记），有刺激性气味。",
+    "en": "A copper wire heated in air turns black (Cu_O2) and red again when dipped hot into ethanol, over and over: copper is the catalyst, the overall reaction is 2 C₂H₅OH + O₂ → 2 CH₃CHO + 2 H₂O. The ethanal stays in the liquid (booked as a solute) and has a pungent smell.",
+    "de": "Ein an der Luft erhitzter Kupferdraht wird schwarz (Cu_O2) und beim heißen Eintauchen in Ethanol wieder rot, immer wieder: Kupfer ist der Katalysator, die Gesamtreaktion lautet 2 C₂H₅OH + O₂ → 2 CH₃CHO + 2 H₂O. Das Ethanal bleibt in der Flüssigkeit (als gelöster Stoff gebucht) und riecht stechend."
+   }
+  },
+  {
+   "id": "Cr2O7_C2H5OH",
+   "name": {
+    "zh": "乙醇使酸性重铬酸钾变绿（酒精检测）",
+    "en": "Ethanol turns acidified dichromate green (the breathalyser)",
+    "de": "Ethanol färbt angesäuertes Dichromat grün (Alkoholtest)"
+   },
+   "class": "organic",
+   "curated": "org09",
+   "eq": {
+    "Cr2O7-2": -2,
+    "C2H5OH(aq)": -3,
+    "H+": -16,
+    "Cr+3": 4,
+    "H(Acetate)": 3,
+    "H2O": 11
+   },
+   "rate": {
+    "law": "mass",
+    "k": 0.004,
+    "orders": {
+     "Cr2O7-2": 1,
+     "C2H5OH(aq)": 1,
+     "H+": 1
+    },
+    "Ea": 50,
+    "Tref": 298.15
+   },
+   "needs": {
+    "min": {
+     "H+": 0.001
+    }
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "0.02 mol/L dichromate in 2 mol/L acid with excess ethanol turns from orange to green in about a minute at room temperature.",
+   "src": "school"
+  },
+  {
+   "id": "MnO4_C2H5OH",
+   "name": {
+    "zh": "乙醇使酸性高锰酸钾褪色",
+    "en": "Ethanol decolourises acidified permanganate",
+    "de": "Ethanol entfärbt angesäuertes Permanganat"
+   },
+   "class": "organic",
+   "curated": "org09",
+   "eq": {
+    "MnO4-": -4,
+    "C2H5OH(aq)": -5,
+    "H+": -12,
+    "Mn+2": 4,
+    "H(Acetate)": 5,
+    "H2O": 11
+   },
+   "rate": {
+    "law": "mass",
+    "k": 0.02,
+    "orders": {
+     "MnO4-": 1,
+     "C2H5OH(aq)": 1
+    },
+    "Ea": 50,
+    "Tref": 298.15
+   },
+   "needs": {
+    "min": {
+     "H+": 0.001
+    }
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "A few drops of acidified permanganate in ethanol lose their colour in about a minute.",
+   "src": "school"
+  },
+  {
+   "id": "C2H5OH_dehydration",
+   "name": {
+    "zh": "乙醇脱水制乙烯",
+    "en": "Dehydration of ethanol to ethene",
+    "de": "Dehydratisierung von Ethanol zu Ethen"
+   },
+   "class": "organic",
+   "curated": "org10",
+   "eq": {
+    "C2H5OH(l)": -1,
+    "C2H4(g)": 1,
+    "H2O": 1
+   },
+   "rate": {
+    "law": "thermal",
+    "A": 1410000000.0,
+    "Ea": 100
+   },
+   "needs": {
+    "Tmin": 443,
+    "min": {
+     "H2SO4(l)": 1
+    }
+   },
+   "effects": [
+    "bubbles"
+   ],
+   "teaching": true,
+   "basis": "Ethanol with three volumes of concentrated sulfuric acid, heated quickly to 170 °C, gives a steady stream of ethene for several minutes: half-life of 5 min. Classroom rule: 170 °C, with concentrated sulfuric acid present.",
+   "src": "school",
+   "note": {
+    "zh": "浓硫酸是催化剂和脱水剂。140 °C 左右主要生成乙醚，所以要迅速升温到 170 °C；乙醚那一支没有收入。混合液变黑、有二氧化硫，是浓硫酸把乙醇炭化氧化的副反应，没有建模。",
+    "en": "Concentrated sulfuric acid is the catalyst and takes up the water. Around 140 °C diethyl ether is the main product, hence the quick heating to 170 °C; the ether branch is not included. The blackening of the mixture and the sulfur dioxide come from side reactions (charring and oxidation by the acid) and are not modelled.",
+    "de": "Konzentrierte Schwefelsäure ist Katalysator und bindet das Wasser. Um 140 °C entsteht vor allem Diethylether, daher das rasche Erhitzen auf 170 °C; der Etherzweig ist nicht enthalten. Das Schwarzwerden des Gemischs und das Schwefeldioxid stammen aus Nebenreaktionen (Verkohlung und Oxidation durch die Säure) und sind nicht modelliert."
+   },
+   "beyondModel": true
+  },
+  {
+   "id": "esterification",
+   "name": {
+    "zh": "乙酸乙酯的制备（酯化）",
+    "en": "Preparation of ethyl acetate (esterification)",
+    "de": "Darstellung von Essigsäureethylester (Veresterung)"
+   },
+   "class": "organic",
+   "curated": "org11",
+   "eq": {
+    "CH3COOH(l)": -1,
+    "C2H5OH(l)": -1,
+    "CH3COOC2H5(l)": 1,
+    "H2O": 1
+   },
+   "rate": {
+    "law": "thermal",
+    "A": 865000.0,
+    "Ea": 60,
+    "of": "CH3COOH(l)"
+   },
+   "needs": {
+    "Tmin": 333,
+    "min": {
+     "H2SO4(l)": 1
+    }
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "The mixture of glacial acetic acid, ethanol and concentrated sulfuric acid, gently boiled, gives its ester over about half an hour: half-life of 10 min at 80 °C. Classroom rule: heating, with concentrated sulfuric acid present.",
+   "src": "school; K about 4: M. Berthelot, L. Péan de Saint-Gilles, Ann. Chim. Phys. 65, 385 (1862), as quoted in every textbook (hand)",
+   "note": {
+    "zh": "纯液体的混合物在水溶液活度模型之外：这里让反应进行到底，不计算平衡（真实的平衡常数约为 4，等物质的量时转化率约三分之二；蒸出乙酸乙酯使平衡右移）。稀水溶液里的酯化与水解平衡见 ester_hydrolysis_acid。",
+    "en": "A mixture of pure liquids is outside the aqueous activity model: the reaction is run to completion here and the equilibrium is not computed (the real constant is about 4, two thirds conversion for equal amounts; distilling off the ester shifts it to the right). For the equilibrium of esterification and hydrolysis in dilute aqueous solution see ester_hydrolysis_acid.",
+    "de": "Ein Gemisch reiner Flüssigkeiten liegt außerhalb des wässrigen Aktivitätsmodells: Die Reaktion läuft hier vollständig ab, das Gleichgewicht wird nicht berechnet (die reale Konstante beträgt etwa 4, zwei Drittel Umsatz bei gleichen Stoffmengen; Abdestillieren des Esters verschiebt es nach rechts). Zum Gleichgewicht von Veresterung und Hydrolyse in verdünnter wässriger Lösung siehe ester_hydrolysis_acid."
+   },
+   "beyondModel": true
+  },
+  {
+   "id": "ester_hydrolysis_acid",
+   "name": {
+    "zh": "乙酸乙酯的酸性水解（可逆）",
+    "en": "Acid hydrolysis of ethyl acetate (reversible)",
+    "de": "Saure Hydrolyse von Essigsäureethylester (umkehrbar)"
+   },
+   "class": "organic",
+   "curated": "org12",
+   "eq": {
+    "CH3COOC2H5(aq)": -1,
+    "H2O": -1,
+    "H(Acetate)": 1,
+    "C2H5OH(aq)": 1
+   },
+   "rate": {
+    "law": "mass",
+    "k": 0.00011,
+    "orders": {
+     "CH3COOC2H5(aq)": 1,
+     "H+": 1
+    },
+    "Ea": 68,
+    "Tref": 298.15,
+    "lnK": [
+     2.63,
+     0.0
+    ]
+   },
+   "effects": [],
+   "entry": "hand",
+   "src": "W. Mabey, T. Mill, J. Phys. Chem. Ref. Data 7, 383 (1978), ethyl acetate at 25 °C: acid hydrolysis 1.1e-4 L/(mol·s), base hydrolysis 0.11 L/(mol·s) (hand). Activation energy about 68 kJ/mol (typical of the acid hydrolysis of acetates; typed from memory, to be checked). ln K = ln(55.5/4): the classical constant K = 4 of the esterification with water counted at 55.5 mol/kg.",
+   "note": {
+    "zh": "酸只是催化剂，反应可逆：稀溶液里水大大过量，平衡时酯基本水解（lnK 给出平衡，净速率 = 正向速率 ×（1 − Q/K））。",
+    "en": "The acid is only a catalyst and the reaction is reversible: in dilute solution water is in great excess and the ester is largely hydrolysed at equilibrium (lnK gives the equilibrium, net rate = forward rate × (1 − Q/K)).",
+    "de": "Die Säure ist nur Katalysator, die Reaktion ist umkehrbar: In verdünnter Lösung liegt Wasser in großem Überschuss vor, der Ester ist im Gleichgewicht weitgehend hydrolysiert (lnK gibt das Gleichgewicht, Nettogeschwindigkeit = Hingeschwindigkeit × (1 − Q/K))."
+   }
+  },
+  {
+   "id": "ester_hydrolysis_base",
+   "name": {
+    "zh": "乙酸乙酯的碱性水解",
+    "en": "Alkaline hydrolysis of ethyl acetate",
+    "de": "Alkalische Hydrolyse von Essigsäureethylester"
+   },
+   "class": "organic",
+   "curated": "org13",
+   "eq": {
+    "CH3COOC2H5(aq)": -1,
+    "OH-": -1,
+    "Acetate-": 1,
+    "C2H5OH(aq)": 1
+   },
+   "rate": {
+    "law": "mass",
+    "k": 0.11,
+    "orders": {
+     "CH3COOC2H5(aq)": 1,
+     "OH-": 1
+    },
+    "Ea": 46.9,
+    "Tref": 298.15
+   },
+   "effects": [],
+   "entry": "hand",
+   "src": "W. Mabey, T. Mill, J. Phys. Chem. Ref. Data 7, 383 (1978), ethyl acetate at 25 °C: acid hydrolysis 1.1e-4 L/(mol·s), base hydrolysis 0.11 L/(mol·s) (hand). Temperature dependence: International Critical Tables, vol. 7 (1930), log10 k/(L·mol⁻¹·min⁻¹) = −1780/T + 0.00754·T + 4.53, which gives 0.107 L/(mol·s) and 46.9 kJ/mol at 25 °C (formula as quoted in chemical-engineering laboratory texts, hand).",
+   "note": {
+    "zh": "碱把生成的乙酸中和掉，水解进行到底。",
+    "en": "The alkali neutralises the acid formed and the hydrolysis goes to completion.",
+    "de": "Die Lauge neutralisiert die entstehende Säure, die Hydrolyse läuft vollständig ab."
+   }
+  },
+  {
+   "id": "fat_saponification",
+   "name": {
+    "zh": "油脂的皂化",
+    "en": "Saponification of a fat",
+    "de": "Verseifung eines Fettes"
+   },
+   "class": "organic",
+   "curated": "org14",
+   "eq": {
+    "Tristearin(s)": -1,
+    "Na+": -3,
+    "OH-": -3,
+    "C17H35COONa(aq)": 3,
+    "Glycerol(aq)": 1
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Tristearin(s)",
+    "k": 2e-05,
+    "orders": {
+     "OH-": 1
+    },
+    "Ea": 60,
+    "Tref": 353.15
+   },
+   "needs": {
+    "Tmin": 333
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "A few grams of fat boiled with 30 % sodium hydroxide and some ethanol are saponified in about half an hour (the ethanol, which lets fat and alkali mix, is not modelled).",
+   "src": "school",
+   "note": {
+    "zh": "以硬脂酸甘油酯代表油脂。肥皂（硬脂酸钠）按溶质记；加食盐使肥皂析出（盐析）没有建模。",
+    "en": "Glyceryl tristearate stands for the fat. The soap (sodium stearate) is booked as a solute; salting it out with sodium chloride is not modelled.",
+    "de": "Glyceryltristearat steht für das Fett. Die Seife (Natriumstearat) wird als gelöster Stoff gebucht; das Aussalzen mit Kochsalz ist nicht modelliert."
+   }
+  },
+  {
+   "id": "silver_mirror_ethanal",
+   "name": {
+    "zh": "乙醛的银镜反应",
+    "en": "Silver-mirror reaction of ethanal",
+    "de": "Silberspiegelprobe mit Ethanal"
+   },
+   "class": "organic",
+   "curated": "org15",
+   "eq": {
+    "CH3CHO(aq)": -1,
+    "Ag(NH3)2+": -2,
+    "OH-": -2,
+    "Acetate-": 1,
+    "NH4+": 1,
+    "Ag(s)": 2,
+    "NH3": 3,
+    "H2O": 1
+   },
+   "rate": {
+    "law": "mass",
+    "k": 0.5,
+    "orders": {
+     "CH3CHO(aq)": 1,
+     "Ag(NH3)2+": 1
+    },
+    "Ea": 60,
+    "Tref": 333.15
+   },
+   "needs": {
+    "Tmin": 318,
+    "min": {
+     "OH-": 0.0001
+    }
+   },
+   "effects": [
+    "mirror"
+   ],
+   "teaching": true,
+   "basis": "Ethanal with freshly made ammoniacal silver nitrate (about 0.05 mol/L) in a water bath at 60 °C gives a mirror within one to two minutes. Classroom rule: alkaline solution, warming in a water bath (taken as above 45 °C).",
+   "src": "school",
+   "note": {
+    "zh": "银氨溶液要现用现配，久置会生成易爆的物质（真实实验的安全提示）。银镜是显示效果；析出的银按固体记。",
+    "en": "Ammoniacal silver nitrate is made fresh each time; on standing it forms explosive compounds (safety of the real experiment). The mirror is a display effect; the silver is booked as a solid.",
+    "de": "Ammoniakalische Silbernitratlösung wird stets frisch angesetzt; beim Stehen bilden sich explosive Verbindungen (Sicherheit im realen Versuch). Der Spiegel ist ein Anzeigeeffekt; das Silber wird als Feststoff gebucht."
+   }
+  },
+  {
+   "id": "silver_mirror_glucose",
+   "name": {
+    "zh": "葡萄糖的银镜反应",
+    "en": "Silver-mirror reaction of glucose",
+    "de": "Silberspiegelprobe mit Glucose"
+   },
+   "class": "organic",
+   "curated": "org15",
+   "eq": {
+    "Glucose(aq)": -1,
+    "Ag(NH3)2+": -2,
+    "H2O": -1,
+    "C6H12O7(aq)": 1,
+    "Ag(s)": 2,
+    "NH4+": 2,
+    "NH3": 2
+   },
+   "rate": {
+    "law": "mass",
+    "k": 0.2,
+    "orders": {
+     "Glucose(aq)": 1,
+     "Ag(NH3)2+": 1
+    },
+    "Ea": 60,
+    "Tref": 333.15
+   },
+   "needs": {
+    "Tmin": 318,
+    "min": {
+     "OH-": 0.0001
+    }
+   },
+   "effects": [
+    "mirror"
+   ],
+   "teaching": true,
+   "basis": "Glucose solution with ammoniacal silver nitrate in a water bath at 60 °C gives a mirror within a few minutes, somewhat more slowly than ethanal.",
+   "src": "school",
+   "note": {
+    "zh": "产物葡萄糖酸按中性溶质记（课本写作葡萄糖酸铵）；它的电离（pKa 3.86）不在网络里。",
+    "en": "The product gluconic acid is booked as a neutral solute (the textbook writes ammonium gluconate); its dissociation (pKa 3.86) is not in the network.",
+    "de": "Das Produkt Gluconsäure wird als neutraler gelöster Stoff gebucht (das Lehrbuch schreibt Ammoniumgluconat); ihre Dissoziation (pKa 3,86) ist nicht im Netzwerk."
+   }
+  },
+  {
+   "id": "fehling_ethanal",
+   "name": {
+    "zh": "乙醛与新制氢氧化铜（斐林反应）",
+    "en": "Ethanal with freshly made copper(II) hydroxide (Fehling test)",
+    "de": "Ethanal mit frisch gefälltem Kupfer(II)-hydroxid (Fehling-Probe)"
+   },
+   "class": "organic",
+   "curated": "org16",
+   "eq": {
+    "CH3CHO(aq)": -1,
+    "Cu(OH)2(s)": -2,
+    "OH-": -1,
+    "Acetate-": 1,
+    "Cuprite": 1,
+    "H2O": 3
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Cu(OH)2(s)",
+    "k": 1e-06,
+    "orders": {
+     "CH3CHO(aq)": 1
+    },
+    "Ea": 60,
+    "Tref": 363.15
+   },
+   "needs": {
+    "Tmin": 343,
+    "min": {
+     "OH-": 0.001
+    }
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "The blue suspension boiled with ethanal turns brick red within about a minute; the constant assumes the area of a fresh precipitate (several hundred m² per cm³). Classroom rule: excess alkali, heating to boiling (taken as above 70 °C).",
+   "src": "school"
+  },
+  {
+   "id": "fehling_glucose",
+   "name": {
+    "zh": "葡萄糖与新制氢氧化铜（斐林反应）",
+    "en": "Glucose with freshly made copper(II) hydroxide (Fehling test)",
+    "de": "Glucose mit frisch gefälltem Kupfer(II)-hydroxid (Fehling-Probe)"
+   },
+   "class": "organic",
+   "curated": "org16",
+   "eq": {
+    "Glucose(aq)": -1,
+    "Cu(OH)2(s)": -2,
+    "C6H12O7(aq)": 1,
+    "Cuprite": 1,
+    "H2O": 2
+   },
+   "rate": {
+    "law": "surface",
+    "on": "Cu(OH)2(s)",
+    "k": 1e-06,
+    "orders": {
+     "Glucose(aq)": 1
+    },
+    "Ea": 60,
+    "Tref": 363.15
+   },
+   "needs": {
+    "Tmin": 343,
+    "min": {
+     "OH-": 0.001
+    }
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "The blue suspension boiled with glucose solution turns brick red within about a minute; same assumptions as for ethanal.",
+   "src": "school",
+   "note": {
+    "zh": "常温下葡萄糖与氢氧化铜生成绛蓝色溶液（多羟基的络合），这个颜色没有物种，不显示。",
+    "en": "At room temperature glucose gives a deep blue solution with copper hydroxide (complexation by its hydroxyl groups); there is no species for this colour and it is not shown.",
+    "de": "Bei Raumtemperatur gibt Glucose mit Kupferhydroxid eine tiefblaue Lösung (Komplexbildung über die Hydroxylgruppen); für diese Farbe gibt es keine Spezies, sie wird nicht gezeigt."
+   }
+  },
+  {
+   "id": "sucrose_hydrolysis",
+   "name": {
+    "zh": "蔗糖的水解",
+    "en": "Hydrolysis of sucrose",
+    "de": "Hydrolyse von Saccharose"
+   },
+   "class": "organic",
+   "curated": "org17",
+   "eq": {
+    "Sucrose(aq)": -1,
+    "H2O": -1,
+    "Glucose(aq)": 1,
+    "Fructose(aq)": 1
+   },
+   "rate": {
+    "law": "mass",
+    "k": 0.0001,
+    "orders": {
+     "Sucrose(aq)": 1,
+     "H+": 1
+    },
+    "Ea": 108,
+    "Tref": 298.15
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "In 1 mol/L acid the inversion of sucrose takes hours at room temperature and a few minutes in a boiling water bath: about 1e-4 kg/(mol·s) at 25 °C per unit activity of H+.",
+   "src": "school; activation energy of the acid-catalysed inversion about 108 kJ/mol (physical-chemistry texts, e.g. Moelwyn-Hughes; hand)",
+   "note": {
+    "zh": "蔗糖本身没有还原性；水解后（先中和酸）才有银镜和斐林反应。",
+    "en": "Sucrose itself is not a reducing sugar; only after hydrolysis (and neutralising the acid) does it give the silver mirror and the Fehling test.",
+    "de": "Saccharose selbst ist kein reduzierender Zucker; erst nach der Hydrolyse (und Neutralisation der Säure) gibt sie Silberspiegel und Fehling-Probe."
+   }
+  },
+  {
+   "id": "starch_hydrolysis",
+   "name": {
+    "zh": "淀粉的水解",
+    "en": "Hydrolysis of starch",
+    "de": "Hydrolyse von Stärke"
+   },
+   "class": "organic",
+   "curated": "org18",
+   "eq": {
+    "Starch(aq)": -1,
+    "H2O": -1,
+    "Glucose(aq)": 1
+   },
+   "rate": {
+    "law": "mass",
+    "k": 1e-05,
+    "orders": {
+     "Starch(aq)": 1,
+     "H+": 1
+    },
+    "Ea": 110,
+    "Tref": 298.15
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "Starch boiled with dilute sulfuric acid no longer turns iodine blue after 10 to 20 min; taken as ten times slower than sucrose with a similar activation energy. One mole of starch stands for one glucose unit (C6H10O5).",
+   "src": "school",
+   "note": {
+    "zh": "以一个葡萄糖单元计。真实的水解经过糊精、麦芽糖等中间产物；酶催化的水解没有建模。",
+    "en": "Counted per glucose unit. The real hydrolysis passes through dextrins and maltose; hydrolysis by enzymes is not modelled.",
+    "de": "Gerechnet je Glucoseeinheit. Die reale Hydrolyse verläuft über Dextrine und Maltose; die enzymatische Hydrolyse ist nicht modelliert."
+   }
+  },
+  {
+   "id": "addition_polymerisation",
+   "name": {
+    "zh": "乙烯的加聚（聚乙烯）",
+    "en": "Addition polymerisation of ethene (polyethene)",
+    "de": "Polymerisation von Ethen (Polyethen)"
+   },
+   "class": "organic",
+   "curated": "org19",
+   "eq": {
+    "C2H4(g)": -1,
+    "PE(s)": 1
+   },
+   "rate": {
+    "law": "none"
+   },
+   "effects": [],
+   "src": "school",
+   "note": {
+    "zh": "只在百科里作为示意出现：实验台上不发生（需要引发剂或催化剂、高温高压），也没有速率数据。",
+    "en": "Shown in the encyclopedia only, as an illustration: it does not happen at the bench (it needs an initiator or catalyst, heat and pressure) and there are no rate data.",
+    "de": "Nur in der Enzyklopädie als Veranschaulichung: Am Labortisch findet sie nicht statt (sie braucht Initiator oder Katalysator, Hitze und Druck), und es liegen keine Geschwindigkeitsdaten vor."
+   }
+  },
+  {
+   "id": "condensation_polymerisation",
+   "name": {
+    "zh": "缩聚（对苯二甲酸与乙二醇生成涤纶）",
+    "en": "Condensation polymerisation (terephthalic acid and ethane-1,2-diol to polyester)",
+    "de": "Polykondensation (Terephthalsäure und Ethan-1,2-diol zu Polyester)"
+   },
+   "class": "organic",
+   "curated": "org20",
+   "eq": {
+    "C8H6O4(s)": -1,
+    "C2H6O2(l)": -1,
+    "PET(s)": 1,
+    "H2O": 2
+   },
+   "rate": {
+    "law": "none"
+   },
+   "effects": [],
+   "src": "school",
+   "note": {
+    "zh": "只在百科里作为示意出现：实验台上不发生（需要引发剂或催化剂、高温高压），也没有速率数据。",
+    "en": "Shown in the encyclopedia only, as an illustration: it does not happen at the bench (it needs an initiator or catalyst, heat and pressure) and there are no rate data.",
+    "de": "Nur in der Enzyklopädie als Veranschaulichung: Am Labortisch findet sie nicht statt (sie braucht Initiator oder Katalysator, Hitze und Druck), und es liegen keine Geschwindigkeitsdaten vor."
+   }
+  },
+  {
+   "id": "phenol_Br2",
+   "name": {
+    "zh": "苯酚与溴水（白色沉淀）",
+    "en": "Phenol with bromine water (white precipitate)",
+    "de": "Phenol mit Bromwasser (weißer Niederschlag)"
+   },
+   "class": "organic",
+   "curated": "test",
+   "eq": {
+    "C6H5OH(aq)": -1,
+    "Br2": -3,
+    "C6H2Br3OH(s)": 1,
+    "H+": 3,
+    "Br-": 3
+   },
+   "rate": {
+    "law": "instant"
+   },
+   "effects": [],
+   "src": "school",
+   "note": {
+    "zh": "生成 2,4,6-三溴苯酚白色沉淀，用于检验苯酚。",
+    "en": "White 2,4,6-tribromophenol precipitates; the test for phenol.",
+    "de": "Es fällt weißes 2,4,6-Tribromphenol aus; der Nachweis für Phenol."
+   }
+  },
+  {
+   "id": "C2H5Br_hydrolysis",
+   "name": {
+    "zh": "溴乙烷的水解",
+    "en": "Hydrolysis of bromoethane",
+    "de": "Hydrolyse von Bromethan"
+   },
+   "class": "organic",
+   "curated": "test",
+   "eq": {
+    "C2H5Br(l)": -1,
+    "OH-": -1,
+    "C2H5OH(aq)": 1,
+    "Br-": 1
+   },
+   "rate": {
+    "law": "thermal",
+    "A": 116000000000.0,
+    "Ea": 90,
+    "of": "C2H5Br(l)"
+   },
+   "needs": {
+    "Tmin": 323,
+    "min": {
+     "OH-": 0.1
+    }
+   },
+   "effects": [],
+   "teaching": true,
+   "basis": "Bromoethane warmed with sodium hydroxide solution for a few minutes gives enough bromide for a cream precipitate with acidified silver nitrate: half-life of 5 min at 70 °C. The two liquids do not mix and their interface is not resolved: first order in the amount of bromoethane, with alkali present (classroom rule: activity of OH- above 0.1, warming above 50 °C).",
+   "src": "school",
+   "note": {
+    "zh": "卤代烃的检验：水解后先用稀硝酸酸化，再加硝酸银，生成淡黄色的溴化银沉淀（由平衡计算）。",
+    "en": "The test for a halogenoalkane: after hydrolysis the solution is acidified with dilute nitric acid, then silver nitrate gives a cream precipitate of silver bromide (by the equilibrium calculation).",
+    "de": "Der Nachweis für ein Halogenalkan: Nach der Hydrolyse wird mit verdünnter Salpetersäure angesäuert, dann gibt Silbernitrat einen gelblichen Niederschlag von Silberbromid (über die Gleichgewichtsrechnung)."
+   }
+  }
+ ],
+ "dissolutionNote": "Dissolution of coarse network solids: mol/(m²·s) = [kAcid·a(H+)^nAcid + kNeutral + kCarbonate·p(CO2)^nCarbonate]·(1 − Ω), each k at 298.15 K with its Arrhenius energy (kJ/mol); p(CO2) is the pressure of carbon dioxide (atm) the solution is in equilibrium with. The report prints the order of the carbonate mechanism with respect to p(CO2), but its constants were measured against the activity of dissolved CO2 (H2CO3*): Weiss et al. show that the printed convention makes calcite dissolve about twenty times too fast against the experiments of Plummer and Wigley. kCarbonate and EaCarbonate are therefore converted here: kCarbonate = k(reported)·K_H^n and EaCarbonate = Ea(reported) + n·ΔH, with the Henry constant of CO2 of the network (log K_H = -1.468 at 25 °C, ΔH = -20.0 kJ/mol), so that kCarbonate·p^n equals k(reported)·a(CO2)^n. reported holds the numbers as read. The network solid Dolomite carries the constant of ordered dolomite, hence the parameters of hydrothermal (ordered) dolomite; alt holds those of the sedimentary form. Other carbonates of the report (siderite, witherite, strontianite, rhodochrosite …) were not read and are not entered.",
+ "dissolution": {
+  "Calcite": {
+   "kAcid": 0.501,
+   "nAcid": 1.0,
+   "EaAcid": 14.4,
+   "kNeutral": 1.55e-06,
+   "EaNeutral": 23.5,
+   "kCarbonate": 1.13e-05,
+   "nCarbonate": 1.0,
+   "EaCarbonate": 15.4,
+   "reported": {
+    "logAcid": -0.3,
+    "logNeutral": -5.81,
+    "logCarbonate": -3.48,
+    "EaCarbonate": 35.4
+   },
+   "src": "J. L. Palandri, Y. K. Kharaka: A compilation of rate parameters of water-mineral interaction kinetics for application to geochemical modeling, U.S. Geological Survey Open-File Report 2004-1068 (carbonates table), read as reproduced in Table 1 of F. J. Weiss, L. Keim, K. Wendel, H. Class, arXiv:2501.05225v2 (5 October 2026; CC BY 4.0) — the USGS server refused the download of the report itself.",
+   "entry": "read"
+  },
+  "Dolomite": {
+   "kAcid": 0.000174,
+   "nAcid": 0.5,
+   "EaAcid": 56.7,
+   "kNeutral": 2.51e-09,
+   "EaNeutral": 95.3,
+   "kCarbonate": 7.87e-07,
+   "nCarbonate": 0.5,
+   "EaCarbonate": 35.7,
+   "reported": {
+    "logAcid": -3.76,
+    "logNeutral": -8.6,
+    "logCarbonate": -5.37,
+    "EaCarbonate": 45.7
+   },
+   "src": "J. L. Palandri, Y. K. Kharaka: A compilation of rate parameters of water-mineral interaction kinetics for application to geochemical modeling, U.S. Geological Survey Open-File Report 2004-1068 (carbonates table), read as reproduced in Table 1 of F. J. Weiss, L. Keim, K. Wendel, H. Class, arXiv:2501.05225v2 (5 October 2026; CC BY 4.0) — the USGS server refused the download of the report itself.",
+   "entry": "read",
+   "alt": {
+    "what": "sedimentary (disordered) dolomite, as reported",
+    "logAcid": -3.19,
+    "nAcid": 0.5,
+    "EaAcid": 36.1,
+    "logNeutral": -7.53,
+    "EaNeutral": 52.2,
+    "logCarbonate": -5.11,
+    "nCarbonate": 0.5,
+    "EaCarbonate": 34.8
+   }
+  },
+  "Magnesite": {
+   "kAcid": 4.17e-07,
+   "nAcid": 1.0,
+   "EaAcid": 14.4,
+   "kNeutral": 4.57e-10,
+   "EaNeutral": 23.5,
+   "kCarbonate": 2.05e-07,
+   "nCarbonate": 1.0,
+   "EaCarbonate": 42.8,
+   "reported": {
+    "logAcid": -6.38,
+    "logNeutral": -9.34,
+    "logCarbonate": -5.22,
+    "EaCarbonate": 62.8
+   },
+   "src": "J. L. Palandri, Y. K. Kharaka: A compilation of rate parameters of water-mineral interaction kinetics for application to geochemical modeling, U.S. Geological Survey Open-File Report 2004-1068 (carbonates table), read as reproduced in Table 1 of F. J. Weiss, L. Keim, K. Wendel, H. Class, arXiv:2501.05225v2 (5 October 2026; CC BY 4.0) — the USGS server refused the download of the report itself.",
+   "entry": "read"
+  }
+ },
+ "electrolysis": {
+  "note": "What the electrolysis model needs beyond the couples (D266): a stated overpotential per gas and electrode material, which anodes dissolve, and the classroom rule for chloride. A product discharges where E (Nernst, from the couples and the activities) plus its overpotential is reached first. All numbers are stated approximations (teaching), not measurements of the bench.",
+  "teaching": true,
+  "overpotential": {
+   "H2": {
+    "Pt": 0.05,
+    "C": 0.6,
+    "Cu": 0.5,
+    "Fe": 0.4,
+    "Zn": 0.7,
+    "Ag": 0.5,
+    "Ni": 0.55
+   },
+   "O2": {
+    "Pt": 0.7,
+    "C": 0.75
+   },
+   "Cl2": {
+    "Pt": 0.05,
+    "C": 0.1
+   },
+   "src": "Order of magnitude of the tabulated overvoltages at about 1 mA/cm² and 25 °C (Lange's Handbook of Chemistry, 15th ed., section 8, after the International Critical Tables), rounded to 0.05 V; typed from memory and to be checked against the table. Oxygen on graphite is taken at 0.75 V (between the 0.5 V of the table at 1 mA/cm² and the about 1 V at working current densities), so that chloride of 0.1 mol/L and more discharges before water on a carbon anode, as the classroom rule states.",
+   "entry": "hand"
+  },
+  "electrodes": {
+   "Pt": {
+    "inert": true
+   },
+   "C": {
+    "inert": true
+   },
+   "Cu": {
+    "inert": false,
+    "substance": "Cu(s)",
+    "couple": "Cu+2/Cu"
+   },
+   "Ag": {
+    "inert": false,
+    "substance": "Ag(s)",
+    "couple": "Ag+/Ag"
+   },
+   "Zn": {
+    "inert": false,
+    "substance": "Zn(s)",
+    "couple": "Zn+2/Zn"
+   },
+   "Fe": {
+    "inert": false,
+    "substance": "Fe(s)",
+    "couple": "Fe+2/Fe"
+   },
+   "Ni": {
+    "inert": false,
+    "substance": "Ni(s)",
+    "couple": "Ni+2/Ni"
+   }
+  },
+  "activeAnode": "An anode of copper, silver, zinc, iron or nickel dissolves by its own couple before oxygen or chlorine can form (their potentials lie far below); platinum and graphite are inert. Oxygen overpotentials on the active metals are therefore not needed.",
+  "cathode": "At the cathode the cation with the highest E (Nernst) discharges; hydrogen from water competes with E(H+/H2) at the pH of the solution minus its overpotential on the cathode metal. Na+, K+, Ca+2, Mg+2 and Al+3 are never discharged from aqueous solution. No mercury cathode: the amalgam process is not modelled.",
+  "chloride": {
+   "couple": "Cl2/Cl-",
+   "against": "O2/H2O",
+   "threshold": 0.5,
+   "dilute": 0.01,
+   "rule": "At an inert anode: chloride above about 0.5 mol/kg gives chlorine, below about 0.01 mol/kg oxygen, in between both (flag approx). With the overpotentials above the two potentials cross near pH 4.6 at unit chloride activity — the anode layer of a neutral brine turns acid within seconds, which the well-mixed vessel does not resolve; hence the threshold as a classroom rule.",
+   "src": "school (electrolysis of saturated brine: chlorine at the anode; of very dilute sodium chloride: mainly oxygen)"
+  }
+ }
+}

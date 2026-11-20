@@ -712,6 +712,14 @@ impl<'a> Observation<'a> {
         Ok(Observation { sys, meta, customs, x, mode, sol, impact_loss, t })
     }
 
+    /// 26.65 (P2): replace the accelerations of the mode solution (see `soft_acceleration`).
+    pub fn with_acc(mut self, acc: Option<Vec<f64>>) -> Self {
+        if let Some(a) = acc {
+            self.sol.acc = a;
+        }
+        self
+    }
+
     /// Contact forces of the unit of the pair (on, by).
     pub fn contact_forces(&self, on_id: &str, by_id: &str) -> ContactForces {
         contact_forces_of(self.sys, self.mode, &self.sol, on_id, by_id)
@@ -1086,6 +1094,34 @@ impl<'a> Observation<'a> {
     }
 }
 
+/// 26.65 (P2): accelerations (ax, ay, α per body) of a many-body (`softstep`) recording at time t. Its contact impulses
+/// are not part of the mode solution — `solve_mode` sees free bodies and returns g for a body resting on the floor —
+/// so the acceleration is the change of velocity over the frame interval that contains t (Δv/Δt): the derivative of
+/// the linear interpolation between frames (D133); at a frame, the interval ending there. NaN for a recording of one
+/// frame. None for the other integrators (their mode solution is exact).
+pub fn soft_acceleration(s: &mut Session, t: f64) -> SimResult<Option<Vec<f64>>> {
+    if s.system.model.settings.integrator != crate::scene::IntegratorKind::Softstep {
+        return Ok(None);
+    }
+    let n = s.system.n;
+    let fc = s.frame_count;
+    if fc < 2 {
+        return Ok(Some(vec![f64::NAN; 3 * n]));
+    }
+    let dt = s.dt;
+    let k = s.frame_at(t);
+    let (a, b) = if (k as f64) * dt < t && k + 1 < fc {
+        (k, k + 1)
+    } else if k >= 1 {
+        (k - 1, k)
+    } else {
+        (0, 1)
+    };
+    let va: Vec<f64> = s.state(a)?[3 * n..6 * n].to_vec();
+    let vb = &s.state(b)?[3 * n..6 * n];
+    Ok(Some((0..3 * n).map(|i| (vb[i] - va[i]) / dt).collect()))
+}
+
 /// Observation of recorded frame k.
 pub fn frame_observation<'a>(s: &'a mut Session, k: u64, x: &'a mut Vec<f64>) -> SimResult<(usize, f64)> {
     let seg = s.segment(k)?;
@@ -1109,7 +1145,8 @@ pub fn quantity_series(s: &mut Session, ids: &[String], from: u64, to: u64, stri
         let k = from + c * stride;
         let (seg, loss) = frame_observation(s, k, &mut x)?;
         let mode = s.segments[seg].mode.clone();
-        let obs = Observation::new(&sys, &meta, &customs, &x, &mode, loss, Some(k as f64 * s.dt))?;
+        let acc = soft_acceleration(s, k as f64 * s.dt)?;
+        let obs = Observation::new(&sys, &meta, &customs, &x, &mode, loss, Some(k as f64 * s.dt))?.with_acc(acc);
         t.push(k as f64 * s.dt);
         for (j, id) in ids.iter().enumerate() {
             values[j].push(obs.value(id));

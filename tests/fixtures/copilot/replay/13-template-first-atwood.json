@@ -1,0 +1,30 @@
+{
+ "id": "13-template-first-atwood",
+ "origin": "handwritten",
+ "note": "Template first (D284): the problem is one of the templates with other numbers; no sketch is written. Grams are converted by the app.",
+ "problem": "质量分别为 1 kg 和 1500 g 的两个物块用轻绳跨过光滑定滑轮悬挂，由静止释放，求重物的加速度。",
+ "strict": true,
+ "answers": [
+  {
+   "step": "notes",
+   "raw": "对象：两个物块、定滑轮、轻绳。候选模板 atwood（阿特伍德机）恰好是这道题。\n已知：1 kg；1500 g。\n所求：重物的加速度。"
+  },
+  {
+   "step": "sketch",
+   "raw": "{\"version\":2,\"route\":\"template\",\"title\":\"阿特伍德机\",\"reason\":\"\",\"templateId\":\"atwood\",\"templateParams\":[{\"key\":\"m1\",\"value\":1,\"unit\":\"kg\",\"quote\":\"1 kg\"},{\"key\":\"m2\",\"value\":1500,\"unit\":\"g\",\"quote\":\"1500 g\"}],\"gravity\":\"down\",\"movingBodies\":2,\"surfaces\":[],\"bodies\":[],\"pulleys\":[],\"connectors\":[],\"values\":[],\"expect\":[],\"questions\":[{\"prompt\":\"重物的加速度\",\"unit\":\"m/s²\",\"kind\":\"quantity\",\"id\":\"m2.a\",\"t\":0.2,\"event\":\"\",\"side\":\"\",\"body\":\"\",\"which\":\"\"}]}"
+  }
+ ],
+ "expect": {
+  "ok": true,
+  "via": "template",
+  "repairs": 0,
+  "requests": 2,
+  "rounds": [
+   []
+  ],
+  "rejected": 0,
+  "answers": [
+   1.96
+  ]
+ }
+}

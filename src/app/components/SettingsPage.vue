@@ -9,12 +9,14 @@ import { vSlideIndicator } from '../slideIndicator'
 import { computed, provide, ref, watch } from 'vue'
 import { applyLookAhead, applyMemoryBudget, state } from '../store'
 import type { DisplayToggle } from '../settings'
-import { applyUnitPreset, effectiveCurriculum, effectiveEffects, fmtQ, resetSettings, settings, solidSurfaces, sysEnv, texQ, unitLabel } from '../settings'
+import { applyUnitPreset, effectiveCurriculum, effectiveEffects, fmtQ, resetSettings, settings, sysEnv, texQ, unitLabel } from '../settings'
 import { LEVEL_CHOICES, nearestLevel, withinLevel } from '../../formula/levels'
 import { FORMULAS } from '../../formula/library'
 import { clearTrialLog, exportTrialLog, logEvent, trialLogSize } from '../trialLog'
 import { showToast } from '../store'
-import type { SettingsSection, ThemeMode, EffectQuality } from '../settings'
+import type { SettingsSection, ThemeMode, GlassTier } from '../settings'
+import { TIERS, effectiveTier, material, restoreTier, solidReason } from '../material'
+import { tierLabel } from '../appearance'
 import { KINDS, PRESETS, presetChoice } from '../../units/units'
 import type { UnitKind } from '../../units/units'
 import { SHORTCUTS } from '../shortcuts'
@@ -22,6 +24,7 @@ import NumField from './NumField.vue'
 import Icon from './Icon.vue'
 import Tex from './Tex.vue'
 import AboutContent from './AboutContent.vue'
+import UpdateSettings from './UpdateSettings.vue'
 import { PAGE_ACTIVE } from '../live'
 import { isDesktop } from '../../platform/files'
 import { ask } from '../../platform/ask'
@@ -39,7 +42,7 @@ const SECTIONS: Array<{ id: SectionId; label: string; icon: string; desc: string
   { id: 'ai', label: tl('账号与 AI'), icon: 'chat', desc: tl('登录 whitelists.top 使用官方 AI，或填写自己的 API key；AI 读题与 Copilot 的选项。') },
   { id: 'units', label: tl('单位与数值'), icon: 'ruler', desc: tl('所有面板、曲线、公式代入、导出都按这里的单位显示；内部计算始终使用国际单位。') },
   { id: 'display', label: tl('显示'), icon: 'display', desc: tl('画布上默认叠加的内容，以及适合教室投影的投影仪模式。') },
-  { id: 'effects', label: tl('视觉效果'), icon: 'sparkle', desc: tl('玻璃质感、动态背景、运动模糊、粒子与拖尾。配置较低的电脑或投影时可降低或关闭。') },
+  { id: 'effects', label: tl('视觉效果'), icon: 'sparkle', desc: tl('浮层的材质、运动模糊、粒子与拖尾。') },
   { id: 'knowledge', label: tl('知识与公式'), icon: 'graduation', desc: tl('按你的课程体系和知识水平决定公式卡片显示哪些公式；超出水平的公式折叠为一行，可随时展开。') },
   { id: 'editor', label: tl('编辑'), icon: 'pen', desc: tl('在画布上放置、拖动、缩放和旋转物体时的吸附。') },
   { id: 'sim', label: tl('仿真'), icon: 'cpu', desc: tl('计算方式与时间上限。结果与计算方式无关，同一场景逐位一致。') },
@@ -146,10 +149,20 @@ const OVERLAYS: Array<{ key: DisplayToggle; label: string; hint: string }> = [
 ]
 
 // ---- Effects ----
-const QUALITIES: Array<{ id: EffectQuality; label: string }> = [{ id: 'off', label: tl('关闭') }, { id: 'standard', label: tl('标准') }, { id: 'high', label: tl('高') }]
 const fxOff = computed(() => settings.effects.quality === 'off')
+// 26.64 (D255): the material of floating controls — the choice, what is in effect, and why they differ
+const tierNow = computed(() => effectiveTier())
+function pickTier(t: GlassTier) { settings.effects.tier = t; restoreTier() }
+const tierNote = computed(() => {
+  if (tierNow.value === settings.effects.tier) return ''
+  const why = solidReason()
+  if (why === 'projector') return tl('课堂投影时为实色')
+  if (why === 'effectsOff') return tl('画布效果关闭时为实色')
+  if (why === 'transparency') return tl('“减少透明度”开启时为实色')
+  if (why === 'contrast') return tl('系统开启“增强对比度”时为实色')
+  return material.cap ? tl('播放时帧时间偏长，本次运行已降为“{0}”', [tierLabel(tierNow.value)]) : ''
+})
 // 26.59 (D159): reduce transparency — follow the system, always, never
-const solid = computed(() => solidSurfaces())
 const RT_OPTIONS: Array<{ v: 'system' | 'on' | 'off'; label: string }> = [{ v: 'system', label: '跟随系统' }, { v: 'on', label: '开启' }, { v: 'off', label: '关闭' }]
 const eff = computed(() => effectiveEffects())
 const shutterDeg = computed(() => Math.round(settings.effects.shutter * 360))
@@ -228,10 +241,10 @@ async function resetAll() { if (await ask(tl('将所有设置恢复为默认值�
                 <button v-for="o in ORIENTATIONS" :key="o.id" role="radio" :aria-checked="orientation === o.id" :class="{ on: orientation === o.id }" @click="pickOrientation(o.id)">{{ o.label }}</button>
               </div>
             </div>
-            <div class="srow"><div class="sl"><b>{{ tl('启动时打开') }}</b><span>{{ tl('首页有搜索、继续上次的场景和按身份的入口；选“工作台”则直接进入画布。') }}</span></div>
+            <div class="srow"><div class="sl"><b>{{ tl('启动时打开') }}</b><span>{{ tl('首页，或直接进入“运动”的画布。') }}</span></div>
               <div v-slide-indicator class="segmented" role="radiogroup" :aria-label="tl('启动时打开')">
                 <button role="radio" :aria-checked="settings.ui.startPage === 'home'" :class="{ on: settings.ui.startPage === 'home' }" @click="settings.ui.startPage = 'home'">{{ tl('首页') }}</button>
-                <button role="radio" :aria-checked="settings.ui.startPage === 'studio'" :class="{ on: settings.ui.startPage === 'studio' }" @click="settings.ui.startPage = 'studio'">{{ tl('工作台') }}</button>
+                <button role="radio" :aria-checked="settings.ui.startPage === 'studio'" :class="{ on: settings.ui.startPage === 'studio' }" @click="settings.ui.startPage = 'studio'">{{ tl('运动') }}</button>
               </div>
             </div>
             <div class="srow"><div class="sl"><b>{{ tl('导航栏显示文字') }}</b><span>{{ tl('左侧导航栏的图标下面显示页面名称；关闭后只显示图标（指针停留时仍有提示）。') }}</span></div>
@@ -328,18 +341,20 @@ async function resetAll() { if (await ask(tl('将所有设置恢复为默认值�
         <!-- ---- Visual effects ---- -->
         <template v-else-if="current === 'effects'">
           <div class="sgroup">
-            <div class="srow"><div class="sl"><b>{{ tl('效果质量') }}</b><span>{{ tl('“关闭”停用下面全部效果；“高”使背景连续流动、模糊更细腻。') }}</span></div>
-              <div v-slide-indicator class="segmented"><button v-for="q in QUALITIES" :key="q.id" :class="{ on: settings.effects.quality === q.id }" @click="settings.effects.quality = q.id">{{ q.label }}</button></div>
+            <div class="srow"><div class="sl"><b>{{ tl('浮层材质') }}</b><span>{{ tl('菜单、浮层、时间轴与消息条的材质；内容面板与对话框始终为实色。') }}</span></div>
+              <div v-slide-indicator class="segmented" role="radiogroup" :aria-label="tl('浮层材质')">
+                <button v-for="t in TIERS" :key="t" type="button" role="radio" :data-ui="`tier-${t}`" :aria-checked="settings.effects.tier === t" :class="{ on: settings.effects.tier === t }" @click="pickTier(t)">{{ tierLabel(t) }}</button>
+              </div>
             </div>
-          </div>
-          <div class="sgroup" :class="{ dim: fxOff }">
-            <div class="srow"><div class="sl"><b>{{ tl('玻璃质感') }}</b><span>{{ tl('菜单、对话框、导入栏与 Copilot 等浮层半透明（背景模糊）；内容面板始终为实色，便于阅读。') }}</span></div><input v-model="settings.effects.glass" type="checkbox" class="switch" :disabled="fxOff || solid" :title="solid ? tl('“减少透明度”开启时不使用玻璃') : undefined" /></div>
+            <div v-if="tierNote" class="srow" role="status"><span class="small tier-note">{{ tierNote }}</span><button v-if="material.cap && !solidReason()" type="button" class="btn small" @click="restoreTier">{{ tl('恢复所选') }}</button></div>
             <div class="srow"><div class="sl"><b>{{ tl('减少透明度') }}</b><span>{{ tl('所有浮层改为实色。“跟随系统”时按系统的“减少透明度”设置（当前{0}）。', [sysEnv.reducedTransparency ? tl('已开启') : tl('未开启')]) }}</span></div>
               <div class="segmented" role="radiogroup" :aria-label="tl('减少透明度')">
                 <button v-for="o in RT_OPTIONS" :key="o.v" type="button" role="radio" :aria-checked="settings.effects.reduceTransparency === o.v" :class="{ on: settings.effects.reduceTransparency === o.v }" @click="settings.effects.reduceTransparency = o.v">{{ tl(o.label) }}</button>
               </div>
             </div>
-            <div class="srow"><div class="sl"><b>{{ tl('动态背景') }}</b><span>{{ tl('面板后柔和流动的色彩；窗口不可见时自动暂停。') }}</span></div><input v-model="settings.effects.ambient" type="checkbox" class="switch" :disabled="fxOff" /></div>
+          </div>
+          <div class="sgroup">
+            <div class="srow"><div class="sl"><b>{{ tl('画布效果') }}</b><span>{{ tl('关闭后停用运动模糊、粒子与拖尾，浮层改为实色。') }}</span></div><input type="checkbox" class="switch" :checked="!fxOff" :aria-label="tl('画布效果')" @change="settings.effects.quality = ($event.target as HTMLInputElement).checked ? 'standard' : 'off'" /></div>
           </div>
           <div class="sgroup" :class="{ dim: fxOff }">
             <div class="srow"><div class="sl"><b>{{ tl('运动模糊') }}</b><span>{{ tl('由求解器的精确中间状态合成，播放与导出视频时生效。') }}</span></div><input v-model="settings.effects.motionBlur" type="checkbox" class="switch" :disabled="fxOff" /></div>
@@ -358,7 +373,7 @@ async function resetAll() { if (await ask(tl('将所有设置恢复为默认值�
           </div>
           <div class="effective tiny muted">
             {{ tl('当前生效：') }}
-            <span :class="{ on: eff.glass }">{{ tl('玻璃') }}</span><span :class="{ on: eff.ambient }">{{ tl('动态背景') }}</span><span :class="{ on: eff.motionBlur }">{{ tl('运动模糊') }}</span><span :class="{ on: eff.particles }">{{ tl('粒子') }}</span><span :class="{ on: eff.trails }">{{ tl('拖尾') }}</span>
+            <span class="on">{{ tl('材质：{0}', [tierLabel(tierNow)]) }}</span><span :class="{ on: eff.motionBlur }">{{ tl('运动模糊') }}</span><span :class="{ on: eff.particles }">{{ tl('粒子') }}</span><span :class="{ on: eff.trails }">{{ tl('拖尾') }}</span>
             <template v-if="settings.projector">{{ tl('（投影仪模式下不使用半透明效果）') }}</template>
           </div>
         </template>
@@ -471,6 +486,7 @@ async function resetAll() { if (await ask(tl('将所有设置恢复为默认值�
 
         <!-- ---- About ---- -->
         <template v-else>
+          <div v-if="isDesktop" class="sgroup"><UpdateSettings /></div>
           <div class="sgroup"><AboutContent :shortcuts="false" /></div>
         </template>
       </div>
@@ -482,14 +498,15 @@ async function resetAll() { if (await ask(tl('将所有设置恢复为默认值�
 .settings-page { display: grid; grid-template-columns: calc(220px * var(--zoom)) minmax(0, 1fr); gap: 8px; height: 100%; min-height: 0; }
 .snav { min-height: 0; }
 .nav-list { display: flex; flex-direction: column; gap: 1px; padding: 2px 8px; overflow: auto; flex: 1; }
-.nav-item { display: flex; align-items: center; gap: 10px; height: calc(32px * var(--zoom)); padding: 0 8px; border: 0; border-radius: 8px; background: transparent; cursor: pointer; text-align: left; font-size: var(--type-body); color: var(--text); transition: background var(--dur-2) var(--ease-out), transform var(--dur-1) var(--ease-out); }
+.nav-item { display: flex; align-items: center; gap: 10px; height: calc(32px * var(--zoom)); padding: 0 8px; border: 0; border-radius: var(--radius-control); background: transparent; cursor: pointer; text-align: left; font-size: var(--type-body); color: var(--text); transition: background var(--dur-2) var(--ease-out), transform var(--dur-1) var(--ease-out); }
 .nav-item:active { transform: scale(0.98); }
 .nav-item:hover { background: var(--hover); }
 .nav-group { color: var(--text-3); font-weight: 600; padding: 10px 8px 3px; }
 .nav-group:first-child { padding-top: 2px; }
-.nav-item.on { background: var(--accent); color: var(--on-accent); }
-.nav-icon { width: 24px; height: 24px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; background: var(--fill); color: var(--text-2); }
-.nav-item.on .nav-icon { background: rgba(255, 255, 255, 0.22); color: inherit; }
+/* 26.64: a selected section is marked softly — the solid accent is for the one primary button of a screen (D243) */
+.nav-item.on { background: var(--accent-soft); color: var(--accent); font-weight: var(--weight-strong); }
+.nav-icon { width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; color: var(--text-2); }
+.nav-item.on .nav-icon { color: inherit; }
 .nav-foot { padding: 10px 14px 12px; line-height: 1.5; }
 .link { border: 0; background: none; color: var(--accent); cursor: pointer; padding: 0; margin-left: 4px; font-size: inherit; }
 .scontent { min-height: 0; }
@@ -506,9 +523,9 @@ async function resetAll() { if (await ask(tl('将所有设置恢复为默认值�
 .content { overflow: auto; flex: 1; padding: 18px 28px 28px; }
 .content > * { max-width: 780px; margin-left: auto; margin-right: auto; }
 .shead { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
-h2 { margin: 0; font-size: var(--type-display); letter-spacing: -0.01em; }
+h2 { margin: 0; font-size: var(--type-display); letter-spacing: var(--track-display); }
 .shead p { margin: 4px 0 0; line-height: 1.5; max-width: 600px; }
-.sgroup { background: var(--group); border-radius: 12px; padding: 4px 14px; margin-bottom: 14px; }
+.sgroup { background: var(--group); border-radius: var(--radius-panel); padding: 4px 14px; margin-bottom: 14px; }
 .sgroup.dim { opacity: 0.55; }
 .srow { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: calc(44px * var(--zoom)); padding: 6px 0; }
 .srow + .srow { border-top: 1px solid var(--separator); }
@@ -528,9 +545,10 @@ select.field { min-width: 160px; }
 .pitem { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; border-bottom: 1px solid var(--separator); }
 .pformula { padding: 8px 0 4px; }
 .effective { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-.effective span { padding: 1px 8px; border-radius: 999px; background: var(--fill); text-decoration: line-through; }
+.effective span { padding: 1px 8px; border-radius: var(--radius-pill); background: var(--fill); text-decoration: line-through; }
 .effective span.on { background: var(--success-soft); color: var(--success); text-decoration: none; }
 .warn-text { color: var(--warning) !important; }
+.tier-note { color: var(--text-2); }
 .srow.key { min-height: 36px; }
 .combos { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 2px; justify-content: flex-end; }
 .plus { color: var(--text-3); font-size: var(--type-tiny); }

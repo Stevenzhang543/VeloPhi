@@ -19,6 +19,8 @@ import { defaultMemoryMB } from '../platform/device'
 export type ThemeMode = 'system' | 'light' | 'dark'
 /** Quality level of the visual effects; 'off' disables them all. */
 export type EffectQuality = 'off' | 'standard' | 'high'
+/** Material of the floating controls (26.64, D255): 通透 (thin fill, blur, edge highlight), 着色 (dense fill), 实色 (opaque). */
+export type GlassTier = 'clear' | 'tinted' | 'solid'
 
 /** Overlays drawn on the canvas. */
 export interface DisplayOptions {
@@ -57,10 +59,8 @@ export type DisplayToggle = { [K in keyof DisplayOptions]: DisplayOptions[K] ext
 export interface EffectSettings {
   /** Master switch: 'off' disables everything below (low-end machines, projectors). */
   quality: EffectQuality
-  /** Translucent "glass" panels with a pointer-tracking highlight. */
-  glass: boolean
-  /** Animated soft background behind the glass panels. */
-  ambient: boolean
+  /** 26.64 (D255): the material of floating controls — the user's choice; material.ts resolves what is in effect. */
+  tier: GlassTier
   /** Motion blur from exact sub-frame states during playback and video export. */
   motionBlur: boolean
   /** Shutter as a fraction of one display frame (0.5 = 180° shutter). */
@@ -157,6 +157,8 @@ export interface UiSettings {
   welcomed: boolean
   /** 26.63 (D232): the page shown at start. */
   startPage: 'home' | 'studio'
+  /** 26.64 (D249): what the user mainly does with the app, asked once in the walkthrough ('' : not asked). */
+  role: '' | 'learn' | 'teach' | 'research'
   /** 26.63: the navigation rail shows labels under its icons. */
   railLabels: boolean
 }
@@ -212,6 +214,22 @@ export interface AiSettings {
   revealAnswers: boolean
   /** 26.59 fix: "深度思考" for Copilot (DeepSeek thinking mode; slower, more tokens). */
   thinking: boolean
+  /**
+   * 26.64 (D279–D283): how Copilot builds a scene from a problem — 'sketch': relations and givens, compiled and checked
+   * by the app (the default); 'legacy': the scene file written by the model (26.60), kept one version for comparison.
+   */
+  sceneBuilder: 'sketch' | 'legacy'
+}
+
+/** In-app update of the desktop and Android apps (26.64; app/update.ts). The web build never uses it. */
+export interface UpdateSettings {
+  /** Check for a new version once after each start. */
+  auto: boolean
+  /** A version the user chose not to be reminded of ("26.65"); '' = none. */
+  skipped: string
+  /** Time of the last check that got an answer (ms since 1970; 0 = never) and the latest version it reported. */
+  lastCheck: number
+  lastLatest: string
 }
 
 /** All preferences. */
@@ -254,6 +272,8 @@ export interface AppSettings {
   teaching: TeachingSettings
   /** AI connection and features (26.59). */
   ai: AiSettings
+  /** Checking for updates (26.64). */
+  update: UpdateSettings
   /** Version of the stored settings (for one-time migrations), e.g. 2651 for 26.51. */
   rev: number
 }
@@ -271,16 +291,17 @@ function defaults(): AppSettings {
     unitPreset: 'si',
     units: defaultChoice(),
     digits: 4,
-    decimalSeparator: 'point',
+    // 26.65 (D294): follow the language — German schools write a decimal comma
+    decimalSeparator: 'auto',
     display: { velocity: true, acceleration: false, forces: true, forcesAll: false, trajectory: true, labels: true, grid: true, axes: true, names: true, strobe: false, strobeInterval: 0.1, strobeCount: 10, strobeOpacity: 0.55, strobeLabels: false, fields: true, fieldLines: false, equipotentials: false, contactPoints: false, manyBody: true },
     defaultGravity: 9.8,
-    effects: { quality: 'standard', glass: true, ambient: true, motionBlur: true, shutter: 0.5, particles: true, trails: false, trailSeconds: 0.6, respectReducedMotion: true, reduceTransparency: 'system' },
+    effects: { quality: 'standard', tier: 'tinted', motionBlur: true, shutter: 0.5, particles: true, trails: false, trailSeconds: 0.6, respectReducedMotion: true, reduceTransparency: 'system' },
     editor: { snap: false, objectSnap: true, snapStep: 0, angleSnap: 0 },
     knowledge: { curriculum: 'auto', level: 2 },
     sim: { worker: true, progressive: true, budgetSeconds: 60, lookAheadSeconds: 20, memoryMB: defaultMemoryMB(), engine: 'auto' },
     export: { fps: 60, scale: 1, bitrate: 0, csvSeparator: ',', csvDecimal: '.', imageBackground: 'theme', language: 'ui' },
     trialLog: false,
-    ui: { sections: {}, toolRail: false, motion: true, formula: { density: 'compact', group: 'situation', pinned: [], body: '', category: '', verdict: 'all', pinnedOnly: false, timeline: true }, toolTab: 'body', rightTab: 'formula', analysisTab: 'formula', lab: 'circuit', labView: 'topic', learnDone: [], learnStage: 'j', welcomed: false, startPage: 'home', railLabels: true },
+    ui: { sections: {}, toolRail: false, motion: true, formula: { density: 'compact', group: 'situation', pinned: [], body: '', category: '', verdict: 'all', pinnedOnly: false, timeline: true }, toolTab: 'body', rightTab: 'formula', analysisTab: 'formula', lab: 'circuit', labView: 'topic', learnDone: [], learnStage: 'j', welcomed: false, startPage: 'home', role: '', railLabels: true },
     teaching: { fbd: { layout: 'actual', body: 'shape', magnitudes: true, decompose: 'none', resultant: false }, tape: { period: 0.02, every: 5 } },
     ai: {
       connection: 'official',
@@ -292,14 +313,16 @@ function defaults(): AppSettings {
       learningMode: false,
       shareScene: true,
       revealAnswers: true,
-      thinking: false
+      thinking: false,
+      sceneBuilder: 'sketch'
     },
+    update: { auto: true, skipped: '', lastCheck: 0, lastLatest: '' },
     rev: SETTINGS_REV
   }
 }
 
 /** Current settings revision. */
-const SETTINGS_REV = 2660
+const SETTINGS_REV = 2665
 
 /** The live, reactive preferences (saved automatically). */
 export const settings = reactive<AppSettings>(defaults())
@@ -381,17 +404,21 @@ const mq = (q: string) => (typeof matchMedia === 'function' ? matchMedia(q) : nu
 const reducedMotionQuery = mq('(prefers-reduced-motion: reduce)')
 const reducedTransparencyQuery = mq('(prefers-reduced-transparency: reduce)')
 const darkQuery = mq('(prefers-color-scheme: dark)')
+const moreContrastQuery = mq('(prefers-contrast: more)')
 
 /** Live operating-system state the appearance depends on. */
 export const sysEnv = reactive({
   reducedMotion: !!reducedMotionQuery?.matches,
   reducedTransparency: !!reducedTransparencyQuery?.matches,
   prefersDark: !!darkQuery?.matches,
+  /** 26.64 (D255): the system asks for more contrast — floating controls become solid, lines and secondary text stronger. */
+  moreContrast: !!moreContrastQuery?.matches,
   hidden: typeof document !== 'undefined' ? document.hidden : false
 })
 reducedMotionQuery?.addEventListener?.('change', e => { sysEnv.reducedMotion = e.matches })
 reducedTransparencyQuery?.addEventListener?.('change', e => { sysEnv.reducedTransparency = e.matches })
 darkQuery?.addEventListener?.('change', e => { sysEnv.prefersDark = e.matches })
+moreContrastQuery?.addEventListener?.('change', e => { sysEnv.moreContrast = e.matches })
 if (typeof document !== 'undefined') document.addEventListener('visibilitychange', () => { sysEnv.hidden = document.hidden })
 
 /** The theme in effect: the explicit choice, or the system appearance in 'system' mode. */
@@ -402,6 +429,18 @@ export function effectiveTheme(): 'light' | 'dark' {
 
 /** True when animations should stay still (OS preference honoured). */
 export function calmMotion(): boolean { return !settings.ui.motion || (settings.effects.respectReducedMotion && sysEnv.reducedMotion) }
+
+/**
+ * The material tier stored by an older version (26.64, D255): 26.59–26.63 kept a glass switch, an "ambient background"
+ * switch (gone with the gradient background) and the quality level, whose 'high' meant real backdrop blur. A stored
+ * tier wins; glass switched off becomes 实色, high quality 通透, anything else the default 着色. Unknown values never throw.
+ */
+export function migrateTier(old: unknown): GlassTier {
+  const e = (old && typeof old === 'object' ? old : {}) as { tier?: unknown; glass?: unknown; quality?: unknown }
+  if (e.tier === 'clear' || e.tier === 'tinted' || e.tier === 'solid') return e.tier
+  if (e.glass === false) return 'solid'
+  return e.quality === 'high' ? 'clear' : 'tinted'
+}
 
 /** 26.59 (D159): glass surfaces become solid (the setting, or the system preference in 'system' mode). */
 export function solidSurfaces(): boolean {
@@ -416,8 +455,6 @@ export function effectiveEffects(): EffectSettings {
   const calm = calmMotion()
   return {
     ...e,
-    glass: !off && e.glass && !settings.projector && !solidSurfaces(),
-    ambient: !off && e.ambient && !settings.projector,
     motionBlur: !off && !calm && e.motionBlur,
     particles: !off && !calm && e.particles,
     trails: !off && e.trails
@@ -473,9 +510,13 @@ function sanitize() {
   if (!['standard', 'cvd'].includes(settings.palette)) settings.palette = d.palette
   if (!['ui', 'zh', 'en', 'de'].includes(settings.export.language)) settings.export.language = d.export.language
   if (!['system', 'on', 'off'].includes(settings.effects.reduceTransparency)) settings.effects.reduceTransparency = d.effects.reduceTransparency
+  if (!['clear', 'tinted', 'solid'].includes(settings.effects.tier)) settings.effects.tier = d.effects.tier
+  if (!['home', 'studio'].includes(settings.ui.startPage)) settings.ui.startPage = d.ui.startPage
+  if (!['', 'learn', 'teach', 'research'].includes(settings.ui.role)) settings.ui.role = d.ui.role
   const ai = settings.ai
   if (!['official', 'openai', 'anthropic'].includes(ai.connection)) ai.connection = d.ai.connection
   if (!['act', 'ask'].includes(ai.copilotMode)) ai.copilotMode = d.ai.copilotMode
+  if (!['sketch', 'legacy'].includes(ai.sceneBuilder)) ai.sceneBuilder = d.ai.sceneBuilder
   for (const k of ['openai', 'anthropic'] as const) {
     const pr = ai[k]
     if (typeof pr.baseUrl !== 'string' || !/^https?:\/\//.test(pr.baseUrl)) pr.baseUrl = d.ai[k].baseUrl
@@ -483,6 +524,8 @@ function sanitize() {
     if (typeof pr.model !== 'string' || !pr.model.trim()) pr.model = d.ai[k].model
   }
   if (typeof ai.proxy !== 'string') ai.proxy = ''
+  // 26.64: stored update fields are a time and two short version texts
+  Object.assign(settings.update, { lastCheck: clamp(settings.update.lastCheck, 0, 8.64e15, 0), skipped: settings.update.skipped.slice(0, 24), lastLatest: settings.update.lastLatest.slice(0, 24) })
   const fb = settings.teaching.fbd
   if (!['actual', 'concurrent'].includes(fb.layout)) fb.layout = d.teaching.fbd.layout
   if (!['shape', 'particle'].includes(fb.body)) fb.body = d.teaching.fbd.body
@@ -524,6 +567,13 @@ export function loadSettings() {
       }
       // 26.60 r2: on Android the recording budget defaults to 192 MB; the old default (never changed) follows it
       if (rev < 2660 && settings.sim.memoryMB === 512) settings.sim.memoryMB = defaultMemoryMB()
+      // 26.64 (D255): the glass and ambient switches of 26.59–26.63 become one of the three material tiers
+      if (rev < 2664) settings.effects.tier = migrateTier((stored as { effects?: unknown }).effects)
+      // 26.65: every start opens the home page (the maintainer's request); a choice made by the 26.64 walkthrough's
+      // role question (研究 → 运动) is undone once. The setting itself stays.
+      if (rev < 2665) settings.ui.startPage = 'home'
+      // the old default 'point' gave German readers 25.4 °C; the new default follows the language (only the default moves)
+      if (rev < 2665 && settings.decimalSeparator === 'point') settings.decimalSeparator = 'auto'
       settings.rev = SETTINGS_REV
     } else {
       const old = localStorage.getItem(OLD_KEY)

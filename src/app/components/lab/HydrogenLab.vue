@@ -11,6 +11,7 @@ import { labState } from '../../lab/state'
 import { useLabCanvas } from '../../lab/canvas'
 import { wavelengthColor } from '../../lab/color'
 import { FONT, MONO } from '../../../render/style'
+import { spreadLabels } from '../../../render/labels'
 import NumField from '../NumField.vue'
 import LabFormula from './LabFormula.vue'
 
@@ -31,26 +32,32 @@ const { canvas, wrap, redraw, at } = useLabCanvas(() => props.active, (ctx, w, h
   const top = 30, bottom = h - 120
   // energy axis: −13.6 … 0 eV (with a log-like spacing so the upper levels are apart)
   const map = (e: number) => top + (bottom - top) * Math.pow(-e / 13.6, 0.55)
-  const x0 = 80, x1 = w - 40
-  ctx.font = `12px ${FONT}`
+  // 26.65 (D9): the energies stand right of the lines and the names left of them, each column spread so that levels
+  // lying close together (n = 5, 6 …) keep their labels apart; a label moved off its line gets a short leader
+  const x0 = 80, x1 = w - 104
   levelBoxes.length = 0
+  const ys = [top, ...hd.levels.map(map)]
+  const at = spreadLabels(ys, 14, top - 6, bottom + 6)
+  const lead = (xa: number, ya: number, xb: number, yb: number) => { if (Math.abs(ya - yb) > 1) { ctx.strokeStyle = P.gridMajor; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(xa, ya); ctx.lineTo(xb, yb); ctx.stroke() } }
   // ionization
   ctx.strokeStyle = P.text2; ctx.setLineDash([6, 4]); ctx.lineWidth = 1
   ctx.beginPath(); ctx.moveTo(x0, top); ctx.lineTo(x1, top); ctx.stroke(); ctx.setLineDash([])
-  ctx.fillStyle = P.text2; ctx.fillText('n = ∞   0 eV', 8, top + 4)
+  ctx.font = `12px ${FONT}`; ctx.fillStyle = P.text2; ctx.fillText('n = ∞', 8, at[0] + 4)
+  ctx.font = `11px ${MONO}`; ctx.fillText('0 eV', x1 + 8, at[0] + 4)
   hd.levels.forEach((e, k) => {
-    const n = k + 1, y = map(e)
+    const n = k + 1, y = ys[k + 1], ly = at[k + 1]
     levelBoxes.push({ n, y })
     const on = n === S.upper || n === S.lower
     ctx.strokeStyle = reach.value.has(n) ? P.velocity : on ? P.accent : P.text
     ctx.lineWidth = on ? 3 : 2
     ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1, y); ctx.stroke()
-    ctx.fillStyle = on ? P.accent : P.text
-    ctx.fillText(`n = ${n}`, 8, y + 4)
+    lead(x0 - 2, y, x0 - 22, ly); lead(x1 + 2, y, x1 + 6, ly)
+    ctx.font = `12px ${FONT}`; ctx.fillStyle = on ? P.accent : P.text
+    ctx.fillText(`n = ${n}`, 8, ly + 4)
     ctx.font = `11px ${MONO}`; ctx.fillStyle = P.text2
-    ctx.fillText(`${e.toFixed(2)} eV`, x1 - 70, y - 5)
-    ctx.font = `12px ${FONT}`
+    ctx.fillText(`${e.toFixed(2)} eV`, x1 + 8, ly + 4)
   })
+  ctx.font = `12px ${FONT}`
   // all lines as thin arrows, grouped by series
   const series = ['lyman', 'balmer', 'paschen', 'brackett', 'pfund']
   const span = (x1 - x0 - 120) / series.length
@@ -66,19 +73,29 @@ const { canvas, wrap, redraw, at } = useLabCanvas(() => props.active, (ctx, w, h
     ctx.beginPath(); ctx.moveTo(x, y2); ctx.lineTo(x - 4, y2 - 8); ctx.lineTo(x + 4, y2 - 8); ctx.closePath(); ctx.fill()
   }
   ctx.fillStyle = P.text2; ctx.font = `11px ${FONT}`
-  series.forEach((s, i) => ctx.fillText(SERIES[s].replace(/（.*）/, ''), x0 + 24 + i * span, bottom + 16))
+  // the names of the series without the part in brackets (both bracket styles: the translations use "( )"), smaller
+  // when a name is still wider than its column
+  series.forEach((s, i) => {
+    const name = SERIES[s].replace(/\s*[（(].*[）)]\s*$/, '')
+    ctx.font = `${ctx.measureText(name).width > span - 6 ? 10 : 11}px ${FONT}`
+    ctx.fillText(name, x0 + 24 + i * span, bottom + 16)
+  })
+  ctx.font = `11px ${FONT}`
   // spectrum strip
   const sy = h - 70, sh = 26
   const lam0 = 350, lam1 = 800
   const LX = (l: number) => x0 + (x1 - x0) * (l - lam0) / (lam1 - lam0)
   for (let l = 380; l < 780; l += 2) { ctx.fillStyle = wavelengthColor(l, 0.18); ctx.fillRect(LX(l), sy, LX(l + 2) - LX(l) + 0.5, sh) }
   ctx.strokeStyle = P.gridMajor; ctx.lineWidth = 1; ctx.strokeRect(LX(lam0), sy, LX(lam1) - LX(lam0), sh)
-  for (const l of hd.lines) {
-    if (l.wavelength < lam0 || l.wavelength > lam1) continue
+  const shown = hd.lines.filter(l => l.wavelength >= lam0 && l.wavelength <= lam1)
+  for (const l of shown) {
     ctx.strokeStyle = wavelengthColor(l.wavelength); ctx.lineWidth = l.upper === S.upper && l.lower === S.lower ? 4 : 2.5
     ctx.beginPath(); ctx.moveTo(LX(l.wavelength), sy); ctx.lineTo(LX(l.wavelength), sy + sh); ctx.stroke()
-    ctx.fillStyle = P.text2; ctx.font = `10px ${MONO}`; ctx.fillText(l.wavelength.toFixed(0), LX(l.wavelength) - 10, sy + sh + 12)
   }
+  // the wavelengths under the strip, spread when lines lie close (389, 397, 410 nm …) (D9)
+  ctx.fillStyle = P.text2; ctx.font = `10px ${MONO}`
+  const lx = spreadLabels(shown.map(l => LX(l.wavelength)), 22, x0 + 10, x1 - 10)
+  shown.forEach((l, i) => { const s = l.wavelength.toFixed(0); ctx.fillText(s, lx[i] - ctx.measureText(s).width / 2, sy + sh + 12) })
   ctx.fillStyle = P.text2; ctx.font = `11px ${FONT}`
   ctx.fillText(tl('可见光谱（nm）'), x0, sy - 6)
 })

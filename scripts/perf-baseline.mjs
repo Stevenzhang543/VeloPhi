@@ -16,13 +16,16 @@ import { join, extname, resolve } from 'node:path'
 import os from 'node:os'
 
 const { chromium } = createRequire(import.meta.url)('playwright')
-const repo = resolve(new URL('..', import.meta.url).pathname)
+// 26.64: a Windows drive path ("/E:/…" from the URL) loses its leading slash, as in scripts/quick-gate.mjs
+const repo = resolve(new URL('..', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1'))
 const out = join(repo, '.cache', 'perf')
 mkdirSync(out, { recursive: true })
+// 26.64: VELOPHI_DIST measures another build folder, VELOPHI_PERF_OUT names the result (before / after side by side)
+const dist = resolve(repo, process.env.VELOPHI_DIST ?? 'dist')
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.wasm': 'application/wasm', '.svg': 'image/svg+xml', '.woff2': 'font/woff2' }
 const srv = createServer((req, rsp) => {
   let p = decodeURIComponent((req.url ?? '/').split('?')[0]); if (p.endsWith('/')) p += 'index.html'
-  const f = join(repo, 'dist', p)
+  const f = join(dist, p)
   if (!existsSync(f) || !statSync(f).isFile()) { rsp.writeHead(404); rsp.end(); return }
   rsp.writeHead(200, { 'content-type': TYPES[extname(f)] ?? 'application/octet-stream' }); rsp.end(readFileSync(f))
 })
@@ -68,7 +71,7 @@ rows.push(await scene('few bodies', '斜面滑块'))
 rows.push(await scene('many bodies (Soft Step)', '高尔顿板', { playMs: 6000 }))
 rows.push(await scene('long recording + curves', '单摆', { computeTo: 120, speed: 4, chart: true }))
 const env = { os: `${os.type()} ${os.release()} ${os.arch()}`, cpus: `${os.cpus().length} × ${os.cpus()[0]?.model ?? '?'}`, browser: `Chromium ${browser.version()} (headless)`, viewport: `${viewport.width}×${viewport.height}`, dpr: 1, at: new Date().toISOString() }
-writeFileSync(join(out, 'baseline.json'), JSON.stringify({ env, rows }, null, 1))
+writeFileSync(join(out, process.env.VELOPHI_PERF_OUT ?? 'baseline.json'), JSON.stringify({ env, rows }, null, 1))
 console.log(JSON.stringify(env))
 console.log('scene | bodies | engine | first frame ms | p50 ms | p95 ms | max ms | long | sim s/s | recording MB | heap MB')
 for (const r of rows) console.log(`${r.name} | ${r.bodies} | ${r.engine} | ${r.firstFrameMs} | ${r.p50.toFixed(1)} | ${r.p95.toFixed(1)} | ${r.max.toFixed(1)} | ${r.long} | ${r.simSecondsPerSecond.toFixed(1)} | ${r.recordingMB.toFixed(1)} | ${r.heapMB?.toFixed(1) ?? '—'}`)

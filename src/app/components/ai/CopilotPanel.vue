@@ -274,7 +274,7 @@ const buildFailed = (b: Bubble) => b.offer?.state === 'failed'
 .empty { min-width: 0; }
 .starters { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
 .starters .btn { white-space: normal; text-align: left; height: auto; min-height: 28px; padding-top: 4px; padding-bottom: 4px; line-height: 1.35; max-width: 100%; }
-.msg { max-width: 94%; border-radius: 14px; padding: 8px 11px; line-height: 1.55; font-size: var(--type-body); position: relative; }
+.msg { max-width: 94%; border-radius: 14px; padding: 8px 11px; line-height: var(--line-para); font-size: var(--type-body); position: relative; }
 .msg.user { align-self: flex-end; background: var(--accent); color: var(--on-accent); white-space: pre-wrap; display: grid; gap: 6px; }
 .msg.user img { max-width: 220px; border-radius: 8px; }
 .msg.bot { align-self: flex-start; background: var(--fill); color: var(--text); padding-right: 26px; }
@@ -312,7 +312,7 @@ const buildFailed = (b: Bubble) => b.offer?.state === 'failed'
 .draft { margin: 0 0 4px; font-size: 12px; color: var(--text-2); }
 .diff { margin: 2px 0 0 18px; font-size: 12px; }
 .diff ul { margin: 2px 0; padding-left: 14px; }
-.diff code { font-size: 11px; word-break: break-all; }
+.diff code { font-size: var(--type-tiny); word-break: break-all; }
 .acts .err { color: var(--danger) !important; font-size: var(--type-tiny); }
 .acts .muted { color: var(--text-3); }
 .status { display: flex; align-items: center; gap: 8px; color: var(--text-2); font-size: var(--type-small); }
@@ -329,7 +329,7 @@ const buildFailed = (b: Bubble) => b.offer?.state === 'failed'
 .chip-toggle.on { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
 .scene-card { margin: 0 0 8px; padding: 8px 10px; border-radius: 10px; background: var(--pane); border: 1px solid var(--separator); display: grid; gap: 4px; font-size: var(--type-small); }
 .sc-head { display: flex; align-items: center; gap: 6px; color: var(--success); }
-.sc-head b { color: var(--text); font-weight: 600; overflow-wrap: anywhere; }
+.sc-head b { color: var(--text); font-weight: 600; overflow-wrap: break-word; }
 .sc-meta { margin: 0; color: var(--text-3); }
 .sc-ans { margin: 2px 0; padding-left: 20px; display: grid; gap: 2px; }
 .sc-ans li span::after { content: ' = '; color: var(--text-3); }
@@ -337,7 +337,7 @@ const buildFailed = (b: Bubble) => b.offer?.state === 'failed'
 .sc-notes, .sc-json { color: var(--text-2); }
 .sc-notes summary, .sc-json summary { cursor: pointer; }
 .sc-notes ul { margin: 4px 0 0; padding-left: 18px; }
-.sc-json pre { margin: 4px 0 0; max-height: 260px; overflow: auto; padding: 6px 8px; border-radius: 6px; background: var(--fill); font-family: var(--font-mono); font-size: 11px; line-height: 1.4; white-space: pre; }
+.sc-json pre { margin: 4px 0 0; max-height: 260px; overflow: auto; padding: 6px 8px; border-radius: 6px; background: var(--fill); font-family: var(--font-mono); font-size: var(--type-tiny); line-height: 1.4; white-space: pre; }
 .sc-btns { display: flex; flex-wrap: wrap; gap: 4px; }
 .sc-btns .btn { display: inline-flex; align-items: center; gap: 4px; }
 .offer { margin-top: 10px; padding: 8px 10px; border-radius: 10px; background: var(--pane); border: 1px dashed color-mix(in srgb, var(--accent) 45%, transparent); display: grid; gap: 6px; }

@@ -24,9 +24,10 @@ import { initRecords } from './learn/records'
 import { loadAccount, refreshAccount } from '../ai/account'
 import { loadMyProblems } from '../teaching/myProblems'
 import { isAndroid } from '../platform/device'
-import { useSystemFonts } from '../render/style'
+import { setCanvasLanguage, useSystemFonts } from '../render/style'
 import { installUiTestHooks } from './uitest'
 import { installTooltips } from './tooltip'
+import { initialPage } from './panels'
 
 // 26.60 r2: Android uses the system's fonts (the diagnosis switch "appfont" keeps the bundled ones)
 if (isAndroid() && !((window as unknown as { __velophiCompat?: string }).__velophiCompat ?? '').split(',').includes('appfont')) {
@@ -48,6 +49,8 @@ initAppearance()
 // situations (their titles and conditions are texts), never recomputes the recording
 setLanguage(settings.language)
 watch(() => settings.language, setLanguage)
+// 26.65 (D294): the canvas draws with the interface's fonts, in the variant of the language
+watch(() => locale.lang, l => setCanvasLanguage(l === 'zh'), { immediate: true })
 watch(() => locale.lang, recognizeAgain)
 
 // The default g of templates and new scenes follows the setting (existing scenes keep their own g)
@@ -81,7 +84,7 @@ async function start() {
   state.chart = defaultChart(state.scene)
   // 26.63 (D232): the home page at start (a setting); tests, the release self-check and share links start in the studio
   const direct = /[?&](uitest|selftest)\b/.test(location.search) || location.hash.startsWith('#s=') || compatFlags().length > 0
-  state.page = !direct && settings.ui.startPage === 'home' ? 'home' : 'studio'
+  state.page = initialPage(settings.ui.startPage, direct)
   createApp(App).mount('#app')
   installTooltips()
   installUiTestHooks()

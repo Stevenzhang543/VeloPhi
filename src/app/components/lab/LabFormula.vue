@@ -4,7 +4,7 @@
  * (evaluated by the core's formula language, `evaluateExpr`) and, beside it, the value the experiment computed in
  * Rust, with their difference. The conclusion is on top; the known values and the substitution fold out.
  */
-import { computed } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { tl } from '../../../i18n'
 import { calc } from '../../../engine/core'
 import { fmtQ } from '../../settings'
@@ -49,6 +49,29 @@ const relText = computed(() => {
   if (r === 0) return '0'
   return r >= 1e-5 ? `${Number((r * 100).toPrecision(2))}%` : r.toExponential(1)
 })
+
+/**
+ * 26.65 (D8): a formula wider than the card is drawn smaller until it fits (down to 60 %; below that it scrolls
+ * sideways), so the right half of r = arcsin(n₁ sin i / n₂) is no longer cut off.
+ */
+const texBox = ref<HTMLElement | null>(null)
+let ro: ResizeObserver | null = null
+function refit() {
+  const box = texBox.value, inner = box?.querySelector<HTMLElement>('.tex')
+  if (!box || !inner) return
+  box.style.setProperty('--lf-fit', '1')
+  const natural = inner.scrollWidth, room = inner.clientWidth
+  box.style.setProperty('--lf-fit', String(natural > room + 1 && room > 0 ? Math.max(0.6, (room - 2) / natural) : 1))
+}
+// the width of the formula changes once the KaTeX fonts have loaded (the box itself keeps its size)
+const fontsLoaded = () => refit()
+onMounted(() => {
+  if (typeof ResizeObserver === 'function' && texBox.value) { ro = new ResizeObserver(() => refit()); ro.observe(texBox.value) }
+  if (typeof document !== 'undefined' && document.fonts) { document.fonts.addEventListener('loadingdone', fontsLoaded); void document.fonts.ready.then(fontsLoaded) }
+  void nextTick(refit)
+})
+onBeforeUnmount(() => { ro?.disconnect(); if (typeof document !== 'undefined' && document.fonts) document.fonts.removeEventListener('loadingdone', fontsLoaded) })
+watch(() => props.tex, () => { void nextTick(refit) })
 </script>
 
 <template>
@@ -59,7 +82,7 @@ const relText = computed(() => {
       <span v-if="note" class="lf-val mono">{{ note }}</span>
       <span v-else class="lf-val mono"><Tex :tex="lhs" /> = {{ fmt(theory) }}</span>
     </div>
-    <div class="lf-tex"><Tex :tex="tex" display /></div>
+    <div ref="texBox" class="lf-tex"><Tex :tex="tex" display /></div>
     <div v-if="result !== null && result !== undefined" class="lf-cmp tiny">
       <span class="muted">{{ tl('公式') }}</span><span class="mono">{{ fmt(theory) }}</span>
       <span class="muted">{{ tl('实验（Rust 计算）') }}</span><span class="mono">{{ fmt(result) }}</span>
@@ -75,7 +98,7 @@ const relText = computed(() => {
 </template>
 
 <style scoped>
-.lf-tex { overflow-x: auto; overflow-y: hidden; max-width: 100%; }
+.lf-tex { overflow-x: auto; overflow-y: hidden; max-width: 100%; font-size: calc(var(--lf-fit, 1) * 1em); }
 .lf { background: var(--group); border-radius: var(--radius-group); padding: 6px 10px; margin-bottom: 8px; border-left: 3px solid transparent; }
 .lf.ok { border-left-color: var(--success); }
 .lf.warn { border-left-color: var(--warning); }

@@ -1,0 +1,31 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "bundle": {
+    "targets": ["deb", "rpm", "appimage"],
+    "icon": ["icons/icon.png", "icons/32x32.png", "icons/64x64.png", "icons/128x128.png"],
+    "homepage": "https://github.com/Stevenzhang543/VeloPhi",
+    "license": "LicenseRef-UNLICENSED",
+    "shortDescription": "Mechanics simulation and teaching engine with verifiable results",
+    "longDescription": "VeloPhi (VeloΦ) is a mechanics simulation and teaching engine for physics students and teachers: build a scene, simulate it exactly, pause at any moment to read values, and compare the simulation with the matching formulas.\n\nVeloPhi（VeloΦ）：面向物理专业学生与物理教师的力学仿真与教学引擎。搭建场景、精确仿真、随时暂停读数，并自动匹配公式与仿真结果对照。",
+    "linux": {
+      "deb": {
+        "section": "education",
+        "depends": ["libc6 (>= 2.35)", "libssl3 | libssl3t64"],
+        "recommends": ["ca-certificates", "fonts-noto-cjk", "gstreamer1.0-plugins-good"],
+        "desktopTemplate": "linux/velophi.desktop.hbs",
+        "files": { "/usr/share/metainfo/app.velophi.physics.metainfo.xml": "linux/app.velophi.physics.metainfo.xml" }
+      },
+      "rpm": {
+        "release": "1",
+        "depends": ["libssl.so.3()(64bit)", "libc.so.6(GLIBC_2.34)(64bit)"],
+        "recommends": ["ca-certificates", "gstreamer1-plugins-good", "gstreamer-plugins-good", "google-noto-sans-cjk-fonts", "noto-sans-sc-fonts"],
+        "desktopTemplate": "linux/velophi.desktop.hbs",
+        "files": { "/usr/share/metainfo/app.velophi.physics.metainfo.xml": "linux/app.velophi.physics.metainfo.xml" }
+      },
+      "appimage": {
+        "bundleMediaFramework": true,
+        "files": { "/usr/share/metainfo/app.velophi.physics.metainfo.xml": "linux/app.velophi.physics.metainfo.xml" }
+      }
+    }
+  }
+}

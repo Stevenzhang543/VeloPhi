@@ -92,10 +92,10 @@ fn field_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()> {
             let (t0, t1) = (run.t0, run.t1);
             let name = b.name.clone();
             let title = match ty {
-                "charge-e" => t!("{0} 在匀强电场中运动", name),
-                "charge-b" => t!("{0} 在匀强磁场中做匀速圆周运动", name),
-                "selector" => t!("{0} 通过速度选择器", name),
-                _ => t!("{0} 在电场和磁场中运动", name),
+                "charge-e" => t!("{0}在匀强电场中运动", name),
+                "charge-b" => t!("{0}在匀强磁场中做匀速圆周运动", name),
+                "selector" => t!("{0}通过速度选择器", name),
+                _ => t!("{0}在电场和磁场中运动", name),
             };
             let ek0 = 0.5 * mass * v0 * v0;
             // circular motion in B: centre of curvature at the start, for the period
@@ -284,7 +284,7 @@ fn coulomb_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()> {
         out.push(Situation {
             key: format!("coulomb:{}", js_num(t0)),
             ty: "coulomb",
-            title: t!("{0} 与 {1} 的库仑相互作用", b1.name.clone(), b2.name.clone()),
+            title: t!("{0}与{1}的库仑相互作用", b1.name.clone(), b2.name.clone()),
             t0,
             t1,
             t_event: None,

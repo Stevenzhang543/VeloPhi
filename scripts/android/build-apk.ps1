@@ -11,14 +11,16 @@
 #    adds the signing configuration to app\build.gradle.kts (it reads the key file from the home folder).
 #    26.59 fix 3 (D192): copies VeloPhi's own Android code (src-tauri\mobile\android: renderer recovery, the adb
 #    devtools switch) over the template and declares RecoverActivity in AndroidManifest.xml.
+#    26.64: in-app update (docs\dev\UPDATES.md) — copies src-tauri\mobile\android\res and declares the
+#    REQUEST_INSTALL_PACKAGES permission and UpdateFileProvider in AndroidManifest.xml.
 # 4. tauri android build --apk (arm64 + armv7 in one universal APK), checks the signature with apksigner and copies
-#    the APK to .cache\android-26.63\ for package-release.ps1, with the certificate fingerprint as evidence.
+#    the APK to .cache\android-26.64\ for package-release.ps1, with the certificate fingerprint as evidence.
 #    -Test builds for the MuMu emulator (-Targets x86_64) go to .cache\android-test\ instead and leave the release
 #    APK alone.
 param([string[]]$Targets = @('aarch64', 'armv7'), [switch]$Test)
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
-$Version = '26.63'
+$Version = '26.65'
 $Repo = (Get-Location).Path
 if (-not (Test-Path (Join-Path $Repo 'src-tauri\tauri.conf.json'))) { throw 'run this from the repository root' }
 $Out = Join-Path $Repo $(if ($Test) { '.cache\android-test' } else { ".cache\android-$Version" })
@@ -127,6 +129,31 @@ if ($m -notmatch 'RecoverActivity') {
   $m = $m.Substring(0, $k) + $rec + $m.Substring($k)
   [IO.File]::WriteAllText($Manifest, $m, (New-Object Text.UTF8Encoding $false))
   Write-Host '  RecoverActivity declared in AndroidManifest.xml'
+}
+# 26.64: in-app update (src-tauri\src\update.rs, MainActivity.installUpdate) — the permission to ask the system
+# installer, and a FileProvider of its own that can hand over only the verified APK in the app's cache\update folder
+# (UpdateFileProvider.kt; its paths are src-tauri\mobile\android\res\xml\velophi_update_paths.xml)
+Copy-Item -Recurse -Force (Join-Path $Repo 'src-tauri\mobile\android\res\*') $res
+$m = [IO.File]::ReadAllText($Manifest)
+$upd = @()
+if ($m -notmatch 'REQUEST_INSTALL_PACKAGES') {
+  $k = $m.IndexOf('    <application')
+  if ($k -lt 0) { throw "unexpected layout of $Manifest; add the REQUEST_INSTALL_PACKAGES permission by hand" }
+  $m = $m.Substring(0, $k) + '    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />' + "`n" + $m.Substring($k)
+  $upd += 'REQUEST_INSTALL_PACKAGES'
+}
+if ($m -notmatch 'UpdateFileProvider') {
+  $prov = '        <provider android:name=".UpdateFileProvider" android:authorities="${applicationId}.update" android:exported="false" android:grantUriPermissions="true">' + "`n" +
+    '            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/velophi_update_paths" />' + "`n" +
+    '        </provider>' + "`n"
+  $k = $m.IndexOf('    </application>')
+  if ($k -lt 0) { throw "unexpected layout of $Manifest; declare UpdateFileProvider by hand" }
+  $m = $m.Substring(0, $k) + $prov + $m.Substring($k)
+  $upd += 'UpdateFileProvider'
+}
+if ($upd.Count) {
+  [IO.File]::WriteAllText($Manifest, $m, (New-Object Text.UTF8Encoding $false))
+  Write-Host "  in-app update declared in AndroidManifest.xml: $($upd -join ', ')"
 }
 Write-Host "  Android code: $((Get-ChildItem (Join-Path $Repo 'src-tauri\mobile\android\*.kt')).Name -join ', ')"
 $g = Get-Content -Raw -Encoding UTF8 $Gradle

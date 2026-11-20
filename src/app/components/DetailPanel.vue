@@ -200,11 +200,11 @@ const TONE_CLASS: Record<string, string> = { ok: 'ok', warn: 'warn', bad: 'bad',
 :root.fx-glass .detail { background: color-mix(in srgb, var(--pane) 90%, transparent); -webkit-backdrop-filter: blur(28px) saturate(1.9); backdrop-filter: blur(28px) saturate(1.9); }
 .edge { position: absolute; left: 0; top: 0; bottom: 0; width: 6px; cursor: col-resize; z-index: 2; }
 .dhead { padding: 8px 14px 6px; border-bottom: 1px solid var(--separator); flex: 0 0 auto; min-width: 0; }
-.kind { color: var(--accent); font-weight: 650; letter-spacing: 0.02em; margin-right: 4px; white-space: nowrap; }
+.kind { color: var(--accent); font-weight: var(--weight-strong); letter-spacing: 0.02em; margin-right: 4px; white-space: nowrap; }
 .tools { display: flex; align-items: center; gap: 2px; margin: 0 -6px 2px 0; flex-wrap: wrap; }
-.title { font-size: calc(17px * var(--zoom)); font-weight: 650; margin: 2px 0 0; line-height: 1.3; overflow-wrap: anywhere; }
+.title { font-size: calc(17px * var(--zoom)); font-weight: var(--weight-strong); margin: 2px 0 0; line-height: 1.3; overflow-wrap: break-word; }
 .subline { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin-top: 3px; }
-.subtitle { overflow-wrap: anywhere; margin-right: 2px; }
+.subtitle { overflow-wrap: break-word; margin-right: 2px; }
 .subline .badge { height: auto; min-height: 20px; white-space: normal; }
 .headline { margin: 4px 0 0; overflow-x: auto; overflow-y: hidden; }
 .headline :deep(.katex-display) { margin: 4px 0; }

@@ -1,0 +1,88 @@
+/**
+ * Interface texts of 26.64: the Copilot scene sketch, its checks and repairs, and the chemistry tools (D279–D286).
+ * One entry per Chinese source text: `'中文': ['English', 'Deutsch']` (British spelling; terms as in docs/i18n/GLOSSARY.md).
+ */
+export const TEXTS_2664_AI: Record<string, readonly [string, string]> = {
+  // ---- settings: the one switch (D283) ----
+  '搭场景的方式': ['How scenes are built', 'So werden Szenen aufgebaut'],
+  '草图：模型只写物体之间的关系和题目给出的量，坐标由 App 计算并逐级检查。场景文件：26.60 的做法，模型直接写出带坐标的场景文件；保留这一版用于对照。': ['Sketch: the model writes only how the bodies relate and the values the problem gives; the app computes every coordinate and checks the result level by level. Scene file: the way of 26.60, where the model writes the scene file with coordinates itself; kept for this version for comparison.', 'Skizze: Das Modell schreibt nur, wie die Körper zueinander stehen, und die gegebenen Werte der Aufgabe; die App berechnet jede Koordinate und prüft das Ergebnis Stufe für Stufe. Szenendatei: das Verfahren von 26.60, bei dem das Modell die Szenendatei mit Koordinaten selbst schreibt; für diese Version zum Vergleich beibehalten.'],
+  '草图（默认）': ['Sketch (default)', 'Skizze (Standard)'],
+  '场景文件（旧）': ['Scene file (old)', 'Szenendatei (alt)'],
+
+  // ---- the chemistry tools of the Copilot (D286): the lines of its action chips ----
+  '查看实验台': ['Look at the bench', 'Labortisch ansehen'],
+  '查找药品“{0}”': ['Search the reagents for “{0}”', 'Reagenzien nach „{0}“ durchsuchen'],
+  '在实验台上放置 {0}': ['Put a {0} on the bench', '{0} auf den Labortisch stellen'],
+  '加入 {0} {1} {2}': ['Add {0} {1} of {2}', '{0} {1} {2} zugeben'],
+  '从 {0} 倒入 {1}': ['Pour from {0} into {1}', 'Aus {0} in {1} gießen'],
+  '加热 {0}（{1} W）': ['Heat {0} ({1} W)', '{0} erhitzen ({1} W)'],
+  '停止加热 {0}': ['Stop heating {0}', 'Erhitzen von {0} beenden'],
+  '等待 {0} s': ['Wait {0} s', '{0} s warten'],
+  '配平：{0}': ['Balance: {0}', 'Ausgleichen: {0}'],
+  '查阅“{0}”': ['Look up “{0}”', '„{0}“ nachschlagen'],
+  '打开元素 {0}': ['Open the element {0}', 'Element {0} öffnen'],
+  '打开物质 {0}': ['Open the substance {0}', 'Stoff {0} öffnen'],
+
+  // ---- status lines of a build ----
+  '正在读题（写读题笔记）': ['Reading the problem (taking notes)', 'Aufgabe wird gelesen (Notizen)'],
+  '正在写场景草图': ['Writing the scene sketch', 'Szenenskizze wird geschrieben'],
+  '正在编译并检查草图': ['Compiling and checking the sketch', 'Skizze wird übersetzt und geprüft'],
+  '正在修正草图（第 {0} 轮）': ['Correcting the sketch (round {0})', 'Skizze wird korrigiert (Runde {0})'],
+  '正在尝试用模板搭建': ['Trying to build it from a template', 'Aufbau aus einer Vorlage wird versucht'],
+  '模型返回了空内容，正在重试': ['The model sent an empty answer; trying again', 'Das Modell hat leer geantwortet; neuer Versuch'],
+  '模型没有给出可用的草图': ['The model gave no usable sketch', 'Das Modell hat keine brauchbare Skizze geliefert'],
+
+  // ---- assumptions ----
+  '到原点的距离': ['distance from the origin', 'Abstand vom Ursprung'],
+  '底边': ['base', 'Grundseite'],
+  '级数': ['number of steps', 'Stufenzahl'],
+  '每级的高度': ['height of one step', 'Stufenhöhe'],
+  '每级的深度': ['depth of one step', 'Stufentiefe'],
+  '初速度': ['initial speed', 'Anfangsgeschwindigkeit'],
+  '摩擦因数': ['coefficient of friction', 'Reibungszahl'],
+  '离地高度': ['height above the ground', 'Höhe über dem Boden'],
+  '题目没有给 g，取 {0} m/s²': ['The problem does not give g: {0} m/s² is used', 'Die Aufgabe gibt g nicht an: {0} m/s² wird verwendet'],
+  '{0}的{1}题目没有给，取 {2}': ['{0}: the problem does not give the {1}; {2} is used', '{0}: Die Aufgabe gibt {1} nicht an; {2} wird verwendet'],
+  '{0}的尺寸题目没有给，取：{1}': ['{0}: the problem does not give its size; used: {1}', '{0}: Die Aufgabe gibt die Abmessungen nicht an; verwendet: {1}'],
+  '{0}按不转动的滑块处理（不计车轮）': ['{0} is treated as a block that does not turn (its wheels are ignored)', '{0} wird als nicht drehender Klotz behandelt (ohne Räder)'],
+  '{0}：小球半径取 {2} m，球心沿半径 {1} m 的圆运动（与把小球当质点的答案一致）': ['{0}: the ball has radius {2} m and its centre moves on the circle of radius {1} m (the same answers as for a point mass)', '{0}: Die Kugel hat den Radius {2} m, ihr Mittelpunkt läuft auf dem Kreis mit Radius {1} m (dieselben Ergebnisse wie für einen Massenpunkt)'],
+  '{0}悬挂的高度题目没有给，取滑轮下方 {1} m': ['{0}: the problem does not say how high it hangs; {1} m below the pulley is used', '{0}: Die Aufgabe sagt nicht, wie hoch der Körper hängt; {1} m unter der Rolle wird verwendet'],
+  '{0}与{1}之间的摩擦题目没有给，按光滑处理': ['The problem gives no friction between {0} and {1}: taken as smooth', 'Die Aufgabe gibt keine Reibung zwischen {0} und {1} an: reibungsfrei angenommen'],
+  '{0}开始时处于原长（原长 {1} m）': ['{0} starts at its natural length ({1} m)', '{0} hat anfangs die Ruhelänge ({1} m)'],
+  '{0}的原长题目没有给，按初始形变取 {1} m': ['{0}: the problem does not give the natural length; {1} m follows from its initial deformation', '{0}: Die Aufgabe gibt die Ruhelänge nicht an; aus der Anfangsverformung folgen {1} m'],
+  '{0}的{1}题目没有给，模型取 {2}': ['{0}: the problem does not give the {1}; the model chose {2}', '{0}: Die Aufgabe gibt {1} nicht an; das Modell wählte {2}'],
+  '模板参数“{0}”题目没有给，取默认值 {1}': ['The problem does not give the template parameter “{0}”: the default {1} is used', 'Die Aufgabe gibt den Vorlagenparameter „{0}“ nicht an: der Standardwert {1} wird verwendet'],
+
+  // ---- findings, told to the user (D282) ----
+  '草图': ['the sketch', 'die Skizze'],
+  '“{0}”没有被支撑，也没有绳或弹簧连到它': ['“{0}” is not supported, and no rope or spring reaches it', '„{0}“ wird nicht gestützt, und kein Seil und keine Feder reicht hin'],
+  '“{0}”与它应当接触的物体没有贴合，或碰到了不该碰的物体': ['“{0}” does not rest on what it should, or touches something it should not', '„{0}“ liegt nicht auf, wo es sollte, oder berührt etwas, das es nicht berühren sollte'],
+  '“{0}”与别的物体重叠': ['“{0}” overlaps another body', '„{0}“ überlappt einen anderen Körper'],
+  '“{0}”放不到指定的位置上（超出了它的支撑面）': ['“{0}” cannot be put at the place named (it is beyond its support)', '„{0}“ lässt sich nicht an die genannte Stelle setzen (außerhalb der Auflage)'],
+  '这几个物体的位置互相依赖，定不下来（从“{0}”起）': ['The places of these bodies depend on each other and cannot be worked out (starting with “{0}”)', 'Die Lagen dieser Körper hängen voneinander ab und lassen sich nicht bestimmen (beginnend mit „{0}“)'],
+  '“{0}”被规定了两次且互相矛盾': ['“{0}” is fixed twice, in ways that contradict each other', '„{0}“ ist doppelt und widersprüchlich festgelegt'],
+  '绳“{0}”的松紧与题意不符': ['The rope “{0}” is not taut or slack as the problem says', 'Das Seil „{0}“ ist nicht so gespannt oder schlaff, wie die Aufgabe sagt'],
+  '绳“{0}”穿过了物体': ['The rope “{0}” passes through a body', 'Das Seil „{0}“ läuft durch einen Körper'],
+  '绳“{0}”没有顺着物体的运动方向接到滑轮上': ['The rope “{0}” does not lead to its pulley along the direction its body moves in', 'Das Seil „{0}“ führt nicht in Bewegungsrichtung seines Körpers zur Rolle'],
+  '弹簧“{0}”开始时的形变与给定值不符': ['The spring “{0}” does not start with the deformation given', 'Die Feder „{0}“ hat anfangs nicht die gegebene Verformung'],
+  '连接件“{0}”的端点不在物体上': ['An end of the connector “{0}” is not on its body', 'Ein Ende des Verbinders „{0}“ liegt nicht auf seinem Körper'],
+  '引擎无法编译这个场景': ['The engine cannot compile this scene', 'Die Engine kann diese Szene nicht übersetzen'],
+  '试运行时求解器出错': ['The solver failed in the trial run', 'Der Löser ist im Probelauf gescheitert'],
+  '“{0}”在开始的瞬间出现了题目没有的变化（绳松弛、脱离或相撞）': ['At the very start “{0}” does something the problem does not say (a rope goes slack, bodies separate or collide)', 'Gleich zu Beginn geschieht bei „{0}“ etwas, das die Aufgabe nicht nennt (ein Seil wird schlaff, Körper lösen sich oder stoßen zusammen)'],
+  '题目说“{0}”保持静止，试运行中它动了': ['The problem says “{0}” stays at rest; in the trial run it moved', 'Laut Aufgabe bleibt „{0}“ in Ruhe; im Probelauf hat es sich bewegt'],
+  '题目说“{0}”会运动，试运行中它没有动': ['The problem says “{0}” moves; in the trial run it did not', 'Laut Aufgabe bewegt sich „{0}“; im Probelauf blieb es stehen'],
+  '题目说“{0}”恰好不滑动，试运行中摩擦力没有达到最大值': ['The problem says “{0}” is just about to slide; in the trial run the friction force was not at its limit', 'Laut Aufgabe rutscht „{0}“ gerade noch nicht; im Probelauf lag die Reibungskraft nicht an ihrer Grenze'],
+  '这个量在题目里找不到出处：{0}': ['This value has no source in the problem text: {0}', 'Dieser Wert hat keine Quelle im Aufgabentext: {0}'],
+  '这个量的数值与它引用的题目原文不一致：{0}': ['This value differs from the words of the problem it quotes: {0}', 'Dieser Wert weicht von der zitierten Stelle der Aufgabe ab: {0}'],
+  '这个量的单位与它引用的题目原文不一致：{0}': ['The unit of this value differs from the words of the problem it quotes: {0}', 'Die Einheit dieses Werts weicht von der zitierten Stelle der Aufgabe ab: {0}'],
+  '这个量没有用上：{0}': ['This value is not used: {0}', 'Dieser Wert wird nicht verwendet: {0}'],
+  '这个所求读不出来：{0}': ['This question cannot be read from the scene: {0}', 'Diese Frage lässt sich aus der Szene nicht ablesen: {0}'],
+  '可动物体的个数与题目不一致': ['The number of movable bodies is not that of the problem', 'Die Zahl der beweglichen Körper stimmt nicht mit der Aufgabe überein'],
+  '模型的回答不是一份完整的草图（{0}）': ['The model’s answer is not a complete sketch ({0})', 'Die Antwort des Modells ist keine vollständige Skizze ({0})'],
+  '草图里“{0}”的描述有误（{1}）': ['The sketch describes “{0}” wrongly ({1})', 'Die Skizze beschreibt „{0}“ falsch ({1})'],
+  '……另有 {0} 处': ['… and {0} more', '… und {0} weitere'],
+  '已摆好的部分：{0}': ['Placed: {0}', 'Aufgebaut: {0}'],
+  '没能摆好的部分：{0}': ['Not placed: {0}', 'Nicht aufgebaut: {0}'],
+  '这道题我没能搭对，所以没有载入场景。这几处没摆对：': ['I could not build this problem correctly, so no scene was loaded. These parts are wrong:', 'Ich konnte diese Aufgabe nicht richtig aufbauen, deshalb wurde keine Szene geladen. Diese Teile stimmen nicht:'],
+  '场景已载入，但与题目的核对有 {0} 处没有通过：': ['The scene is loaded, but {0} checks against the problem text did not pass:', 'Die Szene ist geladen, aber {0} Prüfungen gegen den Aufgabentext sind nicht bestanden:']
+}

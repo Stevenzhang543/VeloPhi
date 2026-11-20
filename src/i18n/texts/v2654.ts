@@ -1,10 +1,10 @@
 /** Interface texts added in 26.54 (VeloPhi): Chinese source → [English, German]. */
 export const TEXTS_2654: Record<string, readonly [string, string]> = {
   // Electric and magnetic situations of the core (formula/situations2654.rs, D78)
-  '{0} 在匀强电场中运动': ['{0} moves in a uniform electric field', '{0} bewegt sich in einem homogenen elektrischen Feld'],
-  '{0} 在匀强磁场中做匀速圆周运动': ['{0} moves on a circle in a uniform magnetic field', '{0} bewegt sich auf einer Kreisbahn im homogenen Magnetfeld'],
-  '{0} 通过速度选择器': ['{0} passes a velocity selector', '{0} durchläuft einen Geschwindigkeitsfilter'],
-  '{0} 在电场和磁场中运动': ['{0} moves in electric and magnetic fields', '{0} bewegt sich in elektrischem und magnetischem Feld'],
+  '{0}在匀强电场中运动': ['{0} moves in a uniform electric field', '{0} bewegt sich in einem homogenen elektrischen Feld'],
+  '{0}在匀强磁场中做匀速圆周运动': ['{0} moves on a circle in a uniform magnetic field', '{0} bewegt sich auf einer Kreisbahn im homogenen Magnetfeld'],
+  '{0}通过速度选择器': ['{0} passes a velocity selector', '{0} durchläuft einen Geschwindigkeitsfilter'],
+  '{0}在电场和磁场中运动': ['{0} moves in electric and magnetic fields', '{0} bewegt sich in elektrischem und magnetischem Feld'],
   '电荷量': ['Charge', 'Ladung'],
   '运动时间': ['Time of motion', 'Bewegungsdauer'],
   '电场强度大小': ['Electric field strength', 'Elektrische Feldstärke'],
@@ -35,7 +35,7 @@ export const TEXTS_2654: Record<string, readonly [string, string]> = {
   '速度垂直于磁场（平面运动）': ['Velocity perpendicular to the field (motion in the plane)', 'Geschwindigkeit senkrecht zum Feld (ebene Bewegung)'],
   '电场力大小': ['Electric force', 'Elektrische Kraft'],
   '电场力与洛伦兹力平衡（匀速直线运动）': ['Electric and Lorentz forces balance (uniform straight motion)', 'Elektrische Kraft und Lorentzkraft heben sich auf (gleichförmige geradlinige Bewegung)'],
-  '{0} 与 {1} 的库仑相互作用': ['Coulomb interaction of {0} and {1}', 'Coulomb-Wechselwirkung von {0} und {1}'],
+  '{0}与{1}的库仑相互作用': ['Coulomb interaction of {0} and {1}', 'Coulomb-Wechselwirkung von {0} und {1}'],
   '静电力常量': ['Coulomb constant', 'Coulomb-Konstante'],
   '{0}的电荷量': ['Charge of {0}', 'Ladung von {0}'],
   '两电荷间的距离（仿真）': ['Distance between the charges (simulation)', 'Abstand der Ladungen (Simulation)'],
@@ -367,11 +367,10 @@ export const TEXTS_2654: Record<string, readonly [string, string]> = {
   '实验文件中的实验未知': ['The experiment in the file is unknown', 'Das Experiment in der Datei ist unbekannt'],
   '已导入实验“{0}”': ['Imported experiment “{0}”', 'Experiment „{0}“ importiert'],
   '搜索实验': ['Search experiments', 'Experimente suchen'],
-  '把当前实验的器材与参数导出为文件': ['Export the apparatus and parameters of this experiment to a file', 'Aufbau und Parameter dieses Experiments in eine Datei exportieren'],
+  '器材与参数存为文件': ['Export the apparatus and parameters of this experiment to a file', 'Aufbau und Parameter dieses Experiments in eine Datei exportieren'],
   '从文件恢复一个实验': ['Restore an experiment from a file', 'Ein Experiment aus einer Datei wiederherstellen'],
   '导入': ['Import', 'Importieren'],
   '恢复本实验的默认器材与参数': ['Restore the default apparatus and parameters of this experiment', 'Standardaufbau und -parameter dieses Experiments wiederherstellen'],
-  '重置': ['Reset', 'Zurücksetzen'],
   // Lab: lenses and mirrors (D81)
   '凸透镜': ['Convex lens', 'Sammellinse'],
   '凹透镜': ['Concave lens', 'Zerstreuungslinse'],
@@ -535,10 +534,8 @@ export const TEXTS_2654: Record<string, readonly [string, string]> = {
   // Lab catalogue (D76; planned entries name their version)
   '电与磁': ['Electricity and magnetism', 'Elektrizität und Magnetismus'],
   '光学': ['Optics', 'Optik'],
-  '原子与原子核': ['Atoms and nuclei', 'Atome und Kerne'],
   '热学': ['Heat', 'Wärmelehre'],
   '相对论': ['Relativity', 'Relativität'],
-  '波与量子': ['Waves and quanta', 'Wellen und Quanten'],
   '直流电路': ['Direct-current circuits', 'Gleichstromkreise'],
   '电场线与等势线': ['Field lines and equipotentials', 'Feldlinien und Äquipotenziallinien'],
   '点电荷与匀强电场的合场：电场线、等势线、任一点的场强与电势': ['Combined field of point charges and a uniform field: field lines, equipotentials, field and potential at any point', 'Gesamtfeld von Punktladungen und homogenem Feld: Feldlinien, Äquipotenziallinien, Feldstärke und Potenzial an jedem Punkt'],

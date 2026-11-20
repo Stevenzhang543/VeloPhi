@@ -124,7 +124,7 @@ fn rail_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()> {
             out.push(Situation {
                 key: format!("rail:{}:{}", rl.id, js_num(t0)),
                 ty: "rail",
-                title: t!("{0} 切割磁感线（导轨回路）", name),
+                title: t!("{0}切割磁感线（导轨回路）", name),
                 t0,
                 t1,
                 t_event: None,
@@ -248,7 +248,7 @@ fn float_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()> {
             out.push(Situation {
                 key: format!("float:{}:{}", b.id, js_num(t0)),
                 ty: "float",
-                title: t!("{0} 在{1}中（浮力）", name, lname),
+                title: t!("{0}在{1}中（浮力）", name, lname),
                 t0,
                 t1,
                 t_event: None,
@@ -414,7 +414,7 @@ fn zone_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()> {
             let (t0, t1) = (run.t0, run.t1);
             let name = b.name.clone();
             let zname = z.name.clone();
-            let title = if ty == "zone-b" { t!("{0} 在{1}中做圆周运动", name, zname) } else { t!("{0} 在{1}中加速", name, zname) };
+            let title = if ty == "zone-b" { t!("{0}在{1}中做圆周运动", name, zname) } else { t!("{0}在{1}中加速", name, zname) };
             let z2 = z.clone();
             out.push(Situation {
                 key: format!("{}:{}:{}", ty, b.id, js_num(t0)),

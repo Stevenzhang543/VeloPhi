@@ -7,6 +7,7 @@ import { state, showToast } from '../store'
 import { reproPackage } from '../repro'
 import { saveFile } from '../../platform/files'
 import AboutContent from './AboutContent.vue'
+import UpdateSettings from './UpdateSettings.vue'
 import Icon from './Icon.vue'
 
 function openSettings() { state.showAbout = false; state.page = 'settings' }
@@ -28,6 +29,7 @@ async function saveRepro() {
       <div class="dialog-header">{{ tl('关于 VeloPhi') }}<span class="spacer" /><button class="btn icon ghost" :title="tl('关闭')" @click="state.showAbout = false"><Icon name="close" /></button></div>
       <div class="dialog-body">
         <AboutContent />
+        <UpdateSettings compact />
         <details class="repro" data-ui="repro">
           <summary>{{ tl('问题复现包（本地生成，保存前可预览）') }}</summary>
           <p class="tiny muted">{{ tl('只包含版本、平台类别、计算后端、求解器与设置、运行指纹、当前时刻与事件侧、错误代码和最近的诊断事件。不包含题图、聊天内容、文件名与路径、密钥。') }}</p>

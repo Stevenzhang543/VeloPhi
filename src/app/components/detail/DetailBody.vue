@@ -73,21 +73,21 @@ const STATUS_MARK: Record<'ok' | 'approx' | 'fail', string> = { ok: '✓', appro
 .dbody { display: flex; flex-direction: column; gap: 6px; container-type: inline-size; }
 .dsec { padding: 2px 0 10px; scroll-margin-top: 8px; }
 .dsec + .dsec { border-top: 1px solid var(--separator); padding-top: 10px; }
-.dsec-title { font-size: var(--type-title); font-weight: 650; margin: 2px 0 8px; }
-.dsub { font-size: var(--type-small); font-weight: 650; color: var(--text-2); margin: 10px 0 4px; overflow-wrap: anywhere; }
-.dtext { margin: 4px 0; line-height: 1.6; overflow-wrap: anywhere; hyphens: auto; }
+.dsec-title { font-size: var(--type-title); font-weight: var(--weight-strong); margin: 2px 0 8px; }
+.dsub { font-size: var(--type-small); font-weight: var(--weight-strong); color: var(--text-2); margin: 10px 0 4px; overflow-wrap: break-word; }
+.dtext { margin: 4px 0; line-height: var(--line-para); overflow-wrap: break-word; hyphens: auto; }
 .dtext.small { font-size: var(--type-small); color: var(--text-2); }
 .dtext.tone-ok { color: var(--success); font-weight: 600; }
 .dtext.tone-warn { color: var(--warning); }
 .dtext.tone-bad { color: var(--danger); font-weight: 600; }
 .dtext.tone-info { color: var(--accent); }
-.dtext.tone-neutral { color: var(--text-3); font-style: italic; }
+.dtext.tone-neutral { color: var(--text-3); }
 .eq-scroll { overflow-x: auto; overflow-y: hidden; max-width: 100%; }
 /* Worked calculation (D45): the equation on the left, what was done on the right (below it when narrow) */
 .dcalc { display: grid; grid-template-columns: minmax(0, auto) minmax(8em, 1fr); gap: 6px 14px; align-items: center; margin: 6px 0 4px; padding: 8px 10px; background: var(--group); border-radius: var(--radius-group); }
 .calc-eq { font-size: 1.05em; padding: 2px 0; }
 .calc-eq:nth-of-type(n+2) { padding-left: 1.2em; }
-.calc-note { color: var(--text-2); line-height: 1.45; overflow-wrap: anywhere; }
+.calc-note { color: var(--text-2); line-height: 1.45; overflow-wrap: break-word; }
 .large .dcalc { font-size: 1.08em; }
 @container (max-width: 420px) { .dcalc { grid-template-columns: minmax(0, 1fr); } .calc-note { margin: -4px 0 4px 1.2em; } }
 .eq-scroll :deep(.katex-display) { margin: 6px 0; }
@@ -95,10 +95,10 @@ const STATUS_MARK: Record<'ok' | 'approx' | 'fail', string> = { ok: '✓', appro
 .dchain { background: var(--group); border-radius: var(--radius-group); padding: 2px 12px; margin: 6px 0 10px; }
 .dchain :deep(.katex-display > .katex) { text-align: left; }
 .dchain :deep(.katex-display) { text-align: left; }
-.basis { display: inline-block; font-size: var(--type-tiny); color: var(--accent); background: var(--accent-soft); border-radius: var(--radius-pill); padding: 1px 8px; margin-top: 2px; overflow-wrap: anywhere; }
+.basis { display: inline-block; font-size: var(--type-tiny); color: var(--accent); background: var(--accent-soft); border-radius: var(--radius-pill); padding: 1px 8px; margin-top: 2px; overflow-wrap: break-word; }
 .dsteps { list-style: none; padding: 0; margin: 4px 0 8px; display: flex; flex-direction: column; gap: 6px; }
 .dstep { display: flex; gap: 8px; background: var(--group); border-radius: var(--radius-group); padding: 6px 10px; }
-.dstep .num { flex: 0 0 auto; width: 20px; height: 20px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-size: var(--type-tiny); font-weight: 700; display: inline-flex; align-items: center; justify-content: center; margin-top: 3px; }
+.dstep .num { flex: 0 0 auto; width: 20px; height: 20px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-size: var(--type-tiny); font-weight: var(--weight-strong); display: inline-flex; align-items: center; justify-content: center; margin-top: 3px; }
 .step-body { flex: 1; min-width: 0; }
 .dtable-wrap { overflow-x: auto; margin: 4px 0 8px; }
 .dtable { border-collapse: collapse; font-size: var(--type-small); width: 100%; }
@@ -116,15 +116,15 @@ const STATUS_MARK: Record<'ok' | 'approx' | 'fail', string> = { ok: '✓', appro
 .dconds li.st-ok { border-left-color: var(--success); }
 .dconds li.st-approx { border-left-color: var(--warning); }
 .dconds li.st-fail { border-left-color: var(--danger); }
-.mark { font-weight: 700; width: 14px; flex: 0 0 auto; }
+.mark { font-weight: var(--weight-strong); width: 14px; flex: 0 0 auto; }
 .st-ok .mark { color: var(--success); }
 .st-approx .mark { color: var(--warning); }
 .st-fail .mark { color: var(--danger); }
 .cond-body { flex: 1; min-width: 0; }
 .cond-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; }
-.cond-label { font-weight: 600; overflow-wrap: anywhere; }
+.cond-label { font-weight: 600; overflow-wrap: break-word; }
 .role { font-size: var(--type-tiny); color: var(--text-3); background: var(--fill); border-radius: var(--radius-pill); padding: 0 7px; }
-.cond-detail { font-size: var(--type-small); color: var(--text-2); margin-top: 2px; overflow-wrap: anywhere; }
+.cond-detail { font-size: var(--type-small); color: var(--text-2); margin-top: 2px; overflow-wrap: break-word; }
 .large { font-size: calc(15px * var(--zoom)); }
 .large .dsec-title { font-size: calc(19px * var(--zoom)); }
 .large .dtable { font-size: var(--type-body); }

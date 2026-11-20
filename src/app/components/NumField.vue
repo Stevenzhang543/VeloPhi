@@ -16,6 +16,7 @@ import { computed, ref, watch } from 'vue'
 import { kindOf } from '../../units/units'
 import type { UnitKind } from '../../units/units'
 import { fromDispK, toDispK, unitLabelK } from '../settings'
+import { numberStyle } from '../../units/units'
 import { beginEditGesture, endEditGesture } from '../store'
 import { wheelSteps } from '../numWheel'
 
@@ -30,14 +31,22 @@ const fromShown = (d: number) => (converts.value ? fromDispK(d, props.unit, prop
 
 /** Strip float noise of the unit conversion (30 cm must not become 0.30000000000000004 m). */
 const clean = (v: number) => (v === 0 ? 0 : Number(v.toPrecision(14)))
-const shown = (si: number) => {
+/**
+ * 26.65 (D294): at rest the field shows six significant digits in the reader's decimal style (a position computed by
+ * a template read 0.439711431703); while it is being edited it shows the value to twelve digits, so nothing is lost
+ * by focusing and leaving it.
+ */
+const shown = (si: number, full = false) => {
   const d = toShown(si)
-  return Number.isFinite(d) ? String(Number(d.toPrecision(12))) : ''
+  if (!Number.isFinite(d)) return ''
+  const s = String(Number(d.toPrecision(full ? 12 : 6)))
+  return full ? s : s.replace('.', numberStyle.decimal)
 }
 const text = ref(shown(props.modelValue))
 const invalid = ref(false)
 const focused = ref(false)
-watch(() => [props.modelValue, shownLabel.value], () => { if (!focused.value) { text.value = shown(props.modelValue); invalid.value = false } })
+watch(() => [props.modelValue, shownLabel.value, numberStyle.decimal], () => { if (!focused.value) { text.value = shown(props.modelValue); invalid.value = false } })
+watch(focused, f => { if (f && !invalid.value) text.value = shown(props.modelValue, true) })
 
 const bound = (si: number) => String(Number(toShown(si).toPrecision(6)))
 const message = computed(() => {
@@ -153,14 +162,17 @@ function key(e: KeyboardEvent) {
     commit()
   }
 }
+
+/** 26.65 (D294): room for the unit beside the number — it was capped at 50 px and cut "N·s²/m²" to an ellipsis */
+const unitWidth = computed(() => `${Math.min(76, 12 + 7 * [...(shownLabel.value || '')].length)}px`)
 </script>
 
 <template>
-  <span class="numfield" :class="{ 'has-unit': !!shownLabel, [`bump-${bump}`]: !!bump }" :style="{ width }" :title="message">
+  <span class="numfield" :class="{ 'has-unit': !!shownLabel, [`bump-${bump}`]: !!bump }" :style="{ width, '--uw': unitWidth }" :title="message">
     <input class="field mono" :class="{ invalid }" :value="text" :disabled="disabled" inputmode="decimal" :aria-invalid="invalid"
       @input="text = ($event.target as HTMLInputElement).value" @focus="focused = true" @blur="focused = false; commit()" @keydown="key" @wheel="wheel" />
     <span class="scrub" :class="{ on: scrubbing, bare: !shownLabel }" :title="tl('左右拖动连续调节（Shift 细调，Ctrl 粗调）；按住 Alt 滚动滚轮也可调节')"
-      @pointerdown="scrubDown" @pointermove="scrubMove" @pointerup="scrubUp" @pointercancel="scrubUp">{{ shownLabel || '⇔' }}</span>
+      @pointerdown="scrubDown" @pointermove="scrubMove" @pointerup="scrubUp" @pointercancel="scrubUp"><template v-if="shownLabel">{{ shownLabel }}</template><svg v-else class="grip" width="12" height="10" viewBox="0 0 12 10" aria-hidden="true"><path d="M4 1.5 1.5 5 4 8.5M8 1.5 10.5 5 8 8.5" /></svg></span>
     <span v-if="invalid && message" class="msg">{{ message }}</span>
   </span>
 </template>
@@ -168,11 +180,12 @@ function key(e: KeyboardEvent) {
 <style scoped>
 .numfield { display: inline-flex; align-items: center; position: relative; min-width: 0; }
 .numfield input { width: 100%; text-align: right; }
-.numfield.has-unit input { padding-right: 52px; }
+.numfield.has-unit input { padding-right: calc(var(--uw) + 6px); }
 .numfield:not(.has-unit) input { padding-right: 22px; }
-.scrub { position: absolute; right: 2px; top: 2px; bottom: 2px; display: flex; align-items: center; justify-content: flex-end; padding: 0 6px; font-size: var(--type-tiny); color: var(--text-3); font-family: var(--font-mono); max-width: 50px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: ew-resize; border-radius: 6px; user-select: none; touch-action: none; }
+.scrub { position: absolute; right: 2px; top: 2px; bottom: 2px; display: flex; align-items: center; justify-content: flex-end; padding: 0 6px; font-size: var(--type-small); color: var(--text-2); max-width: 76px; overflow: hidden; white-space: nowrap; cursor: ew-resize; border-radius: var(--radius-control); user-select: none; touch-action: none; }
 .scrub:hover, .scrub.on { color: var(--accent); background: var(--accent-soft); }
 .scrub.bare { opacity: 0.6; }
+.grip { fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
 /* Bound reached while scrubbing: a short push towards the bound and back */
 .bump-hi input { animation: nudge-hi var(--dur-3) var(--ease-spring); }
 .bump-lo input { animation: nudge-lo var(--dur-3) var(--ease-spring); }

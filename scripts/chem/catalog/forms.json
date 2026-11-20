@@ -1,0 +1,17 @@
+{
+"about": "Source table of the catalogue section `forms`: the specific area of each form of a solid (m2 per cm3 of solid, computed by build_catalog.py from the stated particle shape and dimensions in millimetres; the product keeps the number only) and the network solids that form from solution at the bench. The precipitates repeat the class `precipitate` of solids_review.tsv, where every network solid is classified with a reason; the builder fails when the two differ.",
+"forms": {
+ "powder":  {"shape": "sphere", "d": 0.05, "note": "50 µm spheres"},
+ "crystal": {"shape": "cube", "a": 1, "note": "1 mm crystals of a bottled salt"},
+ "granule": {"shape": "sphere", "d": 3, "note": "3 mm granules (zinc granules)"},
+ "pellet":  {"shape": "sphere", "d": 5, "note": "5 mm pellets (sodium hydroxide)"},
+ "chip":    {"shape": "cube", "a": 10, "note": "1 cm chips (marble)"},
+ "lump":    {"shape": "cube", "a": 30, "note": "3 cm lumps"},
+ "ribbon":  {"shape": "strip", "w": 3, "t": 0.2, "note": "0.2 mm x 3 mm ribbon (magnesium), ends neglected"},
+ "foil":    {"shape": "sheet", "t": 0.1, "note": "0.1 mm foil, both faces, edges neglected"},
+ "sheet":   {"shape": "sheet", "t": 1, "note": "1 mm sheet (electrodes), both faces, edges neglected"},
+ "wire":    {"shape": "cylinder", "d": 0.5, "note": "0.5 mm wire, ends neglected"},
+ "rod":     {"shape": "cylinder", "d": 6, "note": "6 mm rod (carbon electrodes), ends neglected"}
+},
+"precipitates": ["Calcite", "Siderite", "Rhodochrosite", "Strontianite", "Witherite", "Gypsum", "Celestite", "Barite", "Arcanite", "Mirabilite", "Epsomite", "Fluorite", "SiO2(a)", "Al(OH)3(a)", "Fe(OH)3(a)", "FeS(ppt)", "Vivianite", "Pyrochroite", "Halite", "Sylvite", "Melanterite", "Zn(OH)2(e)", "Smithsonite", "Sphalerite", "Cd(OH)2(s)", "Otavite", "Cerussite", "Anglesite", "Pb(OH)2(s)", "Brucite", "Nahcolite", "Natron", "Strengite", "Nesquehonite", "MnS(Green)", "Mn3(PO4)2", "MnHPO4", "Nantokite", "Cuprite", "Chalcocite", "Cu(OH)2(s)", "Malachite", "Cu3(PO4)2:3H2O", "Covellite", "Chalcanthite", "Zn3(PO4)2:4w", "Goslarite", "Cd3(PO4)2", "Greenockite", "Cotunnite", "PbF2(s)", "PbHPO4", "Pb3(PO4)2", "Galena", "BaF2", "SrF2", "NiCO3(s)", "Ni(OH)2(s)", "Ni3(PO4)2", "Millerite", "Bromyrite", "Cerargyrite", "Ag2CO3", "Iodyrite", "Ag2O", "Ag3PO4", "Acanthite", "Ag2SO4", "CuBr", "CuI", "PbBr2(s)", "PbI2(s)", "Portlandite", "SnS", "SnS2", "CoS(alpha)", "Sn(OH)2(s)", "Sn(OH)4", "Co(OH)2(s)", "Fe(OH)2(s)", "Cr(OH)3(am)", "Ba(OH)2:8H2O", "MgF2", "CoCl2:6H2O", "CoCO3(s)", "PbCrO4", "Ag2CrO4", "SrCrO4", "BaCrO4", "K2CrO4", "K2Cr2O7", "CoHPO4(s)", "Co3(PO4)2", "Mg3(PO4)2", "MgHPO4:3H2O", "CaHPO4:2H2O", "Ca3(PO4)2(beta)", "SrHPO4(s)", "BaHPO4", "I2(s)", "Whewellite", "AgSCN", "BaSO3", "CaSO3:0.5H2O", "Ag2SO3", "AgIO3", "Ba(IO3)2:H2O", "Pb(IO3)2", "AgBrO3"]
+}

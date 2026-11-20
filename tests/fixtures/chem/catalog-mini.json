@@ -1,0 +1,46 @@
+{
+ "format": "velophi-chemcat", "version": 1,
+ "note": "A small hand-written catalogue for the tests of the bench core (engine/velophi-chem/tests/bench.rs, tests/chem/bench.test.ts). Enthalpies of formation: CODATA Key Values for Thermodynamics (1989), kJ/mol. Calcite dissolution: Palandri and Kharaka, USGS Open-File Report 2004-1068. The zinc rate constant is a classroom order of magnitude. The densities of the solutions are chosen so that the recipe with 1 kg of water is exactly one litre: the labels are then exact molarities.",
+ "substances": [
+  { "id": "Zn(s)", "formula": "Zn", "comp": { "Zn": 1 }, "phase": "s", "M": 65.38, "Hf": 0, "cp": 25.4, "rho": 7.14, "src": "CODATA" },
+  { "id": "Cu(s)", "formula": "Cu", "comp": { "Cu": 1 }, "phase": "s", "M": 63.546, "Hf": 0, "cp": 24.4, "rho": 8.96, "src": "CODATA" },
+  { "id": "C(s)", "formula": "C", "comp": { "C": 1 }, "phase": "s", "M": 12.011, "Hf": 0, "cp": 8.5, "rho": 2.2, "src": "CODATA" },
+  { "id": "Pt(s)", "formula": "Pt", "comp": { "Pt": 1 }, "phase": "s", "M": 195.08, "Hf": 0, "cp": 25.9, "rho": 21.45, "src": "CRC" },
+  { "id": "KNO3(s)", "formula": "KNO3", "comp": { "K": 1, "N": 1, "O": 3 }, "phase": "s", "M": 101.102, "rho": 2.11, "dissolves": { "K+": 1, "NO3-": 1 }, "Hsol": 34.89, "solubility": { "points": [[273.15, 13.3], [283.15, 20.9], [293.15, 31.6], [303.15, 45.8], [313.15, 63.9], [333.15, 110.0], [353.15, 169.0], [373.15, 246.0]], "src": "textbook solubility table, g per 100 g of water" } },
+  { "id": "NaOH(s)", "formula": "NaOH", "comp": { "Na": 1, "O": 1, "H": 1 }, "phase": "s", "M": 39.997, "rho": 2.13, "dissolves": { "Na+": 1, "OH-": 1 }, "Hsol": -44.51, "solubility": { "points": [[273.15, 42.0], [293.15, 109.0], [313.15, 129.0], [333.15, 174.0]], "src": "textbook solubility table, g per 100 g of water" } }
+ ],
+ "thermo": { "Hf": { "H2O": -285.83, "H+": 0, "Na+": -240.34, "Cl-": -167.08, "Zn+2": -153.39, "Ca+2": -543.0, "CO3-2": -675.23, "Ag+": 105.79, "NO3-": -206.85, "Acetate-": -486.01, "H2": -4.2, "K+": -252.14, "Cu+2": 64.77, "SO4-2": -909.34 } },
+ "forms": { "powder": 0.12, "granule": 0.002, "chip": 0.0006, "precipitates": ["Cerargyrite", "Calcite", "Barite", "Fe(OH)3(a)", "Cu(OH)2(s)"] },
+ "reagents": [
+  { "id": "water", "kind": "solution", "recipe": { "water_kg": 1, "species": {} }, "rho": 0.9982 },
+  { "id": "HCl_0.1M", "kind": "solution", "recipe": { "water_kg": 1, "species": { "H+": 0.1, "Cl-": 0.1 } }, "rho": 1.0036458 },
+  { "id": "HCl_1M", "kind": "solution", "recipe": { "water_kg": 1, "species": { "H+": 1.0, "Cl-": 1.0 } }, "rho": 1.036458 },
+  { "id": "NaOH_0.1M", "kind": "solution", "recipe": { "water_kg": 1, "species": { "Na+": 0.1, "OH-": 0.1 } }, "rho": 1.0039997 },
+  { "id": "HAc_0.1M", "kind": "solution", "recipe": { "water_kg": 1, "species": { "H(Acetate)": 0.1 } }, "rho": 1.0060052 },
+  { "id": "AgNO3_0.1M", "kind": "solution", "recipe": { "water_kg": 1, "species": { "Ag+": 0.1, "NO3-": 0.1 } }, "rho": 1.0169872 },
+  { "id": "NaCl_0.1M", "kind": "solution", "recipe": { "water_kg": 1, "species": { "Na+": 0.1, "Cl-": 0.1 } }, "rho": 1.005844 },
+  { "id": "CuSO4_1M", "kind": "solution", "recipe": { "water_kg": 1, "species": { "Cu+2": 1.0, "SO4-2": 1.0 } }, "rho": 1.159609 },
+  { "id": "ZnSO4_1M", "kind": "solution", "recipe": { "water_kg": 1, "species": { "Zn+2": 1.0, "SO4-2": 1.0 } }, "rho": 1.16144 },
+  { "id": "NaCl_sat", "kind": "solution", "recipe": { "water_kg": 1, "species": { "Na+": 5.4, "Cl-": 5.4 } }, "rho": 1.19 },
+  { "id": "H2SO4_0.5M", "kind": "solution", "recipe": { "water_kg": 1, "species": { "H+": 1.0, "SO4-2": 0.5 } }, "rho": 1.03 },
+  { "id": "H2O2_0.1M", "kind": "solution", "recipe": { "water_kg": 1, "species": { "H2O2": 0.1 } }, "rho": 1.0034014 },
+  { "id": "H2O2_1mM", "kind": "solution", "recipe": { "water_kg": 1, "species": { "H2O2": 0.001 } }, "rho": 1.000034 },
+  { "id": "HClO_1mM", "kind": "solution", "recipe": { "water_kg": 1, "species": { "HClO": 0.001 } }, "rho": 1.0000525 },
+  { "id": "Zn_granule", "kind": "solid", "recipe": { "species": { "Zn(s)": 1 } }, "form": "granule" },
+  { "id": "CaCO3_chip", "kind": "solid", "recipe": { "species": { "Calcite": 1 } }, "form": "chip" },
+  { "id": "CaCO3_powder", "kind": "solid", "recipe": { "species": { "Calcite": 1 } }, "form": "powder" },
+  { "id": "KNO3_solid", "kind": "solid", "recipe": { "species": { "KNO3(s)": 1 } }, "form": "crystal" },
+  { "id": "NaOH_solid", "kind": "solid", "recipe": { "species": { "NaOH(s)": 1 } }, "form": "granule" }
+ ],
+ "reactions": [
+  { "id": "zn_acid", "eq": { "Zn(s)": -1, "H+": -2, "Zn+2": 1, "H2": 1 }, "rate": { "law": "surface", "k": 0.02, "orders": { "H+": 1 }, "Ea": 20, "Tref": 298.15 }, "effects": ["bubbles"], "teaching": true },
+  { "id": "h2o2_decay", "eq": { "H2O2": -1, "H2O": 1, "O2": 0.5 }, "rate": { "law": "mass", "k": 0.001, "orders": { "H2O2": 1 }, "Ea": 75, "Tref": 298.15 }, "needs": { "min": { "H2O2": 0.01 } }, "effects": ["bubbles"], "teaching": true },
+  { "id": "hclo_h2o2", "eq": { "HClO": -1, "H2O2": -1, "Cl-": 1, "H+": 1, "O2": 1, "H2O": 1 }, "rate": { "law": "mass", "k": 10, "orders": { "HClO": 1, "H2O2": 1 }, "Ea": 0, "Tref": 298.15 }, "teaching": true }
+ ],
+ "dissolution": { "Calcite": { "kAcid": 0.501, "nAcid": 1, "EaAcid": 14.4, "kNeutral": 1.55e-6, "EaNeutral": 23.5 } },
+ "couples": [ { "id": "Zn+2/Zn", "ox": { "Zn+2": 1 }, "red": { "Zn(s)": 1 }, "n": 2, "E0": -0.7618 },
+  { "id": "Cu+2/Cu", "ox": { "Cu+2": 1 }, "red": { "Cu(s)": 1 }, "n": 2, "E0": 0.3419 },
+  { "id": "H+/H2", "ox": { "H+": 2 }, "red": { "H2(g)": 1 }, "n": 2, "E0": 0.0 },
+  { "id": "O2/H2O", "ox": { "O2(g)": 1, "H+": 4 }, "red": { "H2O": 2 }, "n": 4, "E0": 1.229 },
+  { "id": "Cl2/Cl-", "ox": { "Cl2(g)": 1 }, "red": { "Cl-": 2 }, "n": 2, "E0": 1.35827 } ]
+}

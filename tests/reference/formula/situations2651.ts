@@ -76,7 +76,7 @@ function uniformSituations(rec: Recording, out: Situation[]) {
       const a0 = Math.sqrt(sq(o0.sol.acc[3 * b.index]) + sq(o0.sol.acc[3 * b.index + 1]))
       if (a0 > 1e-12 * Math.max(1, v0)) continue
       out.push({
-        key: `uni:${b.id}:${r.t0}`, type: 'uniform', title: tl('{0} 的匀速直线运动', [b.name]), t0: r.t0, t1: r.t1, bodies: [b.id],
+        key: `uni:${b.id}:${r.t0}`, type: 'uniform', title: tl('{0}的匀速直线运动', [b.name]), t0: r.t0, t1: r.t1, bodies: [b.id],
         sample: t => {
           const o = observeAt(rec, t)
           const st = bodyVel(sys, o.X, b)
@@ -137,7 +137,7 @@ function constForceSituations(rec: Recording, out: Situation[]) {
       const forward = v0 >= -1e-12 && ex * sMid.vx > 0 && Math.abs(s0.vy) < 1e-12
       const horizontal = f.force.y === 0
       out.push({
-        key: `cf:${b.id}:${r.t0}`, type: 'const-force', title: tl('{0} 在恒力 F 作用下沿水平面运动', [b.name]), t0: r.t0, t1: r.t1, bodies: [b.id],
+        key: `cf:${b.id}:${r.t0}`, type: 'const-force', title: tl('{0}在恒力 F 作用下沿水平面运动', [b.name]), t0: r.t0, t1: r.t1, bodies: [b.id],
         sample: t => {
           const o = observeAt(rec, t)
           const st = bodyVel(sys, o.X, b)
@@ -213,7 +213,7 @@ function leverSituations(rec: Recording, out: Situation[]) {
       const l2 = Math.abs(poses[L.global].x - pivot.x)
       const verticalRope = Math.abs(ux) < 1e-12 && uy < 0
       out.push({
-        key: `lever:${B.id}:${r.t0}`, type: 'lever', title: tl('{0} 的杠杆平衡', [B.name]), t0: r.t0, t1: r.t1, bodies: [B.id, L.id],
+        key: `lever:${B.id}:${r.t0}`, type: 'lever', title: tl('{0}的杠杆平衡', [B.name]), t0: r.t0, t1: r.t1, bodies: [B.id, L.id],
         sample: t => {
           const o = observeAt(rec, t)
           let Fx = 0, Fy = 0
@@ -264,7 +264,7 @@ function circleSituations(rec: Recording, out: Situation[]) {
         return T
       }
       out.push({
-        key: `circ:${b.id}:${r.t0}`, type: 'circle', title: tl('{0} 的匀速圆周运动', [b.name]), t0: r.t0, t1: r.t1, bodies: [b.id],
+        key: `circ:${b.id}:${r.t0}`, type: 'circle', title: tl('{0}的匀速圆周运动', [b.name]), t0: r.t0, t1: r.t1, bodies: [b.id],
         sample: t => {
           const o = observeAt(rec, t)
           const st = bodyVel(sys, o.X, b)
@@ -324,7 +324,7 @@ function orbitSituations(rec: Recording, out: Situation[]) {
       return cache
     }
     out.push({
-      key: `orbit:${b.id}:${r.t0}`, type: 'orbit', title: tl('{0} 绕 {1} 运动', [b.name, S.name]), t0: r.t0, t1: r.t1, bodies: [b.id],
+      key: `orbit:${b.id}:${r.t0}`, type: 'orbit', title: tl('{0}绕{1}运动', [b.name, S.name]), t0: r.t0, t1: r.t1, bodies: [b.id],
       sample: t => {
         const st = bodyVel(sys, exactStateAt(rec, t), b)
         const qx = st.x - C.x, qy = st.y - C.y
@@ -370,7 +370,7 @@ function dragSituations(rec: Recording, out: Situation[]) {
       const B = b.dragLin, Cq = b.dragQuad, m = b.mass
       const vt = Cq > 0 ? (-B + Math.sqrt(B * B + 4 * Cq * m * g)) / (2 * Cq) : m * g / B
       out.push({
-        key: `drag:${b.id}:${r.t0}`, type: 'drag', title: tl('{0} 在空气阻力下下落', [b.name]), t0: r.t0, t1: r.t1, bodies: [b.id],
+        key: `drag:${b.id}:${r.t0}`, type: 'drag', title: tl('{0}在空气阻力下下落', [b.name]), t0: r.t0, t1: r.t1, bodies: [b.id],
         sample: t => {
           const st = bodyVel(sys, exactStateAt(rec, t), b)
           const v = -st.vy
@@ -443,7 +443,7 @@ function dampedSituations(rec: Recording, out: Situation[]) {
         return cache
       }
       out.push({
-        key: `damped:${b.id}:${r.t0}`, type: 'damped', title: tl('{0} 的阻尼振动', [b.name]), t0: r.t0, t1: r.t1, bodies: [b.id],
+        key: `damped:${b.id}:${r.t0}`, type: 'damped', title: tl('{0}的阻尼振动', [b.name]), t0: r.t0, t1: r.t1, bodies: [b.id],
         sample: () => {
           const m = measure()
           return {
@@ -477,7 +477,7 @@ function spinSituations(rec: Recording, out: Situation[]) {
     for (const r of list) {
       const s0 = bodyVel(sys, r.segs[0].X0, b)
       out.push({
-        key: `spin:${b.id}:${r.t0}`, type: 'spin', title: tl('{0} 在恒定力矩下转动', [b.name]), t0: r.t0, t1: r.t1, bodies: [b.id],
+        key: `spin:${b.id}:${r.t0}`, type: 'spin', title: tl('{0}在恒定力矩下转动', [b.name]), t0: r.t0, t1: r.t1, bodies: [b.id],
         sample: t => {
           const o = observeAt(rec, t)
           const st = bodyVel(sys, o.X, b)
@@ -527,7 +527,7 @@ function gearSituations(rec: Recording, out: Situation[]) {
     const list = runs(rec, seg => (touchingUnits(seg.mode, A.id).length + touchingUnits(seg.mode, B.id).length === 0 ? `gear:${gi}` : null))
     for (const r of list) {
       out.push({
-        key: `gear:${gr.id}:${r.t0}`, type: 'gear', title: tl('{0} 与 {1} 齿轮传动', [A.name, B.name]), t0: r.t0, t1: r.t1, bodies: [A.id, B.id],
+        key: `gear:${gr.id}:${r.t0}`, type: 'gear', title: tl('{0}与{1}齿轮传动', [A.name, B.name]), t0: r.t0, t1: r.t1, bodies: [A.id, B.id],
         sample: t => {
           const o = observeAt(rec, t)
           const wA = o.X[3 * n + 3 * A.index + 2], wB = o.X[3 * n + 3 * B.index + 2]

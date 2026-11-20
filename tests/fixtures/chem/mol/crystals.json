@@ -1,0 +1,445 @@
+{
+ "format": "velophi-crystals",
+ "version": 1,
+ "crystals": [
+  {
+   "id": "nacl",
+   "name": {
+    "zh": "氯化钠",
+    "en": "Sodium chloride",
+    "de": "Natriumchlorid"
+   },
+   "system": "cubic",
+   "structure": "rock-salt",
+   "a": 5.64,
+   "b": 5.64,
+   "c": 5.64,
+   "alpha": 90,
+   "beta": 90,
+   "gamma": 90,
+   "basis": [
+    [
+     "Na",
+     0,
+     0,
+     0
+    ],
+    [
+     "Na",
+     0.5,
+     0.5,
+     0
+    ],
+    [
+     "Na",
+     0.5,
+     0,
+     0.5
+    ],
+    [
+     "Na",
+     0,
+     0.5,
+     0.5
+    ],
+    [
+     "Cl",
+     0.5,
+     0.5,
+     0.5
+    ],
+    [
+     "Cl",
+     0.0,
+     0.0,
+     0.5
+    ],
+    [
+     "Cl",
+     0.0,
+     0.5,
+     0.0
+    ],
+    [
+     "Cl",
+     0.5,
+     0.0,
+     0.0
+    ]
+   ]
+  },
+  {
+   "id": "cscl",
+   "name": {
+    "zh": "氯化铯",
+    "en": "Caesium chloride",
+    "de": "Caesiumchlorid"
+   },
+   "system": "cubic",
+   "structure": "caesium-chloride",
+   "a": 4.123,
+   "b": 4.123,
+   "c": 4.123,
+   "alpha": 90,
+   "beta": 90,
+   "gamma": 90,
+   "basis": [
+    [
+     "Cs",
+     0,
+     0,
+     0
+    ],
+    [
+     "Cl",
+     0.5,
+     0.5,
+     0.5
+    ]
+   ]
+  },
+  {
+   "id": "zns",
+   "name": {
+    "zh": "闪锌矿",
+    "en": "Zinc blende",
+    "de": "Zinkblende"
+   },
+   "system": "cubic",
+   "structure": "zinc-blende",
+   "a": 5.409,
+   "b": 5.409,
+   "c": 5.409,
+   "alpha": 90,
+   "beta": 90,
+   "gamma": 90,
+   "basis": [
+    [
+     "Zn",
+     0,
+     0,
+     0
+    ],
+    [
+     "Zn",
+     0.5,
+     0.5,
+     0
+    ],
+    [
+     "Zn",
+     0.5,
+     0,
+     0.5
+    ],
+    [
+     "Zn",
+     0,
+     0.5,
+     0.5
+    ],
+    [
+     "S",
+     0.25,
+     0.25,
+     0.25
+    ],
+    [
+     "S",
+     0.75,
+     0.75,
+     0.25
+    ],
+    [
+     "S",
+     0.75,
+     0.25,
+     0.75
+    ],
+    [
+     "S",
+     0.25,
+     0.75,
+     0.75
+    ]
+   ]
+  },
+  {
+   "id": "caf2",
+   "name": {
+    "zh": "萤石",
+    "en": "Fluorite",
+    "de": "Fluorit"
+   },
+   "system": "cubic",
+   "structure": "fluorite",
+   "a": 5.463,
+   "b": 5.463,
+   "c": 5.463,
+   "alpha": 90,
+   "beta": 90,
+   "gamma": 90,
+   "basis": [
+    [
+     "Ca",
+     0,
+     0,
+     0
+    ],
+    [
+     "Ca",
+     0.5,
+     0.5,
+     0
+    ],
+    [
+     "Ca",
+     0.5,
+     0,
+     0.5
+    ],
+    [
+     "Ca",
+     0,
+     0.5,
+     0.5
+    ],
+    [
+     "F",
+     0.25,
+     0.25,
+     0.25
+    ],
+    [
+     "F",
+     0.25,
+     0.25,
+     0.75
+    ],
+    [
+     "F",
+     0.25,
+     0.75,
+     0.25
+    ],
+    [
+     "F",
+     0.25,
+     0.75,
+     0.75
+    ],
+    [
+     "F",
+     0.75,
+     0.25,
+     0.25
+    ],
+    [
+     "F",
+     0.75,
+     0.25,
+     0.75
+    ],
+    [
+     "F",
+     0.75,
+     0.75,
+     0.25
+    ],
+    [
+     "F",
+     0.75,
+     0.75,
+     0.75
+    ]
+   ]
+  },
+  {
+   "id": "tio2",
+   "name": {
+    "zh": "金红石",
+    "en": "Rutile",
+    "de": "Rutil"
+   },
+   "system": "tetragonal",
+   "structure": "rutile",
+   "a": 4.594,
+   "b": 4.594,
+   "c": 2.959,
+   "alpha": 90,
+   "beta": 90,
+   "gamma": 90,
+   "basis": [
+    [
+     "Ti",
+     0,
+     0,
+     0
+    ],
+    [
+     "Ti",
+     0.5,
+     0.5,
+     0.5
+    ],
+    [
+     "O",
+     0.305,
+     0.305,
+     0
+    ],
+    [
+     "O",
+     0.695,
+     0.695,
+     0
+    ],
+    [
+     "O",
+     0.805,
+     0.195,
+     0.5
+    ],
+    [
+     "O",
+     0.195,
+     0.805,
+     0.5
+    ]
+   ]
+  },
+  {
+   "id": "srtio3",
+   "name": {
+    "zh": "钛酸锶",
+    "en": "Strontium titanate",
+    "de": "Strontiumtitanat"
+   },
+   "system": "cubic",
+   "structure": "perovskite",
+   "a": 3.905,
+   "b": 3.905,
+   "c": 3.905,
+   "alpha": 90,
+   "beta": 90,
+   "gamma": 90,
+   "basis": [
+    [
+     "Sr",
+     0,
+     0,
+     0
+    ],
+    [
+     "Ti",
+     0.5,
+     0.5,
+     0.5
+    ],
+    [
+     "O",
+     0.5,
+     0.5,
+     0
+    ],
+    [
+     "O",
+     0.5,
+     0,
+     0.5
+    ],
+    [
+     "O",
+     0,
+     0.5,
+     0.5
+    ]
+   ]
+  },
+  {
+   "id": "cu",
+   "name": {
+    "zh": "铜",
+    "en": "Copper",
+    "de": "Kupfer"
+   },
+   "system": "cubic",
+   "structure": "fcc",
+   "a": 3.615,
+   "b": 3.615,
+   "c": 3.615,
+   "alpha": 90,
+   "beta": 90,
+   "gamma": 90,
+   "element": "Cu"
+  },
+  {
+   "id": "fe",
+   "name": {
+    "zh": "铁",
+    "en": "Iron",
+    "de": "Eisen"
+   },
+   "system": "cubic",
+   "structure": "bcc",
+   "a": 2.866,
+   "b": 2.866,
+   "c": 2.866,
+   "alpha": 90,
+   "beta": 90,
+   "gamma": 90,
+   "element": "Fe"
+  },
+  {
+   "id": "mg",
+   "name": {
+    "zh": "镁",
+    "en": "Magnesium",
+    "de": "Magnesium"
+   },
+   "system": "hexagonal",
+   "structure": "hcp",
+   "a": 3.209,
+   "b": 3.209,
+   "c": 5.211,
+   "alpha": 90,
+   "beta": 90,
+   "gamma": 120,
+   "element": "Mg"
+  },
+  {
+   "id": "c-diamond",
+   "name": {
+    "zh": "金刚石",
+    "en": "Diamond",
+    "de": "Diamant"
+   },
+   "system": "cubic",
+   "structure": "diamond",
+   "a": 3.567,
+   "b": 3.567,
+   "c": 3.567,
+   "alpha": 90,
+   "beta": 90,
+   "gamma": 90,
+   "element": "C"
+  },
+  {
+   "id": "c-graphite",
+   "name": {
+    "zh": "石墨",
+    "en": "Graphite",
+    "de": "Graphit"
+   },
+   "system": "hexagonal",
+   "structure": "graphite",
+   "a": 2.461,
+   "b": 2.461,
+   "c": 6.708,
+   "alpha": 90,
+   "beta": 90,
+   "gamma": 120,
+   "element": "C"
+  }
+ ]
+}

@@ -1,0 +1,624 @@
+{
+ "taken": "26.63.0",
+ "dataUi": [
+  {
+   "expr": "`library-${s.id}`",
+   "file": "src/app/components/LibraryPage.vue"
+  },
+  {
+   "expr": "`mode-${m.id}`",
+   "file": "src/app/components/TopBar.vue"
+  },
+  {
+   "expr": "`page-${p.id}`",
+   "file": "src/app/components/NavRail.vue"
+  },
+  {
+   "expr": "`sheet-${i.id}`",
+   "file": "src/app/components/PhoneNav.vue"
+  },
+  {
+   "expr": "`tab-${t.id === 'inspect' ? 'inspect-rail' : t.id}`",
+   "file": "src/app/components/Sidebar.vue"
+  },
+  {
+   "expr": "c.id",
+   "file": "src/app/components/CaseIndex.vue"
+  },
+  {
+   "expr": "s.ui",
+   "file": "src/app/components/Sidebar.vue"
+  },
+  {
+   "expr": "t.id === 'analysis' ? 'tab-analysis' : t.id === 'ai' ? 'tab-ai' : t.id === 'problem' ? 'tab-problems' : 'tab-props'",
+   "file": "src/app/components/Sidebar.vue"
+  },
+  {
+   "id": "bottom-chart",
+   "file": "src/app/components/TimeDock.vue"
+  },
+  {
+   "id": "bottom-events",
+   "file": "src/app/components/TimeDock.vue"
+  },
+  {
+   "id": "branch",
+   "file": "src/app/components/Timeline.vue"
+  },
+  {
+   "id": "chart-energy",
+   "file": "src/app/components/ChartPanel.vue"
+  },
+  {
+   "id": "chart-force",
+   "file": "src/app/components/ChartPanel.vue"
+  },
+  {
+   "id": "chart-kin",
+   "file": "src/app/components/ChartPanel.vue"
+  },
+  {
+   "id": "classroom-tally",
+   "file": "src/app/components/ClassroomPage.vue"
+  },
+  {
+   "id": "compute",
+   "file": "src/app/components/TopBar.vue"
+  },
+  {
+   "id": "continue",
+   "file": "src/app/components/Timeline.vue"
+  },
+  {
+   "id": "conv-levels",
+   "file": "src/app/components/ConvergenceDialog.vue"
+  },
+  {
+   "id": "conv-method",
+   "file": "src/app/components/ConvergenceDialog.vue"
+  },
+  {
+   "id": "conv-quantity",
+   "file": "src/app/components/ConvergenceDialog.vue"
+  },
+  {
+   "id": "conv-run",
+   "file": "src/app/components/ConvergenceDialog.vue"
+  },
+  {
+   "id": "convergence",
+   "file": "src/app/components/TopBar.vue"
+  },
+  {
+   "id": "copilot-build",
+   "file": "src/app/components/ai/CopilotPanel.vue"
+  },
+  {
+   "id": "copilot-checks",
+   "file": "src/app/components/ai/CopilotPanel.vue"
+  },
+  {
+   "id": "copilot-diff",
+   "file": "src/app/components/ai/CopilotPanel.vue"
+  },
+  {
+   "id": "copilot-draft",
+   "file": "src/app/components/ai/CopilotPanel.vue"
+  },
+  {
+   "id": "copilot-input",
+   "file": "src/app/components/ai/CopilotPanel.vue"
+  },
+  {
+   "id": "copilot-send",
+   "file": "src/app/components/ai/CopilotPanel.vue"
+  },
+  {
+   "id": "copilot-status",
+   "file": "src/app/components/ai/CopilotPanel.vue"
+  },
+  {
+   "id": "copilot-stop",
+   "file": "src/app/components/ai/CopilotPanel.vue"
+  },
+  {
+   "id": "copilot-undo",
+   "file": "src/app/components/ai/CopilotPanel.vue"
+  },
+  {
+   "id": "copilot-waiting",
+   "file": "src/app/components/ai/CopilotPanel.vue"
+  },
+  {
+   "id": "copilot",
+   "file": "src/app/components/TopBar.vue"
+  },
+  {
+   "id": "draft-finish",
+   "file": "src/app/components/Viewport.vue"
+  },
+  {
+   "id": "file",
+   "file": "src/app/components/TopBar.vue"
+  },
+  {
+   "id": "help",
+   "file": "src/app/components/NavRail.vue"
+  },
+  {
+   "id": "home-continue",
+   "file": "src/app/components/HomePage.vue"
+  },
+  {
+   "id": "home-search",
+   "file": "src/app/components/HomePage.vue"
+  },
+  {
+   "id": "lesson-evidence",
+   "file": "src/app/components/LessonBar.vue"
+  },
+  {
+   "id": "lesson",
+   "file": "src/app/components/LessonBar.vue"
+  },
+  {
+   "id": "my-problems",
+   "file": "src/app/components/ProblemGallery.vue"
+  },
+  {
+   "id": "nav",
+   "file": "src/app/components/TopBar.vue"
+  },
+  {
+   "id": "next-event",
+   "file": "src/app/components/Timeline.vue"
+  },
+  {
+   "id": "objects",
+   "file": "src/app/components/ToolStrip.vue"
+  },
+  {
+   "id": "open-lesson",
+   "file": "src/app/components/ActivityRunner.vue"
+  },
+  {
+   "id": "output",
+   "file": "src/app/components/TopBar.vue"
+  },
+  {
+   "id": "page-settings",
+   "file": "src/app/components/NavRail.vue"
+  },
+  {
+   "id": "palette",
+   "file": "src/app/components/ToolStrip.vue"
+  },
+  {
+   "id": "play",
+   "file": "src/app/components/Timeline.vue"
+  },
+  {
+   "id": "problems",
+   "file": "src/app/components/TopBar.vue"
+  },
+  {
+   "id": "repro",
+   "file": "src/app/components/AboutDialog.vue"
+  },
+  {
+   "id": "research-q08",
+   "file": "src/app/components/lab/QuantumConvergence.vue"
+  },
+  {
+   "id": "run",
+   "file": "src/app/components/PhoneNav.vue"
+  },
+  {
+   "id": "run",
+   "file": "src/app/components/TopBar.vue"
+  },
+  {
+   "id": "search",
+   "file": "src/app/components/NavRail.vue"
+  },
+  {
+   "id": "search",
+   "file": "src/app/components/TopBar.vue"
+  },
+  {
+   "id": "share-copy",
+   "file": "src/app/components/ShareDialog.vue"
+  },
+  {
+   "id": "share-link",
+   "file": "src/app/components/ShareDialog.vue"
+  },
+  {
+   "id": "share",
+   "file": "src/app/components/TopBar.vue"
+  },
+  {
+   "id": "sidebar",
+   "file": "src/app/components/TopBar.vue"
+  },
+  {
+   "id": "speed",
+   "file": "src/app/components/Timeline.vue"
+  },
+  {
+   "id": "sweep",
+   "file": "src/app/components/TopBar.vue"
+  },
+  {
+   "id": "tally-card",
+   "file": "src/app/components/TallyBar.vue"
+  },
+  {
+   "id": "tally-reveal",
+   "file": "src/app/components/TallyBar.vue"
+  },
+  {
+   "id": "tally-run",
+   "file": "src/app/components/TallyBar.vue"
+  },
+  {
+   "id": "tally",
+   "file": "src/app/components/TopBar.vue"
+  },
+  {
+   "id": "task-ai-read",
+   "file": "src/app/components/task/TaskPanel.vue"
+  },
+  {
+   "id": "task-demo",
+   "file": "src/app/components/task/TaskPanel.vue"
+  },
+  {
+   "id": "teach",
+   "file": "src/app/components/TopBar.vue"
+  },
+  {
+   "id": "template-params",
+   "file": "src/app/components/TemplateParams.vue"
+  },
+  {
+   "id": "templates",
+   "file": "src/app/components/TopBar.vue"
+  },
+  {
+   "id": "theme",
+   "file": "src/app/components/TopBar.vue"
+  },
+  {
+   "id": "timeline",
+   "file": "src/app/components/TimeDock.vue"
+  },
+  {
+   "id": "tools",
+   "file": "src/app/components/ToolStrip.vue"
+  },
+  {
+   "id": "undo",
+   "file": "src/app/components/TopBar.vue"
+  },
+  {
+   "id": "view",
+   "file": "src/app/components/TopBar.vue"
+  }
+ ],
+ "menuItems": [
+  {
+   "label": "v–t 图面积",
+   "file": "src/app/components/TopBar.vue"
+  },
+  {
+   "label": "个人预测（侧栏）",
+   "file": "src/app/components/TopBar.vue"
+  },
+  {
+   "label": "任务面板顶部",
+   "file": "src/app/components/task/ResultCard.vue"
+  },
+  {
+   "label": "保存",
+   "file": "src/app/components/TopBar.vue"
+  },
+  {
+   "label": "停止计算",
+   "file": "src/app/components/TopBar.vue"
+  },
+  {
+   "label": "先猜后看：班级预测统计…",
+   "file": "src/app/components/TopBar.vue"
+  },
+  {
+   "label": "关于 VeloΦ",
+   "file": "src/app/components/NavRail.vue"
+  },
+  {
+   "label": "分享链接…",
+   "file": "src/app/components/TopBar.vue"
+  },
+  {
+   "label": "参数扫描…",
+   "file": "src/app/components/TopBar.vue"
+  },
+  {
+   "label": "取消固定",
+   "file": "src/app/components/task/ResultCard.vue"
+  },
+  {
+   "label": "受力分析图…",
+   "file": "src/app/components/TopBar.vue"
+  },
+  {
+   "label": "另存为…",
+   "file": "src/app/components/TopBar.vue"
+  },
+  {
+   "label": "在画面中定位这一时刻",
+   "file": "src/app/components/task/ResultCard.vue"
+  },
+  {
+   "label": "学习手册",
+   "file": "src/app/components/NavRail.vue"
+  },
+  {
+   "label": "实验报告…",
+   "file": "src/app/components/TopBar.vue"
+  },
+  {
+   "label": "快捷键一览",
+   "file": "src/app/components/NavRail.vue"
+  },
+  {
+   "label": "打开…",
+   "file": "src/app/components/TopBar.vue"
+  },
+  {
+   "label": "打点计时器纸带…",
+   "file": "src/app/components/TopBar.vue"
+  },
+  {
+   "label": "收敛性研究…",
+   "file": "src/app/components/TopBar.vue"
+  },
+  {
+   "label": "数据与视频…",
+   "file": "src/app/components/TopBar.vue"
+  },
+  {
+   "label": "新建",
+   "file": "src/app/components/TopBar.vue"
+  },
+  {
+   "label": "模板库…",
+   "file": "src/app/components/TopBar.vue"
+  },
+  {
+   "label": "欢迎与导览",
+   "file": "src/app/components/NavRail.vue"
+  },
+  {
+   "label": "求解器对照…",
+   "file": "src/app/components/TopBar.vue"
+  },
+  {
+   "label": "浅色外观",
+   "file": "src/app/components/TopBar.vue"
+  },
+  {
+   "label": "画面右上角",
+   "file": "src/app/components/task/ResultCard.vue"
+  },
+  {
+   "label": "计算设置（场景）",
+   "file": "src/app/components/TopBar.vue"
+  },
+  {
+   "label": "课件导出…",
+   "file": "src/app/components/TopBar.vue"
+  },
+  {
+   "label": "课堂页：课堂实验与活动",
+   "file": "src/app/components/TopBar.vue"
+  },
+  {
+   "label": "重新计算",
+   "file": "src/app/components/TopBar.vue"
+  },
+  {
+   "label": "题目库…",
+   "file": "src/app/components/TopBar.vue"
+  }
+ ],
+ "commands": [
+  {
+   "cat": "goal",
+   "title": "解一道题：粘贴题目文字"
+  },
+  {
+   "cat": "page",
+   "title": "先猜后看：班级预测统计"
+  },
+  {
+   "cat": "page",
+   "title": "分享链接"
+  },
+  {
+   "cat": "page",
+   "title": "学习手册"
+  },
+  {
+   "cat": "page",
+   "title": "学习路径"
+  },
+  {
+   "cat": "page",
+   "title": "实验室"
+  },
+  {
+   "cat": "page",
+   "title": "工作台"
+  },
+  {
+   "cat": "page",
+   "title": "快捷键一览"
+  },
+  {
+   "cat": "page",
+   "title": "收敛性研究"
+  },
+  {
+   "cat": "page",
+   "title": "易错概念"
+  },
+  {
+   "cat": "page",
+   "title": "模型目录"
+  },
+  {
+   "cat": "page",
+   "title": "欢迎与导览"
+  },
+  {
+   "cat": "page",
+   "title": "求解器对照"
+  },
+  {
+   "cat": "page",
+   "title": "渲染与监视"
+  },
+  {
+   "cat": "page",
+   "title": "设置"
+  },
+  {
+   "cat": "page",
+   "title": "课堂"
+  },
+  {
+   "cat": "page",
+   "title": "课程对照"
+  },
+  {
+   "cat": "page",
+   "title": "资源库"
+  },
+  {
+   "cat": "page",
+   "title": "首页"
+  }
+ ],
+ "sources": [
+  {
+   "cat": "activity",
+   "from": "ACTIVITIES"
+  },
+  {
+   "cat": "activity",
+   "from": "LESSONS"
+  },
+  {
+   "cat": "case",
+   "from": "CASES"
+  },
+  {
+   "cat": "formula",
+   "from": "FORMULAS"
+  },
+  {
+   "cat": "goal",
+   "from": "Object.values(DOMAINS)"
+  },
+  {
+   "cat": "goal",
+   "from": "PACKAGES"
+  },
+  {
+   "cat": "handbook",
+   "from": "CONCEPTS"
+  },
+  {
+   "cat": "handbook",
+   "from": "TOPICS"
+  },
+  {
+   "cat": "lab",
+   "from": "LABS"
+  },
+  {
+   "cat": "lab",
+   "from": "Object.entries(PRESETS)"
+  },
+  {
+   "cat": "model",
+   "from": "MODELS"
+  },
+  {
+   "cat": "path",
+   "from": "PATHS"
+  },
+  {
+   "cat": "problem",
+   "from": "BUILTIN_PROBLEMS"
+  },
+  {
+   "cat": "template",
+   "from": "TEMPLATES"
+  },
+  {
+   "cat": "tool",
+   "from": "ALL_TOOLS"
+  }
+ ],
+ "tools": [
+  "add-arc-dip",
+  "add-arc-groove",
+  "add-arc-half",
+  "add-arc-hump",
+  "add-arc-loop",
+  "add-arc-quarter",
+  "add-arc-slide",
+  "add-ball",
+  "add-block",
+  "add-board",
+  "add-cart",
+  "add-central",
+  "add-charge",
+  "add-conveyor",
+  "add-disc",
+  "add-fixed-charge",
+  "add-force",
+  "add-ground",
+  "add-hoop",
+  "add-incline",
+  "add-launcher",
+  "add-pendulum",
+  "add-point",
+  "add-polygon",
+  "add-pulley",
+  "add-steps",
+  "add-wall",
+  "add-wedge",
+  "annotate-arrow",
+  "annotate-text",
+  "connect-damper",
+  "connect-gear",
+  "connect-hinge",
+  "connect-motor",
+  "connect-rod",
+  "connect-rope",
+  "connect-slider",
+  "connect-spring",
+  "connect-weld",
+  "field-electric",
+  "field-magnetic",
+  "measure-angle",
+  "measure-ruler",
+  "pan",
+  "select",
+  "shape-combine",
+  "shape-cut"
+ ]
+}

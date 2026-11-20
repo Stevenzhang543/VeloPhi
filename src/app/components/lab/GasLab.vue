@@ -12,6 +12,7 @@ import { gasCycle, gasProcess } from '../../../engine/labs'
 import { labState } from '../../lab/state'
 import { useLabCanvas } from '../../lab/canvas'
 import { FONT } from '../../../render/style'
+import { gasText, gasValue } from '../../../render/labLimits'
 import NumField from '../NumField.vue'
 import LabFormula from './LabFormula.vue'
 import LabChart from './LabChart.vue'
@@ -89,16 +90,17 @@ const { canvas, wrap, redraw } = useLabCanvas(() => props.active, (ctx, w, h, dt
     if (inflow) { ctx.moveTo(cx + cw + 60, ay); ctx.lineTo(cx + cw + 12, ay); ctx.lineTo(cx + cw + 20, ay - 6); ctx.moveTo(cx + cw + 12, ay); ctx.lineTo(cx + cw + 20, ay + 6) } else { ctx.moveTo(cx + cw + 12, ay); ctx.lineTo(cx + cw + 60, ay); ctx.lineTo(cx + cw + 52, ay - 6); ctx.moveTo(cx + cw + 60, ay); ctx.lineTo(cx + cw + 52, ay + 6) }
     ctx.strokeStyle = ctx.fillStyle; ctx.lineWidth = 2; ctx.stroke()
   } else { ctx.fillStyle = P.text2; ctx.fillText(tl('绝热'), cx + cw + 16, bottom - 20) }
+  // 26.65 (D13): the same units as the p–V chart below (kPa, L), through the one formatter of the lab
   ctx.fillStyle = P.text
-  ctx.fillText(`T = ${cur.T.toFixed(1)} K`, cx - 110, top + 10)
-  ctx.fillText(`p = ${fmtQ(cur.p, 'Pa', 4)}`, cx - 110, top + 30)
-  ctx.fillText(`V = ${fmtQ(cur.V, 'm³', 4)}`, cx - 110, top + 50)
+  ctx.fillText(`T = ${gasText('T', cur.T, 4)}`, cx - 110, top + 10)
+  ctx.fillText(`p = ${gasText('p', cur.p, 4)}`, cx - 110, top + 30)
+  ctx.fillText(`V = ${gasText('V', cur.V, 4)}`, cx - 110, top + 50)
 }, () => props.active && playing.value)
 watch(curves, () => { u.value = 0; redraw() })
 
 const COLORS = ['#dc2626', '#2563eb', '#16a34a', '#d97706']
-const chartSeries = computed(() => curves.value.map((c, i) => ({ x: c.curve.filter((_, k) => k % 2 === 0).map(v => v * 1000), y: c.curve.filter((_, k) => k % 2 === 1).map(v => v / 1000), color: COLORS[i % 4], width: 2.2 })))
-const marker = computed(() => (now.value ? [{ x: now.value.V * 1000, y: now.value.p / 1000, label: '' }] : []))
+const chartSeries = computed(() => curves.value.map((c, i) => ({ x: c.curve.filter((_, k) => k % 2 === 0).map(v => gasValue('V', v)), y: c.curve.filter((_, k) => k % 2 === 1).map(v => gasValue('p', v)), color: COLORS[i % 4], width: 2.2 })))
+const marker = computed(() => (now.value ? [{ x: gasValue('V', now.value.V), y: gasValue('p', now.value.p), label: '' }] : []))
 const KIND_TEXT: Record<string, string> = { isothermal: tl('等温'), isobaric: tl('等压'), isochoric: tl('等容'), adiabatic: tl('绝热') }
 const pr = computed(() => proc.value)
 </script>
@@ -158,7 +160,7 @@ const pr = computed(() => proc.value)
       <section v-if="pr" class="lab-block">
         <div class="lab-btitle">{{ KIND_TEXT[pr.kind] }}{{ tl('过程') }}</div>
         <div class="lab-kv">
-          <span>{{ tl('末态') }}</span><b>{{ pr.to.T.toFixed(2) }} K, {{ fmtQ(pr.to.p, 'Pa', 4) }}</b>
+          <span>{{ tl('末态') }}</span><b>{{ gasText('T', pr.to.T, 5) }}, {{ gasText('p', pr.to.p, 4) }}</b>
           <span>{{ tl('气体对外做功 W') }}</span><b class="big">{{ fmtQ(pr.W, 'J', 5) }}</b>
           <span>{{ tl('吸收的热量 Q') }}</span><b>{{ fmtQ(pr.Q, 'J', 5) }}</b>
           <span>{{ tl('内能增量 ΔU') }}</span><b>{{ fmtQ(pr.dU, 'J', 5) }}</b>

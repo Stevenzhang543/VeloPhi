@@ -1,0 +1,11 @@
+[package]
+name = "velophi-chem"
+description = "VeloPhi chemistry core: species and reactions from sourced data, aqueous equilibrium, kinetics, heat, phases, gases, electrochemistry, the bench session, nuclides and the reactor workshop (26.64, D261)"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+velophi-core = { path = "../velophi-core" }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["float_roundtrip"] }

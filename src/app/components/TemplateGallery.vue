@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import Rich from './Rich.vue'
 /**
  * Classic model templates. Parameters are entered in the display units of the settings (templates take SI,
  * angles in degrees); g starts at the default gravity of the settings.
@@ -80,8 +81,8 @@ async function create() {
           <div v-if="!groups.length" class="tiny muted none">{{ tl('没有匹配的模板。') }}</div>
           <template v-for="[g, list] in groups" :key="g">
             <div class="tiny muted gname"><Icon :name="GROUP_ICON[g] ?? 'template'" :size="13" />{{ g }}<span class="count">{{ list.length }}</span></div>
-            <button v-for="t in list" :key="t.id" class="titem" :class="{ on: chosen.id === t.id }" @click="choose(t)">
-              <span>{{ t.name }}</span><span class="tiny muted">{{ t.description }}</span>
+            <button v-for="t in list" :key="t.id" class="titem" :data-template="t.id" :class="{ on: chosen.id === t.id }" @click="choose(t)">
+              <span>{{ t.name }}</span><span class="tiny muted"><Rich :text="t.description" /></span>
             </button>
           </template>
         </nav>

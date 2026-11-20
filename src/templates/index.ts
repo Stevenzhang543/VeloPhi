@@ -11,6 +11,7 @@
  * bounded run of a template reproduces the 26.49 recording and fingerprint.
  */
 import { tl, trDeep } from '../i18n'
+import { stopAfter } from './bounds'
 import type { Scene } from '../core/scene/types'
 import { COULOMB_K, usesArcs, usesFields, usesSoftStep } from '../core/scene/types'
 import { DEG, cos, sin, tan } from '../core/math/dmath'
@@ -51,6 +52,8 @@ function inclineBlock(v: Record<string, number>): Scene {
   const pl = onIncline(th, base, 0.3, w, h)
   addBody(s, { id: 'block', name: tl('物块'), role: 'block', shape: { type: 'box', width: w, height: h }, position: pl.position, angle: pl.angle, mass: v.m, material: { muS: v.mu, muK: v.mu } })
   s.settings.gravity = { x: 0, y: -v.g }
+  // 26.65 (M1): the run ends 0.4 s after the first separation — the block slides off the foot of the slope (no floor)
+  stopAfter(s, 0.4)
   s.settings.legacyDuration = 1.2
   s.view = { center: { x: 2, y: 1.2 }, pixelsPerMeter: 150 }
   s.watch = ['block.x', 'block.v', 'block.a', 'contact.block|incline.N', 'contact.block|incline.f']
@@ -79,6 +82,8 @@ function conveyorFlat(v: Record<string, number>): Scene {
   addGround(s, { id: 'belt', name: tl('传送带'), role: 'conveyor', top: 0, left: -0.5, right: 6, thickness: 0.3, beltSpeed: v.u, material: { muS: v.mu, muK: v.mu } })
   addBody(s, { id: 'block', name: tl('物块'), role: 'block', shape: { type: 'box', width: 0.2, height: 0.2 }, position: { x: 0.1, y: 0.1 }, mass: v.m, material: { muS: v.mu, muK: v.mu } })
   s.settings.gravity = { x: 0, y: -v.g }
+  // 26.65 (M1): the run ends 0.4 s after the first separation — the block leaves the end of the belt
+  stopAfter(s, 0.4)
   s.settings.legacyDuration = 1.5
   s.view = { center: { x: 2.2, y: 0.4 }, pixelsPerMeter: 140 }
   s.watch = ['block.vx', 'contact.block|belt.f', 'pair.belt|block.slide', 'ledger.frictionHeat', 'ledger.beltWork']
@@ -93,6 +98,8 @@ function conveyorIncline(v: Record<string, number>): Scene {
   const pl = onIncline(th, base, 0.2, 0.2, 0.2)
   addBody(s, { id: 'block', name: tl('物块'), role: 'block', shape: { type: 'box', width: 0.2, height: 0.2 }, position: pl.position, angle: pl.angle, mass: v.m, material: { muS: v.mu, muK: v.mu } })
   s.settings.gravity = { x: 0, y: -v.g }
+  // 26.65 (M1): the run ends 0.4 s after the first separation — the block leaves the foot of the belt
+  stopAfter(s, 0.4)
   s.settings.legacyDuration = 1.5
   s.view = { center: { x: 3, y: 2.6 }, pixelsPerMeter: 90 }
   s.watch = ['block.v', 'contact.block|belt.f', 'pair.belt|block.slide', 'ledger.frictionHeat']
@@ -136,6 +143,8 @@ function projectile(v: Record<string, number>): Scene {
   const a = v.alpha * DEG
   addBody(s, { id: 'ball', name: tl('小球'), kind: 'particle', role: 'ball', shape: { type: 'circle', radius: r }, position: { x: v.h > 0 ? r + 1e-3 : 0, y: v.h + r }, velocity: { x: v.v0 * cos(a), y: v.v0 * sin(a) }, mass: v.m })
   s.settings.gravity = { x: 0, y: -v.g }
+  // 26.65 (M1): the run ends 0.4 s after the first separation — after landing the ball slides off the end of the ground
+  stopAfter(s, 0.4)
   s.settings.legacyDuration = 2.2
   s.settings.energyZeroY = r
   s.view = { center: { x: 4, y: 2 }, pixelsPerMeter: 60 }
@@ -199,6 +208,8 @@ function rollingCylinder(v: Record<string, number>): Scene {
   const px = cos(th) * sAlong, py = H - sin(th) * sAlong
   addBody(s, { id: 'cyl', name: tl('圆柱'), role: 'wheel', shape: { type: 'circle', radius: r }, position: { x: px + sin(th) * r, y: py + cos(th) * r }, mass: v.m, material: { muS: v.mu, muK: v.mu } })
   s.settings.gravity = { x: 0, y: -v.g }
+  // 26.65 (M1): the run ends 0.4 s after the first separation — the cylinder rolls off the foot of the slope
+  stopAfter(s, 0.4)
   s.settings.legacyDuration = 1.2
   s.view = { center: { x: 2.4, y: 2 }, pixelsPerMeter: 110 }
   s.watch = ['cyl.v', 'cyl.omega', 'contact.cyl|incline.f', 'contact.cyl|incline.vt']
@@ -295,6 +306,8 @@ function movablePulley(v: Record<string, number>): Scene {
   addPulley(s, { id: 'p2', name: tl('定滑轮2'), position: { x: 0.6, y: 1.8 }, radius: r })
   addConnector<RopeDef>(s, { id: 'rope', name: tl('轻绳'), type: 'rope', a: anchor(null, { x: -r, y: top }), b: anchor(hang), pulleys: [{ pulley: 'pm', wrap: 'ccw' }, { pulley: 'p1', wrap: 'cw' }, { pulley: 'p2', wrap: 'cw' }], length: null })
   s.settings.gravity = { x: 0, y: -v.g }
+  // 26.65 (M1): the run ends 0 s after the first impact — M2: block 1 lands — the run ends there, like the Atwood machine at its pulley (taut and slack rope against the floor would bounce in a Zeno sequence)
+  stopAfter(s, 0, 'impact')
   s.settings.legacyDuration = 0.8
   s.view = { center: { x: 0.3, y: 1.1 }, pixelsPerMeter: 260 }
   s.watch = ['m1.vy', 'm2.vy', 'm1.ay', 'm2.ay', 'rope.T', 'system.e']
@@ -313,6 +326,8 @@ function movableWedge(v: Record<string, number>): Scene {
   const px = topX + c * along, py = topY - sn * along
   addBody(s, { id: 'block', name: tl('物块'), role: 'block', shape: { type: 'box', width: bw, height: bh }, position: { x: px + c * bw / 2 + sn * bh / 2, y: py - sn * bw / 2 + c * bh / 2 }, angle: -th, mass: v.m, fixedRotation: true })
   s.settings.gravity = { x: 0, y: -v.g }
+  // 26.65 (M1): the run ends 1 s after the first separation — one second after the block reaches the floor
+  stopAfter(s, 1)
   s.settings.legacyDuration = 0.6
   s.view = { center: { x: 0.2, y: 0.4 }, pixelsPerMeter: 220 }
   s.watch = ['block.vx', 'wedge.vx', 'wedge.ax', 'contact.block|wedge.N', 'system.px']
@@ -329,6 +344,8 @@ function springBlocks(v: Record<string, number>): Scene {
   const b = addBody(s, { id: 'b2', name: tl('物块2'), role: 'block', shape: { type: 'box', width: w, height: w }, position: { x: w + L0, y: w / 2 }, mass: v.m2, color: '#f59e0b' })
   addConnector<SpringDef>(s, { id: 'spring', name: tl('弹簧'), type: 'spring', a: anchor(a, { x: w / 2, y: 0 }), b: anchor(b, { x: -w / 2, y: 0 }), stiffness: v.k, restLength: L0, damping: 0 })
   s.settings.gravity = { x: 0, y: -v.g }
+  // 26.65 (M1): the run ends 0.4 s after the first separation — the blocks slide off the end of the smooth floor
+  stopAfter(s, 0.4)
   s.settings.legacyDuration = 2
   s.view = { center: { x: 1.2, y: 0.3 }, pixelsPerMeter: 160 }
   s.watch = ['b1.vx', 'b2.vx', 'spring.x', 'system.px', 'system.es']
@@ -342,6 +359,8 @@ function rollingSlip(v: Record<string, number>): Scene {
   addGround(s, { id: 'ground', top: 0, left: -1, right: 12, material: { muS: v.mu, muK: v.mu } })
   addBody(s, { id: 'disc', name: tl('圆柱'), role: 'wheel', shape: { type: 'circle', radius: v.r }, position: { x: 0, y: v.r }, velocity: { x: v.v0, y: 0 }, angularVelocity: 0, mass: v.m, material: { muS: v.mu, muK: v.mu } })
   s.settings.gravity = { x: 0, y: -v.g }
+  // 26.65 (M1): the run ends 0.4 s after the first separation — the disc rolls off the end of the ground
+  stopAfter(s, 0.4)
   s.settings.legacyDuration = 1.5
   s.view = { center: { x: 2.5, y: 0.6 }, pixelsPerMeter: 110 }
   s.watch = ['disc.vx', 'disc.omega', 'contact.disc|ground.f', 'contact.disc|ground.vt', 'pair.disc|ground.heat']
@@ -385,10 +404,14 @@ function sliderStop(v: Record<string, number>): Scene {
 function rollingResistance(v: Record<string, number>): Scene {
   const s = emptyScene(tl('滚动阻力'))
   s.description = tl('匀质圆柱在水平地面上以 v₀ 纯滚动，受滚动阻力偶 M = C_rr·N·r：速度均匀减小直到停下，机械能转化为热。')
-  addGround(s, { id: 'ground', top: 0, left: -1, right: 30, material: { muS: v.mu, muK: v.mu } })
+  // 26.65 (M1): the ground reaches past the stopping distance v₀²/(2·⅔·C_rr·g) of a disc (31 m were too short for small C_rr)
+  const stopDist = v.crr > 0 ? v.v0 * v.v0 / (2 * (2 / 3) * v.crr * v.g) : 0
+  addGround(s, { id: 'ground', top: 0, left: -1, right: Math.max(30, Math.min(5000, 1.1 * stopDist + 1)), material: { muS: v.mu, muK: v.mu } })
   addBody(s, { id: 'disc', name: tl('圆柱'), role: 'wheel', shape: { type: 'circle', radius: v.r }, position: { x: 0, y: v.r }, velocity: { x: v.v0, y: 0 }, angularVelocity: -v.v0 / v.r, mass: v.m, material: { muS: v.mu, muK: v.mu, restitution: 0, rolling: v.crr } })
   s.settings.gravity = { x: 0, y: -v.g }
   // Stops after v₀ / (⅔·C_rr·g) for a disc (I = ½mr²)
+  // 26.65 (M1): with C_rr = 0 nothing stops the disc; the run ends 0.4 s after it rolls off the end of the ground
+  stopAfter(s, 0.4)
   s.settings.legacyDuration = Math.min(600, 1.2 * v.v0 / Math.max(2 / 3 * v.crr * v.g, 1e-3))
   s.view = { center: { x: 2.5, y: 0.6 }, pixelsPerMeter: 110 }
   s.watch = ['disc.vx', 'disc.omega', 'contact.disc|ground.f', 'ledger.frictionHeat']
@@ -418,6 +441,8 @@ function variableForce(v: Record<string, number>): Scene {
   const b = addBody(s, { id: 'block', name: tl('物块'), role: 'block', shape: { type: 'box', width: 0.2, height: 0.2 }, position: { x: 0, y: 0.1 }, mass: v.m })
   addConnector<ForceDef>(s, { id: 'F', name: tl('变力 F'), type: 'force', a: anchor(b), force: { x: 0, y: 0 }, expr: { x: `${num(v.F0)}*sin(${num(v.omega)}*t)`, y: '0' } })
   s.settings.gravity = { x: 0, y: -v.g }
+  // 26.65 (M1): the run ends 0.4 s after the first separation — the block is pushed off the end of the floor
+  stopAfter(s, 0.4)
   s.settings.legacyDuration = 4
   s.view = { center: { x: 1.5, y: 0.5 }, pixelsPerMeter: 120 }
   s.watch = ['block.x', 'block.vx', 'block.ax', 'ledger.appliedWork']
@@ -518,6 +543,8 @@ function inertia(v: Record<string, number>): Scene {
   s.contactPairs.push({ a: 'block', b: 'table', muS: 0.6, muK: 0.6, restitution: 0 })
   addConnector<ForceDef>(s, { id: 'pull', name: tl('拉力'), type: 'force', a: anchor(paper, { x: 0.5, y: 0 }), force: { x: v.F, y: 0 } })
   s.settings.gravity = { x: 0, y: -v.g }
+  // 26.65 (M1): the run ends 0.6 s after the first separation — the paper strip is pulled out and falls off the table
+  stopAfter(s, 0.6)
   s.settings.legacyDuration = 0.6
   s.view = { center: { x: 0.9, y: 0.3 }, pixelsPerMeter: 260 }
   s.watch = ['block.x', 'paper.x', 'block.vx', 'contact.block|paper.f']
@@ -589,6 +616,8 @@ function inclineEfficiency(v: Record<string, number>): Scene {
   blk.velocity = { x: v.v0 * up.x, y: v.v0 * up.y }
   s.settings.gravity = { x: 0, y: -v.g }
   s.settings.energyZeroY = pl.position.y
+  // 26.65 (M1): the run ends 0.4 s after the first separation — the block leaves the top of the slope
+  stopAfter(s, 0.4)
   s.settings.legacyDuration = 1.2
   s.customQuantities = [{ id: 'eta', name: tl('机械效率 η'), expr: 'ep(block)/(ep(block) + heat(block, incline))' }]
   s.view = { center: { x: 2, y: 1.2 }, pixelsPerMeter: 150 }
@@ -627,7 +656,7 @@ export const TEMPLATES: TemplateInfo[] = trDeep([
   { id: 'collision-1d', group: '碰撞', name: '一维碰撞', description: '弹性 e=1、非弹性 0<e<1、完全非弹性 e=0', params: [p('m1', '质量 m₁', 'kg', 1, 0.01), p('m2', '质量 m₂', 'kg', 2, 0.01), p('v0', '初速度 v₀', 'm/s', 2), p('e', '恢复系数 e', '', 1, 0, 1, 0.05)], build: collision1D },
   { id: 'collision-2d', group: '碰撞', name: '二维斜碰', description: '光滑小球的斜碰', params: [p('m1', '质量 m₁', 'kg', 1, 0.01), p('m2', '质量 m₂', 'kg', 1, 0.01), p('v0', '初速度 v₀', 'm/s', 2), p('b', '瞄准偏移 b', 'm', 0.1, -0.19, 0.19, 0.01), p('e', '恢复系数 e', '', 1, 0, 1, 0.05)], build: collision2D },
   { id: 'projectile', group: '抛体', name: '抛体运动', description: '平抛（α=0）与斜抛', params: [p('v0', '初速度 v₀', 'm/s', 10), p('alpha', '仰角 α', '°', 45, -89, 89), p('h', '抛出高度 h', 'm', 0, 0), p('m', '质量 m', 'kg', 0.1, 0.001), gp()], build: projectile },
-  { id: 'pendulum', group: '振动', name: '单摆', description: '小角度近似与大角度精确周期对照', params: [p('L', '摆长 L', 'm', 1, 0.05), p('theta0', '初始偏角 θ₀', '°', 5, 0.1, 170), p('m', '摆球质量 m', 'kg', 0.5, 0.001), gp()], build: pendulum },
+  { id: 'pendulum', group: '振动', name: '单摆', description: '小角度近似与大角度精确周期对照', params: [p('L', '摆长 L', 'm', 1, 0.05), p('theta0', '初始偏角 θ₀', '°', 5, 0.1, 90), p('m', '摆球质量 m', 'kg', 0.5, 0.001), gp()], build: pendulum },
   { id: 'spring', group: '振动', name: '弹簧振子', description: '光滑水平面上的弹簧振子', params: [p('k', '劲度系数 k', 'N/m', 50, 0.01), p('m', '质量 m', 'kg', 0.5, 0.001), p('A', '振幅 A', 'm', 0.1, 0.001, 0.6), gp()], build: springOscillator },
   { id: 'hinged-rod', group: '刚体转动', name: '定轴转动细杆', description: '从水平位置释放的铰接细杆', params: [p('L', '杆长 L', 'm', 1, 0.05), p('m', '质量 m', 'kg', 1, 0.001), gp()], build: hingedRod },
   { id: 'rolling', group: '刚体转动', name: '斜面上的圆柱', description: '纯滚动与边滚边滑', params: [p('theta', '倾角 θ', '°', 30, 1, 80), p('r', '半径 r', 'm', 0.15, 0.01), p('m', '质量 m', 'kg', 1, 0.001), p('mu', '摩擦因数 μ', '', 0.3, 0, 2, 0.01), gp()], build: rollingCylinder },
@@ -711,6 +740,8 @@ function uniformMotion(v: Record<string, number>): Scene {
   addGround(s, { id: 'ground', top: 0, left: -1, right: 30 })
   addBody(s, { id: 'block', name: tl('物块'), role: 'block', shape: { type: 'box', width: 0.3, height: 0.2 }, position: { x: 0.15, y: 0.1 }, velocity: { x: v.v, y: 0 }, mass: v.m, material: { muS: 0, muK: 0, restitution: 0 } })
   s.settings.gravity = { x: 0, y: -v.g }
+  // 26.65 (M1): the run ends 0.4 s after the first separation — the block slides off the end of the smooth floor
+  stopAfter(s, 0.4)
   s.settings.legacyDuration = 2
   s.view = { center: { x: 2.5, y: 0.6 }, pixelsPerMeter: 110 }
   s.watch = ['block.x', 'block.vx', 'block.a']
@@ -725,6 +756,8 @@ function pullForce(v: Record<string, number>): Scene {
   const a = v.alpha * DEG
   addConnector<ForceDef>(s, { id: 'pull', name: tl('拉力'), type: 'force', a: anchor(blk), force: { x: v.F * cos(a), y: v.F * sin(a) } })
   s.settings.gravity = { x: 0, y: -v.g }
+  // 26.65 (M1): the run ends 0.4 s after the first separation — the block is pulled off the end of the floor
+  stopAfter(s, 0.4)
   s.settings.legacyDuration = 2
   s.view = { center: { x: 2.5, y: 0.6 }, pixelsPerMeter: 110 }
   s.watch = ['block.vx', 'block.ax', 'pull.P', 'ledger.appliedWork', 'contact.block|ground.N']

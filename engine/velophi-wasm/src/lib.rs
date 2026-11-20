@@ -18,7 +18,7 @@ use velophi_core::simulation::{Advance, Fallback, SimulationRun, StopReason};
 use velophi_core::transport::{end_json, DeltaWriter};
 
 /// Version of this ABI (bumped on any incompatible change).
-pub const ABI_VERSION: u32 = 2;
+pub const ABI_VERSION: u32 = 3;
 
 struct Handle {
     driver: RunDriver,
@@ -444,7 +444,8 @@ pub extern "C" fn calc_call(ptr: *const u8, len: u32) -> i32 {
             return 0;
         }
     };
-    match velophi_core::calc::call_bytes(&req) {
+    // 26.64 (ABI 3): the chemistry operations first, then the physics core's
+    match velophi_chem::api::calc_bytes(&req) {
         Ok(bytes) => CALC_OUTPUT.with(|o| {
             let n = bytes.len() as i32;
             *o.borrow_mut() = bytes;
@@ -556,4 +557,96 @@ pub extern "C" fn session_segment(handle: u32, k: f64) -> i32 {
 #[no_mangle]
 pub extern "C" fn session_impact_loss(handle: u32, k: f64) -> f64 {
     with_session(handle, |h| h.session.impact_loss(k as u64).unwrap_or(f64::NAN)).unwrap_or(f64::NAN)
+}
+
+// ---- The chemistry bench (ABI 3, 26.64 D261/D268) ----
+
+struct BenchHandle {
+    bench: velophi_chem::session::BenchSession,
+    output: Vec<u8>,
+}
+
+thread_local! {
+    static BENCHES: RefCell<Vec<Option<Box<BenchHandle>>>> = const { RefCell::new(Vec::new()) };
+}
+
+fn with_bench<T>(h: u32, f: impl FnOnce(&mut BenchHandle) -> T) -> Option<T> {
+    BENCHES.with(|hs| {
+        let mut hs = hs.borrow_mut();
+        let slot = hs.get_mut((h as usize).checked_sub(1)?)?;
+        slot.as_deref_mut().map(f)
+    })
+}
+
+/// Create a bench session from `{ bench? }` (a `velophi-bench` document; engine/CHEM.md). Returns a handle, or 0 on
+/// error (`last_error`).
+#[no_mangle]
+pub extern "C" fn chem_session_create(ptr: *const u8, len: u32) -> u32 {
+    let made = (|| -> Result<velophi_chem::session::BenchSession, Message> {
+        let doc: Value = if len == 0 { Value::Null } else { serde_json::from_slice(input(ptr, len)).map_err(|e| Message::new("err.internal").text("message", e.to_string()))? };
+        velophi_chem::session::BenchSession::create(&doc)
+    })();
+    match made {
+        Ok(bench) => BENCHES.with(|hs| {
+            let mut hs = hs.borrow_mut();
+            let slot = Some(Box::new(BenchHandle { bench, output: Vec::new() }));
+            match hs.iter().position(|s| s.is_none()) {
+                Some(i) => {
+                    hs[i] = slot;
+                    i as u32 + 1
+                }
+                None => {
+                    hs.push(slot);
+                    hs.len() as u32
+                }
+            }
+        }),
+        Err(m) => {
+            set_error(&m);
+            0
+        }
+    }
+}
+
+/// One bench operation `{ op, … }` (engine/CHEM.md). Returns the size of the result container (read it at
+/// `chem_session_output`), or 0 on error (`last_error`).
+#[no_mangle]
+pub extern "C" fn chem_session_call(handle: u32, ptr: *const u8, len: u32) -> i32 {
+    let req: Value = match serde_json::from_slice(input(ptr, len)) {
+        Ok(v) => v,
+        Err(e) => {
+            set_error(&Message::new("err.internal").text("message", e.to_string()));
+            return 0;
+        }
+    };
+    with_bench(handle, |h| match h.bench.call_bytes(&req) {
+        Ok(bytes) => {
+            h.output = bytes;
+            h.output.len() as i32
+        }
+        Err(m) => {
+            set_error(&m);
+            0
+        }
+    })
+    .unwrap_or_else(|| {
+        set_error(&Message::new("err.internal").text("message", "bench: unknown handle"));
+        0
+    })
+}
+
+/// Pointer to the result of the last `chem_session_call` (valid until the next call on this bench).
+#[no_mangle]
+pub extern "C" fn chem_session_output(handle: u32) -> *const u8 {
+    with_bench(handle, |h| h.output.as_ptr()).unwrap_or(std::ptr::null())
+}
+
+/// Free a bench session (its slot is reused).
+#[no_mangle]
+pub extern "C" fn chem_session_free(handle: u32) {
+    BENCHES.with(|hs| {
+        if let Some(slot) = hs.borrow_mut().get_mut((handle as usize).wrapping_sub(1)) {
+            *slot = None;
+        }
+    });
 }

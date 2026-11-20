@@ -1,0 +1,123 @@
+# Ids that the reactions, couples and experiments of this package name and that are neither species of the aqueous
+# network nor (when this list was written) entries of substances.json. scripts/chem/check_reactions.py reads it: an id
+# known only here is "pending" (listed in the report, the equations still balance with the formula given here); once
+# substances.json or the network defines the id, the formula here is compared with theirs.
+#
+#   id | formula | phase | charge | kind | where it is needed
+#
+# kind: substance = wanted in scripts/chem/catalog/substances.json (id convention Formula(s|l|g|aq), names for the
+#                   large molecules as in engine/CHEM.md: Glucose(aq));
+#       network   = a charged species: it has to be a species of the aqueous network (a supplement entry), a substance
+#                   carries no charge in the core;
+#       series    = appears only in the electrochemical series of the encyclopedia (couples with "bench": false, and
+#                   the metals of couples that no reaction uses); nothing has to be stocked.
+
+# --- metals and non-metals ------------------------------------------------------------------------------------------
+Li(s) | Li | s | 0 | substance | Li_water; couple Li+/Li
+Na(s) | Na | s | 0 | substance | Na_water, Na_acid, Na_air, Na_burn, Na_Cl2, C2H5OH_Na; couple Na+/Na
+K(s) | K | s | 0 | substance | K_water, K_acid; couple K+/K
+Ca(s) | Ca | s | 0 | substance | Ca_water, Ca_acid; couple Ca+2/Ca
+Mg(s) | Mg | s | 0 | substance | Mg_acid, Mg_hot_water, Mg_steam, Mg_burn, Mg_CO2, Mg_Cu2; couples
+Al(s) | Al | s | 0 | substance | Al_acid, Al_NaOH, Al_Cu2, thermite; couples
+Zn(s) | Zn | s | 0 | substance | Zn_acid, Zn_NaOH, displacement; couples
+Fe(s) | Fe | s | 0 | substance | Fe_acid, Fe_Cu2, Fe_burn, Fe_S, Fe_steam, Fe3_Fe, product of thermite; couples
+Ni(s) | Ni | s | 0 | substance | Ni_acid; couple Ni+2/Ni; electrode
+Sn(s) | Sn | s | 0 | substance | Sn_acid, product of Zn_Sn2; couple Sn+2/Sn
+Pb(s) | Pb | s | 0 | substance | Pb_acid, product of Zn_Pb2; couples Pb+2/Pb, PbSO4/Pb
+Cu(s) | Cu | s | 0 | substance | Cu_HNO3_conc, Cu_HNO3_dil, Cu_H2SO4_conc, Cu_O2, Cu_S, Cu_Cl2, Cu_Ag, Fe3_Cu, product of displacement; couples
+Ag(s) | Ag | s | 0 | substance | Ag_HNO3_conc, Ag_HNO3_dil, product of Cu_Ag and of the silver mirror; couples
+C(s) | C | s | 0 | substance | carbon (charcoal, graphite): C_burn, C_CuO, C_CO2, C_H2SO4_conc, C_HNO3_conc, product of sucrose_H2SO4 and Mg_CO2
+S(s) | S | s | 0 | substance | S_burn, Fe_S, Cu_S, product of S2O3_acid, SO2_H2S and the oxidations of H2S; couple S/H2S
+P(s) | P | s | 0 | substance | red phosphorus: P_burn (white phosphorus is not stocked)
+
+# --- oxides, salts, acids -------------------------------------------------------------------------------------------
+MnO2(s) | MnO2 | s | 0 | substance | H2O2_MnO2, KClO3_MnO2, MnO2_HCl, product of KMnO4_thermal and of permanganate in neutral solution; couples
+Fe3O4(s) | Fe3O4 | s | 0 | substance | product of Fe_burn and Fe_steam
+Na2O(s) | Na2O | s | 0 | substance | product of Na_air (dissolves: 2 Na+ + 2 OH- − H2O)
+Na2O2(s) | Na2O2 | s | 0 | substance | Na2O2_water, Na2O2_CO2, product of Na_burn
+P4O10(s) | P4O10 | s | 0 | substance | product of P_burn (dissolves to phosphoric acid)
+KMnO4(s) | KMnO4 | s | 0 | substance | KMnO4_thermal (dissolves: K+ + MnO4-)
+K2MnO4(s) | K2MnO4 | s | 0 | substance | product of KMnO4_thermal (dissolves: 2 K+ + MnO4-2)
+KClO3(s) | KClO3 | s | 0 | substance | KClO3_thermal, KClO3_MnO2 (dissolves: K+ + ClO3-)
+KNO3(s) | KNO3 | s | 0 | substance | KNO3_thermal
+KNO2(s) | KNO2 | s | 0 | substance | product of KNO3_thermal (dissolves: K+ + NO2-)
+NaNO3(s) | NaNO3 | s | 0 | substance | NaNO3_thermal
+NaNO2(s) | NaNO2 | s | 0 | substance | product of NaNO3_thermal
+Cu(NO3)2:3H2O(s) | Cu(NO3)2:3H2O | s | 0 | substance | CuNO32_thermal
+AgNO3(s) | AgNO3 | s | 0 | substance | AgNO3_thermal
+NH4Cl(s) | NH4Cl | s | 0 | substance | NH4Cl_CaOH2, NH4Cl_thermal, product of NH3_HCl
+NH4HCO3(s) | NH4HCO3 | s | 0 | substance | NH4HCO3_thermal
+CaCl2(s) | CaCl2 | s | 0 | substance | product of NH4Cl_CaOH2
+Na2CO3(s) | Na2CO3 | s | 0 | substance | anhydrous soda: product of NaHCO3_thermal, Na2CO3_10H2O_step2, Na2O2_CO2
+NaHSO4(s) | NaHSO4 | s | 0 | substance | product of NaCl_H2SO4
+CaC2(s) | CaC2 | s | 0 | substance | CaC2_water
+FeCl3(s) | FeCl3 | s | 0 | substance | product of Fe_Cl2 (the network id FeCl3 is the dissolved complex)
+PbO2(s) | PbO2 | s | 0 | substance | couples PbO2/Pb+2, PbO2/PbSO4 (lead-acid cell); no reaction
+H2SO4(l) | H2SO4 | l | 0 | substance | concentrated sulfuric acid as a liquid outside the activity model: Cu_H2SO4_conc, C_H2SO4_conc, NaCl_H2SO4, sucrose_H2SO4, C2H5OH_dehydration, esterification, passivation
+CuSO4:3H2O(s) | CuSO4:3H2O | s | 0 | substance | CuSO4_5H2O_step1, step2
+CuSO4:H2O(s) | CuSO4:H2O | s | 0 | substance | CuSO4_5H2O_step2, step3
+CaSO4:0.5H2O(s) | CaSO4:0.5H2O | s | 0 | substance | plaster of Paris: gypsum_plaster, plaster_anhydrite (dissolves: Ca+2 + SO4-2 + 0.5 H2O, which lets it set as Gypsum)
+N2O4(g) | N2O4 | g | 0 | substance | N2O4_equilibrium; couple NO3-/N2O4
+Br2(l) | Br2 | l | 0 | substance | couples Br2/Br-, BrO3-/Br2 (liquid bromine; the dissolved form is the network's Br2)
+
+# --- organic ---------------------------------------------------------------------------------------------------------
+C2H4(g) | C2H4 | g | 0 | substance | ethene: C2H4_burn, C2H4_Br2, C2H4_MnO4, product of C2H5OH_dehydration
+C2H2(g) | C2H2 | g | 0 | substance | ethyne: C2H2_burn, C2H2_Br2, C2H2_MnO4, product of CaC2_water
+C2H5OH(l) | C2H5OH | l | 0 | substance | ethanol: C2H5OH_burn, C2H5OH_Na, CuO_C2H5OH, C2H5OH_dehydration, esterification (dissolves: C2H5OH(aq))
+C2H5OH(aq) | C2H5OH | aq | 0 | substance | Cr2O7_C2H5OH, MnO4_C2H5OH, product of the ester hydrolyses and of C2H5Br_hydrolysis
+CH3OH(l) | CH3OH | l | 0 | substance | CH3OH_burn
+CH3CHO(aq) | CH3CHO | aq | 0 | substance | ethanal: silver_mirror_ethanal, fehling_ethanal, product of CuO_C2H5OH
+CH3COOH(l) | CH3COOH | l | 0 | substance | glacial acetic acid: esterification (dissolves: H(Acetate))
+CH3COOC2H5(l) | CH3COOC2H5 | l | 0 | substance | ethyl acetate: product of esterification (dissolves sparingly: CH3COOC2H5(aq))
+CH3COOC2H5(aq) | CH3COOC2H5 | aq | 0 | substance | ester_hydrolysis_acid, ester_hydrolysis_base
+CH3Cl(g) | CH3Cl | g | 0 | substance | CH4_Cl2_1, CH4_Cl2_2
+CH2Cl2(l) | CH2Cl2 | l | 0 | substance | CH4_Cl2_2, CH4_Cl2_3
+CHCl3(l) | CHCl3 | l | 0 | substance | CH4_Cl2_3, CH4_Cl2_4
+CCl4(l) | CCl4 | l | 0 | substance | CH4_Cl2_4 (also the extraction solvent of the halogen experiments)
+C2H4Br2(l) | C2H4Br2 | l | 0 | substance | 1,2-dibromoethane: product of C2H4_Br2
+C2H2Br4(l) | C2H2Br4 | l | 0 | substance | 1,1,2,2-tetrabromoethane: product of C2H2_Br2
+C2H5ONa(s) | C2H5ONa | s | 0 | substance | sodium ethoxide: product of C2H5OH_Na
+C2H5Br(l) | C2H5Br | l | 0 | substance | bromoethane: C2H5Br_hydrolysis
+Glucose(aq) | C6H12O6 | aq | 0 | substance | silver_mirror_glucose, fehling_glucose, product of the hydrolyses
+Fructose(aq) | C6H12O6 | aq | 0 | substance | product of sucrose_hydrolysis
+Sucrose(aq) | C12H22O11 | aq | 0 | substance | sucrose_hydrolysis
+Sucrose(s) | C12H22O11 | s | 0 | substance | sucrose_H2SO4 (dissolves: Sucrose(aq))
+Starch(aq) | C6H10O5 | aq | 0 | substance | starch_hydrolysis; one mole = one glucose unit
+C6H12O7(aq) | C6H12O7 | aq | 0 | substance | gluconic acid: product of silver_mirror_glucose and fehling_glucose
+C6H5OH(aq) | C6H5OH | aq | 0 | substance | phenol: phenol_Br2
+C6H2Br3OH(s) | C6H2Br3OH | s | 0 | substance | 2,4,6-tribromophenol: product of phenol_Br2
+Tristearin(s) | (C17H35COO)3C3H5 | s | 0 | substance | glyceryl tristearate: fat_saponification
+C17H35COONa(aq) | C17H35COONa | aq | 0 | substance | sodium stearate (soap): product of fat_saponification
+Glycerol(aq) | C3H8O3 | aq | 0 | substance | product of fat_saponification
+Paraffin(s) | C25H52 | s | 0 | substance | candle wax: candle_burn
+PE(s) | C2H4 | s | 0 | substance | polyethene, one repeat unit: addition_polymerisation (encyclopedia only)
+C8H6O4(s) | C8H6O4 | s | 0 | substance | terephthalic acid: condensation_polymerisation (encyclopedia only)
+C2H6O2(l) | C2H6O2 | l | 0 | substance | ethane-1,2-diol: condensation_polymerisation (encyclopedia only)
+PET(s) | C10H8O4 | s | 0 | substance | polyester, one repeat unit: condensation_polymerisation (encyclopedia only)
+
+# --- species wanted in the aqueous network --------------------------------------------------------------------------
+S4O6-2 | S4O6 | aq | -2 | network | tetrathionate: product of I2_S2O3 (iodometry, iodine clock); couple S4O6-2/S2O3-2. Inert: a master species of its own, e.g. [S2_5]4O6-2.
+IO3- | IO3 | aq | -1 | network | iodate: I2_disproportionation (iodine with alkali; iodate with iodide and acid, the test for iodised salt); couples IO3-/I2. A master species [I5]O3-; HIO3 is a strong acid (pKa 0.8).
+BrO3- | BrO3 | aq | -1 | network | bromate: Br2_disproportionation (bromine water + NaOH); couples BrO3-/Br2. A master species [Br5]O3-.
+
+# --- electrochemical series only ------------------------------------------------------------------------------------
+Rb(s) | Rb | s | 0 | series | couple Rb+/Rb
+Cs(s) | Cs | s | 0 | series | couple Cs+/Cs
+Sr(s) | Sr | s | 0 | series | couple Sr+2/Sr
+Ba(s) | Ba | s | 0 | series | couple Ba+2/Ba
+Mn(s) | Mn | s | 0 | series | couple Mn+2/Mn
+Cr(s) | Cr | s | 0 | series | couple Cr+3/Cr
+Co(s) | Co | s | 0 | series | couple Co+2/Co
+Cd(s) | Cd | s | 0 | series | couple Cd+2/Cd
+Au(s) | Au | s | 0 | series | couple Au+3/Au
+Pt(s) | Pt | s | 0 | series | couple Pt+2/Pt (the platinum electrode itself is inert)
+Hg(l) | Hg | l | 0 | series | couples Hg+2/Hg, Hg2+2/Hg, Hg2Cl2/Hg (mercury is not stocked)
+Au+3 | Au | aq | 3 | series | couple Au+3/Au
+Pt+2 | Pt | aq | 2 | series | couple Pt+2/Pt
+Hg+2 | Hg | aq | 2 | series | couple Hg+2/Hg
+Hg2+2 | Hg2 | aq | 2 | series | couple Hg2+2/Hg
+Co+3 | Co | aq | 3 | series | couple Co+3/Co+2
+F2(g) | F2 | g | 0 | series | couple F2/F-
+O3(g) | O3 | g | 0 | series | couple O3/O2
+S2O8-2 | S2O8 | aq | -2 | series | couple S2O8-2/SO4-2
+Hg2Cl2(s) | Hg2Cl2 | s | 0 | series | couple Hg2Cl2/Hg (calomel electrode)

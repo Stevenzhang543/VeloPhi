@@ -1,0 +1,236 @@
+{
+ "format": "velophi-chem-data-report",
+ "files": {
+  "crystals.json": {
+   "sha256": "1325561f9eac427e42302599f275b9518ac14acfc86dd231f5c830005a8cc389",
+   "bytes": 15268
+  },
+  "elements.json": {
+   "sha256": "2a21443b551a47e1c0a4e60b2d1342a0506325dc64f0236d011d96e61deb330b",
+   "bytes": 119353
+  },
+  "molecules.json": {
+   "sha256": "475c03fcb56151331773ee24f067660eb4c293452e0571b8a48e573b54f50db5",
+   "bytes": 444498
+  }
+ },
+ "counts": {
+  "elements": 118,
+  "molecules": 535,
+  "crystals": 22
+ },
+ "targets": {
+  "elements": 118,
+  "molecules": 400,
+  "crystals": 12
+ },
+ "moleculesByCategory": {
+  "alcohol": 16,
+  "aldehyde": 10,
+  "alkane": 19,
+  "alkene": 16,
+  "alkyne": 5,
+  "amide": 8,
+  "amine": 8,
+  "amino-acid": 23,
+  "anion": 56,
+  "arene": 17,
+  "bioactive": 14,
+  "carbohydrate": 18,
+  "carboxylic-acid": 28,
+  "cation": 8,
+  "complex": 29,
+  "cycloalkane": 7,
+  "element": 11,
+  "ester": 12,
+  "ether": 9,
+  "halide": 27,
+  "haloalkane": 28,
+  "heterocycle": 13,
+  "hydride": 20,
+  "indicator": 12,
+  "inorganic": 5,
+  "ketone": 9,
+  "ligand": 13,
+  "lipid": 7,
+  "nitrogen-compound": 4,
+  "nucleobase": 8,
+  "oxide": 16,
+  "oxoacid": 16,
+  "phenol": 9,
+  "polymer": 25,
+  "sulfur-compound": 9
+ },
+ "moleculesByMethod": {
+  "literature": 103,
+  "rdkit-etkdg-mmff": 389,
+  "rdkit-etkdg-uff": 2,
+  "vsepr": 41
+ },
+ "atomsInMolecules": 8281,
+ "largestMolecule": 173,
+ "elementFieldsPresent": {
+  "abundanceCrust": 88,
+  "allotrope": 8,
+  "block": 118,
+  "boil": 88,
+  "category": 118,
+  "configuration": 118,
+  "configurationPredicted": 118,
+  "crystal": 84,
+  "crystal.a": 83,
+  "crystal.alpha": 5,
+  "crystal.b": 7,
+  "crystal.c": 38,
+  "crystal.structure": 84,
+  "density": 96,
+  "densityPhase": 96,
+  "discovery": 118,
+  "discovery.ancient": 118,
+  "discovery.by": 105,
+  "discovery.year": 105,
+  "electronAffinity": 70,
+  "electronegativity": 85,
+  "emissionLines": 14,
+  "group": 88,
+  "ionisation": 108,
+  "ionisation.eV": 108,
+  "ionisation.kJmol": 108,
+  "isotopes": 118,
+  "mass": 118,
+  "massIsMassNumber": 118,
+  "melt": 100,
+  "name": 118,
+  "name.de": 118,
+  "name.en": 118,
+  "name.zh": 118,
+  "oxidationStates": 118,
+  "oxidationStates.common": 100,
+  "oxidationStates.other": 105,
+  "period": 118,
+  "radius": 118,
+  "radius.atomic": 90,
+  "radius.covalent": 96,
+  "radius.covalentDouble": 108,
+  "radius.covalentTriple": 80,
+  "radius.vdw": 103,
+  "state": 102,
+  "sublimes": 118,
+  "subshells": 118,
+  "symbol": 118,
+  "z": 118
+ },
+ "bondsNearestToTheirLimits": [
+  {
+   "molecule": "thymine",
+   "bond": "C-C",
+   "order": 1.5,
+   "length": 1.488,
+   "min": 1.33,
+   "max": 1.49
+  },
+  {
+   "molecule": "cytosine",
+   "bond": "C-C",
+   "order": 1.5,
+   "length": 1.333,
+   "min": 1.33,
+   "max": 1.49
+  },
+  {
+   "molecule": "uric-acid",
+   "bond": "C-C",
+   "order": 1.5,
+   "length": 1.333,
+   "min": 1.33,
+   "max": 1.49
+  },
+  {
+   "molecule": "oxygen-difluoride",
+   "bond": "O-F",
+   "order": 1,
+   "length": 1.404,
+   "min": 1.045,
+   "max": 1.414
+  },
+  {
+   "molecule": "oxygen-difluoride",
+   "bond": "O-F",
+   "order": 1,
+   "length": 1.404,
+   "min": 1.045,
+   "max": 1.414
+  },
+  {
+   "molecule": "nitrosyl-chloride",
+   "bond": "N-Cl",
+   "order": 1,
+   "length": 1.975,
+   "min": 1.47,
+   "max": 1.989
+  },
+  {
+   "molecule": "hydrogensulfite",
+   "bond": "S-O",
+   "order": 1,
+   "length": 1.711,
+   "min": 1.4,
+   "max": 1.72
+  },
+  {
+   "molecule": "uracil",
+   "bond": "C-C",
+   "order": 1.5,
+   "length": 1.335,
+   "min": 1.33,
+   "max": 1.49
+  },
+  {
+   "molecule": "tetramethylammonium",
+   "bond": "N-C",
+   "order": 1,
+   "length": 1.522,
+   "min": 1.31,
+   "max": 1.53
+  },
+  {
+   "molecule": "tetramethylammonium",
+   "bond": "C-N",
+   "order": 1,
+   "length": 1.522,
+   "min": 1.31,
+   "max": 1.53
+  },
+  {
+   "molecule": "tetramethylammonium",
+   "bond": "N-C",
+   "order": 1,
+   "length": 1.522,
+   "min": 1.31,
+   "max": 1.53
+  },
+  {
+   "molecule": "tetramethylammonium",
+   "bond": "N-C",
+   "order": 1,
+   "length": 1.522,
+   "min": 1.31,
+   "max": 1.53
+  }
+ ],
+ "closestAtomsInCrystals": [
+  {
+   "crystal": "co2",
+   "distance": 1.155
+  },
+  {
+   "crystal": "caco3-calcite",
+   "distance": 1.281
+  },
+  {
+   "crystal": "graphite",
+   "distance": 1.421
+  }
+ ],
+ "violations": []
+}

@@ -26,6 +26,8 @@ export interface AiInfo {
   provider?: string
   /** 26.59 fix: whether the server passes the thinking switch and the thinking text through. */
   thinking?: boolean
+  /** 26.64 (D283): the server passes `strict` of tool definitions on to a provider address that has strict calls. */
+  strictTools?: boolean
   usage?: { requests: number; tokens: number }
   limits?: { requests: number; tokens: number; resetsAt?: string }
 }

@@ -49,10 +49,27 @@ pub fn slits(x: f64, lambda: f64, a: f64, d: f64, n: usize, l: f64) -> f64 {
     f * f * g * g
 }
 
-/// Screen positions of the principal maxima of order m (d·sinθ = mλ) within |x| ≤ half (m).
+/// 26.65 (M10): most orders a list of maxima or minima holds (|m| ≤ LIST_ORDERS, the ones nearest the centre); the
+/// total on the screen is reported separately (`orders_on_screen`).
+pub const LIST_ORDERS: i32 = 100;
+
+/// Number of orders m (m ≠ 0 when `skip_zero`) with |m·λ/w| < 1 whose position L·tanθ lies within |x| ≤ half
+/// (w = d for the maxima, a for the minima), counted from the bounds instead of a list.
+pub fn orders_on_screen(lambda: f64, w: f64, l: f64, half: f64, skip_zero: bool) -> f64 {
+    // |x| ≤ half ⟺ |sinθ| ≤ half/√(L² + half²); sinθ = mλ/w
+    let s_h = half / (l * l + half * half).sqrt();
+    let by_screen = (s_h * w / lambda).floor();
+    let r = w / lambda;
+    let by_angle = if r.floor() == r { r - 1.0 } else { r.floor() };
+    let m = by_screen.min(by_angle).max(0.0);
+    2.0 * m + if skip_zero { 0.0 } else { 1.0 }
+}
+
+/// Screen positions of the principal maxima of order m (d·sinθ = mλ) within |x| ≤ half (m), at most the orders
+/// |m| ≤ LIST_ORDERS.
 pub fn maxima(lambda: f64, d: f64, l: f64, half: f64) -> Vec<(i32, f64)> {
     let mut out = Vec::new();
-    let mmax = (d / lambda).floor() as i32;
+    let mmax = ((d / lambda).floor().min(LIST_ORDERS as f64)) as i32;
     for m in -mmax..=mmax {
         let s = m as f64 * lambda / d;
         if s.abs() >= 1.0 {
@@ -66,10 +83,10 @@ pub fn maxima(lambda: f64, d: f64, l: f64, half: f64) -> Vec<(i32, f64)> {
     out
 }
 
-/// Screen positions of the minima of a single slit (a·sinθ = mλ, m ≠ 0) within |x| ≤ half.
+/// Screen positions of the minima of a single slit (a·sinθ = mλ, m ≠ 0) within |x| ≤ half, at most |m| ≤ LIST_ORDERS.
 pub fn slit_minima(lambda: f64, a: f64, l: f64, half: f64) -> Vec<(i32, f64)> {
     let mut out = Vec::new();
-    let mmax = (a / lambda).floor() as i32;
+    let mmax = ((a / lambda).floor().min(LIST_ORDERS as f64)) as i32;
     for m in -mmax..=mmax {
         if m == 0 {
             continue;
@@ -200,6 +217,43 @@ pub fn white_colours(samples: usize, f: impl Fn(usize, f64) -> f64, peak: f64) -
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// 26.65 (M10): lists are capped at |m| ≤ 100, the count comes from the bounds and equals a full enumeration.
+    #[test]
+    fn orders_capped_and_counted() {
+        // d = 0.25 mm, λ = 600 nm, L = 2 m, half = 0.03 m: Δx = 4.8 mm → |m| ≤ 6 (x₆ = 28.8 mm), 13 maxima
+        assert_eq!(maxima(600e-9, 0.25e-3, 2.0, 0.03).len(), 13);
+        assert_eq!(orders_on_screen(600e-9, 0.25e-3, 2.0, 0.03, false), 13.0);
+        // The audit's case d = 1 m, half = 1 m: 1.49 million maxima on the screen; the list keeps 201 of them
+        let (lam, d, l, half): (f64, f64, f64, f64) = (600e-9, 1.0, 2.0, 1.0);
+        let full = {
+            let mmax = (d / lam).floor() as i64;
+            (-mmax..=mmax).filter(|&m| {
+                let s = m as f64 * lam / d;
+                s.abs() < 1.0 && (l * s / (1.0 - s * s).sqrt()).abs() <= half
+            }).count() as f64
+        };
+        assert_eq!(full, 745_355.0 * 2.0 + 1.0);
+        assert_eq!(orders_on_screen(lam, d, l, half, false), full);
+        let mx = maxima(lam, d, l, half);
+        assert_eq!(mx.len(), 2 * LIST_ORDERS as usize + 1);
+        assert!(mx.iter().all(|(m, _)| m.abs() <= LIST_ORDERS));
+        // Single slit a = 0.02 mm: minima at |m| = 1, 2 within ±30 mm (x₁ = 60 mm is outside) → none; a = 0.2 mm → |m| ≤ 4
+        assert_eq!(orders_on_screen(600e-9, 0.2e-3, 2.0, 0.03, true), slit_minima(600e-9, 0.2e-3, 2.0, 0.03).len() as f64);
+    }
+
+    /// 26.65 (M10): a wavelength in the wrong unit is refused by the lab call, it does not panic.
+    #[test]
+    fn wrong_units_are_refused() {
+        let mut blob = crate::transport::Blob::default();
+        let req = serde_json::json!({ "op": "waveOptics", "setup": "double", "lambda": 6e-7, "a": 0.02e-3, "d": 0.25e-3, "L": 2.0, "half": 0.03 });
+        let v = super::super::call("waveOptics", &req, &mut blob).expect("known op");
+        assert!(v.get("error").is_some(), "{v}");
+        let ok = serde_json::json!({ "op": "waveOptics", "setup": "double", "lambda": 600.0, "a": 0.02e-3, "d": 0.25e-3, "L": 2.0, "half": 0.03 });
+        let v = super::super::call("waveOptics", &ok, &mut blob).expect("known op");
+        assert_eq!(v["maximaTotal"].as_f64(), Some(13.0));
+        assert_eq!(v["maxima"].as_array().map(|a| a.len()), Some(13));
+    }
 
     #[test]
     fn double_slit_fringes() {

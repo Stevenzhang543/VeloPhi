@@ -176,7 +176,7 @@ async function saveManifest() {
 
 <style scoped>
 .conv { width: min(980px, calc(100vw - 32px)); }
-.lead { margin: 0 0 10px; color: var(--text-2); line-height: 1.55; }
+.lead { margin: 0 0 10px; color: var(--text-2); line-height: var(--line-para); }
 .form { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.5fr) repeat(3, minmax(96px, 0.6fr)); gap: 10px; }
 .f { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .f > span { font-size: var(--type-tiny); color: var(--text-3); font-weight: 600; }
@@ -195,13 +195,13 @@ async function saveManifest() {
 .tbl .ref td { color: var(--text-2); border-bottom: 0; }
 .tbl .note { text-align: left; font-family: var(--font-ui); font-size: var(--type-tiny); }
 .plot { width: 100%; height: auto; background: var(--group); border-radius: var(--radius-group); }
-.plot text { font-size: 10px; fill: var(--text-3); font-family: var(--font-mono); }
+.plot text { font-size: var(--type-tiny); fill: var(--text-3); font-family: var(--font-mono); }
 .plot .legend { font-family: var(--font-ui); }
 .axis { stroke: var(--separator); }
 .grid { stroke: var(--separator); stroke-dasharray: 2 4; opacity: 0.6; }
 .guide { fill: none; stroke: var(--text-3); stroke-width: 1.2; stroke-dasharray: 5 4; }
 .err-line { fill: none; stroke: var(--accent); stroke-width: 1.8; }
 .dot { fill: var(--pane); stroke: var(--accent); stroke-width: 1.8; }
-.why { margin: 10px 0 0; padding-left: 18px; line-height: 1.6; color: var(--text-2); }
+.why { margin: 10px 0 0; padding-left: 18px; line-height: var(--line-para); color: var(--text-2); }
 @media (max-width: 820px) { .form { grid-template-columns: 1fr 1fr; } .cols { grid-template-columns: 1fr; } .tbl { display: block; overflow-x: auto; } }
 </style>

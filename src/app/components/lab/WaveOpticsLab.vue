@@ -5,8 +5,10 @@
  * core computes the intensities and the colours (`waveOptics`); this component paints the screen and the curve.
  */
 import { computed, watch } from 'vue'
-import { tl } from '../../../i18n'
+import { colonSep, tl } from '../../../i18n'
+import { msgText } from '../../../i18n/locale'
 import { fmtQ } from '../../settings'
+import { WAVE_LIMITS } from '../../../render/labLimits'
 import type { FilmPattern, SlitPattern } from '../../../engine/labs'
 import { filmPattern, polarizers, slitPattern } from '../../../engine/labs'
 import { labState } from '../../lab/state'
@@ -26,20 +28,45 @@ const S = labState('wave-optics', () => ({
 }))
 const SAMPLES = 801
 
-const slit = computed<SlitPattern | null>(() => {
-  if (S.setup === 'film' || S.setup === 'polarizer') return null
-  try { return slitPattern({ setup: S.setup, lambda: S.lambda, white: S.white, a: S.a, d: S.d, N: S.N, L: S.L, half: S.half, samples: SAMPLES }) } catch { return null }
+/**
+ * 26.65 (M10): the inputs stay within WAVE_LIMITS (the fields refuse values outside, and a state saved before the
+ * limits is brought into them), so a slit spacing typed in the wrong unit can no longer ask the core for millions of
+ * maxima. The core may still answer with an error or a shortened list of maxima: the error is shown, a short list drawn.
+ */
+const within = (v: number, r: { min: number; max: number }) => (Number.isFinite(v) ? Math.min(r.max, Math.max(r.min, v)) : r.min)
+watch(() => [S.a, S.d, S.L, S.half, S.t0, S.t1], () => {
+  S.a = within(S.a, WAVE_LIMITS.a); S.d = within(S.d, WAVE_LIMITS.d); S.L = within(S.L, WAVE_LIMITS.L); S.half = within(S.half, WAVE_LIMITS.half)
+  S.t0 = within(S.t0, WAVE_LIMITS.t); S.t1 = within(S.t1, WAVE_LIMITS.t)
+}, { immediate: true })
+const slitAnswer = computed<{ pattern: SlitPattern | null; error: string }>(() => {
+  if (S.setup === 'film' || S.setup === 'polarizer') return { pattern: null, error: '' }
+  try {
+    const r = slitPattern({ setup: S.setup, lambda: S.lambda, white: S.white, a: within(S.a, WAVE_LIMITS.a), d: within(S.d, WAVE_LIMITS.d), N: S.N, L: within(S.L, WAVE_LIMITS.L), half: within(S.half, WAVE_LIMITS.half), samples: SAMPLES }) as Partial<SlitPattern> & { error?: unknown }
+    if (r.error) return { pattern: null, error: failed(r.error) }
+    if (!r.rgb || !r.I || !r.x) return { pattern: null, error: failed(null) }
+    return { pattern: { ...(r as SlitPattern), maxima: Array.isArray(r.maxima) ? r.maxima : [], minima: Array.isArray(r.minima) ? r.minima : [] }, error: '' }
+  } catch { return { pattern: null, error: failed(null) } }
 })
+const slit = computed<SlitPattern | null>(() => slitAnswer.value.pattern)
+/** The text shown when the core gave no pattern (its own message when it sent one). */
+function failed(error: unknown): string {
+  let detail = ''
+  try { detail = error && (typeof error === 'object' || typeof error === 'string') ? msgText(error as Parameters<typeof msgText>[0]) : '' } catch { detail = '' }
+  return `${tl('没有算出干涉图样')}${detail ? colonSep() + detail : ''}`
+}
 const film = computed<FilmPattern | null>(() => {
   if (S.setup !== 'film') return null
-  try { return filmPattern({ lambda: S.lambda, white: S.white, n0: 1, n1: S.n1, n2: S.n2, t0: S.t0, t1: S.t1, t: S.t, samples: SAMPLES }) } catch { return null }
+  try { return filmPattern({ lambda: S.lambda, white: S.white, n0: 1, n1: S.n1, n2: S.n2, t0: within(S.t0, WAVE_LIMITS.t), t1: within(S.t1, WAVE_LIMITS.t), t: S.t, samples: SAMPLES }) } catch { return null }
 })
 const pol = computed(() => (S.setup === 'polarizer' ? (() => { try { return polarizers(S.angles.map(a => a * Math.PI / 180), S.polarizedIn ? S.inAngle * Math.PI / 180 : null) } catch { return [] } })() : []))
 
 const { canvas, wrap, redraw } = useLabCanvas(() => props.active, (ctx, w, h, _dt, P) => {
   if (S.setup === 'polarizer') { drawPolarizers(ctx, w, h, P); return }
   const rgb = slit.value?.rgb ?? film.value?.rgb
-  if (!rgb) return
+  if (!rgb) {
+    if (slitAnswer.value.error) { ctx.fillStyle = P.friction; ctx.font = `12px ${FONT}`; ctx.fillText(slitAnswer.value.error, 12, 24) }
+    return
+  }
   const n = rgb.length / 3
   const top = 24, bandH = Math.max(40, h - 70)
   // the screen
@@ -54,14 +81,16 @@ const { canvas, wrap, redraw } = useLabCanvas(() => props.active, (ctx, w, h, _d
     ctx.fillText(tl('光屏（宽 {0}）', [fmtQ(2 * S.half, 'm', 3)]), 6, 16)
     const X = (x: number) => (x + S.half) / (2 * S.half) * w
     ctx.fillStyle = P.text
-    for (const [m, x] of slit.value.maxima) { ctx.fillRect(X(x) - 0.5, top + bandH, 1, 6); if (Math.abs(m) <= 6) ctx.fillText(String(m), X(x) - 3, top + bandH + 18) }
+    // marks of the maxima while they stay apart (a dense list would only paint a bar)
+    const maxima = slit.value.maxima
+    if (maxima.length <= w / 3) for (const [m, x] of maxima) { ctx.fillRect(X(x) - 0.5, top + bandH, 1, 6); if (Math.abs(m) <= 6) ctx.fillText(String(m), X(x) - 3, top + bandH + 18) }
   } else {
     ctx.fillText(tl('楔形薄膜：厚度从 {0} 到 {1}（反射光）', [`${S.t0} nm`, `${S.t1} nm`]), 6, 16)
     const X = (t: number) => (t - S.t0) / (S.t1 - S.t0) * w
     ctx.fillStyle = P.accent; ctx.fillRect(X(S.t) - 1, top - 4, 2, bandH + 8)
   }
 })
-watch(() => [slit.value, film.value, pol.value, S.setup], redraw)
+watch(() => [slit.value, film.value, pol.value, S.setup, slitAnswer.value.error], redraw)
 
 function drawPolarizers(ctx: CanvasRenderingContext2D, w: number, h: number, P: { text: string; text2: string; accent: string; gridMajor: string }) {
   const n = S.angles.length, y = h / 2
@@ -122,12 +151,13 @@ function addPolarizer() { if (S.angles.length < 6) S.angles.push(S.angles[S.angl
     <aside class="lab-side">
       <section v-if="S.setup !== 'film' && S.setup !== 'polarizer'" class="lab-block">
         <div class="lab-fields">
-          <label>{{ tl('缝宽 a') }}</label><NumField :model-value="S.a" unit="m" :min="1e-7" @update:model-value="v => (S.a = v)" />
-          <template v-if="S.setup !== 'single'"><label>{{ tl('缝间距 d') }}</label><NumField :model-value="S.d" unit="m" :min="1e-7" @update:model-value="v => (S.d = v)" /></template>
+          <label>{{ tl('缝宽 a') }}</label><NumField :model-value="S.a" unit="m" :min="WAVE_LIMITS.a.min" :max="WAVE_LIMITS.a.max" @update:model-value="v => (S.a = v)" />
+          <template v-if="S.setup !== 'single'"><label>{{ tl('缝间距 d') }}</label><NumField :model-value="S.d" unit="m" :min="WAVE_LIMITS.d.min" :max="WAVE_LIMITS.d.max" @update:model-value="v => (S.d = v)" /></template>
           <template v-if="S.setup === 'grating'"><label>{{ tl('缝数 N') }}</label><NumField :model-value="S.N" :min="2" :max="2000" :step="1" @update:model-value="v => (S.N = Math.round(v))" /></template>
-          <label>{{ tl('缝到屏的距离 L') }}</label><NumField :model-value="S.L" unit="m" :min="0.01" @update:model-value="v => (S.L = v)" />
-          <label>{{ tl('屏的半宽') }}</label><NumField :model-value="S.half" unit="m" :min="1e-4" @update:model-value="v => (S.half = v)" />
+          <label>{{ tl('缝到屏的距离 L') }}</label><NumField :model-value="S.L" unit="m" :min="WAVE_LIMITS.L.min" :max="WAVE_LIMITS.L.max" @update:model-value="v => (S.L = v)" />
+          <label>{{ tl('屏的半宽') }}</label><NumField :model-value="S.half" unit="m" :min="WAVE_LIMITS.half.min" :max="WAVE_LIMITS.half.max" @update:model-value="v => (S.half = v)" />
         </div>
+        <p v-if="slitAnswer.error" class="tiny wo-error">{{ slitAnswer.error }}</p>
         <div v-if="slit" class="lab-kv">
           <template v-if="S.setup !== 'single'"><span>{{ tl('条纹间距 Lλ/d') }}</span><b class="big">{{ fmtQ(slit.spacing, 'm', 4) }}</b></template>
           <template v-if="firstMax !== null"><span>{{ tl('一级亮纹位置') }}</span><b>{{ fmtQ(firstMax, 'm', 5) }}</b></template>
@@ -143,7 +173,7 @@ function addPolarizer() { if (S.angles.length < 6) S.angles.push(S.angles[S.angl
         <div class="lab-fields">
           <label>{{ tl('薄膜折射率 n') }}</label><NumField :model-value="S.n1" :min="1" :step="0.01" @update:model-value="v => (S.n1 = v)" />
           <label>{{ tl('膜下介质折射率') }}</label><NumField :model-value="S.n2" :min="1" :step="0.01" @update:model-value="v => (S.n2 = v)" />
-          <label>{{ tl('厚度范围（nm）') }}</label><span><NumField :model-value="S.t0" :min="0" @update:model-value="v => (S.t0 = v)" /> – <NumField :model-value="S.t1" :min="1" @update:model-value="v => (S.t1 = v)" /></span>
+          <label>{{ tl('厚度范围（nm）') }}</label><span><NumField :model-value="S.t0" :min="WAVE_LIMITS.t.min" :max="WAVE_LIMITS.t.max" @update:model-value="v => (S.t0 = v)" /> – <NumField :model-value="S.t1" :min="1" :max="WAVE_LIMITS.t.max" @update:model-value="v => (S.t1 = v)" /></span>
           <label>{{ tl('观察点的厚度（nm）') }}</label><input v-model.number="S.t" type="range" :min="S.t0" :max="S.t1" step="1" :aria-label="tl('厚度')" />
         </div>
         <div v-if="film" class="lab-kv"><span>{{ tl('此处反射率（λ = {0} nm）', [S.lambda]) }}</span><b class="big">{{ (film.Rat * 100).toFixed(2) }}%</b></div>
@@ -170,4 +200,5 @@ function addPolarizer() { if (S.angles.length < 6) S.angles.push(S.angles[S.angl
 
 <style scoped>
 .row { display: flex; align-items: center; gap: 6px; }
+.wo-error { margin: 0 0 8px; line-height: 1.45; color: var(--danger); }
 </style>

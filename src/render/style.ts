@@ -16,15 +16,32 @@ export const DEFAULT_STYLE: RenderStyle = { font: 1, line: 1 }
 /** Projector mode: larger type and thicker strokes so a projected image stays readable from the back row. */
 export const PROJECTOR_STYLE: RenderStyle = { font: 1.4, line: 1.75 }
 
+/**
+ * 26.65 (D294): the canvas uses the interface's own fonts (it used Segoe UI, and JetBrains Mono for numbers, so the
+ * labels on the canvas and the shell around it were two different typefaces). Source Sans 3 has tabular figures by
+ * default, so numbers that change from frame to frame keep their width; `MONO` is therefore the same stack and stays
+ * only as a name for "a number". The Chinese interface uses the Latin face that leaves the full-width punctuation to
+ * Noto Sans SC (tokens.css, "VP Latin Z").
+ */
+const STACK_TAIL = '"Noto Sans SC Variable","Microsoft YaHei UI","Noto Sans CJK SC","Source Han Sans SC",system-ui,sans-serif'
+let systemFonts = false
 /** UI font stack of the canvas. */
-export let FONT = '"Segoe UI Variable Text","Segoe UI","Noto Sans SC Variable","Microsoft YaHei UI",system-ui,sans-serif'
-/** Monospace font stack of the canvas (numbers). */
-export let MONO = '"JetBrains Mono Variable","Cascadia Code",Consolas,monospace'
+export let FONT = `"Source Sans 3 Variable",${STACK_TAIL}`
+/** Font stack of numbers on the canvas (the same face: its figures are tabular). */
+export let MONO = FONT
+
+/** The canvas follows the interface language (only the Latin face differs). */
+export function setCanvasLanguage(chinese: boolean) {
+  if (systemFonts) return
+  FONT = `${chinese ? '"VP Latin Z"' : '"Source Sans 3 Variable"'},${STACK_TAIL}`
+  MONO = FONT
+}
 
 /** 26.60 r2: draw with the system's fonts (Android; platform/device.ts) instead of the bundled ones. */
 export function useSystemFonts() {
+  systemFonts = true
   FONT = 'system-ui,Roboto,"Noto Sans CJK SC",sans-serif'
-  MONO = 'ui-monospace,"Droid Sans Mono",monospace'
+  MONO = FONT
 }
 
 const SI = defaultChoice()

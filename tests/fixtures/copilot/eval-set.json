@@ -1,0 +1,1720 @@
+{
+ "format": "velophi-copilot-eval",
+ "version": 1,
+ "note": "Evaluation set of the Copilot scene builder (26.64, D285): 60 problems taken from the built-in problems with reworded statements. `expected` is the engine's answer of the built-in problem (its template with `params`), in SI; `tolerance` is the problem's own relative tolerance. tests/ai/sketch2664/evalset.test.ts recomputes every value.",
+ "categories": {
+  "incline": 8,
+  "pulley": 8,
+  "board": 5,
+  "spring": 7,
+  "circular": 8,
+  "projectile": 7,
+  "collision": 7,
+  "field": 5,
+  "buoyancy": 5
+ },
+ "problems": [
+  {
+   "id": "incline-01",
+   "category": "incline",
+   "source": "k-incline",
+   "template": "incline",
+   "params": {
+    "theta": 30,
+    "m": 2,
+    "mu": 0.2
+   },
+   "problem": "一个 2 kg 的木块被轻轻放在固定的斜面上后松手，斜面与水平面的夹角是 30°，木块和斜面之间的动摩擦因数为 0.2。g 取 9.8 m/s²。求：(1) 物块下滑的加速度大小是多少；(2) 释放后 0.5 s 末物块的速度大小是多少。",
+   "asks": [
+    {
+     "q": "a",
+     "prompt": "物块下滑的加速度大小是多少？",
+     "expected": 3.2025902085824987,
+     "unit": "m/s²",
+     "tolerance": 0.02
+    },
+    {
+     "q": "v1",
+     "prompt": "释放后 0.5 s 末物块的速度大小是多少？",
+     "expected": 1.601295104291249,
+     "unit": "m/s",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "incline-02",
+   "category": "incline",
+   "source": "f-incline-rest",
+   "template": "incline",
+   "params": {
+    "theta": 30,
+    "m": 2,
+    "mu": 0.7
+   },
+   "problem": "固定斜面的倾角为 30°，上面放着一个质量 2 kg 的物块，两者之间的动摩擦因数为 0.7，最大静摩擦力按滑动摩擦力计算。物块由静止放手。g 取 9.8 m/s²。求：(1) 斜面对物块的摩擦力大小是多少；(2) 斜面对物块的支持力大小是多少。",
+   "asks": [
+    {
+     "q": "f",
+     "prompt": "斜面对物块的摩擦力大小是多少？",
+     "expected": 9.799999999999997,
+     "unit": "N",
+     "tolerance": 0.02
+    },
+    {
+     "q": "N",
+     "prompt": "斜面对物块的支持力大小是多少？",
+     "expected": 16.974097914174997,
+     "unit": "N",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "incline-03",
+   "category": "incline",
+   "source": "k-slope-up",
+   "template": "incline-friction",
+   "params": {
+    "theta": 37,
+    "m": 1,
+    "muS": 0.3,
+    "muK": 0.25,
+    "v0": -4
+   },
+   "problem": "固定斜面足够长，倾角 37°。质量 1 kg 的物块以 4 m/s 的初速度从斜面底部沿斜面向上冲，动摩擦因数为 0.25，最大静摩擦因数为 0.3。g 取 9.8 m/s²。求：(1) 物块经过多长时间速度减为零；(2) 开始上滑后 1 s 末物块的速度大小是多少。",
+   "asks": [
+    {
+     "q": "t",
+     "prompt": "物块经过多长时间速度减为零？",
+     "expected": 0.5092658225901516,
+     "unit": "s",
+     "tolerance": 0.02
+    },
+    {
+     "q": "v1",
+     "prompt": "开始上滑后 1 s 末物块的速度大小是多少？",
+     "expected": 1.9340473001464635,
+     "unit": "m/s",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "incline-04",
+   "category": "incline",
+   "source": "f-incline-stick",
+   "template": "incline-friction",
+   "params": {
+    "theta": 20,
+    "m": 2,
+    "muS": 0.5,
+    "muK": 0.4,
+    "v0": 0
+   },
+   "problem": "把质量 2 kg 的物块静止地放在倾角 20° 的固定斜面上，物块与斜面间的静摩擦因数为 0.5，动摩擦因数为 0.4。g 取 9.8 m/s²。求：(1) 物块受到的摩擦力大小是多少；(2) 斜面对物块的支持力是多少。",
+   "asks": [
+    {
+     "q": "f",
+     "prompt": "物块受到的摩擦力大小是多少？",
+     "expected": 6.703594809183108,
+     "unit": "N",
+     "tolerance": 0.02
+    },
+    {
+     "q": "N",
+     "prompt": "斜面对物块的支持力是多少？",
+     "expected": 18.417975367403805,
+     "unit": "N",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "incline-05",
+   "category": "incline",
+   "source": "e-efficiency",
+   "template": "incline-efficiency",
+   "params": {
+    "theta": 30,
+    "m": 2,
+    "mu": 0.2,
+    "v0": 0.5
+   },
+   "problem": "沿斜面方向用力拉一个质量 2 kg 的物块，使它沿倾角 30° 的斜面匀速上升，物块与斜面间的动摩擦因数为 0.2。g 取 9.8 m/s²。求：(1) 拉力的大小是多少；(2) 斜面的机械效率是多少。",
+   "asks": [
+    {
+     "q": "F",
+     "prompt": "拉力的大小是多少？",
+     "expected": 13.194819582834999,
+     "unit": "N",
+     "tolerance": 0.02
+    },
+    {
+     "q": "eta",
+     "prompt": "斜面的机械效率是多少？",
+     "expected": 0.7427157255525157,
+     "unit": "",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "incline-06",
+   "category": "incline",
+   "source": "e-slope-heat",
+   "template": "incline-friction",
+   "params": {
+    "theta": 37,
+    "m": 1,
+    "muS": 0.3,
+    "muK": 0.25,
+    "v0": -4
+   },
+   "problem": "固定斜面的倾角为 37°，一个质量 1 kg 的物块以 4 m/s 的速度冲上这个斜面，它与斜面之间的动摩擦因数是 0.25。g 取 9.8 m/s²。求：(1) 物块上滑到最高点的过程中产生的热量是多少。",
+   "asks": [
+    {
+     "q": "Q",
+     "prompt": "物块上滑到最高点的过程中产生的热量是多少？",
+     "expected": 1.9929170728723082,
+     "unit": "J",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "incline-07",
+   "category": "incline",
+   "source": "n-conveyor-incline",
+   "template": "conveyor-incline",
+   "params": {
+    "theta": 37,
+    "u": 2,
+    "m": 1,
+    "mu": 0.5
+   },
+   "problem": "一条足够长的传送带与水平面成 37° 角，带面以 2 m/s 的速度向下运行。在它的顶端轻轻放上一个质量 1 kg 的物块，物块与带面间的动摩擦因数为 0.5。g 取 9.8 m/s²。求：(1) 经过多长时间物块与传送带速度相同；(2) 放上后 1 s 末物块的速度大小是多少。",
+   "asks": [
+    {
+     "q": "t",
+     "prompt": "经过多长时间物块与传送带速度相同？",
+     "expected": 0.20385071501253132,
+     "unit": "s",
+     "tolerance": 0.02
+    },
+    {
+     "q": "v",
+     "prompt": "放上后 1 s 末物块的速度大小是多少？",
+     "expected": 3.579936941282204,
+     "unit": "m/s",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "incline-08",
+   "category": "incline",
+   "source": "r-rolling",
+   "template": "rolling",
+   "params": {
+    "theta": 30,
+    "r": 0.15,
+    "m": 1,
+    "mu": 0.3
+   },
+   "problem": "倾角 30° 的斜面上，一个质量 1 kg、半径 0.15 m 的匀质圆柱由静止释放，沿斜面只滚不滑（圆柱对轴的转动惯量 I = ½mr²）。g 取 9.8 m/s²。求：(1) 圆柱质心的加速度是多少；(2) 斜面对圆柱的静摩擦力是多少。",
+   "asks": [
+    {
+     "q": "a",
+     "prompt": "圆柱质心的加速度是多少？",
+     "expected": 3.266666666666668,
+     "unit": "m/s²",
+     "tolerance": 0.02
+    },
+    {
+     "q": "f",
+     "prompt": "斜面对圆柱的静摩擦力是多少？",
+     "expected": 1.6333333333333313,
+     "unit": "N",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "pulley-01",
+   "category": "pulley",
+   "source": "f-table-rest",
+   "template": "table-pulley",
+   "params": {
+    "m1": 2,
+    "m2": 0.5,
+    "mu": 0.5
+   },
+   "problem": "水平桌面上放着质量 2 kg 的物块，一根轻绳一端系着它，跨过桌子边缘的定滑轮后，另一端吊着质量 0.5 kg 的物块。桌面上的物块与桌面间的动摩擦因数为 0.5（最大静摩擦力等于滑动摩擦力），整个装置由静止放手。g 取 9.8 m/s²。求：(1) 桌面对物块的摩擦力大小是多少；(2) 绳的拉力是多少。",
+   "asks": [
+    {
+     "q": "f",
+     "prompt": "桌面对物块的摩擦力大小是多少？",
+     "expected": 4.900000000000002,
+     "unit": "N",
+     "tolerance": 0.02
+    },
+    {
+     "q": "T",
+     "prompt": "绳的拉力是多少？",
+     "expected": 4.9,
+     "unit": "N",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "pulley-02",
+   "category": "pulley",
+   "source": "n-atwood",
+   "template": "atwood",
+   "params": {
+    "m1": 1,
+    "m2": 1.5
+   },
+   "problem": "一根轻绳跨过光滑的定滑轮，两端分别挂着质量 1 kg 和 1.5 kg 的物块，由静止放手。g 取 9.8 m/s²。求：(1) 两物块加速度的大小是多少；(2) 绳的拉力是多少。",
+   "asks": [
+    {
+     "q": "a",
+     "prompt": "两物块加速度的大小是多少？",
+     "expected": 1.9599999999999995,
+     "unit": "m/s²",
+     "tolerance": 0.02
+    },
+    {
+     "q": "T",
+     "prompt": "绳的拉力是多少？",
+     "expected": 11.760000000000002,
+     "unit": "N",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "pulley-03",
+   "category": "pulley",
+   "source": "n-table",
+   "template": "table-pulley",
+   "params": {
+    "m1": 2,
+    "m2": 1,
+    "mu": 0.2
+   },
+   "problem": "质量 2 kg 的物块放在水平桌面上，它通过跨过桌边定滑轮的轻绳与悬在桌外的质量 1 kg 的物块相连，桌面上的物块与桌面间的动摩擦因数为 0.2。由静止释放。g 取 9.8 m/s²。求：(1) 系统的加速度大小是多少；(2) 绳的拉力是多少。",
+   "asks": [
+    {
+     "q": "a",
+     "prompt": "系统的加速度大小是多少？",
+     "expected": 1.9600000000000009,
+     "unit": "m/s²",
+     "tolerance": 0.02
+    },
+    {
+     "q": "T",
+     "prompt": "绳的拉力是多少？",
+     "expected": 7.840000000000001,
+     "unit": "N",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "pulley-04",
+   "category": "pulley",
+   "source": "n-incline-pulley",
+   "template": "incline-pulley",
+   "params": {
+    "theta": 30,
+    "m1": 1,
+    "m2": 1,
+    "mu": 0.1
+   },
+   "problem": "固定斜面的倾角为 30°，斜面上放着质量 1 kg 的物块 m₁，它与斜面间的动摩擦因数为 0.1。轻绳一端系在 m₁ 上，跨过斜面顶端的光滑定滑轮，另一端竖直悬挂质量 1 kg 的物块 m₂。由静止释放。g 取 9.8 m/s²。求：(1) 两物块加速度的大小是多少；(2) 绳的拉力是多少。",
+   "asks": [
+    {
+     "q": "a",
+     "prompt": "两物块加速度的大小是多少？",
+     "expected": 2.0256475521456263,
+     "unit": "m/s²",
+     "tolerance": 0.02
+    },
+    {
+     "q": "T",
+     "prompt": "绳的拉力是多少？",
+     "expected": 7.774352447854374,
+     "unit": "N",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "pulley-05",
+   "category": "pulley",
+   "source": "n-movable-pulley",
+   "template": "movable-pulley",
+   "params": {
+    "m1": 1,
+    "m2": 1.5
+   },
+   "problem": "轻绳一端固定在天花板上，向下绕过一个动滑轮，再向上跨过定滑轮，末端挂着质量 1 kg 的物块 m₁；动滑轮下面挂着质量 1.5 kg 的物块 m₂。滑轮和绳的质量、一切摩擦都不计，由静止释放。g 取 9.8 m/s²。求：(1) m₁ 的加速度大小是多少；(2) 绳的拉力是多少。",
+   "asks": [
+    {
+     "q": "a1",
+     "prompt": "m₁ 的加速度大小是多少？",
+     "expected": 1.781818181818183,
+     "unit": "m/s²",
+     "tolerance": 0.02
+    },
+    {
+     "q": "T",
+     "prompt": "绳的拉力是多少？",
+     "expected": 8.01818181818182,
+     "unit": "N",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "pulley-06",
+   "category": "pulley",
+   "source": "f-two-ropes",
+   "template": "two-ropes",
+   "params": {
+    "alpha": 30,
+    "beta": 60,
+    "m": 2
+   },
+   "problem": "一个质量 2 kg 的重物用两根轻绳吊在天花板下保持静止，第一根绳与竖直方向的夹角为 30°，第二根绳与竖直方向的夹角为 60°。g 取 9.8 m/s²。求：(1) 绳 1 的拉力是多少；(2) 绳 2 的拉力是多少。",
+   "asks": [
+    {
+     "q": "T1",
+     "prompt": "绳 1 的拉力是多少？",
+     "expected": 16.974097914175,
+     "unit": "N",
+     "tolerance": 0.02
+    },
+    {
+     "q": "T2",
+     "prompt": "绳 2 的拉力是多少？",
+     "expected": 9.8,
+     "unit": "N",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "pulley-07",
+   "category": "pulley",
+   "source": "n-two-blocks",
+   "template": "two-blocks-push",
+   "params": {
+    "F": 6,
+    "mA": 2,
+    "mB": 1
+   },
+   "problem": "光滑水平面上，质量 2 kg 的物块 A 和质量 1 kg 的物块 B 紧挨着放在一起。用 6 N 的水平力推 A，使两个物块一起向前运动。求：(1) 两物块的加速度是多少；(2) A 对 B 的推力是多少。",
+   "asks": [
+    {
+     "q": "a",
+     "prompt": "两物块的加速度是多少？",
+     "expected": 2,
+     "unit": "m/s²",
+     "tolerance": 0.02
+    },
+    {
+     "q": "N",
+     "prompt": "A 对 B 的推力是多少？",
+     "expected": 2,
+     "unit": "N",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "pulley-08",
+   "category": "pulley",
+   "source": "f-wheel-axle",
+   "template": "wheel-axle",
+   "params": {
+    "R": 0.3,
+    "r": 0.1,
+    "m": 3,
+    "M": 1
+   },
+   "problem": "一个轮轴可以绕光滑的轴转动，轮的半径为 0.3 m，轴的半径为 0.1 m。绕在轴上的绳吊着质量 3 kg 的重物，在绕在轮缘上的绳上竖直向下用力，使重物保持静止。g 取 9.8 m/s²。求：(1) 施加在轮缘上的拉力是多少。",
+   "asks": [
+    {
+     "q": "F",
+     "prompt": "施加在轮缘上的拉力是多少？",
+     "expected": 9.799999999999134,
+     "unit": "N",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "board-01",
+   "category": "board",
+   "source": "n-board",
+   "template": "board-block",
+   "params": {
+    "M": 2,
+    "m": 1,
+    "v0": 4,
+    "mu1": 0.4,
+    "mu2": 0.1
+   },
+   "problem": "水平地面上静止放着一块质量 2 kg 的长木板，一个质量 1 kg 的小物块以 4 m/s 的水平速度从木板的左端滑上去。物块与木板间的动摩擦因数为 0.4，木板与地面间的动摩擦因数为 0.1，木板足够长。g 取 9.8 m/s²。求：(1) 经过多长时间物块与木板共速；(2) 共同速度是多少；(3) 物块在木板上滑行的距离（相对木板）是多少。",
+   "asks": [
+    {
+     "q": "t",
+     "prompt": "经过多长时间物块与木板共速？",
+     "expected": 0.9070294784586659,
+     "unit": "s",
+     "tolerance": 0.02
+    },
+    {
+     "q": "vc",
+     "prompt": "共同速度是多少？",
+     "expected": 0.44444444444385395,
+     "unit": "m/s",
+     "tolerance": 0.02
+    },
+    {
+     "q": "ds",
+     "prompt": "物块在木板上滑行的距离（相对木板）是多少？",
+     "expected": 1.814058956916103,
+     "unit": "m",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "board-02",
+   "category": "board",
+   "source": "n-board",
+   "template": "board-block",
+   "params": {
+    "M": 2,
+    "m": 1,
+    "v0": 3,
+    "mu1": 0.5,
+    "mu2": 0.1
+   },
+   "problem": "一块足够长的木板（质量 2 kg）静止在水平地面上，质量 1 kg 的小滑块以 3 m/s 的初速度滑上木板的左端。滑块与木板之间的动摩擦因数为 0.5，木板与地面之间的动摩擦因数为 0.1。g 取 9.8 m/s²。求：(1) 经过多长时间物块与木板共速；(2) 共同速度是多少；(3) 物块在木板上滑行的距离（相对木板）是多少。",
+   "asks": [
+    {
+     "q": "t",
+     "prompt": "经过多长时间物块与木板共速？",
+     "expected": 0.5102040816326525,
+     "unit": "s",
+     "tolerance": 0.02
+    },
+    {
+     "q": "vc",
+     "prompt": "共同速度是多少？",
+     "expected": 0.499999999999999,
+     "unit": "m/s",
+     "tolerance": 0.02
+    },
+    {
+     "q": "ds",
+     "prompt": "物块在木板上滑行的距离（相对木板）是多少？",
+     "expected": 0.7653061224489779,
+     "unit": "m",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "board-03",
+   "category": "board",
+   "source": "n-conveyor",
+   "template": "conveyor",
+   "params": {
+    "u": 2,
+    "m": 1,
+    "mu": 0.5
+   },
+   "problem": "足够长的水平传送带以 2 m/s 的速度匀速运行，把质量 1 kg 的物块无初速地放在传送带的左端，物块与传送带之间的动摩擦因数为 0.5。g 取 9.8 m/s²。求：(1) 经过多长时间物块与传送带共速；(2) 这段时间内物块相对传送带滑动的距离是多少；(3) 摩擦产生的热量是多少。",
+   "asks": [
+    {
+     "q": "t",
+     "prompt": "经过多长时间物块与传送带共速？",
+     "expected": 0.40816326530675545,
+     "unit": "s",
+     "tolerance": 0.02
+    },
+    {
+     "q": "ds",
+     "prompt": "这段时间内物块相对传送带滑动的距离是多少？",
+     "expected": 0.4081632653061234,
+     "unit": "m",
+     "tolerance": 0.02
+    },
+    {
+     "q": "Q",
+     "prompt": "摩擦产生的热量是多少？",
+     "expected": 1.9999999999999991,
+     "unit": "J",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "board-04",
+   "category": "board",
+   "source": "n-conveyor",
+   "template": "conveyor",
+   "params": {
+    "u": 3,
+    "m": 1,
+    "mu": 0.4
+   },
+   "problem": "水平传送带足够长，带面以 3 m/s 的速度匀速向右运动。在它的左端轻轻放上质量 1 kg 的物块，两者间的动摩擦因数为 0.4。g 取 9.8 m/s²。求：(1) 经过多长时间物块与传送带共速；(2) 这段时间内物块相对传送带滑动的距离是多少；(3) 摩擦产生的热量是多少。",
+   "asks": [
+    {
+     "q": "t",
+     "prompt": "经过多长时间物块与传送带共速？",
+     "expected": 0.7653061224496132,
+     "unit": "s",
+     "tolerance": 0.02
+    },
+    {
+     "q": "ds",
+     "prompt": "这段时间内物块相对传送带滑动的距离是多少？",
+     "expected": 1.1479591836734693,
+     "unit": "m",
+     "tolerance": 0.02
+    },
+    {
+     "q": "Q",
+     "prompt": "摩擦产生的热量是多少？",
+     "expected": 4.500000000000003,
+     "unit": "J",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "board-05",
+   "category": "board",
+   "source": "n-wedge",
+   "template": "movable-wedge",
+   "params": {
+    "M": 3,
+    "m": 1,
+    "theta": 30
+   },
+   "problem": "光滑水平地面上放着一个质量 3 kg、倾角 30° 的斜劈，斜劈的斜面也是光滑的。质量 1 kg 的物块从斜面上由静止开始下滑，斜劈可以在地面上自由滑动。g 取 9.8 m/s²。求：(1) 斜面的加速度大小是多少；(2) 斜面对物块的支持力是多少。",
+   "asks": [
+    {
+     "q": "A",
+     "prompt": "斜面的加速度大小是多少？",
+     "expected": 1.3056998395519228,
+     "unit": "m/s²",
+     "tolerance": 0.02
+    },
+    {
+     "q": "N",
+     "prompt": "斜面对物块的支持力是多少？",
+     "expected": 7.834199037311539,
+     "unit": "N",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "spring-01",
+   "category": "spring",
+   "source": "m-spring",
+   "template": "spring-blocks",
+   "params": {
+    "m1": 1,
+    "m2": 2,
+    "k": 50,
+    "v0": 2
+   },
+   "problem": "光滑水平面上有两个物块，质量分别为 1 kg 和 2 kg，中间用一根劲度系数为 50 N/m 的轻弹簧连着，开始时弹簧为原长。现在使 1 kg 的物块获得 2 m/s、指向另一物块的速度。求：(1) 弹簧压缩量最大时两物块的速度是多少；(2) 弹簧弹性势能的最大值是多少。",
+   "asks": [
+    {
+     "q": "v",
+     "prompt": "弹簧压缩量最大时两物块的速度是多少？",
+     "expected": 0.6666666666666667,
+     "unit": "m/s",
+     "tolerance": 0.02
+    },
+    {
+     "q": "Ep",
+     "prompt": "弹簧弹性势能的最大值是多少？",
+     "expected": 1.333333333332615,
+     "unit": "J",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "spring-02",
+   "category": "spring",
+   "source": "o-spring",
+   "template": "spring",
+   "params": {
+    "k": 50,
+    "m": 0.5,
+    "A": 0.1
+   },
+   "problem": "劲度系数 50 N/m 的轻弹簧一端固定，另一端连着质量 0.5 kg 的物块，物块放在光滑水平面上。把物块从平衡位置拉开 0.1 m，然后由静止放手。求：(1) 振动的周期是多少；(2) 物块的最大速率是多少。",
+   "asks": [
+    {
+     "q": "T",
+     "prompt": "振动的周期是多少？",
+     "expected": 0.628318530717962,
+     "unit": "s",
+     "tolerance": 0.02
+    },
+    {
+     "q": "v",
+     "prompt": "物块的最大速率是多少？",
+     "expected": 0.999999999999449,
+     "unit": "m/s",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "spring-03",
+   "category": "spring",
+   "source": "o-vertical-spring",
+   "template": "vertical-spring",
+   "params": {
+    "k": 20,
+    "m": 0.5,
+    "A": 0.1
+   },
+   "problem": "一根劲度系数为 20 N/m 的轻弹簧上端固定，下端挂着质量 0.5 kg 的小球。把小球从它的平衡位置再向下拉 0.1 m，然后由静止释放。g 取 9.8 m/s²。求：(1) 小球的最大速度是多少；(2) 弹簧弹力的最大值是多少。",
+   "asks": [
+    {
+     "q": "vmax",
+     "prompt": "小球的最大速度是多少？",
+     "expected": 0.6324555320336372,
+     "unit": "m/s",
+     "tolerance": 0.02
+    },
+    {
+     "q": "Fmax",
+     "prompt": "弹簧弹力的最大值是多少？",
+     "expected": 6.900000000000004,
+     "unit": "N",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "spring-04",
+   "category": "spring",
+   "source": "e-spring-drop",
+   "template": "spring-drop",
+   "params": {
+    "h": 0.4,
+    "m": 1,
+    "k": 400
+   },
+   "problem": "竖直放置的轻弹簧下端固定在地面上，劲度系数为 400 N/m。质量 1 kg 的物块从弹簧上端正上方 0.4 m 处由静止落下，落到弹簧上（物块与弹簧不粘连）。g 取 9.8 m/s²。求：(1) 弹簧的最大压缩量是多少；(2) 下落过程中的最大速度是多少。",
+   "asks": [
+    {
+     "q": "x",
+     "prompt": "弹簧的最大压缩量是多少？",
+     "expected": 0.16662758352175655,
+     "unit": "m",
+     "tolerance": 0.02
+    },
+    {
+     "q": "v",
+     "prompt": "下落过程中的最大速度是多少？",
+     "expected": 2.8425516704836165,
+     "unit": "m/s",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "spring-05",
+   "category": "spring",
+   "source": "e-spring-launch",
+   "template": "spring-launcher",
+   "params": {
+    "k": 500,
+    "x": 0.1,
+    "m": 0.2
+   },
+   "problem": "一根劲度系数为 500 N/m 的轻弹簧竖直放置，下端固定，上端放着一个质量 0.2 kg 的小球（小球与弹簧不粘连）。把弹簧压缩 0.1 m 后由静止放手。g 取 9.8 m/s²。求：(1) 小球上升的最大高度（从释放处算起）是多少；(2) 小球离开弹簧时的速度是多少。",
+   "asks": [
+    {
+     "q": "H",
+     "prompt": "小球上升的最大高度（从释放处算起）是多少？",
+     "expected": 1.2755102038985893,
+     "unit": "m",
+     "tolerance": 0.02
+    },
+    {
+     "q": "v",
+     "prompt": "小球离开弹簧时的速度是多少？",
+     "expected": 4.7999999996189775,
+     "unit": "m/s",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "spring-06",
+   "category": "spring",
+   "source": "n-elevator",
+   "template": "elevator",
+   "params": {
+    "F": 80,
+    "M": 5,
+    "m": 1,
+    "k": 400,
+    "c": 12
+   },
+   "problem": "质量 5 kg 的电梯厢在 80 N 的竖直向上的恒定拉力作用下由静止开始加速上升，厢顶用弹簧秤吊着一个质量 1 kg 的物体。弹簧的振动很快衰减，物体随电梯一起加速。g 取 9.8 m/s²。求：(1) 稳定后弹簧秤的示数是多少。",
+   "asks": [
+    {
+     "q": "F",
+     "prompt": "稳定后弹簧秤的示数是多少？",
+     "expected": 13.333333331915957,
+     "unit": "N",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "spring-07",
+   "category": "spring",
+   "source": "o-resonance",
+   "template": "resonance",
+   "params": {
+    "k": 50,
+    "m": 0.5,
+    "c": 0.5,
+    "F0": 1,
+    "omega": 10
+   },
+   "problem": "光滑水平面上的弹簧振子，弹簧劲度系数 50 N/m，振子质量 0.5 kg，阻尼系数 0.5 N·s/m。它受到 F = F₀ sin ωt 的驱动力，其中 F₀ = 1 N，ω = 10 rad/s，从静止开始运动足够长的时间。求：(1) 稳定后弹簧弹力的最大值是多少。",
+   "asks": [
+    {
+     "q": "F",
+     "prompt": "稳定后弹簧弹力的最大值是多少？",
+     "expected": 10.049390926138862,
+     "unit": "N",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "circular-01",
+   "category": "circular",
+   "source": "c-uniform",
+   "template": "uniform-circle",
+   "params": {
+    "r": 0.5,
+    "v": 2,
+    "m": 0.2
+   },
+   "problem": "在光滑的水平桌面上，质量 0.2 kg 的小球被长 0.5 m 的轻绳拴在桌面中心的钉子上，以 2 m/s 的速率绕钉子做匀速圆周运动。求：(1) 绳的拉力是多少；(2) 小球运动的周期是多少。",
+   "asks": [
+    {
+     "q": "T",
+     "prompt": "绳的拉力是多少？",
+     "expected": 1.599999999999977,
+     "unit": "N",
+     "tolerance": 0.02
+    },
+    {
+     "q": "P",
+     "prompt": "小球运动的周期是多少？",
+     "expected": 1.5707963267949143,
+     "unit": "s",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "circular-02",
+   "category": "circular",
+   "source": "c-rod",
+   "template": "vertical-circle-rod",
+   "params": {
+    "L": 0.5,
+    "v0": 4.5,
+    "m": 0.2
+   },
+   "problem": "轻杆长 0.5 m，一端装在光滑的水平轴 O 上，另一端固定着质量 0.2 kg 的小球。小球经过最低点时的速度是 4.5 m/s，此后在竖直平面内做圆周运动。g 取 9.8 m/s²。求：(1) 小球在最高点的速率是多少；(2) 最高点杆对小球作用力的大小是多少。",
+   "asks": [
+    {
+     "q": "v",
+     "prompt": "小球在最高点的速率是多少？",
+     "expected": 0.8062257748200266,
+     "unit": "m/s",
+     "tolerance": 0.02
+    },
+    {
+     "q": "F",
+     "prompt": "最高点杆对小球作用力的大小是多少？",
+     "expected": -1.7000000000063533,
+     "unit": "N",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "circular-03",
+   "category": "circular",
+   "source": "c-rope",
+   "template": "vertical-circle-rope",
+   "params": {
+    "L": 0.5,
+    "v0": 4.5,
+    "m": 0.2
+   },
+   "problem": "一根长 0.5 m 的轻绳，上端固定在 O 点，下端拴着质量 0.2 kg 的小球。小球静止在最低点时，突然获得 4.5 m/s 的水平速度。g 取 9.8 m/s²。求：(1) 小球刚开始运动时绳的拉力是多少；(2) 绳刚松弛时小球的速率是多少。",
+   "asks": [
+    {
+     "q": "T0",
+     "prompt": "小球刚开始运动时绳的拉力是多少？",
+     "expected": 10.059999999999999,
+     "unit": "N",
+     "tolerance": 0.02
+    },
+    {
+     "q": "vS",
+     "prompt": "绳刚松弛时小球的速率是多少？",
+     "expected": 1.8663690238877788,
+     "unit": "m/s",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "circular-04",
+   "category": "circular",
+   "source": "c-dome",
+   "template": "dome-slide",
+   "params": {
+    "R": 1,
+    "v0": 0.5,
+    "m": 0.1
+   },
+   "problem": "水平地面上固定着一个半径 1 m 的光滑半球。一个质点在球面的最高点获得 0.5 m/s 的水平速度后沿球面滑下。g 取 9.8 m/s²。求：(1) 质点离开球面时距球心的高度是多少；(2) 离开时的速度是多少。",
+   "asks": [
+    {
+     "q": "h",
+     "prompt": "质点离开球面时距球心的高度是多少？",
+     "expected": 0.6751700676938777,
+     "unit": "m",
+     "tolerance": 0.02
+    },
+    {
+     "q": "v",
+     "prompt": "离开时的速度是多少？",
+     "expected": 2.572288217366013,
+     "unit": "m/s",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "circular-05",
+   "category": "circular",
+   "source": "c-arc-slide",
+   "template": "arc-slide",
+   "params": {
+    "R": 2,
+    "m": 0.2
+   },
+   "problem": "光滑的四分之一圆弧轨道半径为 2 m，质量 0.2 kg 的小球（看作质点）从轨道的顶端由静止开始下滑。g 取 9.8 m/s²。求：(1) 小球到达底端时的速度是多少；(2) 在底端轨道对小球的支持力是多少。",
+   "asks": [
+    {
+     "q": "v",
+     "prompt": "小球到达底端时的速度是多少？",
+     "expected": 6.213855485928182,
+     "unit": "m/s",
+     "tolerance": 0.02
+    },
+    {
+     "q": "N",
+     "prompt": "在底端轨道对小球的支持力是多少？",
+     "expected": 5.879999999999978,
+     "unit": "N",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "circular-06",
+   "category": "circular",
+   "source": "c-loop",
+   "template": "vertical-loop",
+   "params": {
+    "R": 2,
+    "v0": 13,
+    "m": 0.1
+   },
+   "problem": "半径 2 m 的光滑圆轨道竖直放置，质量 0.1 kg 的小球（看作质点）沿轨道内侧运动，通过最低点时速度为 13 m/s。g 取 9.8 m/s²。求：(1) 小球通过最高点时的速度是多少；(2) 最低点轨道对小球的支持力是多少。",
+   "asks": [
+    {
+     "q": "vTop",
+     "prompt": "小球通过最高点时的速度是多少？",
+     "expected": 9.579979123142309,
+     "unit": "m/s",
+     "tolerance": 0.02
+    },
+    {
+     "q": "Nb",
+     "prompt": "最低点轨道对小球的支持力是多少？",
+     "expected": 9.558680203045686,
+     "unit": "N",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "circular-07",
+   "category": "circular",
+   "source": "c-bridge",
+   "template": "hump-bridge",
+   "params": {
+    "R": 5,
+    "v0": 3,
+    "m": 1
+   },
+   "problem": "一座光滑的拱形桥，桥面的半径是 5 m。质量 1 kg 的小车（看作质点）以 3 m/s 的速度驶过桥的最高点。g 取 9.8 m/s²。求：(1) 小车在最高点对桥面的压力是多少；(2) 小车离开桥面时的速度是多少。",
+   "asks": [
+    {
+     "q": "N",
+     "prompt": "小车在最高点对桥面的压力是多少？",
+     "expected": 8.017821782178219,
+     "unit": "N",
+     "tolerance": 0.02
+    },
+    {
+     "q": "v",
+     "prompt": "小车离开桥面时的速度是多少？",
+     "expected": 5.9994444214716,
+     "unit": "m/s",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "circular-08",
+   "category": "circular",
+   "source": "e-pendulum",
+   "template": "pendulum",
+   "params": {
+    "L": 1,
+    "theta0": 30,
+    "m": 0.5
+   },
+   "problem": "质量 0.5 kg 的小球系在长 1 m 的轻绳下端，绳的上端固定。把小球拉到绳与竖直方向夹角为 30° 的位置，由静止释放。g 取 9.8 m/s²。求：(1) 小球摆到最低点时的速率是多少；(2) 小球在最低点时绳的拉力是多少。",
+   "asks": [
+    {
+     "q": "v",
+     "prompt": "小球摆到最低点时的速率是多少？",
+     "expected": 1.6204635404182917,
+     "unit": "m/s",
+     "tolerance": 0.02
+    },
+    {
+     "q": "T",
+     "prompt": "小球在最低点时绳的拉力是多少？",
+     "expected": 6.212951042912493,
+     "unit": "N",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "projectile-01",
+   "category": "projectile",
+   "source": "p-oblique",
+   "template": "projectile",
+   "params": {
+    "v0": 10,
+    "alpha": 45,
+    "h": 0,
+    "m": 0.1
+   },
+   "problem": "在水平地面上把一个小球以 10 m/s 的速度斜向上抛出，抛出方向与水平面成 45° 角，空气阻力不计。g 取 9.8 m/s²。求：(1) 小球在空中运动的时间是多少；(2) 水平射程是多少；(3) 小球在最高点的速度大小是多少。",
+   "asks": [
+    {
+     "q": "T",
+     "prompt": "小球在空中运动的时间是多少？",
+     "expected": 1.4430750636467324,
+     "unit": "s",
+     "tolerance": 0.02
+    },
+    {
+     "q": "R",
+     "prompt": "水平射程是多少？",
+     "expected": 10.204081632658047,
+     "unit": "m",
+     "tolerance": 0.02
+    },
+    {
+     "q": "vtop",
+     "prompt": "小球在最高点的速度大小是多少？",
+     "expected": 7.0710678118654755,
+     "unit": "m/s",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "projectile-02",
+   "category": "projectile",
+   "source": "p-horizontal",
+   "template": "projectile",
+   "params": {
+    "v0": 3,
+    "alpha": 0,
+    "h": 1.25,
+    "m": 0.1
+   },
+   "problem": "平台高 1.25 m，小球从平台的边缘以 3 m/s 的速度沿水平方向飞出，空气阻力不计。g 取 9.8 m/s²。求：(1) 小球经过多长时间落地；(2) 落地点到抛出点的水平距离是多少；(3) 落地时速度大小是多少。",
+   "asks": [
+    {
+     "q": "t",
+     "prompt": "小球经过多长时间落地？",
+     "expected": 0.5050762722768389,
+     "unit": "s",
+     "tolerance": 0.02
+    },
+    {
+     "q": "x",
+     "prompt": "落地点到抛出点的水平距离是多少？",
+     "expected": 1.51522881683051,
+     "unit": "m",
+     "tolerance": 0.02
+    },
+    {
+     "q": "v",
+     "prompt": "落地时速度大小是多少？",
+     "expected": 5.78791845140127,
+     "unit": "m/s",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "projectile-03",
+   "category": "projectile",
+   "source": "p-from-height",
+   "template": "projectile",
+   "params": {
+    "v0": 6,
+    "alpha": 30,
+    "h": 2,
+    "m": 0.1
+   },
+   "problem": "小球在 2 m 高的平台上被以 6 m/s 的速度抛出，速度方向斜向上，与水平方向成 30° 角，空气阻力不计。g 取 9.8 m/s²。求：(1) 小球落地时的速度大小是多少；(2) 小球在空中运动的时间是多少。",
+   "asks": [
+    {
+     "q": "v",
+     "prompt": "小球落地时的速度大小是多少？",
+     "expected": 8.671793355478988,
+     "unit": "m/s",
+     "tolerance": 0.02
+    },
+    {
+     "q": "t",
+     "prompt": "小球在空中运动的时间是多少？",
+     "expected": 1.0145532635809458,
+     "unit": "s",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "projectile-04",
+   "category": "projectile",
+   "source": "p-throw-down",
+   "template": "projectile",
+   "params": {
+    "v0": 5,
+    "alpha": -30,
+    "h": 10,
+    "m": 0.1
+   },
+   "problem": "平台高 10 m，在它的边缘把小球以 5 m/s 的速度斜向下抛出，速度方向与水平方向的夹角为 30°，空气阻力不计。g 取 9.8 m/s²。求：(1) 小球落地时的速度大小是多少；(2) 小球经过多长时间落地。",
+   "asks": [
+    {
+     "q": "v",
+     "prompt": "小球落地时的速度大小是多少？",
+     "expected": 14.866068747325244,
+     "unit": "m/s",
+     "tolerance": 0.02
+    },
+    {
+     "q": "t",
+     "prompt": "小球经过多长时间落地？",
+     "expected": 1.1960676176872405,
+     "unit": "s",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "projectile-05",
+   "category": "projectile",
+   "source": "p-slope",
+   "template": "projectile-slope",
+   "params": {
+    "theta": 30,
+    "v0": 15,
+    "m": 0.1
+   },
+   "problem": "斜面的倾角为 30°。在斜面的顶端 A 点把一个小球以 15 m/s 的速度水平抛出，小球落回斜面上的 B 点，空气阻力不计。g 取 9.8 m/s²。求：(1) 小球在空中飞行的时间是多少；(2) A、B 两点间的距离是多少；(3) 小球落到 B 点时的速度大小是多少。",
+   "asks": [
+    {
+     "q": "t",
+     "prompt": "小球在空中飞行的时间是多少？",
+     "expected": 1.7669782548435184,
+     "unit": "s",
+     "tolerance": 0.02
+    },
+    {
+     "q": "AB",
+     "prompt": "A、B 两点间的距离是多少？",
+     "expected": 30.587640624507113,
+     "unit": "m",
+     "tolerance": 0.02
+    },
+    {
+     "q": "v",
+     "prompt": "小球落到 B 点时的速度大小是多少？",
+     "expected": 22.909763315729535,
+     "unit": "m/s",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "projectile-06",
+   "category": "projectile",
+   "source": "p-wall",
+   "template": "projectile-wall",
+   "params": {
+    "h": 2.5,
+    "v0": 5,
+    "d": 1.5,
+    "m": 0.1
+   },
+   "problem": "桌面高 2.5 m，小球（看作质点）从桌面边缘以 5 m/s 的速度水平飞出，前方水平距离 1.5 m 处有一面竖直的墙，空气阻力不计。g 取 9.8 m/s²。求：(1) 小球经过多长时间撞到墙；(2) 撞墙前瞬间的速度大小是多少。",
+   "asks": [
+    {
+     "q": "t",
+     "prompt": "小球经过多长时间撞到墙？",
+     "expected": 0.30000000000000027,
+     "unit": "s",
+     "tolerance": 0.02
+    },
+    {
+     "q": "v",
+     "prompt": "撞墙前瞬间的速度大小是多少？",
+     "expected": 5.800310336525108,
+     "unit": "m/s",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "projectile-07",
+   "category": "projectile",
+   "source": "k-free-fall",
+   "template": "free-fall",
+   "params": {
+    "h": 5
+   },
+   "problem": "一个小球在离地面 5 m 高的地方由静止开始下落，空气阻力不计。g 取 9.8 m/s²。求：(1) 小球经过多长时间落地；(2) 小球落地前瞬间的速度大小是多少。",
+   "asks": [
+    {
+     "q": "t",
+     "prompt": "小球经过多长时间落地？",
+     "expected": 1.010152544552216,
+     "unit": "s",
+     "tolerance": 0.02
+    },
+    {
+     "q": "v",
+     "prompt": "小球落地前瞬间的速度大小是多少？",
+     "expected": 9.899494936611724,
+     "unit": "m/s",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "collision-01",
+   "category": "collision",
+   "source": "m-elastic",
+   "template": "collision-1d",
+   "params": {
+    "m1": 1,
+    "m2": 2,
+    "v0": 2,
+    "e": 1
+   },
+   "problem": "在光滑水平面上，质量 1 kg 的小球 A 以 2 m/s 的速度撞向静止的质量 2 kg 的小球 B，两球发生弹性正碰。求：(1) 碰后 A 的速度是多少？（以 v₀ 方向为正）；(2) 碰后 B 的速度是多少。",
+   "asks": [
+    {
+     "q": "v1",
+     "prompt": "碰后 A 的速度是多少？（以 v₀ 方向为正）",
+     "expected": -0.6666666666666665,
+     "unit": "m/s",
+     "tolerance": 0.02
+    },
+    {
+     "q": "v2",
+     "prompt": "碰后 B 的速度是多少？",
+     "expected": 1.3333333333333333,
+     "unit": "m/s",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "collision-02",
+   "category": "collision",
+   "source": "m-inelastic",
+   "template": "collision-1d",
+   "params": {
+    "m1": 1,
+    "m2": 2,
+    "v0": 3,
+    "e": 0
+   },
+   "problem": "光滑水平面上，质量 1 kg 的小球 A 以 3 m/s 的速度与静止的质量 2 kg 的小球 B 相撞，碰撞后两球粘在一起。求：(1) 碰后两球的共同速度是多少；(2) 碰撞中损失的动能是多少。",
+   "asks": [
+    {
+     "q": "v",
+     "prompt": "碰后两球的共同速度是多少？",
+     "expected": 1,
+     "unit": "m/s",
+     "tolerance": 0.02
+    },
+    {
+     "q": "dE",
+     "prompt": "碰撞中损失的动能是多少？",
+     "expected": 3,
+     "unit": "J",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "collision-03",
+   "category": "collision",
+   "source": "m-three-balls",
+   "template": "three-balls",
+   "params": {
+    "v0": 2,
+    "m1": 1,
+    "m2": 1,
+    "m3": 1,
+    "e": 1
+   },
+   "problem": "光滑水平面上有三个质量相等的小球 A、B、C，排成一条直线，B 和 C 原来静止。A 以 2 m/s 的速度与 B 发生弹性正碰，随后 B 又与 C 发生弹性正碰。求：(1) 最终 C 的速度大小是多少。",
+   "asks": [
+    {
+     "q": "vC",
+     "prompt": "最终 C 的速度大小是多少？",
+     "expected": 2,
+     "unit": "m/s",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "collision-04",
+   "category": "collision",
+   "source": "m-pendulums",
+   "template": "pendulum-collision",
+   "params": {
+    "L": 1,
+    "theta0": 30,
+    "m1": 0.2,
+    "m2": 0.4,
+    "e": 1
+   },
+   "problem": "两个单摆并排悬挂，摆长都是 1 m。把质量 0.2 kg 的摆球 A 拉开 30° 后由静止释放，它在最低点与静止的质量 0.4 kg 的摆球 B 发生弹性正碰。g 取 9.8 m/s²。求：(1) 碰后瞬间 B 的速度大小是多少；(2) 碰后瞬间 A 的速度大小是多少。",
+   "asks": [
+    {
+     "q": "vB",
+     "prompt": "碰后瞬间 B 的速度大小是多少？",
+     "expected": 1.0803090269455304,
+     "unit": "m/s",
+     "tolerance": 0.02
+    },
+    {
+     "q": "vA",
+     "prompt": "碰后瞬间 A 的速度大小是多少？",
+     "expected": 0.5401545134727652,
+     "unit": "m/s",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "collision-05",
+   "category": "collision",
+   "source": "m-bounce",
+   "template": "bouncing-ball",
+   "params": {
+    "h": 1,
+    "e": 0.8,
+    "m": 0.1
+   },
+   "problem": "质量 0.1 kg 的小球从 1 m 高处落向光滑的水平地面，落地时水平方向的速度为 0.4 m/s，小球与地面碰撞的恢复系数为 0.8。g 取 9.8 m/s²。求：(1) 第一次反弹后瞬间小球的速度大小是多少；(2) 小球第一次落地的时刻是多少。",
+   "asks": [
+    {
+     "q": "v",
+     "prompt": "第一次反弹后瞬间小球的速度大小是多少？",
+     "expected": 3.5642671055912816,
+     "unit": "m/s",
+     "tolerance": 0.02
+    },
+    {
+     "q": "t",
+     "prompt": "小球第一次落地的时刻是多少？",
+     "expected": 0.4517539514526256,
+     "unit": "s",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "collision-06",
+   "category": "collision",
+   "source": "m-big-small",
+   "template": "collision-1d",
+   "params": {
+    "m1": 5,
+    "m2": 0.5,
+    "v0": 2,
+    "e": 1
+   },
+   "problem": "一个质量 5 kg 的大球 A 在光滑水平面上以 2 m/s 的速度运动，迎面撞上静止的质量 0.5 kg 的小球 B，碰撞是弹性正碰。求：(1) 碰后 B 的速度是多少；(2) 碰撞中 B 获得的动量（冲量的大小）是多少。",
+   "asks": [
+    {
+     "q": "vB",
+     "prompt": "碰后 B 的速度是多少？",
+     "expected": 3.6363636363636362,
+     "unit": "m/s",
+     "tolerance": 0.02
+    },
+    {
+     "q": "I",
+     "prompt": "碰撞中 B 获得的动量（冲量的大小）是多少？",
+     "expected": 1.8181818181818181,
+     "unit": "kg·m/s",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "collision-07",
+   "category": "collision",
+   "source": "m-groove",
+   "template": "groove-momentum",
+   "params": {
+    "R": 2,
+    "M": 2,
+    "m": 0.5
+   },
+   "problem": "光滑水平面上静止放着一个质量 2 kg 的光滑半圆槽，槽的半径为 2 m。质量 0.5 kg 的小球（看作质点）从槽口由静止释放。g 取 9.8 m/s²。求：(1) 小球到达最低点时的速度是多少；(2) 此时槽的速度是多少。",
+   "asks": [
+    {
+     "q": "v",
+     "prompt": "小球到达最低点时的速度是多少？",
+     "expected": 5.557841307558078,
+     "unit": "m/s",
+     "tolerance": 0.02
+    },
+    {
+     "q": "V",
+     "prompt": "此时槽的速度是多少？",
+     "expected": 1.3894603268895196,
+     "unit": "m/s",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "field-01",
+   "category": "field",
+   "source": "es-deflection",
+   "template": "charge-deflection",
+   "params": {
+    "q": 1,
+    "m": 1,
+    "E": 2,
+    "v0": 3,
+    "L": 1.2
+   },
+   "problem": "匀强电场的场强为 2 V/m，充满整个区域。一个带正电的小球（电荷量 1 mC，质量 1 g）以 3 m/s 的速度垂直于电场方向射入，平行极板长 1.2 m，极板右端外 0.47 m 处有一块荧光屏（小球所受重力不计）。求：(1) 小球打到荧光屏时的速度大小是多少；(2) 小球受到的电场力是多少。",
+   "asks": [
+    {
+     "q": "v",
+     "prompt": "小球打到荧光屏时的速度大小是多少？",
+     "expected": 3.199923610199332,
+     "unit": "m/s",
+     "tolerance": 0.02
+    },
+    {
+     "q": "F",
+     "prompt": "小球受到的电场力是多少？",
+     "expected": 0.002,
+     "unit": "N",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "field-02",
+   "category": "field",
+   "source": "es-charged-pendulum",
+   "template": "charged-pendulum",
+   "params": {
+    "E": 5,
+    "q": 1,
+    "m": 1,
+    "L": 1
+   },
+   "problem": "水平向右的匀强电场场强为 5 V/m。长 1 m 的绝缘细线上端固定，下端系着质量 1 g、电荷量 1 mC 的带正电小球。小球从细线竖直的最低点由静止释放。g 取 9.8 m/s²。求：(1) 运动过程中细线拉力的最大值是多少。",
+   "asks": [
+    {
+     "q": "T",
+     "prompt": "运动过程中细线拉力的最大值是多少？",
+     "expected": 0.013405454094740032,
+     "unit": "N",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "field-03",
+   "category": "field",
+   "source": "mg-circle",
+   "template": "cyclotron",
+   "params": {
+    "q": 1,
+    "m": 1,
+    "B": 2,
+    "v": 1
+   },
+   "problem": "磁感应强度为 2 T 的匀强磁场中，一个带正电的粒子（电荷量 1 mC，质量 1 g）以 1 m/s 的速度垂直于磁场方向射入，重力不计。求：(1) 粒子受到的洛伦兹力是多少；(2) 粒子的向心加速度是多少。",
+   "asks": [
+    {
+     "q": "F",
+     "prompt": "粒子受到的洛伦兹力是多少？",
+     "expected": 0.0019999999999999996,
+     "unit": "N",
+     "tolerance": 0.02
+    },
+    {
+     "q": "a",
+     "prompt": "粒子的向心加速度是多少？",
+     "expected": 1.9999999999999996,
+     "unit": "m/s²",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "field-04",
+   "category": "field",
+   "source": "mg-selector",
+   "template": "velocity-selector",
+   "params": {
+    "E": 4,
+    "B": 2,
+    "v0": 2,
+    "q": 1,
+    "m": 1
+   },
+   "problem": "两块平行板之间同时有互相垂直的匀强电场（4 V/m）和匀强磁场（2 T）。带正电的粒子（电荷量 1 mC，质量 1 g）以 2 m/s 的速度垂直于电场和磁场射入，重力不计。求：(1) 粒子受到的电场力是多少；(2) 刚射入时粒子受到的洛伦兹力是多少。",
+   "asks": [
+    {
+     "q": "FE",
+     "prompt": "粒子受到的电场力是多少？",
+     "expected": 0.004,
+     "unit": "N",
+     "tolerance": 0.02
+    },
+    {
+     "q": "FB",
+     "prompt": "刚射入时粒子受到的洛伦兹力是多少？",
+     "expected": 0.004,
+     "unit": "N",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "field-05",
+   "category": "field",
+   "source": "es-oil-drop",
+   "template": "charged-drop",
+   "params": {
+    "E": 8,
+    "q": 1,
+    "m": 1,
+    "b": 0.01
+   },
+   "problem": "竖直向下的匀强电场场强为 8 V/m。一个质量 1 g、带负电 1 mC 的油滴在电场中由静止开始下落，它受到的空气阻力 f = bv，b = 0.01 N·s/m。g 取 9.8 m/s²。求：(1) 油滴最终匀速下落的速度是多少。",
+   "asks": [
+    {
+     "q": "v",
+     "prompt": "油滴最终匀速下落的速度是多少？",
+     "expected": 0.1799396167269774,
+     "unit": "m/s",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "buoyancy-01",
+   "category": "buoyancy",
+   "source": "fl-floating",
+   "template": "floating-block",
+   "params": {
+    "rhoB": 600,
+    "rho": 1000,
+    "d": 0.1,
+    "c": 10
+   },
+   "problem": "一块 20 cm × 10 cm、厚 0.1 m 的木块，密度为 600 kg/m³，把它放进密度为 1000 kg/m³ 的水里，静止时浮在水面上。g 取 9.8 m/s²。求：(1) 木块受到的浮力是多少；(2) 木块浸在水中的体积是多少。",
+   "asks": [
+    {
+     "q": "Fb",
+     "prompt": "木块受到的浮力是多少？",
+     "expected": 11.759369579450503,
+     "unit": "N",
+     "tolerance": 0.02
+    },
+    {
+     "q": "V",
+     "prompt": "木块浸在水中的体积是多少？",
+     "expected": 0.0011999356713725002,
+     "unit": "m³",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "buoyancy-02",
+   "category": "buoyancy",
+   "source": "fl-sinking",
+   "template": "sinking-ball",
+   "params": {
+    "rhoB": 7800,
+    "rho": 1000,
+    "d": 0.1
+   },
+   "problem": "一个密度为 7800 kg/m³ 的球完全浸没在密度为 1000 kg/m³ 的液体中，由静止释放，液体的阻力不计。g 取 9.8 m/s²。求：(1) 球下沉的加速度是多少。",
+   "asks": [
+    {
+     "q": "a",
+     "prompt": "球下沉的加速度是多少？",
+     "expected": 8.543589743589745,
+     "unit": "m/s²",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "buoyancy-03",
+   "category": "buoyancy",
+   "source": "fl-weigh",
+   "template": "weigh-in-water",
+   "params": {
+    "rhoB": 2700,
+    "rho": 1000,
+    "d": 0.1
+   },
+   "problem": "弹簧测力计下面挂着一块边长 10 cm、厚 0.1 m 的金属块，金属的密度为 2700 kg/m³。把金属块完全浸没在密度为 1000 kg/m³ 的水中并保持静止。g 取 9.8 m/s²。求：(1) 金属块受到的浮力是多少；(2) 弹簧测力计的示数是多少。",
+   "asks": [
+    {
+     "q": "Fb",
+     "prompt": "金属块受到的浮力是多少？",
+     "expected": 9.799999999999997,
+     "unit": "N",
+     "tolerance": 0.02
+    },
+    {
+     "q": "F",
+     "prompt": "弹簧测力计的示数是多少？",
+     "expected": 16.661943079334314,
+     "unit": "N",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "buoyancy-04",
+   "category": "buoyancy",
+   "source": "fl-boat",
+   "template": "loaded-boat",
+   "params": {
+    "m": 2,
+    "rho": 1000,
+    "d": 0.1,
+    "c": 30
+   },
+   "problem": "一条质量 2.4 kg 的平底小船浮在密度为 1000 kg/m³ 的水面上。在船上放一个质量 2 kg 的重物，船下沉一些后重新静止。g 取 9.8 m/s²。求：(1) 船重新静止后受到的浮力是多少；(2) 船排开水的体积是多少。",
+   "asks": [
+    {
+     "q": "Fb",
+     "prompt": "船重新静止后受到的浮力是多少？",
+     "expected": 43.155531783571185,
+     "unit": "N",
+     "tolerance": 0.02
+    },
+    {
+     "q": "V",
+     "prompt": "船排开水的体积是多少？",
+     "expected": 0.004403625692201141,
+     "unit": "m³",
+     "tolerance": 0.02
+    }
+   ]
+  },
+  {
+   "id": "buoyancy-05",
+   "category": "buoyancy",
+   "source": "fl-rising",
+   "template": "rising-block",
+   "params": {
+    "rhoB": 500,
+    "rho": 1000,
+    "d": 0.1
+   },
+   "problem": "密度为 500 kg/m³ 的木块被按在水（密度 1000 kg/m³）的深处，然后由静止放手，水的阻力不计。g 取 9.8 m/s²。求：(1) 释放瞬间木块的加速度是多少。",
+   "asks": [
+    {
+     "q": "a",
+     "prompt": "释放瞬间木块的加速度是多少？",
+     "expected": 9.800000000000018,
+     "unit": "m/s²",
+     "tolerance": 0.02
+    }
+   ]
+  }
+ ]
+}

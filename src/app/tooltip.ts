@@ -7,6 +7,7 @@
  *
  * Touch screens have no hover: nothing is shown there (titles stay as they are).
  */
+import { subPlain } from '../i18n/sub'
 const SHOW_MS = 420
 const AGAIN_MS = 60
 const WARM_MS = 900
@@ -64,7 +65,7 @@ function show(node: HTMLElement) {
   const text = adopt(node)
   if (!text || !document.contains(node)) return
   const tip = layer()
-  tip.textContent = text
+  tip.textContent = subPlain(text)
   tip.classList.remove('on')
   place(node, tip)
   // next frame: the transition starts from the placed, hidden state

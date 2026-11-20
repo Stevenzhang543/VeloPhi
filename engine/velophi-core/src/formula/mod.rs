@@ -294,17 +294,36 @@ impl Obs {
     }
 }
 
+/// Sample situation `sit` at time t (clamped by the caller). 26.65 (P7): a phase that ends at an event (a screen hit,
+/// an impact, a contact change) is sampled on its own side of that event — at t₁ the state just before the event and
+/// the mode of the segment that ends there — not the state after it (it belongs to the next phase).
+pub fn sample_situation(s: &mut crate::session::Session, sit: &Situation, t: f64) -> SimResult<Sample> {
+    let prev = s.sample_end;
+    s.sample_end = if sit.t1 > sit.t0 + 1e-12 { Some(sit.t1) } else { None };
+    let out = (sit.sample)(s, t);
+    s.sample_end = prev;
+    out
+}
+
 /// Recording access of a recognizer or a sample: the session seen through a view.
 pub struct Rec<'a> {
     pub s: &'a mut Session,
     pub v: View,
     pub sys: Rc<System>,
+    /// 26.65 (P7): the end of the phase being sampled (see `sample_situation`).
+    end: Option<f64>,
 }
 
 impl<'a> Rec<'a> {
     pub fn new(s: &'a mut Session, v: View) -> Rec<'a> {
         let sys = s.system.clone();
-        Rec { s, v, sys }
+        let end = s.sample_end;
+        Rec { s, v, sys, end }
+    }
+
+    /// Whether t is the end instant of the phase being sampled (26.65, P7).
+    fn at_end(&self, t: f64) -> bool {
+        self.end.is_some_and(|t1| (t - t1).abs() <= 1e-12)
     }
     pub fn dt(&self) -> f64 {
         self.s.dt
@@ -321,11 +340,14 @@ impl<'a> Rec<'a> {
         &self.s.events[self.v.ev_lo..self.v.ev_hi]
     }
 
-    /// Index (in the view) of the segment containing time t (the later one at a boundary).
+    /// Index (in the view) of the segment containing time t (the later one at a boundary; the earlier one at the end
+    /// instant of a sampled phase, 26.65 P7).
     pub fn segment_at(&self, t: f64) -> usize {
+        let before = self.at_end(t);
         let mut seg = 0;
         for i in 0..self.nseg() {
-            if self.seg(i).t0 <= t {
+            let t0 = self.seg(i).t0;
+            if t0 <= t && !(before && i > 0 && t0 >= t - 1e-12) {
                 seg = i;
             }
         }
@@ -339,6 +361,12 @@ impl<'a> Rec<'a> {
 
     /// State at time t (exactStateAt on the view).
     pub fn exact(&mut self, t: f64) -> SimResult<Vec<f64>> {
+        // 26.65 (P7): at the end of a sampled phase, the state just before the event there
+        if self.at_end(t) {
+            if let Some(e) = self.event_at(t) {
+                return Ok(e.before.clone());
+            }
+        }
         let dt = self.s.dt;
         let fc = self.v.frame_count as f64;
         let mut k = (fc - 1.0).min(0f64.max((t / dt).floor()));
@@ -380,9 +408,29 @@ impl<'a> Rec<'a> {
     pub fn observe(&mut self, t: f64) -> SimResult<Obs> {
         let si = self.segment_at(t);
         let mode = self.seg(si).mode.clone();
-        let loss = self.seg(si).impact_loss;
+        // 26.65 (P6): impacts happen at events, so an exact segment's loss is constant; a time-stepping segment (the
+        // many-body solver, the Moreau–Jean fallback) accumulates it step by step — take it at t, interpolated between
+        // frames like the state
+        let loss = if self.seg(si).reduced { self.reduced_loss(t)? } else { self.seg(si).impact_loss };
         let x = self.exact(t)?;
         self.observe_state(x, mode, loss)
+    }
+
+    /// Cumulative impact loss at time t of a time-stepping segment: the frames' values, linear in between.
+    fn reduced_loss(&mut self, t: f64) -> SimResult<f64> {
+        let dt = self.s.dt;
+        let fc = self.v.frame_count;
+        if fc == 0 {
+            return Ok(0.0);
+        }
+        let k = self.s.frame_at(t).min(fc - 1);
+        let tk = k as f64 * dt;
+        let lk = self.s.impact_loss(k)?;
+        if t <= tk || k + 1 >= fc {
+            return Ok(lk);
+        }
+        let l1 = self.s.impact_loss(k + 1)?;
+        Ok(lk + (t - tk) / dt * (l1 - lk))
     }
 
     /// Observation of a given state in a mode (makeContextFor).

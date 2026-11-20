@@ -59,6 +59,9 @@ pub fn recognize_phases(s: &mut Session, v: View) -> SimResult<Vec<Situation>> {
     // 26.55 (D90–D92): regions, liquids and rail loops; formulas of other situations are dropped for their bodies
     super::situations2655::situations2655(&mut r, &mut out)?;
     super::situations2655::filter_regions(&r.sys.model, &mut out);
+    // 26.65 (P11): a phase of zero length (a body pulled onto the pulley at the instant it starts, a contact that
+    // begins and ends together) has nothing to sample; only instants of events (collisions) are kept as such
+    out.retain(|s| s.t_event.is_some() || s.t1 - s.t0 >= 1e-9);
     Ok(out)
 }
 
@@ -84,6 +87,43 @@ fn curved_support(sys: &System, u: &UnitMode, other: &str) -> bool {
     })
 }
 
+/// 26.65 (P10): whether body `other` touches in unit `u` with a sharp vertex of its own against a point of the body (a
+/// ball on the top corner of a slope): the normal there follows the line from the corner to the ball's centre, not a
+/// face, so the surface formulas do not apply. (A face of the body sliding over the corner keeps the face's normal.)
+fn vertex_support(sys: &System, u: &UnitMode, other: &str) -> bool {
+    let model = &sys.model;
+    let pair = &sys.pairs[u.pair];
+    u.points.iter().chain(std::iter::once(&u.ref_)).any(|&i| {
+        let Some(f) = pair.features.get(i) else { return false };
+        match &f.b {
+            FeatureB::Point(p, _) => (model.bodies[p.body].id == other && p.radius <= 0.0) || (model.bodies[f.a.body].id == other && f.a.radius <= 0.0),
+            FeatureB::Face(_) | FeatureB::Hollow(_) => false,
+        }
+    })
+}
+
+/// 26.65 (P3): the radius of a body that rolls like a disc about its centre — a circle, or a compound shape whose only
+/// convex contact features are round points on the body origin covering the full turn (a hoop: a full-ring arc).
+pub fn rolling_radius(b: &BodyModel) -> Option<f64> {
+    match &b.shape {
+        ShapeModel::Circle { radius } => Some(*radius),
+        ShapeModel::Complex(c) => {
+            if !c.faces.is_empty() || c.points.is_empty() {
+                return None;
+            }
+            let mut r = 0.0f64;
+            for p in &c.points {
+                if !(p.radius > 0.0) || p.span.is_some() || p.local.x.abs() > 1e-12 || p.local.y.abs() > 1e-12 {
+                    return None;
+                }
+                r = r.max(p.radius);
+            }
+            Some(r)
+        }
+        ShapeModel::Polygon { .. } => None,
+    }
+}
+
 // ---- Surfaces, inclines, rolling ----
 fn surface_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()> {
     let sys = r.sys.clone();
@@ -98,10 +138,23 @@ fn surface_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()> {
         if !attached(model, &b.id).none() {
             continue;
         }
-        let rolling = matches!(b.shape, ShapeModel::Circle { .. }) && b.inv_inertia > 0.0;
+        // 26.65 (P3): a hoop (full-ring arc) rolls like a circle
+        let roll_r = rolling_radius(b);
+        let rolling = roll_r.is_some() && b.inv_inertia > 0.0;
+        // 26.65 (M6): pairs of this body that separated at an event (time, pair key); a segment that starts at that
+        // instant still lists the pair as open (touching, no force) although the body is leaving it
+        let seps: Vec<(f64, String)> = r
+            .events()
+            .iter()
+            .flat_map(|e| e.changes.iter().filter(|c| c.kind() == crate::simulation::ChangeType::Separate && c.bodies.iter().any(|x| *x == b.id)).map(move |c| (e.t, c.subject.clone())))
+            .collect();
         let list = runs(r, &mut |seg| {
             let us = closed_units(&sys, &seg.mode, &b.id);
-            if us.len() != 1 || touching_units(&sys, &seg.mode, &b.id).len() != 1 {
+            let leaving = touching_units(&sys, &seg.mode, &b.id)
+                .iter()
+                .filter(|u| u.points.is_empty() && seps.iter().any(|(t, k)| (t - seg.t0).abs() <= 1e-12 && *k == sys.pairs[u.pair].key))
+                .count();
+            if us.len() != 1 || touching_units(&sys, &seg.mode, &b.id).len() - leaving != 1 {
                 return None;
             }
             let u = us[0];
@@ -112,6 +165,10 @@ fn surface_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()> {
             // 26.60 r2: the surface formulas hold on a flat face of the fixed body; on a curved one (an arc's inner or
             // outer side, a fixed disc) the normal turns along the way and they do not apply
             if curved_support(&sys, u, &other.id) {
+                return None;
+            }
+            // 26.65 (P10): resting on a corner of the support (a ball landing on the top edge of a slope) is no incline
+            if vertex_support(&sys, u, &other.id) {
                 return None;
             }
             let geo = unit_geometry(&sys, &seg.x0, u, &b.id);
@@ -159,10 +216,7 @@ fn surface_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()> {
             let (bid, oid) = (b.id.clone(), other.id.clone());
             if rolling {
                 let inertia = b.inertia;
-                let rr = match b.shape {
-                    ShapeModel::Circle { radius } => radius,
-                    _ => f64::NAN,
-                };
+                let rr = roll_r.unwrap_or(f64::NAN);
                 let mass = b.mass;
                 let stick = status == "stick";
                 let down = status == "down";
@@ -172,7 +226,7 @@ fn surface_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()> {
                 out.push(Situation {
                     key: format!("rolling:{}:{}", bid, js_num(t0)),
                     ty: "rolling",
-                    title: t!("{0} 在{1}上{2}", b.name.clone(), other.name.clone(), if stick { t!("纯滚动") } else { t!("边滚边滑") }),
+                    title: t!("{0}在{1}上{2}", b.name.clone(), other.name.clone(), if stick { t!("纯滚动") } else { t!("边滚边滑") }),
                     t0,
                     t1,
                     t_event: None,
@@ -227,9 +281,9 @@ fn surface_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()> {
                 _ => t!("相对下滑"),
             };
             let title = if flat {
-                t!("{0} 在{1}上{2}", b.name.clone(), other.name.clone(), if status == "stick" { t!("相对静止") } else { t!("滑动") })
+                t!("{0}在{1}上{2}", b.name.clone(), other.name.clone(), if status == "stick" { t!("相对静止") } else { t!("滑动") })
             } else {
-                t!("{0} 在{1}上（{2}）", b.name.clone(), other.name.clone(), tag)
+                t!("{0}在{1}上（{2}）", b.name.clone(), other.name.clone(), tag)
             };
             // Theoretical acceleration along downhill for v = v0 + at
             let a_th = if flat {
@@ -371,7 +425,8 @@ fn board_block_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()
                 let sb = body_vel(&sys, &seg0.x0, b_b);
                 let sigma = sign_or1(sa.vx - sb.vx);
                 let (v1, v2) = (sa.vx * sigma, sb.vx * sigma);
-                let board_moves = ground.friction == Friction::Slide;
+                // 26.65 (P1): a smooth floor (μ₂ = 0, friction state None) lets the board slide too
+                let board_moves = matches!(ground.friction, Friction::Slide | Friction::None);
                 let a2 = if board_moves { (mu1 * a_b.mass * g - mu2 * (a_b.mass + b_b.mass) * g) / b_b.mass } else { 0.0 };
                 let ua_key = sys.pairs[ua.pair].key.clone();
                 let ends_at_common = r.event_at(run.t1).is_some_and(|e| e.changes.iter().any(|c| c.subject == ua_key && c.kind() == crate::simulation::ChangeType::Stick));
@@ -388,7 +443,7 @@ fn board_block_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()
                     out.push(Situation {
                         key: format!("bb:{}:{}:{}", aid, bid, js_num(t0)),
                         ty: "board-block",
-                        title: t!("{0} 在{1}上滑动（板块模型）", an.clone(), bn.clone()),
+                        title: t!("{0}在{1}上滑动（板块模型）", an.clone(), bn.clone()),
                         t0,
                         t1,
                         t_event: None,
@@ -426,8 +481,9 @@ fn board_block_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()
                             })
                         }),
                     });
-                } else if ua.friction == Friction::Stick {
-                    let ground_slide = ground.friction == Friction::Slide;
+                } else if ua.friction == Friction::Stick && ground.friction != Friction::Stick {
+                    // 26.65 (M8): block and board at rest on the floor (both contacts stick) do not "move together"
+                    let ground_slide = matches!(ground.friction, Friction::Slide | Friction::None);
                     out.push(Situation {
                         key: format!("bt:{}:{}:{}", aid, bid, js_num(t0)),
                         ty: "board-together",
@@ -741,7 +797,7 @@ fn projectile_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()>
             out.push(Situation {
                 key: format!("proj:{}:{}", b.id, js_num(t0)),
                 ty: "projectile",
-                title: t!("{0} 的抛体运动", b.name.clone()),
+                title: t!("{0}的抛体运动", b.name.clone()),
                 t0,
                 t1,
                 t_event: None,
@@ -884,7 +940,7 @@ fn pendulum_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()> {
             out.push(Situation {
                 key: format!("pend:{}:{}", b.id, js_num(t0)),
                 ty: "pendulum",
-                title: t!("{0} 的单摆运动", b.name.clone()),
+                title: t!("{0}的单摆运动", b.name.clone()),
                 t0,
                 t1,
                 t_event: None,
@@ -982,7 +1038,7 @@ fn spring_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()> {
             out.push(Situation {
                 key: format!("spring:{}:{}", b.id, js_num(t0)),
                 ty: "spring",
-                title: t!("{0} 的简谐振动", b.name.clone()),
+                title: t!("{0}的简谐振动", b.name.clone()),
                 t0,
                 t1,
                 t_event: None,
@@ -1073,7 +1129,7 @@ fn rotation_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()> {
             out.push(Situation {
                 key: format!("rot:{}:{}", b.id, js_num(t0)),
                 ty: "rotation",
-                title: t!("{0} 绕固定轴转动", b.name.clone()),
+                title: t!("{0}绕固定轴转动", b.name.clone()),
                 t0,
                 t1,
                 t_event: None,
@@ -1259,6 +1315,9 @@ fn conservation_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<(
     }
     let o0 = r.observe(0.0)?;
     let balance0 = ledger_at(&sys, &o0.x, o0.impact_loss).balance;
+    // 26.65 (P6): the many-body solver books each step's energy residual as its impact loss, so its ledger closes by
+    // construction — the card shows no comparison instead of a match it could not fail
+    let by_construction = model.settings.integrator == crate::scene::IntegratorKind::Softstep;
     let view = r.v;
     out.push(Situation {
         key: "energy".into(),
@@ -1272,9 +1331,29 @@ fn conservation_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<(
             let mut r = Rec::new(s, view);
             let o = r.observe(t)?;
             let sys = r.sys.clone();
+            // 26.65 (P12): the size of the ledger's terms sets the absolute limit of the card (E₀ = 0 is common)
+            let l = ledger_at(&sys, &o.x, o.impact_loss);
+            let mut scale = 0.0f64;
+            for v in [l.kinetic, l.gravity, l.spring, l.field, l.electric, l.friction_heat, l.applied_work, l.damping, l.belt_work, l.impact_loss, balance0] {
+                if v.is_finite() {
+                    scale = scale.max(v.abs());
+                }
+            }
+            for v in l.extra.iter().flatten() {
+                if v.is_finite() {
+                    scale = scale.max(v.abs());
+                }
+            }
             Ok(Sample {
-                vars: vec![("E0", var_phase(balance0, "J", "E_0", t!("初始总能量")))],
-                measures: vec![("balance", meas(Some(ledger_at(&sys, &o.x, o.impact_loss).balance), "J", t!("当前账本合计")))],
+                vars: vec![("E0", var_phase(balance0, "J", "E_0", t!("初始总能量"))), ("Escale", var_derived(scale, "J", "E_{\\max}", t!("账本中最大的一项（判定的尺度）")))],
+                measures: vec![(
+                    "balance",
+                    if by_construction {
+                        meas_note(None, "J", t!("当前账本合计"), Some(t!("多体求解器把每一步的能量残差计为碰撞损失，账本按构造闭合，不能用来检验能量守恒")))
+                    } else {
+                        meas(Some(ledger_at(&sys, &o.x, o.impact_loss).balance), "J", t!("当前账本合计"))
+                    },
+                )],
                 conditions: vec![],
             })
         }),
@@ -1477,7 +1556,7 @@ fn vertical_circle_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResul
                 out.push(Situation {
                     key: format!("vcr:{}:{}", b.id, js_num(t0)),
                     ty: "vcircle-rope",
-                    title: t!("{0} 在竖直面内的圆周运动（绳）", b.name.clone()),
+                    title: t!("{0}在竖直面内的圆周运动（绳）", b.name.clone()),
                     t0,
                     t1,
                     t_event: None,
@@ -1514,7 +1593,7 @@ fn vertical_circle_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResul
                 out.push(Situation {
                     key: format!("vcd:{}:{}", b.id, js_num(t0)),
                     ty: "vcircle-rod",
-                    title: t!("{0} 在竖直面内的圆周运动（杆）", b.name.clone()),
+                    title: t!("{0}在竖直面内的圆周运动（杆）", b.name.clone()),
                     t0,
                     t1,
                     t_event: None,
@@ -1676,6 +1755,10 @@ fn wedge_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()> {
                 if model.bodies[sg].dynamic || ua[0].friction != Friction::None || floor.friction != Friction::None {
                     return None;
                 }
+                // 26.65 (P4): the wedge formulas need a flat slope; a ball in a curved groove sees a turning normal
+                if curved_support(&sys, ua[0], &wb.id) || vertex_support(&sys, ua[0], &wb.id) {
+                    return None;
+                }
                 let gw = unit_geometry(&sys, &seg.x0, floor, &wb.id);
                 let ga = unit_geometry(&sys, &seg.x0, ua[0], &ab.id);
                 if gw.theta > 1e-9 || ga.theta < 1e-6 || gw.belt != 0.0 {
@@ -1818,13 +1901,19 @@ fn spring_pair_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()
                         let mut ext = None;
                         if let Some(&te) = ts.first() {
                             let xe = r.exact(te)?;
-                            let spm = &sys.model.springs[si];
-                            let dx = distance_kin(&sys.model, &compute_poses(&sys.model, &xe), &spm.a, &spm.b).0.value - rest;
-                            ext = Some((te, v_along(&xe, ai), 0.5 * k * dx * dx, dx));
+                            // 26.65 (P9): a sign change of v₁ − v₂ by a jump (the blocks collide before the spring is
+                            // fully compressed) is no common velocity
+                            if (v_along(&xe, ai) - v_along(&xe, bi)).abs() <= 1e-6 * (1.0 + (v1 - v2).abs()) {
+                                let spm = &sys.model.springs[si];
+                                let dx = distance_kin(&sys.model, &compute_poses(&sys.model, &xe), &spm.a, &spm.b).0.value - rest;
+                                ext = Some((te, v_along(&xe, ai), 0.5 * k * dx * dx, dx));
+                            }
                         }
                         *cache.borrow_mut() = Some((ext, if ts.len() >= 3 { Some(ts[2] - ts[0]) } else { None }));
                     }
                     let (ext, per) = cache.borrow().expect("measured");
+                    // 26.65 (P9): the phase ended (a collision, the end of the record) before the two velocities met
+                    let unreached = if ext.is_none() { Some(t!("本阶段内两物块未达到共速（形变未达到最大）")) } else { None };
                     Ok(Sample {
                         vars: vec![
                             ("m1", var(am, "kg", "m_1", t!("{0}质量", an.clone()))),
@@ -1836,9 +1925,9 @@ fn spring_pair_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()
                         ],
                         measures: vec![
                             ("p", meas(Some(am * v_along(&x, ai) + bm * v_along(&x, bi)), "kg·m/s", t!("沿弹簧方向的总动量"))),
-                            ("vCommon", meas(ext.map(|e| e.1), "m/s", t!("形变最大时{0}的速度", an.clone()))),
-                            ("EpMax", meas(ext.map(|e| e.2), "J", t!("弹性势能最大值"))),
-                            ("xMax", meas(ext.map(|e| e.3.abs()), "m", t!("最大形变量"))),
+                            ("vCommon", meas_note(ext.map(|e| e.1), "m/s", t!("形变最大时{0}的速度", an.clone()), unreached.clone())),
+                            ("EpMax", meas_note(ext.map(|e| e.2), "J", t!("弹性势能最大值"), unreached.clone())),
+                            ("xMax", meas_note(ext.map(|e| e.3.abs()), "m", t!("最大形变量"), unreached.clone())),
                             ("T", meas_note(per, "s", t!("相对振动的周期"), if per.is_none() { Some(t!("记录时长不足一个周期")) } else { None })),
                         ],
                         conditions: vec![
@@ -1904,7 +1993,7 @@ fn roll_slip_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()> 
             out.push(Situation {
                 key: format!("rs:{}:{}", b.id, js_num(t0)),
                 ty: "roll-slip",
-                title: t!("{0} 在{1}上边滚边滑", b.name.clone(), oname),
+                title: t!("{0}在{1}上边滚边滑", b.name.clone(), oname),
                 t0,
                 t1,
                 t_event: None,
@@ -2046,7 +2135,7 @@ fn variable_force_situations(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult
             out.push(Situation {
                 key: format!("vf:{}:{}", fi, js_num(t0)),
                 ty: "var-force",
-                title: t!("{0} 受变力 {1} 作用", b.name.clone(), f.name.clone()),
+                title: t!("{0}受变力 {1} 作用", b.name.clone(), f.name.clone()),
                 t0,
                 t1,
                 t_event: None,

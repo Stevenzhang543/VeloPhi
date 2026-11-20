@@ -11,9 +11,10 @@ import { escapeHtml } from '../src/core/text'
 import { foldSearch } from '../src/app/searchText'
 
 describe('shell data (26.63)', () => {
-  it('the shortcut list names the six pages in rail order and the new interface keys', () => {
+  it('the shortcut list names the panels in rail order and the new interface keys', () => {
     const pages = SHORTCUTS.find(g => g.items.some(i => i.keys.some(k => k.join('+') === 'Alt+1')))!
-    expect(pages.items.filter(i => i.keys[0][0] === 'Alt').map(i => i.keys[0][1])).toEqual(['1', '2', '3', '4', '5', '6'])
+    // 26.64 (D240): five panels, then the home page on Alt+0 (the six pages of 26.63 were Alt+1…6)
+    expect(pages.items.filter(i => i.keys[0][0] === 'Alt').map(i => i.keys[0][1])).toEqual(['1', '2', '3', '4', '5', '0'])
     const all = SHORTCUTS.flatMap(g => g.items).map(i => i.keys.map(k => k.join('+')).join(' / '))
     for (const want of ['?', '0', '+ / −']) expect(all.some(k => k === want), want).toBe(true)
     expect(all.some(k => k.includes('\\'))).toBe(true)
@@ -22,7 +23,9 @@ describe('shell data (26.63)', () => {
 
   it('Copilot can point at every page of the rail and at the new menus', () => {
     const t = uiTargets()
-    for (const k of ['page-home', 'page-studio', 'page-lab', 'page-library', 'page-classroom', 'page-monitor', 'page-settings', 'teach', 'share', 'help', 'file']) expect(t[k], k).toBeTruthy()
+    for (const k of ['page-home', 'page-studio', 'page-lab', 'page-chem', 'page-library', 'page-classroom', 'page-monitor', 'page-settings', 'teach', 'share', 'help', 'file']) expect(t[k], k).toBeTruthy()
+    // the classroom is a section of the library now: its old key still answers, pointing at the library
+    expect(t['page-classroom'].selector).toBe('[data-ui="page-library"]')
     expect(t['page-lab'].selector).toBe('[data-ui="page-lab"]')
     expect(t.help.selector).toBe('[data-ui="help"]')
   })

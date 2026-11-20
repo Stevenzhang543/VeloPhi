@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- AppStream metadata of the Linux packages (26.65, D298): GNOME Software, KDE Discover and the Ubuntu App Center show
+     name, summary and description from it. scripts/linux/build-linux.sh writes the version and date of the build into
+     <releases> of the copy it packages. Checked by that script with appstreamcli (validate, no network). -->
+<component type="desktop-application">
+  <id>app.velophi.physics</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>LicenseRef-UNLICENSED</project_license>
+  <name>VeloPhi</name>
+  <name xml:lang="zh-CN">VeloΦ</name>
+  <summary>Mechanics simulation and teaching engine with verifiable results</summary>
+  <summary xml:lang="zh-CN">可验证的力学仿真与教学引擎</summary>
+  <summary xml:lang="de">Mechaniksimulation und Lehrumgebung mit überprüfbaren Ergebnissen</summary>
+  <developer_name>VeloPhi maintainers</developer_name>
+  <description>
+    <p>VeloPhi is a mechanics simulation and teaching engine for physics students and teachers: build a scene, simulate it exactly, pause at any moment to read values, and compare the simulation with the matching formulas.</p>
+    <p xml:lang="zh-CN">面向物理专业学生与物理教师的力学仿真与教学引擎。搭建场景、精确仿真、随时暂停读数，并自动匹配公式与仿真结果对照。</p>
+    <p xml:lang="de">VeloPhi ist eine Simulations- und Lehrumgebung für Mechanik für Physikstudierende und Lehrkräfte: eine Szene aufbauen, exakt simulieren, jederzeit anhalten und Werte ablesen, und die Simulation mit den passenden Formeln vergleichen.</p>
+  </description>
+  <launchable type="desktop-id">VeloPhi.desktop</launchable>
+  <url type="homepage">https://github.com/Stevenzhang543/VeloPhi</url>
+  <url type="bugtracker">https://github.com/Stevenzhang543/VeloPhi/issues</url>
+  <provides>
+    <binary>velophi</binary>
+  </provides>
+  <categories>
+    <category>Education</category>
+    <category>Science</category>
+  </categories>
+  <keywords>
+    <keyword>physics</keyword>
+    <keyword>mechanics</keyword>
+    <keyword>simulation</keyword>
+  </keywords>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="26.65.0" date="2026-11-19"/>
+  </releases>
+</component>

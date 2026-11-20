@@ -18,7 +18,7 @@ import { withinLevel } from '../../formula/levels'
 import type { Verdict } from '../../formula/match'
 import { PAGE_ACTIVE, recentWindow, seriesFor, seriesWindow, useGated } from '../live'
 import { fmtQ, fmtTime, unitLabel, effectiveCurriculum, settings } from '../settings'
-import Viewport from './Viewport.vue'
+import Viewport from './viewport/Viewport.vue'
 import Timeline from './Timeline.vue'
 import ChartPanel from './ChartPanel.vue'
 import EventList from './EventList.vue'
@@ -196,14 +196,14 @@ const status = computed(() => {
 .dash { min-height: 0; }
 .dash-head { display: flex; align-items: flex-start; gap: 8px; padding: 12px 14px 0; }
 .scene { flex: 1; min-width: 0; }
-.scene-name { font-weight: 650; font-size: var(--type-title); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.scene-name { font-weight: var(--weight-strong); font-size: var(--type-title); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .clock { display: flex; align-items: baseline; gap: 10px; padding: 6px 14px 4px; }
-.clock .t { font-size: var(--type-display); font-weight: 650; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.clock .t { font-size: var(--type-display); font-weight: var(--weight-strong); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 .reduced { margin: 2px 14px 6px; padding: 6px 10px; border-radius: 8px; background: var(--warning-soft); line-height: 1.5; }
 .reduced b { color: var(--warning); }
 .computing { padding: 0 14px 6px; display: flex; flex-direction: column; gap: 4px; }
 .body { flex: 1; overflow: auto; padding: 0 14px 14px; min-height: 0; }
-.sec { display: flex; align-items: center; gap: 6px; font-size: var(--type-small); font-weight: 650; color: var(--text-2); margin: 14px 0 6px; }
+.sec { display: flex; align-items: center; gap: 6px; font-size: var(--type-small); font-weight: var(--weight-strong); color: var(--text-2); margin: 14px 0 6px; }
 .add { height: 24px; width: 110px; font-size: var(--type-tiny); }
 .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
 .card { background: var(--group); border-radius: var(--radius-group); padding: 10px; }

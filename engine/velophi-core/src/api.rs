@@ -167,7 +167,8 @@ pub fn call(s: &mut Session, req: &Value) -> SimResult<(Value, Blob)> {
                 (x, seg, s.impact_loss(k)?, t)
             };
             let mode = s.segments[seg].mode.clone();
-            let obs = Observation::new(&sys, &meta, &customs, &x, &mode, loss, Some(t))?;
+            let acc = crate::observe::soft_acceleration(s, t)?;
+            let obs = Observation::new(&sys, &meta, &customs, &x, &mode, loss, Some(t))?.with_acc(acc);
             let values: Vec<f64> = ids.iter().map(|id| obs.value(id)).collect();
             json!({ "values": blob.f64s(&values) })
         }
@@ -242,7 +243,7 @@ pub fn call(s: &mut Session, req: &Value) -> SimResult<(Value, Blob)> {
             let list = crate::formula::Recognition::situations(s)?;
             let sit = list.iter().find(|x| x.key == key).ok_or_else(|| bad(op, "no such situation"))?;
             let tc = crate::js::js_min(crate::js::js_max(t, sit.t0), sit.t1);
-            let sample = (sit.sample)(s, tc)?;
+            let sample = crate::formula::sample_situation(s, sit, tc)?;
             json!({ "sample": sample.to_json() })
         }
         "cards" => {
@@ -259,7 +260,7 @@ pub fn call(s: &mut Session, req: &Value) -> SimResult<(Value, Blob)> {
                 if moment && sit.t_event.is_none() && sit.t1 > sit.t0 && tc >= sit.t1 - 1e-12 {
                     tc = sit.t1 - crate::js::js_min((sit.t1 - sit.t0) / 2.0, 1e-7);
                 }
-                let sample = (sit.sample)(s, tc)?;
+                let sample = crate::formula::sample_situation(s, sit, tc)?;
                 let cards: Vec<Value> = lib.iter().filter(|f| f.situation == sit.ty).map(|f| crate::formula::cards::evaluate_card(f, sit, &sample, trace).to_json(trace)).collect();
                 groups.push(json!({ "situation": sit.to_json(), "sample": sample.to_json(), "cards": cards, "t": jnum(tc) }));
             }
@@ -279,7 +280,7 @@ pub fn call(s: &mut Session, req: &Value) -> SimResult<(Value, Blob)> {
             let lib = crate::formula::cards::library();
             let Some(f) = lib.iter().find(|f| f.id == fid) else { return Ok((json!({ "card": null }), blob)) };
             let tc = crate::js::js_min(crate::js::js_max(t, sit.t0), sit.t1);
-            let sample = (sit.sample)(s, tc)?;
+            let sample = crate::formula::sample_situation(s, sit, tc)?;
             let card = crate::formula::cards::evaluate_card(f, sit, &sample, true);
             json!({ "card": card.to_json(true), "situation": sit.to_json(), "sample": sample.to_json(), "t": jnum(tc) })
         }
@@ -291,7 +292,7 @@ pub fn call(s: &mut Session, req: &Value) -> SimResult<(Value, Blob)> {
             for sit in list.iter() {
                 let t = sit.t_event.unwrap_or((sit.t0 + sit.t1) / 2.0);
                 let tc = crate::js::js_min(crate::js::js_max(t, sit.t0), sit.t1);
-                let sample = (sit.sample)(s, tc)?;
+                let sample = crate::formula::sample_situation(s, sit, tc)?;
                 let verdicts: Vec<Value> = lib
                     .iter()
                     .filter(|f| f.situation == sit.ty)

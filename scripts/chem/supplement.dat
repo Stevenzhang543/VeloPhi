@@ -1,0 +1,241 @@
+# VeloPhi supplement to the PHREEQC databases (26.64, D262): species of school chemistry that phreeqc.dat, wateq4f.dat
+# and minteq.v4.dat do not carry. PHREEQC syntax, read by scripts/chem/build_aqueous.py after the three files.
+#
+# Every entry names its source. "hand" means the value was typed from the cited reference and is on the list of
+# hand-entered values in docs/chem/DATA_SOURCES.md (to be checked a second time against the reference before a
+# value is relied on outside teaching). Oxidation states that are components of their own are bracket elements:
+# [S4] sulfite sulfur, [S2] thiosulfate sulfur (average state), [Cl1] hypochlorite chlorine, [O-1] peroxide oxygen …
+# A group that never comes apart in the bench (oxalate, thiocyanate, the hexacyanoferrates) is an element of its
+# own, as the organic ligands are in minteq.v4.dat.
+#
+# References
+#   NIST46  Martell, Smith, Motekaitis: NIST Critically Selected Stability Constants of Metal Complexes, Standard
+#           Reference Database 46, version 8.0 (2004). Values at 25 °C and zero ionic strength.
+#   SANDER  R. Sander: Compilation of Henry's law constants (version 4.0) for water as solvent, Atmos. Chem. Phys. 15,
+#           4399–4981 (2015), CC BY 3.0. H^cp converted to mol/(kg·atm); d ln H / d(1/T) converted to ΔH.
+#   CRC     CRC Handbook of Chemistry and Physics, 97th ed. (2016): dissociation constants of inorganic acids;
+#           solubility product constants.
+#   WANG    T. X. Wang, D. W. Margerum: Kinetics of reversible chlorine hydrolysis, Inorg. Chem. 33, 1050 (1994).
+
+SOLUTION_MASTER_SPECIES
+[S4]		[S4]O3-2	0	80.06	80.06
+[S2]		[S2]2O3-2	0	112.13	112.13
+[Cl1]		[Cl1]O-		0	51.45	51.45
+[Cl5]		[Cl5]O3-	0	83.45	83.45
+[Cl7]		[Cl7]O4-	0	99.45	99.45
+[O-1]		H2[O-1]2	0	34.014	34.014
+[I0]		[I0]2		0	253.8	253.8
+[Br0]		[Br0]2		0	159.81	159.81
+[N2]		[N2]O		0	30.006	30.006
+[N4]		[N4]O2		0	46.005	46.005
+[C2]		[C2]O		0	28.010	28.010
+[C-4]		[C-4]H4		0	16.043	16.043
+[I5]		[I5]O3-		0	174.903	174.903
+[Br5]		[Br5]O3-	0	127.901	127.901
+[S25]		[S25]4O6-2	0	224.23	224.23
+[S7]		[S7]2O8-2	0	192.11	192.11
+Oxalate		Oxalate-2	0	88.02	88.02
+Thiocyanate	Thiocyanate-	0	58.08	58.08
+Ferricyanide	Ferricyanide-3	0	211.95	211.95
+Ferrocyanide	Ferrocyanide-4	0	211.95	211.95
+
+SOLUTION_SPECIES
+[S4]O3-2 = [S4]O3-2
+[S2]2O3-2 = [S2]2O3-2
+[Cl1]O- = [Cl1]O-
+[Cl5]O3- = [Cl5]O3-
+[Cl7]O4- = [Cl7]O4-
+H2[O-1]2 = H2[O-1]2
+[I0]2 = [I0]2
+[Br0]2 = [Br0]2
+[N2]O = [N2]O
+[N4]O2 = [N4]O2
+[C2]O = [C2]O
+[C-4]H4 = [C-4]H4
+[I5]O3- = [I5]O3-
+[Br5]O3- = [Br5]O3-
+[S25]4O6-2 = [S25]4O6-2
+[S7]2O8-2 = [S7]2O8-2
+Oxalate-2 = Oxalate-2
+Thiocyanate- = Thiocyanate-
+Ferricyanide-3 = Ferricyanide-3
+Ferrocyanide-4 = Ferrocyanide-4
+
+# Sulfurous acid: pKa1 1.86, pKa2 7.20 (NIST46, hand); enthalpies of protonation from the same source
+[S4]O3-2 + H+ = H[S4]O3-
+	log_k	7.20
+	delta_h	3.6 kJ
+[S4]O3-2 + 2 H+ = [S4]O2 + H2O
+	log_k	9.06
+	delta_h	21.4 kJ
+
+# Thiosulfuric acid: pKa2 1.6 (NIST46, hand)
+[S2]2O3-2 + H+ = H[S2]2O3-
+	log_k	1.6
+
+# Hypochlorous acid: pKa 7.53 (NIST46, hand; ΔH of protonation −13.8 kJ/mol)
+[Cl1]O- + H+ = H[Cl1]O
+	log_k	7.53
+	delta_h	-13.8 kJ
+# Dissolved chlorine: Cl2 + H2O = HClO + H+ + Cl-, K = 5.1e-4 at 25 °C and zero ionic strength (WANG, hand)
+[Cl1]O- + 2 H+ + Cl- = Cl[Cl1] + H2O
+	log_k	10.82
+# Trichloride is left out (K ≈ 0.18).
+
+# Hydrogen peroxide: pKa 11.62 (CRC, hand)
+H2[O-1]2 = H[O-1]2- + H+
+	log_k	-11.62
+	delta_h	34.3 kJ
+
+# Triiodide: I2 + I- = I3-, K = 698 at 25 °C (NIST46, hand)
+[I0]2 + I- = I[I0]2-
+	log_k	2.844
+	delta_h	-17.0 kJ
+
+# Iodic acid: pKa 0.78 (CRC, hand). Bromic acid, tetrathionic acid and peroxodisulfuric acid are strong: their anions
+# ([Br5] bromate, [S25] tetrathionate with sulfur in the average state +2.5, [S7] peroxodisulfate) carry no further
+# species and take part only in the declared redox reactions.
+[I5]O3- + H+ = H[I5]O3
+	log_k	0.78
+
+# Oxalic acid: pKa1 1.252, pKa2 4.266 (NIST46, hand)
+Oxalate-2 + H+ = H(Oxalate)-
+	log_k	4.266
+	delta_h	6.8 kJ
+Oxalate-2 + 2 H+ = H2(Oxalate)
+	log_k	5.518
+	delta_h	10.6 kJ
+Ca+2 + Oxalate-2 = Ca(Oxalate)
+	log_k	3.19
+Mg+2 + Oxalate-2 = Mg(Oxalate)
+	log_k	3.62
+Fe+3 + Oxalate-2 = Fe(Oxalate)+
+	log_k	9.15
+Fe+3 + 2 Oxalate-2 = Fe(Oxalate)2-
+	log_k	15.45
+Fe+3 + 3 Oxalate-2 = Fe(Oxalate)3-3
+	log_k	19.83
+
+# Thiocyanate: thiocyanic acid is strong; the iron(III) complexes of the classic equilibrium demonstration (NIST46, hand)
+Fe+3 + Thiocyanate- = Fe(Thiocyanate)+2
+	log_k	3.02
+	delta_h	-6.3 kJ
+Fe+3 + 2 Thiocyanate- = Fe(Thiocyanate)2+
+	log_k	4.64
+Ag+ + 2 Thiocyanate- = Ag(Thiocyanate)2-
+	log_k	8.2
+
+# Ammine complexes of copper(II) and zinc (cumulative constants at zero ionic strength; NIST46, hand)
+Cu+2 + NH3 = Cu(NH3)+2
+	log_k	4.04
+	delta_h	-23.4 kJ
+Cu+2 + 2 NH3 = Cu(NH3)2+2
+	log_k	7.47
+	delta_h	-46.4 kJ
+Cu+2 + 3 NH3 = Cu(NH3)3+2
+	log_k	10.27
+	delta_h	-69.5 kJ
+Cu+2 + 4 NH3 = Cu(NH3)4+2
+	log_k	11.75
+	delta_h	-92.0 kJ
+Zn+2 + NH3 = Zn(NH3)+2
+	log_k	2.21
+Zn+2 + 2 NH3 = Zn(NH3)2+2
+	log_k	4.50
+Zn+2 + 3 NH3 = Zn(NH3)3+2
+	log_k	6.86
+Zn+2 + 4 NH3 = Zn(NH3)4+2
+	log_k	8.89
+	delta_h	-61.9 kJ
+
+# Silver thiosulfate complexes (fixing in photography; NIST46, hand)
+Ag+ + [S2]2O3-2 = Ag[S2]2O3-
+	log_k	8.82
+Ag+ + 2 [S2]2O3-2 = Ag([S2]2O3)2-3
+	log_k	13.46
+
+PHASES
+# Gases: Henry's law constants at 25 °C and their temperature dependence (SANDER, hand)
+Cl2(g)
+	Cl[Cl1] = Cl[Cl1]
+	log_k	-1.032
+	delta_h	-19.1 kJ
+SO2(g)
+	[S4]O2 = [S4]O2
+	log_k	0.114
+	delta_h	-24.1 kJ
+NO(g)
+	[N2]O = [N2]O
+	log_k	-2.721
+	delta_h	-12.5 kJ
+NO2(g)
+	[N4]O2 = [N4]O2
+	log_k	-1.921
+	delta_h	-20.8 kJ
+CO(g)
+	[C2]O = [C2]O
+	log_k	-3.009
+	delta_h	-10.8 kJ
+CH4(g)
+	[C-4]H4 = [C-4]H4
+	log_k	-2.854
+	delta_h	-13.3 kJ
+Br2(g)
+	[Br0]2 = [Br0]2
+	log_k	-0.137
+	delta_h	-33.3 kJ
+I2(g)
+	[I0]2 = [I0]2
+	log_k	0.447
+	delta_h	-38.2 kJ
+# Hydrogen chloride: HCl(g) = H+ + Cl-, K = 2.0e6 mol²/(kg²·atm) (SANDER: Henry constant times acidity constant, hand)
+HCl(g)
+	HCl = H+ + Cl-
+	log_k	6.30
+	delta_h	-74.8 kJ
+# Nitric acid vapour: HNO3(g) = H+ + NO3-, K = 2.6e6 (SANDER, hand)
+HNO3(g)
+	HNO3 = H+ + NO3-
+	log_k	6.41
+	delta_h	-72.3 kJ
+
+# Solids
+# Iodine: solubility 1.33e-3 mol/kg at 25 °C (CRC, hand)
+I2(s)
+	[I0]2 = [I0]2
+	log_k	-2.876
+	delta_h	22.6 kJ
+# Calcium oxalate monohydrate (whewellite): log Ksp −8.69 (NIST46, hand)
+Whewellite
+	Ca(Oxalate):H2O = Ca+2 + Oxalate-2 + H2O
+	log_k	-8.69
+# Silver thiocyanate: log Ksp −11.97 (NIST46, hand)
+AgSCN
+	Ag(Thiocyanate) = Ag+ + Thiocyanate-
+	log_k	-11.97
+# Sulfites (CRC solubility products, hand)
+BaSO3
+	Ba[S4]O3 = Ba+2 + [S4]O3-2
+	log_k	-9.30
+CaSO3:0.5H2O
+	Ca[S4]O3:0.5H2O = Ca+2 + [S4]O3-2 + 0.5 H2O
+	log_k	-6.51
+Ag2SO3
+	Ag2[S4]O3 = 2 Ag+ + [S4]O3-2
+	log_k	-13.82
+# Iodates and silver bromate (CRC solubility products, hand)
+AgIO3
+	Ag[I5]O3 = Ag+ + [I5]O3-
+	log_k	-7.50
+Ba(IO3)2:H2O
+	Ba([I5]O3)2:H2O = Ba+2 + 2 [I5]O3- + H2O
+	log_k	-8.78
+Pb(IO3)2
+	Pb([I5]O3)2 = Pb+2 + 2 [I5]O3-
+	log_k	-12.43
+AgBrO3
+	Ag[Br5]O3 = Ag+ + [Br5]O3-
+	log_k	-4.27
+# Prussian-blue type precipitates are outside the model (their composition varies); the two hexacyanoferrate ions
+# only colour the solution and take part in the declared redox reactions.
+END

@@ -1,0 +1,28 @@
+{
+ "id": "12-unsupported-circuit",
+ "origin": "handwritten",
+ "note": "Not mechanics: the model says so, and that is the answer.",
+ "problem": "电阻 R1 = 2 Ω 与 R2 = 3 Ω 串联接在 10 V 电源上，求总电阻和电流。",
+ "strict": true,
+ "answers": [
+  {
+   "step": "notes",
+   "raw": "对象：两个电阻、电源。这是直流电路题，没有运动过程，力学引擎不能模拟。"
+  },
+  {
+   "step": "sketch",
+   "raw": "{\"version\":2,\"route\":\"unsupported\",\"title\":\"串联电路\",\"reason\":\"这是电路题，力学引擎不能模拟\",\"templateId\":\"\",\"templateParams\":[],\"gravity\":\"down\",\"movingBodies\":0,\"surfaces\":[],\"bodies\":[],\"pulleys\":[],\"connectors\":[],\"values\":[],\"expect\":[],\"questions\":[]}"
+  }
+ ],
+ "expect": {
+  "ok": false,
+  "via": null,
+  "refused": "这是电路题，力学引擎不能模拟",
+  "repairs": 0,
+  "requests": 2,
+  "rounds": [
+   []
+  ],
+  "rejected": 0
+ }
+}

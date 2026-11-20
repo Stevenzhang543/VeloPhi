@@ -56,7 +56,7 @@ void props
 </template>
 
 <style scoped>
-.tbar { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); width: min(980px, calc(100% - 132px)); z-index: 5; display: flex; align-items: center; gap: 2px; padding-right: 6px; border-radius: 16px; background: var(--pane); box-shadow: var(--shadow-pop, var(--shadow)), 0 0 0 0.5px var(--separator); }
+.tbar { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); width: min(980px, calc(100% - 132px)); z-index: 5; display: flex; align-items: center; gap: 2px; padding-right: 6px; border-radius: var(--radius-bar); background: var(--pane); box-shadow: var(--elev-2); }
 .tbar :deep(.timeline) { flex: 1; min-width: 0; }
 .open-btn { flex: 0 0 auto; gap: 3px; }
 :root.fx-glass .tbar { background: var(--glass-pop); -webkit-backdrop-filter: blur(var(--glass-blur-small)) saturate(var(--glass-sat)); backdrop-filter: blur(var(--glass-blur-small)) saturate(var(--glass-sat)); }

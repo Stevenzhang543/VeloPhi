@@ -1,0 +1,111 @@
+{
+  "bench": {
+    "format": "velophi-bench",
+    "log": [
+      {
+        "act": "add",
+        "amount": {
+          "unit": "mL",
+          "value": 20
+        },
+        "reagent": "HCl_1M",
+        "to": "flask"
+      },
+      {
+        "act": "add",
+        "amount": {
+          "unit": "mL",
+          "value": 12.35
+        },
+        "reagent": "NaOH_0.1M",
+        "to": "flask"
+      },
+      {
+        "T": 310,
+        "act": "add",
+        "amount": {
+          "unit": "mL",
+          "value": 5
+        },
+        "reagent": "HAc_0.1M",
+        "to": "flask"
+      },
+      {
+        "act": "add",
+        "amount": {
+          "unit": "g",
+          "value": 0.5
+        },
+        "reagent": "CaCO3_chip",
+        "to": "flask"
+      },
+      {
+        "act": "add",
+        "amount": {
+          "unit": "g",
+          "value": 0.3
+        },
+        "reagent": "Zn_granule",
+        "to": "flask"
+      },
+      {
+        "act": "heat",
+        "power": 50,
+        "vessel": "flask"
+      },
+      {
+        "act": "wait",
+        "seconds": 0.5,
+        "times": 40
+      },
+      {
+        "act": "pour",
+        "amount": {
+          "unit": "mL",
+          "value": 10
+        },
+        "from": "flask",
+        "to": "tube"
+      },
+      {
+        "act": "add",
+        "amount": {
+          "unit": "drop",
+          "value": 12
+        },
+        "reagent": "AgNO3_0.1M",
+        "to": "tube"
+      },
+      {
+        "act": "wait",
+        "seconds": 30
+      }
+    ],
+    "objects": [
+      {
+        "capacity_mL": 250,
+        "heat_J_K": 80,
+        "id": "flask",
+        "kind": "erlenmeyer",
+        "loss_W_K": 0.4,
+        "x": 0.3,
+        "y": 0
+      },
+      {
+        "capacity_mL": 25,
+        "id": "tube",
+        "kind": "testTube",
+        "x": 0.6,
+        "y": 0
+      }
+    ],
+    "settings": {
+      "ambientP": 100500,
+      "ambientT": 295.15
+    },
+    "version": 1
+  },
+  "hash": "d1d3915c2234389e00d0cc8ac083e9fcad68614741d0e14b94e83bf237aeb2fb",
+  "note": "A fixed bench log and the fingerprint of the state it replays to. The native Rust build (engine/velophi-chem/tests/bench.rs) and the WebAssembly build (tests/chem/bench.test.ts) both check it: the two builds agree bit for bit. To recompute after a deliberate change of the model: VELOPHI_UPDATE_FIXTURES=1 cargo test --release -p velophi-chem --test bench fixed_log",
+  "pH": 0.49702884818784754
+}

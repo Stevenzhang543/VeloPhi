@@ -527,7 +527,8 @@ const forceTitle = (c: FormulaCard) => forceKindsOf(c.formula).map(k => tl(force
 .stoggle:hover, .orow:hover { background: var(--hover); }
 .schev { flex: 0 0 auto; transition: transform var(--dur-2) var(--ease-out); color: var(--text-3, var(--text-2)); }
 .situation.open .schev { transform: rotate(90deg); }
-.stitle { font-weight: 600; font-size: var(--type-body, 13px); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 26.65 (D294): titles are labels — they take a second line instead of an ellipsis */
+.stitle { font-weight: 600; font-size: var(--type-body); min-width: 0; line-height: var(--line-tight); overflow-wrap: break-word; }
 .scount { flex: 0 0 auto; font-size: var(--type-tiny); color: var(--text-2); background: var(--fill); border-radius: 999px; padding: 0 6px; }
 .sdots { display: inline-flex; gap: 3px; flex: 0 0 auto; margin-left: auto; }
 .sdots .dot { width: 6px; height: 6px; }
@@ -540,8 +541,8 @@ const forceTitle = (c: FormulaCard) => forceKindsOf(c.formula).map(k => tl(force
 .orow .schev { transform: none; }
 .tool-btn { gap: 4px; flex: 0 0 auto; }
 .tool-btn.active, .icon-btn.active { color: var(--accent); background: var(--accent-soft); }
-.icon-btn { width: calc(26px * var(--zoom)); padding: 0; justify-content: center; font-weight: 700; flex: 0 0 auto; }
-.nbadge { background: var(--accent); color: var(--on-accent); border-radius: 999px; font-size: 10px; min-width: 15px; height: 15px; display: inline-grid; place-items: center; padding: 0 4px; }
+.icon-btn { width: calc(26px * var(--zoom)); padding: 0; justify-content: center; font-weight: var(--weight-strong); flex: 0 0 auto; }
+.nbadge { background: var(--accent); color: var(--on-accent); border-radius: 999px; font-size: var(--type-tiny); min-width: 15px; height: 15px; display: inline-grid; place-items: center; padding: 0 4px; }
 .drawer { background: var(--group); border-radius: var(--radius-group); padding: 4px 8px 6px; margin-top: 6px; }
 .situation.flash { animation: flash 1.6s ease-out; border-radius: var(--radius-group); }
 @keyframes flash { 0%, 30% { box-shadow: 0 0 0 2px var(--accent); } 100% { box-shadow: 0 0 0 0 transparent; } }
@@ -558,7 +559,7 @@ const forceTitle = (c: FormulaCard) => forceKindsOf(c.formula).map(k => tl(force
 .dot.ok { background: var(--success); }
 .dot.warn { background: var(--warning); }
 .dot.bad { background: var(--danger); }
-.ctitle { font-size: var(--type-small); font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ctitle { font-size: var(--type-small); font-weight: 600; min-width: 0; line-height: var(--line-tight); overflow-wrap: break-word; }
 .ctex { font-size: 0.82em; max-width: 13em; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--text-2); }
 .cvals { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.2; white-space: nowrap; }
 .cerr { white-space: nowrap; color: var(--text-2); }
@@ -572,7 +573,7 @@ const forceTitle = (c: FormulaCard) => forceKindsOf(c.formula).map(k => tl(force
 .card.warn { border-left-color: var(--warning); }
 .card.bad { border-left-color: var(--danger); }
 .card-head { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; }
-.card-title { flex: 1 1 9em; min-width: 0; font-weight: 600; font-size: var(--type-small); overflow-wrap: anywhere; hyphens: auto; }
+.card-title { flex: 1 1 9em; min-width: 0; font-weight: 600; font-size: var(--type-small); overflow-wrap: break-word; hyphens: auto; }
 .card-head .badge, .card-head .detail-btn { flex: 0 0 auto; }
 .detail-btn { height: calc(22px * var(--zoom)); padding: 0 6px; margin-right: -4px; color: var(--accent); }
 .card.focus { box-shadow: 0 0 0 2px var(--accent); transition: box-shadow 300ms ease; }

@@ -126,44 +126,72 @@ const { canvas, wrap, redraw } = useLabCanvas(() => props.active, (ctx, w, h, dt
   if (!s) return
   const xs = s.x, n = xs.length
   const xa = S.kind === 'box' ? -S.boxWidth / 2 - 0.2 : X0, xb = S.kind === 'box' ? S.boxWidth / 2 + 0.2 : X1
-  const X = (x: number) => 30 + (x - xa) / (xb - xa) * (w - 60)
-  const base = h * 0.8
-  // potential (eV) on the lower part
-  const vmax = Math.max(0.2, Math.abs(S.V0) * 1.4, ...levels.value.map(Math.abs), (ex.value?.energy ?? 0) * eU.value * 1.3)
-  const Ey = (e: number) => base - (e / vmax) * h * 0.55
+  // 26.65 (D10): a margin on the left for the energy ticks; the x axis with its numbers and unit at the bottom; the
+  // wave function gets its own band above the axis, so its negative half no longer runs onto the numbers or off the
+  // canvas
+  const L = 46, R = 18, T = 26
+  const axisY = h - 30
+  const X = (x: number) => L + (x - xa) / (xb - xa) * (w - L - R)
+  const plotH = axisY - T
+  const psiAmp = plotH * 0.2
+  // potential (eV): the energy range shown covers V, the levels and the packet's energy
+  const vals = [0, ...levels.value, (ex.value?.energy ?? 0) * eU.value]
+  if (S.kind !== 'free' && S.kind !== 'harmonic' && S.kind !== 'box') vals.push(S.kind === 'well' ? -Math.abs(S.V0) : S.V0)
+  const vmax = Math.max(0.2, ...vals.map(v => v * 1.3))
+  const vmin = Math.min(0, ...vals.map(v => v * 1.15))
+  // the energy 0 sits a wave-function amplitude above the axis (or higher when the well goes below 0)
+  const eLo = axisY - psiAmp - 8, eHi = T + 6
+  const Ey = (e: number) => eLo - (e - vmin) / (vmax - vmin) * (eLo - eHi)
+  const base = Ey(0)
   ctx.fillStyle = P.gridMinor
-  if (S.kind === 'box') { ctx.fillRect(X(xa), 20, X(-S.boxWidth / 2) - X(xa), base - 20); ctx.fillRect(X(S.boxWidth / 2), 20, X(xb) - X(S.boxWidth / 2), base - 20) }
+  if (S.kind === 'box') { ctx.fillRect(X(xa), T, X(-S.boxWidth / 2) - X(xa), axisY - T); ctx.fillRect(X(S.boxWidth / 2), T, X(xb) - X(S.boxWidth / 2), axisY - T) }
+  // energy ticks on the left
+  const span = vmax - vmin
+  const raw = span / Math.max(2, plotH / 50), pw = Math.pow(10, Math.floor(Math.log10(raw)))
+  const step = [1, 2, 2.5, 5, 10].map(m => m * pw).find(s => s >= raw) ?? 10 * pw
+  ctx.font = `10.5px ${MONO}`; ctx.lineWidth = 1
+  for (let e = Math.ceil(vmin / step) * step; e <= vmax + 1e-9 * step; e += step) {
+    const y = Ey(e), label = `${+(Math.abs(e) < 1e-9 * step ? 0 : e).toPrecision(4)}`
+    ctx.strokeStyle = P.gridMinor; ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(w - R, y); ctx.stroke()
+    ctx.fillStyle = P.text2; ctx.fillText(label, L - 6 - ctx.measureText(label).width, y + 3.5)
+  }
+  ctx.strokeStyle = P.gridMajor; ctx.beginPath(); ctx.moveTo(L, T); ctx.lineTo(L, axisY); ctx.stroke()
   ctx.strokeStyle = P.text2; ctx.lineWidth = 1.5; ctx.beginPath()
-  for (let j = 0; j < n; j++) { const v = s.V[j] * eU.value; const y = Ey(Math.max(-vmax, Math.min(vmax * 1.5, v))); if (j) ctx.lineTo(X(xs[j]), y); else ctx.moveTo(X(xs[j]), y) }
+  for (let j = 0; j < n; j++) { const v = s.V[j] * eU.value; const y = Ey(Math.max(vmin, Math.min(vmax, v))); if (j) ctx.lineTo(X(xs[j]), y); else ctx.moveTo(X(xs[j]), y) }
   ctx.stroke()
   ctx.font = `11px ${FONT}`; ctx.fillStyle = P.text2; ctx.fillText(tl('势能 V（eV）'), 6, 14)
   // levels
-  ctx.setLineDash([5, 4]); ctx.strokeStyle = P.gravity
+  ctx.setLineDash([5, 4]); ctx.strokeStyle = P.gravity; ctx.lineWidth = 1
   for (const e of levels.value) { ctx.beginPath(); ctx.moveTo(X(xa), Ey(e)); ctx.lineTo(X(xb), Ey(e)); ctx.stroke() }
   ctx.setLineDash([])
   // packet energy
   if (ex.value && S.kind !== 'box') { ctx.strokeStyle = P.applied; ctx.setLineDash([2, 3]); ctx.beginPath(); ctx.moveTo(X(xa), Ey(ex.value.energy * eU.value)); ctx.lineTo(X(xb), Ey(ex.value.energy * eU.value)); ctx.stroke(); ctx.setLineDash([]) }
+  // axis with its numbers and unit
+  ctx.strokeStyle = P.gridMajor; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(X(xa), axisY); ctx.lineTo(X(xb), axisY); ctx.stroke()
+  ctx.fillStyle = P.text2; ctx.font = `11px ${MONO}`
+  const xstep = S.kind === 'box' ? 0.5 : 10
+  for (let x = Math.ceil(xa / xstep) * xstep; x <= xb + 1e-9; x += xstep) { const label = `${+x.toFixed(2)}`; ctx.fillText(label, X(x) - ctx.measureText(label).width / 2, axisY + 21) }
+  ctx.font = `11px ${FONT}`
+  const xUnit = 'x / nm'
+  ctx.fillText(xUnit, w - R - ctx.measureText(xUnit).width, axisY - 6)
+  ctx.font = `11px ${MONO}`
+  ctx.fillText(`t = ${fmtQ(t.value * units.value.time, 's', 4)}`, w - 140, 16)
   if (!f) return
   const pmax = Math.max(1e-9, ...f.prob)
   const amp = Math.sqrt(pmax)
-  const Py = (p: number) => base - (p / pmax) * h * 0.5
-  const Ay = (a: number) => base - (a / amp) * h * 0.25
+  const Py = (p: number) => base - (p / pmax) * Math.min(plotH * 0.5, base - T)
+  const Ay = (a: number) => base - (a / amp) * psiAmp
   if (S.show.prob) {
-    ctx.fillStyle = 'rgba(37, 99, 235, 0.25)'; ctx.strokeStyle = P.accent; ctx.lineWidth = 2
+    ctx.fillStyle = P.accent; ctx.strokeStyle = P.accent; ctx.lineWidth = 2
     ctx.beginPath(); ctx.moveTo(X(xs[0]), base)
     for (let j = 0; j < n; j++) ctx.lineTo(X(xs[j]), Py(f.prob[j]))
-    ctx.lineTo(X(xs[n - 1]), base); ctx.closePath(); ctx.fill(); ctx.stroke()
+    ctx.lineTo(X(xs[n - 1]), base); ctx.closePath()
+    ctx.globalAlpha = 0.22; ctx.fill(); ctx.globalAlpha = 1; ctx.stroke()
   }
   const curve = (a: number[], col: string) => { ctx.strokeStyle = col; ctx.lineWidth = 1.3; ctx.beginPath(); for (let j = 0; j < n; j++) { const y = Ay(a[j]); if (j) ctx.lineTo(X(xs[j]), y); else ctx.moveTo(X(xs[j]), y) } ctx.stroke() }
-  if (S.show.re) curve(f.re, '#16a34a')
-  if (S.show.im) curve(f.im, '#db2777')
-  if (ex.value) { ctx.fillStyle = P.friction; ctx.beginPath(); ctx.moveTo(X(ex.value.x), base + 2); ctx.lineTo(X(ex.value.x) - 5, base + 10); ctx.lineTo(X(ex.value.x) + 5, base + 10); ctx.closePath(); ctx.fill() }
-  // axis
-  ctx.strokeStyle = P.gridMajor; ctx.beginPath(); ctx.moveTo(X(xa), base); ctx.lineTo(X(xb), base); ctx.stroke()
-  ctx.fillStyle = P.text2; ctx.font = `11px ${MONO}`
-  const step = S.kind === 'box' ? 0.5 : 10
-  for (let x = Math.ceil(xa / step) * step; x <= xb; x += step) ctx.fillText(`${+x.toFixed(2)}`, X(x) - 6, base + 22)
-  ctx.fillText(`t = ${fmtQ(t.value * units.value.time, 's', 4)}`, w - 140, 16)
+  if (S.show.re) curve(f.re, P.velocity)
+  if (S.show.im) curve(f.im, P.applied)
+  if (ex.value) { ctx.fillStyle = P.friction; ctx.beginPath(); ctx.moveTo(X(ex.value.x), axisY + 2); ctx.lineTo(X(ex.value.x) - 5, axisY + 10); ctx.lineTo(X(ex.value.x) + 5, axisY + 10); ctx.closePath(); ctx.fill() }
 }, () => props.active && playing.value)
 watch(() => [frame.value, S.show], redraw, { deep: true })
 startPacket()

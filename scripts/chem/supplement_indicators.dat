@@ -1,0 +1,151 @@
+# VeloPhi supplement to the aqueous network (26.64, D267): the acid-base indicators as species of their own, so that an
+# indicator takes part in the equilibrium like any weak acid and its colour changes continuously through the transition
+# range. PHREEQC syntax, read by scripts/chem/build_aqueous.py after supplement.dat (every supplement_*.dat is).
+#
+# Each indicator is an element of its own. The master species is the base form; the acid forms are defined by log_k
+# (cumulative protonation constants, as PHREEQC wants them). All values at 25 °C and ionic strength zero unless said
+# otherwise, and all typed by hand from the references below ("hand" in docs/chem/DATA_SOURCES.md).
+#
+# Compositions for the LIGAND table of build_aqueous.py (the composition of the master species without its charge) —
+# without these entries the generator drops the species; the lines are written so that they can be pasted:
+#
+#   'Phph': {'C': 20, 'H': 12, 'O': 4},
+#   'Thph': {'C': 28, 'H': 29, 'O': 4},
+#   'Meor': {'C': 14, 'H': 14, 'N': 3, 'O': 3, 'S': 1},
+#   'Mered': {'C': 15, 'H': 14, 'N': 3, 'O': 2},
+#   'Btb': {'C': 27, 'H': 26, 'Br': 2, 'O': 5, 'S': 1},
+#   'Bcg': {'C': 21, 'H': 12, 'Br': 4, 'O': 5, 'S': 1},
+#   'Phred': {'C': 19, 'H': 12, 'O': 5, 'S': 1},
+#   'Thyb': {'C': 27, 'H': 28, 'O': 5, 'S': 1},
+#   'Litmus': {'C': 12, 'H': 6, 'N': 1, 'O': 3},
+#   'Alyr': {'C': 13, 'H': 7, 'N': 3, 'O': 5},
+#   'Congo': {'C': 32, 'H': 22, 'N': 6, 'O': 6, 'S': 2},
+#
+# The lines "@indicator" are read by scripts/chem/check_reactions.py and by tests/chem/reactions.test.ts: the pKa of
+# the step (log_k of the species with `step` protons minus that of the species with one proton fewer) must lie inside
+# the textbook transition range written next to it. acid and base name the colours of the two forms of the step.
+#
+# References
+#   KOLTHOFF  I. M. Kolthoff: Acid-Base Indicators (transl. C. Rosenblum), Macmillan, New York 1937: indicator
+#             constants extrapolated to ionic strength zero (thymol blue 1.65 and 9.20, methyl orange 3.46,
+#             bromocresol green 4.90, methyl red 5.00, bromothymol blue 7.30, phenol red 8.00), 20 to 25 °C; as
+#             reproduced in R. G. Bates, Determination of pH, 2nd ed., Wiley 1973.
+#   SABNIS    R. W. Sabnis: Handbook of Acid-Base Indicators, CRC Press, Boca Raton 2007: transition ranges, colours,
+#             pKa of thymolphthalein, alizarin yellow R and congo red.
+#   CRC       CRC Handbook of Chemistry and Physics, 97th ed. (2016), section 8, "Acid-Base Indicators": transition
+#             ranges and colours.
+#   PHPH      The two close steps of phenolphthalein (pKa 9.05 and 9.50; a third, about 12, is the slow fading to the
+#             colourless carbinol in strong alkali, which is kinetic and not modelled) as quoted in the secondary
+#             literature (the article "Phenolphthalein" of Wikipedia and several data sheets, read 2026-11-14); the
+#             primary source was not read. Not corrected to ionic strength zero.
+#   YAMADA    Yamada's universal indicator (Japanese patent 99664, 1933), as given by L. S. Foster and I. J. Gruntfest,
+#             J. Chem. Educ. 14, 274 (1937) and in the lecture-demonstration sheet of the University of Illinois
+#             (read 2026-11-14): 0.005 g thymol blue, 0.012 g methyl red, 0.060 g bromothymol blue and 0.100 g
+#             phenolphthalein in 100 mL of ethanol, neutralised to green with sodium hydroxide solution and diluted
+#             to 200 mL with water.
+#
+# The universal indicator is not a species: it is a reagent whose recipe holds four of the indicators below. Per litre
+# of Yamada's solution (the amounts above times five):
+#     thymol blue        0.025 g  (466.59 g/mol)  5.36e-5 mol   as Na+ + H(Thyb)-
+#     methyl red         0.060 g  (269.30 g/mol)  2.23e-4 mol   as H(Mered)
+#     bromothymol blue   0.300 g  (624.38 g/mol)  4.80e-4 mol   as Na+ + H(Btb)-
+#     phenolphthalein    0.500 g  (318.32 g/mol)  1.57e-3 mol   as H2(Phph)
+# in water with half its volume of ethanol (the ethanol is an inert solute here). Colours: red (pH below 4), orange,
+# yellow (6), green (7), blue (9 to 10), violet (above 10).
+#
+# What is simplified, and flagged in the @indicator lines:
+#   flag=effective   one effective proton stands for a transition that is not a single step in reality:
+#                    thymolphthalein (the real blue form is the dianion; its two steps are not resolved in the
+#                    literature read) and litmus (a mixture of polymeric dyes; composition given as its chromophore
+#                    7-hydroxyphenoxazone, pKa as the middle of the transition range).
+#   The strongly acid forms of the sulfonephthaleins other than thymol blue (pKa about 1 or below), the second
+#   protonation of methyl red (pKa about 2.3) and the carboxyl group of alizarin yellow R are left out: these
+#   indicators are not used there.
+
+SOLUTION_MASTER_SPECIES
+Phph		Phph-2		0	316.31	316.31
+Thph		Thph-		0	429.54	429.54
+Meor		Meor-		0	304.34	304.34
+Mered		Mered-		0	268.30	268.30
+Btb		Btb-2		0	622.37	622.37
+Bcg		Bcg-2		0	696.00	696.00
+Phred		Phred-2		0	352.36	352.36
+Thyb		Thyb-2		0	464.58	464.58
+Litmus		Litmus-		0	212.18	212.18
+Alyr		Alyr-2		0	285.22	285.22
+Congo		Congo-2		0	650.68	650.68
+
+SOLUTION_SPECIES
+Phph-2 = Phph-2
+Thph- = Thph-
+Meor- = Meor-
+Mered- = Mered-
+Btb-2 = Btb-2
+Bcg-2 = Bcg-2
+Phred-2 = Phred-2
+Thyb-2 = Thyb-2
+Litmus- = Litmus-
+Alyr-2 = Alyr-2
+Congo-2 = Congo-2
+
+# Phenolphthalein, C20H14O4: colourless lactone H2In and HIn-, pink dianion In2- (PHPH, hand)
+# @indicator element=Phph name=phenolphthalein step=1 pKa=9.50 range=8.2..10.0 acid=colourless base=pink
+# @indicator element=Phph name=phenolphthalein step=2 pKa=9.05 range=8.2..10.0 acid=colourless base=colourless
+Phph-2 + H+ = H(Phph)-
+	log_k	9.50
+Phph-2 + 2 H+ = H2(Phph)
+	log_k	18.55
+
+# Thymolphthalein, C28H30O4: colourless below, blue above; pKa 9.9 (SABNIS, hand)
+# @indicator element=Thph name=thymolphthalein step=1 pKa=9.9 range=9.3..10.5 acid=colourless base=blue flag=effective
+Thph- + H+ = H(Thph)
+	log_k	9.9
+
+# Methyl orange, sodium salt C14H14N3NaO3S: red zwitterion HIn, yellow anion In-; pKa 3.46 (KOLTHOFF, hand)
+# @indicator element=Meor name=methyl_orange step=1 pKa=3.46 range=3.1..4.4 acid=red base=yellow
+Meor- + H+ = H(Meor)
+	log_k	3.46
+
+# Methyl red, C15H15N3O2: red HIn, yellow In-; pKa 5.00 (KOLTHOFF, hand)
+# @indicator element=Mered name=methyl_red step=1 pKa=5.00 range=4.4..6.2 acid=red base=yellow
+Mered- + H+ = H(Mered)
+	log_k	5.00
+
+# Bromothymol blue, C27H28Br2O5S: yellow HIn-, blue In2-; pKa 7.30 (KOLTHOFF, hand)
+# @indicator element=Btb name=bromothymol_blue step=1 pKa=7.30 range=6.0..7.6 acid=yellow base=blue
+Btb-2 + H+ = H(Btb)-
+	log_k	7.30
+
+# Bromocresol green, C21H14Br4O5S: yellow HIn-, blue In2-; pKa 4.90 (KOLTHOFF, hand)
+# @indicator element=Bcg name=bromocresol_green step=1 pKa=4.90 range=3.8..5.4 acid=yellow base=blue
+Bcg-2 + H+ = H(Bcg)-
+	log_k	4.90
+
+# Phenol red, C19H14O5S: yellow HIn-, red In2-; pKa 8.00 (KOLTHOFF, hand)
+# @indicator element=Phred name=phenol_red step=1 pKa=8.00 range=6.8..8.4 acid=yellow base=red
+Phred-2 + H+ = H(Phred)-
+	log_k	8.00
+
+# Thymol blue, C27H30O5S, two steps: red H2In, yellow HIn-, blue In2-; pKa 1.65 and 9.20 (KOLTHOFF, hand)
+# @indicator element=Thyb name=thymol_blue step=1 pKa=9.20 range=8.0..9.6 acid=yellow base=blue
+# @indicator element=Thyb name=thymol_blue step=2 pKa=1.65 range=1.2..2.8 acid=red base=yellow
+Thyb-2 + H+ = H(Thyb)-
+	log_k	9.20
+Thyb-2 + 2 H+ = H2(Thyb)
+	log_k	10.85
+
+# Litmus (azolitmin): red below, blue above; one effective step in the middle of the range 5.0 to 8.0 (CRC, hand)
+# @indicator element=Litmus name=litmus step=1 pKa=6.5 range=5.0..8.0 acid=red base=blue flag=effective
+Litmus- + H+ = H(Litmus)
+	log_k	6.5
+
+# Alizarin yellow R, C13H9N3O5: yellow HIn-, red In2- (the phenol group); pKa 11.2 (SABNIS, hand)
+# @indicator element=Alyr name=alizarin_yellow_R step=1 pKa=11.2 range=10.1..12.0 acid=yellow base=red
+Alyr-2 + H+ = H(Alyr)-
+	log_k	11.2
+
+# Congo red, disodium salt C32H22N6Na2O6S2: blue-violet HIn-, red In2-; pKa 4.1 (SABNIS, hand)
+# @indicator element=Congo name=congo_red step=1 pKa=4.1 range=3.0..5.0 acid=blue base=red
+Congo-2 + H+ = H(Congo)-
+	log_k	4.1
+END

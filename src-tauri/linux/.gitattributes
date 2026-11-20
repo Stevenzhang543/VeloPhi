@@ -1,0 +1,3 @@
+# Templates of the Linux packages: LF, so the desktop entry and the AppStream file have no CR in them.
+* text eol=lf
+.gitattributes text eol=lf

@@ -18,6 +18,9 @@
 //    once the size has settled. On the MuMu WebView the renderer crashed (SIGSEGV in CrRendererMain) relaying the
 //    interface out from one size to the other; a fresh layout at the new size does not crash. Diagnosis switch
 //    "norotguard" turns this off.
+//  - 26.64: window.VeloPhiAndroid.installUpdate(name) hands an update the Rust side has downloaded and verified
+//    (src-tauri/src/update.rs) to the system installer, through UpdateFileProvider. build-apk.ps1 declares the
+//    provider and the REQUEST_INSTALL_PACKAGES permission in AndroidManifest.xml.
 package app.velophi.physics
 
 import android.content.Intent
@@ -31,8 +34,12 @@ import android.view.ViewGroup
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
 import androidx.activity.enableEdgeToEdge
+import androidx.core.content.FileProvider
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
+import java.io.File
+import java.util.concurrent.FutureTask
+import java.util.concurrent.TimeUnit
 
 class MainActivity : TauriActivity() {
   private var restarting = false
@@ -131,6 +138,33 @@ class MainActivity : TauriActivity() {
       val v = prefs.getString("lastIssue", "") ?: ""
       if (v.isNotEmpty()) prefs.edit().remove("lastIssue").apply()
       return v
+    }
+
+    /**
+     * 26.64: hand a downloaded update to the system installer. `name` is the file the Rust side has put into
+     * cacheDir/update after checking its SHA-256 against the release's checksum file (it gets this name only then).
+     * Only a name of the release script's form is accepted, so the page cannot point at any other file. Android shows
+     * its own confirmation and refuses an APK that is not signed with the key of this app. False when the installer
+     * could not be started (the page then opens the release page in the browser).
+     */
+    @JavascriptInterface
+    fun installUpdate(name: String): Boolean {
+      return try {
+        if (!UPDATE_APK.matches(name)) return false
+        val file = File(File(cacheDir, "update"), name)
+        if (!file.isFile) return false
+        val uri = FileProvider.getUriForFile(this@MainActivity, "$packageName.update", file)
+        val intent = Intent(Intent.ACTION_VIEW)
+          .setDataAndType(uri, "application/vnd.android.package-archive")
+          .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+        // Called on a WebView thread: start the installer on the main thread and wait for the outcome
+        val start = FutureTask<Boolean> { startActivity(intent); true }
+        runOnUiThread(start)
+        start.get(5, TimeUnit.SECONDS)
+      } catch (e: Throwable) {
+        Log.e(TAG, "install update: $e")
+        false
+      }
     }
   }
 
@@ -238,5 +272,7 @@ class MainActivity : TauriActivity() {
     const val TAG = "VeloPhi"
     const val PREFS = "velophi"
     const val RESTART_WINDOW_MS = 120_000L
+    /** 26.64: the APK of a release as scripts/package-release.ps1 names it. */
+    val UPDATE_APK = Regex("VeloPhi-v[0-9]{1,5}\\.[0-9]{1,5}(\\.[0-9]{1,5})?-android\\.apk")
   }
 }

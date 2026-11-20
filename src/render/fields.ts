@@ -16,7 +16,9 @@ import { font, lw } from './style'
 
 /** Uniform fields of a scene: dashed lines along E with arrowheads, and ⊙ / × marks for B. */
 export function drawUniformFields(ctx: CanvasRenderingContext2D, cam: Camera, st: SceneSettings, P: Palette) {
-  const col = P.electric ?? '#0f766e'
+  // 26.65 (D7): the faint field colour of the theme (token --canvas-field-faint, already translucent)
+  const faint = P.fieldFaint
+  const col = faint ?? P.electric ?? '#0f766e'
   if (st.electric) {
     const { x: ex, y: ey } = st.electric.E
     const m = Math.hypot(ex, ey)
@@ -29,7 +31,7 @@ export function drawUniformFields(ctx: CanvasRenderingContext2D, cam: Camera, st
       const cx = cam.width / 2, cy = cam.height / 2
       ctx.save()
       ctx.strokeStyle = col; ctx.fillStyle = col
-      ctx.globalAlpha = 0.28
+      ctx.globalAlpha = faint ? 1 : 0.28
       ctx.lineWidth = lw(1.2)
       ctx.setLineDash([7, 6])
       // lines anchored to the world so they do not swim when the view moves
@@ -133,11 +135,12 @@ export function visibleFieldMap(owner: object, cam: Camera, src: FieldSources | 
 
 /** Draw field lines (with arrowheads) and equipotential lines. */
 export function drawFieldMap(ctx: CanvasRenderingContext2D, cam: Camera, map: FieldMap, P: Palette, lines: boolean, equipotentials: boolean) {
-  const col = P.electric ?? '#0f766e'
+  // 26.65 (D7): field lines and equipotentials in the theme's canvas tokens (--canvas-field-line, --canvas-equipotential)
+  const col = P.fieldLine ?? P.electric ?? '#0f766e'
   ctx.save()
   if (equipotentials) {
-    ctx.strokeStyle = P.text2
-    ctx.globalAlpha = 0.5
+    ctx.strokeStyle = P.equipotential ?? P.text2
+    ctx.globalAlpha = P.equipotential ? 1 : 0.5
     ctx.lineWidth = lw(1)
     ctx.setLineDash([3, 3])
     const { segs, starts } = map.contours
@@ -151,7 +154,7 @@ export function drawFieldMap(ctx: CanvasRenderingContext2D, cam: Camera, map: Fi
   }
   if (lines) {
     ctx.strokeStyle = col; ctx.fillStyle = col
-    ctx.globalAlpha = 0.6
+    ctx.globalAlpha = P.fieldLine ? 0.85 : 0.6
     ctx.lineWidth = lw(1.3)
     const { xy, starts } = map.lines
     for (let i = 0; i + 1 < starts.length; i++) {
@@ -185,22 +188,27 @@ export function drawFieldMap(ctx: CanvasRenderingContext2D, cam: Camera, map: Fi
   ctx.restore()
 }
 
-/** Label of the uniform fields in a corner of the canvas ("E = … V/m →", "B = … T ⊙"). */
-export function fieldLegend(ctx: CanvasRenderingContext2D, cam: Camera, st: SceneSettings, P: Palette, fmt: (v: number, unit: string) => string) {
+/**
+ * Label of the uniform fields in a corner of the canvas ("E = … V/m →", "B = … T ⊙"); 26.65 (D5): `reserve` px at the
+ * right edge stay free (a floating button there). Returns the box it took (null when there is nothing to show).
+ */
+export function fieldLegend(ctx: CanvasRenderingContext2D, cam: Camera, st: SceneSettings, P: Palette, fmt: (v: number, unit: string) => string, reserve = 0): { x: number; y: number; w: number; h: number } | null {
   const parts: string[] = []
   if (st.electric) {
     const m = Math.hypot(st.electric.E.x, st.electric.E.y)
     if (m > 0) parts.push(`E = ${fmt(m, 'V/m')}`)
   }
   if (st.magnetic && st.magnetic.B !== 0) parts.push(`B = ${fmt(Math.abs(st.magnetic.B), 'T')} ${st.magnetic.B > 0 ? '⊙' : '⊗'}`)
-  if (!parts.length) return
+  if (!parts.length) return null
   ctx.save()
   ctx.font = font(12)
   const text = parts.join('   ')
   const w = ctx.measureText(text).width
+  const x = cam.width - w - 22 - reserve
   ctx.fillStyle = P.labelBg
-  ctx.fillRect(cam.width - w - 22, 10, w + 12, 22)
-  ctx.fillStyle = P.electric ?? P.text
-  ctx.fillText(text, cam.width - w - 16, 26)
+  ctx.fillRect(x, 10, w + 12, 22)
+  ctx.fillStyle = P.fieldLine ?? P.electric ?? P.text
+  ctx.fillText(text, x + 6, 26)
   ctx.restore()
+  return { x, y: 10, w: w + 12, h: 22 }
 }

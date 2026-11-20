@@ -606,6 +606,12 @@ pub fn call(op: &str, req: &Value, blob: &mut Blob) -> Option<Value> {
                 }
                 _ => {
                     let (a, d, l, half) = (num(req, "a", 0.02e-3), num(req, "d", 0.25e-3), num(req, "L", 2.0), num(req, "half", 0.03));
+                    // 26.65 (M10): values far outside the lab (a wavelength typed in m instead of nm, a spacing of metres)
+                    // would ask for billions of orders; the core answers with an error instead of running away
+                    let ok = |v: f64, lo: f64, hi: f64| v.is_finite() && v >= lo && v <= hi;
+                    if !ok(lam, 1e-9, 1e-3) || !ok(a, 1e-9, 1.0) || !ok(d, 1e-9, 1.0) || !ok(l, 1e-6, 1e3) || !ok(half, 1e-9, 1e3) {
+                        return Some(json!({ "error": crate::message::Message::new("干涉与衍射的参数超出范围：λ 应在 1 nm 到 1 mm 之间，缝宽与缝间距不超过 1 m，屏距不超过 1000 m").to_json() }));
+                    }
                     let ns = match setup.as_str() {
                         "single" => 1,
                         "double" => 2,
@@ -625,6 +631,9 @@ pub fn call(op: &str, req: &Value, blob: &mut Blob) -> Option<Value> {
                         "x": blob.f64s(&xs), "I": blob.f64s(&it), "rgb": blob.f64s(&rgb),
                         "maxima": mx.iter().map(|(m, x)| json!([m, jnum(*x)])).collect::<Vec<_>>(),
                         "minima": mn.iter().map(|(m, x)| json!([m, jnum(*x)])).collect::<Vec<_>>(),
+                        // 26.65 (M10): the lists hold the orders |m| ≤ 100; these are the counts on the screen
+                        "maximaTotal": jnum(if ns >= 2 { waveoptics::orders_on_screen(lam, d, l, half, false) } else { 0.0 }),
+                        "minimaTotal": jnum(waveoptics::orders_on_screen(lam, a, l, half, true)),
                         "spacing": jnum(lam * l / d), "centralWidth": jnum(2.0 * lam * l / a),
                         "color": waveoptics::wavelength_rgb(lam * 1e9).iter().map(|x| jnum(*x)).collect::<Vec<_>>()
                     })

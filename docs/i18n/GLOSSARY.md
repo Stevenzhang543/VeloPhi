@@ -302,3 +302,20 @@ VeloPhi 26.50（D27）三种语言的物理术语与界面用语。翻译以教�
 | 辛积分（Gauss–Legendre） | symplectic integrator (Gauss–Legendre) | symplektisches Verfahren (Gauß–Legendre) |
 | 凹多边形 / 复合体 | concave polygon / compound body | konkaves Vieleck / zusammengesetzter Körper |
 | 切割 / 组合 / 拆分 | cut / combine / split | schneiden / verbinden / zerlegen |
+
+## 26.64 新增用语：引导与简化
+
+外壳的简化（D243–D245）与新手引导（D248–D251）。按钮与页签受 D243 的字数上限约束（中文 4 个字、英文 14 个字符、德文 18 个字符），所以有几处用了短的说法。
+
+| zh | en | de |
+|---|---|---|
+| 入门（五段走查） | get started (the walkthrough of five parts) | Einstieg (Rundgang in fünf Abschnitten) |
+| 新变化 | what’s new | Neuerungen |
+| 带我去看 | show me | zeig es mir |
+| 跳过此步 / 跳过此段 / 稍后继续 | skip step / skip part / continue later | Schritt auslassen / Teil auslassen / später fortsetzen |
+| 更多（题目、视图、教学、计算） | more (problems, view, teaching, calculation) | mehr (Aufgaben, Ansicht, Unterricht, Rechnung) |
+| 全部工具 / 对象列表 / 工具条 | all tools / object list / tool strip | alle Werkzeuge / Objektliste / Werkzeugleiste |
+| 学 / 教 / 做研究（主要用途） | learn / teach / research (main use) | lernen / unterrichten / forschen |
+| 选择实验 / 关于本实验 | experiments / about this experiment | Experimente / über dieses Experiment |
+| 读数 / 器材 / 显示（检查器的页签） | readings / apparatus / display | Messwerte / Geräte / Anzeige |
+

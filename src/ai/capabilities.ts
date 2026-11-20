@@ -22,18 +22,24 @@ export interface Capabilities {
   maxCompletionTokens: boolean
   /** A sampling temperature is accepted. */
   temperature: boolean
+  /**
+   * Function calls in strict mode (26.64, D283): `function.strict: true` holds the arguments to the schema. The Copilot's
+   * scene sketch is submitted this way; without it the sketch comes as a JSON-mode answer that the app validates itself.
+   */
+  strictTools: boolean
   /** Name shown in the settings. */
   family: string
 }
 
-export const GENERIC: Capabilities = { tools: true, jsonObject: true, jsonSchema: false, formatWithImage: true, maxCompletionTokens: false, temperature: true, family: 'OpenAI-compatible' }
+export const GENERIC: Capabilities = { tools: true, jsonObject: true, jsonSchema: false, formatWithImage: true, maxCompletionTokens: false, temperature: true, strictTools: false, family: 'OpenAI-compatible' }
 
 interface Row { host?: RegExp; model?: RegExp; caps: Partial<Capabilities> & { family: string } }
 const ROWS: Row[] = [
   // Reasoning models of OpenAI: no temperature, the limit is max_completion_tokens
-  { host: /api\.openai\.com/i, model: /^(o\d|gpt-5)/i, caps: { family: 'OpenAI (reasoning)', jsonSchema: true, maxCompletionTokens: true, temperature: false } },
-  { host: /api\.openai\.com/i, caps: { family: 'OpenAI', jsonSchema: true } },
-  // DeepSeek: JSON-object mode and tools; no schema mode
+  { host: /api\.openai\.com/i, model: /^(o\d|gpt-5)/i, caps: { family: 'OpenAI (reasoning)', jsonSchema: true, maxCompletionTokens: true, temperature: false, strictTools: true } },
+  { host: /api\.openai\.com/i, caps: { family: 'OpenAI', jsonSchema: true, strictTools: true } },
+  // DeepSeek: JSON-object mode and tools; no schema mode. Strict function calls only at its beta address (26.64)
+  { host: /deepseek[^/]*\/beta/i, caps: { family: 'DeepSeek (beta)', strictTools: true } },
   { host: /deepseek/i, caps: { family: 'DeepSeek' } },
   { model: /^deepseek/i, caps: { family: 'DeepSeek' } },
   // Qwen (DashScope, OpenAI-compatible mode): a response format is dropped when the request carries an image
@@ -47,7 +53,7 @@ const ROWS: Row[] = [
 ]
 
 /** Anthropic's Messages API (converted in anthropic.ts): tools yes, no response-format field at all. */
-export const ANTHROPIC: Capabilities = { tools: true, jsonObject: false, jsonSchema: false, formatWithImage: true, maxCompletionTokens: false, temperature: true, family: 'Anthropic' }
+export const ANTHROPIC: Capabilities = { tools: true, jsonObject: false, jsonSchema: false, formatWithImage: true, maxCompletionTokens: false, temperature: true, strictTools: false, family: 'Anthropic' }
 
 /** Capabilities of an OpenAI-compatible connection. */
 export function capabilitiesOf(baseUrl: string, model: string): Capabilities {

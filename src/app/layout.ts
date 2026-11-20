@@ -50,7 +50,7 @@ export const MODE_PRESETS: Record<StudioMode, ModeLayout> = {
 export const STUDIO_MODES: Array<{ id: StudioMode; label: string; icon: string; tip: string }> = [
   { id: 'build', label: '搭建', icon: 'pen', tip: '放置物体与连接件，修改属性' },
   { id: 'simulate', label: '仿真', icon: 'run', tip: '播放、看曲线与事件' },
-  { id: 'analyze', label: '分析', icon: 'formula', tip: '公式对照、监视读数、题目与预测' }
+  { id: 'analyze', label: '分析', icon: 'formula', tip: '公式对照、读数、题目与预测' }
 ]
 
 const KEY = 'velophi.shell.v1'
@@ -88,7 +88,9 @@ export const shell = reactive({
   navOpen: false,
   shortcuts: false,
   share: false,
-  convergence: false
+  convergence: false,
+  /** 26.64 (D241): the "open from a link" dialog (the paste box of the old home page). */
+  openLink: false
 })
 
 const save = () => {
@@ -99,6 +101,12 @@ const save = () => {
   } catch { /* layout only */ }
 }
 watch(() => [shell.mode, shell.sideOpen, shell.sideTab, shell.sideWidth, shell.drawerOpen, shell.drawerHeight, shell.tools], save)
+
+/** 26.64 (D245): show the 运动 panel with 更多 open at one of its four groups (the global search uses it). */
+export function openStudioMore(group: 'problems' | 'view' | 'teach' | 'compute') {
+  state.page = 'studio'
+  setTimeout(() => window.dispatchEvent(new CustomEvent('velophi:studio-more', { detail: group })), 0)
+}
 
 /** Switch the studio mode: its remembered layout, else its preset. */
 export function setStudioMode(m: StudioMode) {

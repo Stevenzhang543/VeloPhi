@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import Rich from '../Rich.vue'
 /**
  * Photoelectric effect (26.54, D82): a phototube lit by monochromatic light. The core computes Einstein's equation,
  * the threshold, the stopping voltage, the saturation current and the I–U curve (`photoelectric`); this component
@@ -12,6 +13,8 @@ import { labState } from '../../lab/state'
 import { useLabCanvas } from '../../lab/canvas'
 import { wavelengthColor } from '../../lab/color'
 import { FONT } from '../../../render/style'
+import { backing, haloText } from '../../../render/labels'
+import { fillRich } from '../../../i18n/sub'
 import LabFormula from './LabFormula.vue'
 import LabChart from './LabChart.vue'
 
@@ -55,7 +58,13 @@ const { canvas, wrap, redraw } = useLabCanvas(() => props.active, (ctx, w, h, dt
     const y = cy - 120 + k * 12
     ctx.beginPath(); ctx.moveTo(kx - 120, y - 40); ctx.lineTo(kx + 4, cy + k * 14); ctx.stroke()
   }
-  ctx.fillStyle = P.text2; ctx.fillText(`λ = ${S.wavelength.toFixed(0)} nm`, kx - 150, cy - 175)
+  // 26.65 (D11): the wavelength above the bundle of rays (they started under it), on its own backing
+  {
+    const text = `λ = ${S.wavelength.toFixed(0)} nm`, tw = ctx.measureText(text).width
+    const lx = Math.max(6, kx - 150), ly = Math.max(16, cy - 194)
+    backing(ctx, { x: lx - 4, y: ly - 13, w: tw + 8, h: 18 }, P.labelBg)
+    haloText(ctx, text, lx, ly, P.text2, P.labelBg)
+  }
   // electrons
   if (r && r.emits) {
     const rate = Math.min(60, 4 + Math.sqrt(S.power) * 6) * (r.saturation > 0 ? 1 : 0)
@@ -77,7 +86,7 @@ const { canvas, wrap, redraw } = useLabCanvas(() => props.active, (ctx, w, h, dt
   for (const e of electrons) { ctx.beginPath(); ctx.arc(e.x, e.y, 3, 0, Math.PI * 2); ctx.fill() }
   // circuit: battery polarity
   ctx.fillStyle = P.text2; ctx.font = `12px ${FONT}`
-  ctx.fillText(`U_AK = ${S.U.toFixed(2)} V`, w / 2 - 40, h - 18)
+  fillRich(ctx, `U_AK = ${S.U.toFixed(2)} V`, w / 2 - 40, h - 18)
   if (r && !r.emits) { ctx.fillStyle = P.friction; ctx.fillText(tl('光子能量小于逸出功：没有光电子'), w / 2 - 90, 28) }
 }, () => props.active)
 watch(() => [S.metal, S.wavelength, S.power, S.U], redraw)
@@ -92,7 +101,7 @@ const iNow = computed(() => (R.value?.current ?? 0))
         <label class="ctl">{{ tl('阴极材料') }}<select v-model="S.metal" class="field small"><option v-for="m in METALS" :key="m.id" :value="m.id">{{ m.name }}（W = {{ m.W }} eV）</option></select></label>
         <label class="ctl">{{ tl('波长') }}<input v-model.number="S.wavelength" type="range" min="200" max="700" step="1" /><span class="mono">{{ S.wavelength }} nm</span></label>
         <label class="ctl">{{ tl('光功率') }}<input v-model.number="S.power" type="range" min="1" max="100" step="1" /><span class="mono">{{ S.power }} μW</span></label>
-        <label class="ctl">{{ tl('电压 U_AK') }}<input v-model.number="S.U" type="range" :min="S.uMin" :max="S.uMax" step="0.05" /><span class="mono">{{ S.U.toFixed(2) }} V</span></label>
+        <label class="ctl"><Rich :text="tl('电压 U_AK')" /><input v-model.number="S.U" type="range" :min="S.uMin" :max="S.uMax" step="0.05" /><span class="mono">{{ S.U.toFixed(2) }} V</span></label>
       </div>
       <div ref="wrap" class="lab-canvas"><canvas ref="canvas" /></div>
       <div class="lab-under">
@@ -105,11 +114,11 @@ const iNow = computed(() => (R.value?.current ?? 0))
           <span>{{ tl('光子能量 hν') }}</span><b class="big">{{ R.photon.toFixed(3) }} eV</b>
           <span>{{ tl('逸出功 W') }}</span><b>{{ R.work.toFixed(2) }} eV</b>
           <span>{{ tl('最大初动能 Ek') }}</span><b class="big">{{ R.ekMax.toFixed(3) }} eV</b>
-          <span>{{ tl('遏止电压 U_c') }}</span><b>{{ fmtQ(R.stopVoltage, 'V') }}</b>
+          <span><Rich :text="tl('遏止电压 U_c')" /></span><b>{{ fmtQ(R.stopVoltage, 'V') }}</b>
           <span>{{ tl('截止频率 ν₀') }}</span><b>{{ R.thresholdFrequency.toExponential(3) }} Hz</b>
           <span>{{ tl('截止波长 λ₀') }}</span><b>{{ R.thresholdWavelength.toFixed(1) }} nm</b>
           <span>{{ tl('每秒光子数') }}</span><b>{{ R.photonRate.toExponential(3) }}</b>
-          <span>{{ tl('饱和电流 I_s') }}</span><b>{{ fmtQ(R.saturation, 'A') }}</b>
+          <span><Rich :text="tl('饱和电流 I_s')" /></span><b>{{ fmtQ(R.saturation, 'A') }}</b>
           <span>{{ tl('此时电流 I') }}</span><b class="big">{{ fmtQ(iNow, 'A') }}</b>
         </div>
       </section>
@@ -119,7 +128,7 @@ const iNow = computed(() => (R.value?.current ?? 0))
       </section>
       <details class="lab-block lab-details">
         <summary>{{ tl('模型说明') }}</summary>
-        <p class="tiny muted lab-note">{{ tl('每个光子最多打出一个电子（量子效率 5%），所以饱和电流正比于光的功率而与频率的关系只通过光子数体现；光电子的最大初动能只由频率决定。反向电压下，只有动能大于 eU 的电子能到达阳极，U = −U_c 时电流为零；正向电压增大时电流逐渐达到饱和（收集效率的简化模型）。') }}</p>
+        <p class="tiny muted lab-note"><Rich :text="tl('每个光子最多打出一个电子（量子效率 5%），所以饱和电流正比于光的功率而与频率的关系只通过光子数体现；光电子的最大初动能只由频率决定。反向电压下，只有动能大于 eU 的电子能到达阳极，U = −U_c 时电流为零；正向电压增大时电流逐渐达到饱和（收集效率的简化模型）。')" /></p>
       </details>
     </aside>
   </div>

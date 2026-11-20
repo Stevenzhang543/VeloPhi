@@ -1,0 +1,31 @@
+{
+ "id": "01-table-pulley-clean",
+ "origin": "handwritten",
+ "note": "The first answer passes every level (strict function call).",
+ "problem": "水平桌面上质量 2 kg 的物块 A（与桌面 μ = 0.2）用轻绳跨过桌边的光滑定滑轮与质量 1 kg 的物块 B 相连，B 离地 0.6 m，由静止释放，求 A 的加速度和绳的拉力。",
+ "strict": true,
+ "answers": [
+  {
+   "step": "notes",
+   "raw": "对象：地面 floor；桌面 table；物块 A、B；定滑轮 P；轻绳 rope1。\n关系：A 在桌面上（位置未给，取中间）；P 装在桌面右端；绳从 A 的右侧经 P 到 B 的顶部；B 挂在绳上，离地 0.6 m。\n已知：A 质量 2 kg；A 与桌面 μ = 0.2；B 质量 1 kg；B 离地 0.6 m。g、桌高未给。\n所求：A 的加速度；绳的拉力。"
+  },
+  {
+   "step": "sketch",
+   "raw": "{\"version\":2,\"route\":\"sketch\",\"title\":\"桌面—滑轮连接体\",\"reason\":\"\",\"templateId\":\"\",\"templateParams\":[],\"gravity\":\"down\",\"movingBodies\":2,\"surfaces\":[{\"id\":\"floor\",\"name\":\"地面\",\"type\":\"ground\",\"side\":\"\",\"span\":\"\",\"at\":\"\"},{\"id\":\"table\",\"name\":\"桌面\",\"type\":\"table\",\"side\":\"\",\"span\":\"\",\"at\":\"\"}],\"bodies\":[{\"id\":\"A\",\"name\":\"物块A\",\"type\":\"block\",\"place\":\"on\",\"ref\":\"table\",\"at\":\"middle\",\"ref2\":\"\",\"moves\":\"rest\",\"side\":\"\",\"points\":[]},{\"id\":\"B\",\"name\":\"物块B\",\"type\":\"block\",\"place\":\"hanging\",\"ref\":\"rope1\",\"at\":\"below\",\"ref2\":\"floor\",\"moves\":\"rest\",\"side\":\"\",\"points\":[]}],\"pulleys\":[{\"id\":\"P\",\"name\":\"定滑轮\",\"at\":\"table.rightEnd\"}],\"connectors\":[{\"id\":\"rope1\",\"name\":\"轻绳\",\"type\":\"rope\",\"path\":[\"A.right\",\"P\",\"B.top\"],\"mode\":\"taut\"}],\"values\":[{\"of\":\"A\",\"quantity\":\"mass\",\"value\":2,\"unit\":\"kg\",\"quote\":\"质量 2 kg 的物块 A\"},{\"of\":\"A|table\",\"quantity\":\"mu\",\"value\":0.2,\"unit\":\"\",\"quote\":\"μ = 0.2\"},{\"of\":\"B\",\"quantity\":\"mass\",\"value\":1,\"unit\":\"kg\",\"quote\":\"质量 1 kg 的物块 B\"},{\"of\":\"B\",\"quantity\":\"heightAbove\",\"value\":0.6,\"unit\":\"m\",\"quote\":\"B 离地 0.6 m\"}],\"expect\":[{\"of\":\"A\",\"state\":\"moves\"},{\"of\":\"B\",\"state\":\"moves\"},{\"of\":\"rope1\",\"state\":\"taut\"}],\"questions\":[{\"prompt\":\"A 的加速度\",\"unit\":\"m/s²\",\"kind\":\"quantity\",\"id\":\"A.a\",\"t\":0.2,\"event\":\"\",\"side\":\"\",\"body\":\"\",\"which\":\"\"},{\"prompt\":\"绳的拉力\",\"unit\":\"N\",\"kind\":\"quantity\",\"id\":\"rope1.T\",\"t\":0.2,\"event\":\"\",\"side\":\"\",\"body\":\"\",\"which\":\"\"}]}"
+  }
+ ],
+ "expect": {
+  "ok": true,
+  "via": "sketch",
+  "repairs": 0,
+  "requests": 2,
+  "rounds": [
+   []
+  ],
+  "rejected": 0,
+  "answers": [
+   1.96,
+   7.84
+  ]
+ }
+}

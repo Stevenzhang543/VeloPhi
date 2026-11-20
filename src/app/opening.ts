@@ -21,7 +21,7 @@ export function revealInterface(): Promise<void> {
     requestAnimationFrame(() => requestAnimationFrame(() => {
       app.addEventListener('animationend', e => { if (e.target === app) finish() })
       html.classList.add('revealing')
-      setTimeout(finish, 900)
+      setTimeout(finish, 300)
     }))
   })
 }

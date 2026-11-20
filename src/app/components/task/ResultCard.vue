@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import Rich from '../Rich.vue'
 /**
  * One result of a task (26.57, D114; manual §4.4): the quantity, its object, frame and evaluation point, the value
  * with its unit, the state of the computation and of the physical conditions (in words, not only colour), and where
@@ -94,7 +95,7 @@ const qName = computed(() => (spec.value ? tl(QUANTITIES[spec.value.quantity]?.l
         <li v-for="c in result.checks" :key="c.id">
           <span class="chip" :class="c.pass === null ? '' : c.pass ? 'ok' : 'bad'">{{ c.pass === null ? tl('未比较') : c.pass ? tl('一致') : tl('不一致') }}</span>
           <span>{{ tl(c.label, c.labelParams) }}</span>
-          <span v-if="c.valueSI !== null && result.value?.unit" class="mono">：{{ fmtQ(c.valueSI, result.value.unit === '1' ? '' : result.value.unit) }}</span>
+          <span v-if="c.valueSI !== null && result.value?.unit" class="mono">{{ tl('{0}：', ['']) }} {{ fmtQ(c.valueSI, result.value.unit === '1' ? '' : result.value.unit) }}</span>
           <span v-if="c.delta !== null" class="mono muted">{{ tl('（差 {0}）', [c.delta.toExponential(1)]) }}</span>
           <div v-if="c.note" class="tiny muted">{{ tl(c.note) }}</div>
         </li>
@@ -103,7 +104,7 @@ const qName = computed(() => (spec.value ? tl(QUANTITIES[spec.value.quantity]?.l
           <span class="mono">t = {{ fmtQ(a.valueSI, 's') }}</span> <span class="muted">{{ a.conditions.map(x => tl(x)).join('，') }}</span>
         </li>
       </ul>
-      <p v-if="result.errorBudget" class="tiny muted">{{ tl('核对的容差：|q − q_ref| ≤ {0} + {1}·max(|q|, |q_ref|)', [result.errorBudget.atolSI, result.errorBudget.rtol]) }}</p>
+      <p v-if="result.errorBudget" class="tiny muted"><Rich :text="tl('核对的容差：|q − q_ref| ≤ {0} + {1}·max(|q|, |q_ref|)', [result.errorBudget.atolSI, result.errorBudget.rtol])" /></p>
     </StackCards>
   </article>
 </template>

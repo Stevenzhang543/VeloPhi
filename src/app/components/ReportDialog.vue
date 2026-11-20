@@ -335,7 +335,7 @@ function close() { if (!busy.value) state.showReport = false }
 .notes { align-items: flex-start; padding: 6px 0; }
 .notes textarea { height: auto; padding: 6px 8px; resize: vertical; }
 .checks { display: flex; flex-direction: column; gap: 4px; padding: 8px 10px; }
-.mini { height: 22px; width: auto; margin-left: 6px; font-size: 11px; }
+.mini { height: 22px; width: auto; margin-left: 6px; font-size: var(--type-tiny); }
 .note { line-height: 1.5; margin: 4px 2px; }
 .notice { display: flex; gap: 8px; align-items: flex-start; line-height: 1.5; color: var(--text-2); margin: 6px 2px; }
 .notice .badge { flex: 0 0 auto; }

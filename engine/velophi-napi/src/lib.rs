@@ -193,6 +193,26 @@ export!(calc_call, |env, info| {
     }
     ret_bytes(env, std::slice::from_raw_parts(w::calc_output(), n as usize))
 });
+export!(chem_session_create, |env, info| {
+    let [a] = args::<1>(env, info);
+    let (b, _) = bytes(env, a);
+    ret_num(env, w::chem_session_create(b.as_ptr(), b.len() as u32) as f64)
+});
+export!(chem_session_call, |env, info| {
+    let [h, a] = args::<2>(env, info);
+    let (b, _) = bytes(env, a);
+    let h = num(env, h) as u32;
+    let n = w::chem_session_call(h, b.as_ptr(), b.len() as u32);
+    if n <= 0 {
+        return null_val(env);
+    }
+    ret_bytes(env, std::slice::from_raw_parts(w::chem_session_output(h), n as usize))
+});
+export!(chem_session_free, |env, info| {
+    let [h] = args::<1>(env, info);
+    w::chem_session_free(num(env, h) as u32);
+    undefined(env)
+});
 export!(run_create, |env, info| {
     let [a] = args::<1>(env, info);
     let (b, _) = bytes(env, a);
@@ -354,6 +374,9 @@ pub unsafe extern "C" fn napi_register_module_v1(env: Env, exports: Val) -> Val 
         ("sessionImpactLoss", session_impact_loss),
         ("sessionFree", session_free),
         ("calcCall", calc_call),
+        ("chemSessionCreate", chem_session_create),
+        ("chemSessionCall", chem_session_call),
+        ("chemSessionFree", chem_session_free),
         ("runCreate", run_create),
         ("runInfo", run_info),
         ("runSetUntil", run_set_until),

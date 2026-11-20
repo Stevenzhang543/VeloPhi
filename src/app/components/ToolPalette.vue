@@ -68,7 +68,7 @@ onMounted(() => { if (props.autofocus) searchBox.value?.focus() })
 .tool-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
 .tool {
   display: flex; flex-direction: column; align-items: center; gap: 2px; border: 0; background: var(--fill); border-radius: 9px; padding: 6px 2px 5px;
-  cursor: pointer; font-size: 11px; color: var(--text-2); min-width: 0;
+  cursor: pointer; font-size: var(--type-tiny); color: var(--text-2); min-width: 0;
   transition: background var(--dur-2) var(--ease-out), color var(--dur-2) var(--ease-out), transform var(--dur-1) var(--ease-out);
 }
 .tool span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

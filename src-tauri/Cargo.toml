@@ -1,6 +1,6 @@
 [package]
 name = "velophi"
-version = "26.63.0"
+version = "26.65.0"
 description = "VeloPhi: physics simulation and teaching engine with verifiable results"
 authors = ["VeloPhi maintainers"]
 edition = "2021"
@@ -22,6 +22,12 @@ serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }
 # The physics core, run natively (26.53, D68)
 velophi-native = { path = "../engine/velophi-native" }
+# In-app update (26.64, src/update.rs): SHA-256 of the downloaded file (already in the dependency tree)
+sha2 = "0.10"
+
+# In-app update: whether this copy was installed (the installer's registry entry); the crate reqwest uses for the proxy
+[target.'cfg(windows)'.dependencies]
+windows-registry = "0.6"
 
 # Network requests of the AI features and the app sign-in (26.59, D149): native TLS (SChannel on Windows) and the
 # system proxy; no browser CORS rules.

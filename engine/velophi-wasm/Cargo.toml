@@ -10,4 +10,5 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 velophi-core = { path = "../velophi-core" }
+velophi-chem = { path = "../velophi-chem" }
 serde_json = { version = "1", features = ["float_roundtrip"] }

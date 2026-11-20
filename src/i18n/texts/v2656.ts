@@ -115,7 +115,6 @@ export const TEXTS_2656: Record<string, readonly [string, string]> = {
   '清除本学段的访问': ['Clear the visits of this stage', 'Besuche dieser Stufe löschen'],
   '常数集': ['Constants', 'Konstantensatz'],
   '本实验涉及的模型族': ['Model families of this experiment', 'Modellfamilien dieses Experiments'],
-  '模型：': ['Models:', 'Modelle:'],
   '自由中子衰变': ['Free-neutron decay', 'Zerfall des freien Neutrons'],
   '中子衰变（错写为中微子）': ['Neutron decay (wrongly with a neutrino)', 'Neutronenzerfall (fälschlich mit Neutrino)'],
   '中子衰变（漏写轻子）': ['Neutron decay (leptons left out)', 'Neutronenzerfall (ohne Leptonen)'],

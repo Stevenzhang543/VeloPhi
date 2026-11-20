@@ -1,7 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-<defs><linearGradient id="sbg" x1="0.1" y1="0" x2="0.9" y2="1"><stop offset="0" stop-color="#6366f1"/><stop offset="0.55" stop-color="#3730a3"/><stop offset="1" stop-color="#0f0c33"/></linearGradient></defs>
-<rect x="1" y="1" width="30" height="30" rx="7" fill="url(#sbg)"/>
-<ellipse cx="16.00" cy="16.25" rx="9.38" ry="6.56" fill="none" stroke="#ffffff" stroke-opacity="0.6" stroke-width="1.4"/>
-<line x1="16.00" y1="5.00" x2="16.00" y2="27.50" stroke="#ffffff" stroke-opacity="0.6" stroke-width="1.4" stroke-linecap="round"/>
-<circle cx="16.00" cy="9.75" r="1.6" fill="#ffffff" fill-opacity="0.7"/><circle cx="16.00" cy="15.69" r="2.0" fill="#ffffff" fill-opacity="0.9"/><circle cx="16.00" cy="24.00" r="3.0" fill="#fbbf24"/>
+<rect x="1" y="1" width="30" height="30" rx="7" fill="#1c2230"/>
+<ellipse cx="16.00" cy="16.25" rx="9.38" ry="6.56" fill="none" stroke="#ffffff" stroke-opacity="0.72" stroke-width="1.4"/>
+<line x1="16.00" y1="5.00" x2="16.00" y2="27.50" stroke="#ffffff" stroke-opacity="0.72" stroke-width="1.4" stroke-linecap="round"/>
+<circle cx="16" cy="9.75" r="1.6" fill="#ffffff" fill-opacity="0.6"/><circle cx="16" cy="15.69" r="2" fill="#ffffff" fill-opacity="0.85"/><circle cx="16" cy="24" r="3" fill="#f2a900"/>
 </svg>

@@ -33,7 +33,8 @@ function inclineFriction(v: Record<string, number>): Scene {
   addIncline(s, { id: 'incline', angle: th, base, material: { muS: v.muS, muK: v.muK } })
   addGround(s, { id: 'ground', top: 0, left: base, right: base + 14, material: { muS: v.muS, muK: v.muK } })
   const w = 0.3, h = 0.2
-  const pl = onIncline(th, base, INCLINE2_START, w, h)
+  // 26.65 (M5): on a short slope the block starts at 40 % of its length (1.8 m from the top would lie past its foot)
+  const pl = onIncline(th, base, Math.min(INCLINE2_START, 0.4 * base / cos(th)), w, h)
   const c = cos(th), sn = sin(th)
   addBody(s, { id: 'block', name: tl('物块'), role: 'block', shape: { type: 'box', width: w, height: h }, position: pl.position, angle: pl.angle, velocity: { x: v.v0 * c, y: 0 - v.v0 * sn }, mass: v.m, material: { muS: v.muS, muK: v.muK } })
   s.settings.gravity = { x: 0, y: -v.g }

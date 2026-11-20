@@ -1,0 +1,258 @@
+# Review of every solid of the aqueous network (src/chem/data/aqueous.json) for the catalogue section `forms` (engine/CHEM.md, Data files).
+# class: precipitate = forms from solution at the bench (the fresh precipitate of its family, or the salt that crystallises on evaporation or cooling); listed in forms.precipitates
+#        reagent-only = stocked on the shelf or formed by heating or by a declared reaction; in water it only dissolves
+#        mineral = geological, aged or high-temperature phase that never appears at the bench (kept in the network for saturation indices only)
+# scripts/chem/build_catalog.py fails when a network solid is missing here or when the precipitates differ from catalog/forms.json.
+id	class	formula	reason
+Calcite	precipitate	CaCO3	the calcium carbonate that precipitates at room temperature; also stocked as marble and limestone
+Aragonite	mineral	CaCO3	metastable polymorph, forms hot or with magnesium; calcite is the bench phase
+Dolomite	mineral	CaMg(CO3)2	does not precipitate at room temperature on laboratory time scales
+Siderite	precipitate	FeCO3	white iron(II) carbonate from iron(II) salts and carbonate
+Rhodochrosite	precipitate	MnCO3	pale pink manganese(II) carbonate from manganese(II) salts and carbonate
+Strontianite	precipitate	SrCO3	white strontium carbonate
+Witherite	precipitate	BaCO3	white barium carbonate, dissolves in acid
+Gypsum	precipitate	CaSO4:2H2O	the calcium sulfate that crystallises from water below about 40 C
+Anhydrite	reagent-only	CaSO4	anhydrous calcium sulfate is a drying agent; from water gypsum forms instead
+Celestite	precipitate	SrSO4	white strontium sulfate
+Barite	precipitate	BaSO4	white barium sulfate, the sulfate test
+Arcanite	precipitate	K2SO4	stocked salt; crystallises on evaporation (table salt with a solubility curve)
+Mirabilite	precipitate	Na2SO4:10H2O	Glauber salt, the phase that crystallises below 32 C
+Thenardite	reagent-only	Na2SO4	anhydrous sodium sulfate from the bottle; the decahydrate crystallises at room temperature
+Epsomite	precipitate	MgSO4:7H2O	Epsom salt, the hydrate that crystallises at room temperature
+Hexahydrite	mineral	MgSO4:6H2O	stable only above 48 C
+Kieserite	mineral	MgSO4:H2O	high-temperature hydrate
+Hydroxyapatite	mineral	Ca5(PO4)3OH	forms by slow ageing; as a candidate it would take every neutral calcium phosphate solution
+Fluorite	precipitate	CaF2	white calcium fluoride
+SiO2(a)	precipitate	SiO2	silica gel from acidified silicate; quartz never forms at the bench
+Chalcedony	mineral	SiO2	geological silica
+Quartz	reagent-only	SiO2	sand and quartz powder on the shelf
+Gibbsite	mineral	Al(OH)3	crystalline hydroxide formed by ageing; 2.7 log units less soluble than the fresh gel
+Al(OH)3(a)	precipitate	Al(OH)3	the gelatinous precipitate from aluminium salts and ammonia or a little alkali; redissolves in excess alkali as observed
+Hematite	reagent-only	Fe2O3	iron(III) oxide powder (also from heating the hydroxide); never precipitates from cold solution
+Goethite	mineral	FeOOH	aged oxide-hydroxide (rusting is a declared reaction)
+Fe(OH)3(a)	precipitate	Fe(OH)3	the red-brown precipitate from iron(III) salts and alkali
+FeS(ppt)	precipitate	FeS	black freshly precipitated iron(II) sulfide
+Mackinawite	reagent-only	FeS	stands for the iron(II) sulfide lumps of the hydrogen sulfide generator
+Vivianite	precipitate	Fe3(PO4)2:8H2O	iron(II) phosphate precipitate
+Pyrochroite	precipitate	Mn(OH)2	white manganese(II) hydroxide (browns in air by a declared reaction)
+Halite	precipitate	NaCl	table salt; crystallises on evaporation (solubility curve of the textbook)
+Sylvite	precipitate	KCl	stocked salt; crystallises on evaporation or cooling
+Melanterite	precipitate	FeSO4:7H2O	green vitriol, stocked; crystallises on cooling
+Alunite	mineral	KAl3(SO4)2(OH)6	geological
+Jarosite-K	mineral	KFe3(SO4)2(OH)6	geological
+Zn(OH)2(e)	precipitate	Zn(OH)2	white zinc hydroxide (the only zinc hydroxide of the network), amphoteric
+Smithsonite	precipitate	ZnCO3	zinc carbonate precipitate
+Sphalerite	precipitate	ZnS	white zinc sulfide (the only zinc sulfide of the network)
+Cd(OH)2(s)	precipitate	Cd(OH)2	white cadmium hydroxide
+Otavite	precipitate	CdCO3	cadmium carbonate precipitate
+CdSO4(s)	reagent-only	CdSO4	anhydrous salt, only dissolves
+Cerussite	precipitate	PbCO3	white lead carbonate
+Anglesite	precipitate	PbSO4	white lead sulfate (lead-acid battery)
+Pb(OH)2(s)	precipitate	Pb(OH)2	white lead hydroxide, amphoteric
+Magnesite	reagent-only	MgCO3	magnesium carbonate powder from the bottle; from cold solution nesquehonite forms
+Brucite	precipitate	Mg(OH)2	white magnesium hydroxide
+Hydromagnesite	mineral	Mg5(CO3)4(OH)2:4H2O	basic carbonate that forms on heating or ageing
+Boehmite	mineral	AlOOH	hydrothermal phase
+Nahcolite	precipitate	NaHCO3	baking soda, stocked; precipitates in the ammonia-soda process
+Trona	mineral	Na3H(CO3)2:2H2O	evaporite mineral
+Natron	precipitate	Na2CO3:10H2O	washing soda, the hydrate that crystallises below 32 C
+Thermonatrite	mineral	Na2CO3:H2O	forms only from hot concentrated solution
+Huntite	mineral	CaMg3(CO3)4	geological
+Strengite	precipitate	FePO4:2H2O	pale yellow iron(III) phosphate precipitate
+Nesquehonite	precipitate	MgCO3:3H2O	the magnesium carbonate that precipitates at room temperature
+Artinite	mineral	Mg2CO3(OH)2:3H2O	geological
+Diaspore	mineral	AlOOH	high-pressure phase
+Fe(OH)2.7Cl.3	mineral	Fe(OH)2.7Cl0.3	model phase of mine waters
+MnSO4(s)	reagent-only	MnSO4	anhydrous salt, only dissolves
+MnCl2:4H2O	reagent-only	MnCl2:4H2O	stocked manganese(II) chloride, only dissolves (no solubility table entered)
+MnS(Green)	precipitate	MnS	the only manganese sulfide of the network (the fresh precipitate is flesh-coloured, the stable form green)
+Mn3(PO4)2	precipitate	Mn3(PO4)2	manganese(II) phosphate precipitate
+MnHPO4	precipitate	MnHPO4	manganese(II) hydrogenphosphate precipitate from neutral solution
+Nantokite	precipitate	CuCl	white copper(I) chloride
+CuF	mineral	CuF	not a bench compound
+Cuprite	precipitate	Cu2O	brick-red copper(I) oxide of the Fehling test
+Chalcocite	precipitate	Cu2S	black copper(I) sulfide
+Cu2SO4	mineral	Cu2SO4	not stable in water
+CuprousFerrite	mineral	CuFeO2	high-temperature oxide
+Melanothallite	reagent-only	CuCl2	anhydrous copper(II) chloride (brown), from heating the dihydrate
+CuCO3(s)	mineral	CuCO3	the neutral carbonate does not form from solution; the basic carbonate does
+CuF2	mineral	CuF2	not a bench compound
+CuF2:2H2O	mineral	CuF2:2H2O	not a bench compound
+Cu(OH)2(s)	precipitate	Cu(OH)2	the light blue precipitate from copper(II) salts and alkali
+Malachite	precipitate	Cu2(OH)2CO3	basic copper carbonate, the green precipitate with carbonate; also stocked
+Azurite	mineral	Cu3(OH)2(CO3)2	needs high carbon dioxide pressure
+Atacamite	mineral	Cu2(OH)3Cl	basic chloride of slow corrosion; the textbook precipitate is the hydroxide
+Cu2(OH)3NO3	mineral	Cu2(OH)3NO3	basic nitrate; the textbook precipitate is the hydroxide
+Antlerite	mineral	Cu3(OH)4SO4	basic sulfate of acid weathering
+Brochantite	mineral	Cu4(OH)6SO4	basic sulfate; the textbook precipitate is the hydroxide
+Langite	mineral	Cu4(OH)6SO4:H2O	basic sulfate mineral
+Tenorite	reagent-only	CuO	black copper(II) oxide powder; forms by heating the hydroxide, not from cold solution
+CuOCuSO4	mineral	Cu2OSO4	high-temperature phase
+Cu3(PO4)2	mineral	Cu3(PO4)2	anhydrous phosphate; the trihydrate precipitates
+Cu3(PO4)2:3H2O	precipitate	Cu3(PO4)2:3H2O	blue-green copper(II) phosphate precipitate
+Covellite	precipitate	CuS	black copper(II) sulfide
+CuSO4(s)	reagent-only	CuSO4	white anhydrous copper sulfate (the test for water); the pentahydrate crystallises
+Chalcanthite	precipitate	CuSO4:5H2O	blue vitriol, stocked; the hydrate that crystallises
+CupricFerrite	mineral	CuFe2O4	high-temperature oxide
+Zn(BO2)2	mineral	Zn(BO2)2	not a bench compound
+ZnCl2(s)	reagent-only	ZnCl2	stocked, very soluble, only dissolves
+ZnCO3:H2O	mineral	ZnCO3:H2O	smithsonite is kept as the zinc carbonate
+ZnF2	mineral	ZnF2	not a school reagent
+Zn2(OH)3Cl	mineral	Zn2(OH)3Cl	basic chloride; the textbook precipitate is the hydroxide
+Zn5(OH)8Cl2	mineral	Zn5(OH)8Cl2	basic chloride of corrosion
+Zn2(OH)2SO4	mineral	Zn2(OH)2SO4	basic sulfate
+Zn4(OH)6SO4	mineral	Zn4(OH)6SO4	basic sulfate
+Zn(NO3)2:6H2O	reagent-only	Zn(NO3)2:6H2O	stocked zinc nitrate, only dissolves
+ZnO(a)	mineral	ZnO	the hydroxide precipitates from cold solution, not the oxide
+Zincite(c)	reagent-only	ZnO	white zinc oxide powder
+Zn3O(SO4)2	mineral	Zn3O(SO4)2	high-temperature phase
+Zn3(PO4)2:4w	precipitate	Zn3(PO4)2:4H2O	white zinc phosphate precipitate
+Zincosite	reagent-only	ZnSO4	anhydrous zinc sulfate; the heptahydrate crystallises
+ZnSO4:H2O	mineral	ZnSO4:H2O	high-temperature hydrate
+Bianchite	mineral	ZnSO4:6H2O	stable only above 39 C
+Goslarite	precipitate	ZnSO4:7H2O	white vitriol, stocked; the hydrate that crystallises at room temperature
+Cd(BO2)2	mineral	Cd(BO2)2	not a bench compound
+CdCl2(s)	reagent-only	CdCl2	anhydrous salt, only dissolves
+CdCl2:H2O	mineral	CdCl2:H2O	not stocked
+CdCl2:2.5H2O	mineral	CdCl2:2.5H2O	not stocked at school (cadmium salts are avoided)
+CdF2(s)	mineral	CdF2	not a school reagent
+CdOHCl(s)	mineral	CdOHCl	basic chloride
+Cd3(OH)4SO4	mineral	Cd3(OH)4SO4	basic sulfate
+Cd3(OH)2(SO4)2	mineral	Cd3(OH)2(SO4)2	basic sulfate
+Cd4(OH)6SO4	mineral	Cd4(OH)6SO4	basic sulfate
+Monteponite	mineral	CdO	not stocked at school
+Cd3(PO4)2	precipitate	Cd3(PO4)2	cadmium phosphate precipitate
+CdSO4:H2O	mineral	CdSO4:H2O	not stocked
+CdSO4:2.7H2O	reagent-only	3CdSO4:8H2O	the cadmium sulfate of the Weston cell, only dissolves
+Greenockite	precipitate	CdS	yellow cadmium sulfide of qualitative analysis
+JarositeH	mineral	(H3O)Fe3(SO4)2(OH)6	geological
+Pb(BO2)2	mineral	Pb(BO2)2	not a bench compound
+Cotunnite	precipitate	PbCl2	white lead chloride, soluble in hot water
+PbF2(s)	precipitate	PbF2	white lead fluoride
+Massicot	mineral	PbO	yellow high-temperature oxide
+Litharge	reagent-only	PbO	lead(II) oxide powder
+PbO:0.3H2O	mineral	PbO:0.33H2O	hydrous oxide; the hydroxide is kept as the precipitate
+Pb2OCO3	mineral	Pb2OCO3	basic carbonate of thermal decomposition
+Larnakite	mineral	Pb2OSO4	basic sulfate mineral
+Pb3O2SO4	mineral	Pb3O2SO4	basic sulfate of battery plates
+Pb4O3SO4	mineral	Pb4O3SO4	basic sulfate of battery plates
+PbHPO4	precipitate	PbHPO4	white lead hydrogenphosphate precipitate
+Pb3(PO4)2	precipitate	Pb3(PO4)2	white lead phosphate precipitate
+Hxypyromorphite	mineral	Pb5(PO4)3OH	apatite-type mineral, forms by ageing
+Pb3O2CO3	mineral	Pb3O2CO3	thermal decomposition product
+Galena	precipitate	PbS	black lead sulfide (lead acetate paper), the only lead sulfide of the network
+Laurionite	mineral	PbOHCl	basic chloride mineral
+Pb2(OH)3Cl	mineral	Pb2(OH)3Cl	basic chloride
+Hydrocerussite	mineral	Pb3(CO3)2(OH)2	basic carbonate; cerussite is kept as the textbook lead carbonate
+Pb2O(OH)2	mineral	Pb2O(OH)2	hydrous oxide; the hydroxide is kept as the precipitate
+Pb4(OH)6SO4	mineral	Pb4(OH)6SO4	basic sulfate
+BaF2	precipitate	BaF2	white barium fluoride
+SrF2	precipitate	SrF2	white strontium fluoride
+NiCO3(s)	precipitate	NiCO3	pale green nickel carbonate precipitate
+Ni(OH)2(s)	precipitate	Ni(OH)2	apple-green nickel hydroxide
+Ni4(OH)6SO4	mineral	Ni4(OH)6SO4	basic sulfate
+Bunsenite	reagent-only	NiO	nickel(II) oxide, from heating the hydroxide or carbonate
+Ni3(PO4)2	precipitate	Ni3(PO4)2	green nickel phosphate precipitate
+Millerite	precipitate	NiS	black nickel sulfide, the only one of the network
+Retgersite	reagent-only	NiSO4:6H2O	stocked nickel sulfate, only dissolves (no solubility table entered)
+Morenosite	mineral	NiSO4:7H2O	heptahydrate, stable only below 31 C; retgersite is the stocked salt
+Bromyrite	precipitate	AgBr	pale yellow silver bromide, the bromide test
+Cerargyrite	precipitate	AgCl	white curdy silver chloride, the chloride test
+Ag2CO3	precipitate	Ag2CO3	pale yellow silver carbonate
+AgF:4H2O	mineral	AgF:4H2O	very soluble, not a school reagent
+Iodyrite	precipitate	AgI	yellow silver iodide, the iodide test
+Ag2O	precipitate	Ag2O	brown silver oxide from silver nitrate and alkali or a little ammonia (Tollens reagent)
+Ag3PO4	precipitate	Ag3PO4	yellow silver phosphate, the phosphate test
+Acanthite	precipitate	Ag2S	black silver sulfide, the only one of the network
+Ag2SO4	precipitate	Ag2SO4	white, sparingly soluble silver sulfate
+CuBr	precipitate	CuBr	white copper(I) bromide
+CuI	precipitate	CuI	white copper(I) iodide of the iodometric copper determination
+ZnBr2:2H2O	mineral	ZnBr2:2H2O	very soluble, not stocked
+ZnI2(s)	mineral	ZnI2	very soluble, not stocked
+CdBr2:4H2O	mineral	CdBr2:4H2O	not stocked
+CdI2(s)	mineral	CdI2	not stocked
+PbBr2(s)	precipitate	PbBr2	white lead bromide
+PbI2(s)	precipitate	PbI2	golden yellow lead iodide (golden rain)
+Jurbanite	mineral	AlOHSO4	acid mine water phase
+Basaluminite	mineral	Al4(OH)10SO4	acid mine water phase
+Portlandite	precipitate	Ca(OH)2	slaked lime, stocked; precipitates from concentrated calcium solutions with alkali
+SnS	precipitate	SnS	brown tin(II) sulfide
+SnS2	precipitate	SnS2	yellow tin(IV) sulfide
+CoS(alpha)	precipitate	CoS	black freshly precipitated cobalt sulfide
+CoS(beta)	mineral	CoS	aged, far less soluble form
+BaS	mineral	BaS	hydrolyses in water, not stocked at school
+SnO	mineral	SnO	the hydroxide precipitates, not the oxide
+SnO2	mineral	SnO2	cassiterite; tin(IV) hydroxide is the precipitate
+Sn(OH)2(s)	precipitate	Sn(OH)2	white tin(II) hydroxide, amphoteric
+Sn(OH)4	precipitate	Sn(OH)4	white tin(IV) hydroxide
+H2Sn(OH)6	mineral	H2Sn(OH)6	the same family as tin(IV) hydroxide, which is kept
+CoO	reagent-only	CoO	cobalt(II) oxide, from heating the hydroxide or carbonate
+Co(OH)2(s)	precipitate	Co(OH)2	cobalt(II) hydroxide (blue, turning pink)
+Fe(OH)2(s)	precipitate	Fe(OH)2	white iron(II) hydroxide (turns green then brown in air by a declared reaction)
+Cr(OH)3(am)	precipitate	Cr(OH)3	grey-green gelatinous chromium(III) hydroxide, amphoteric
+Cr(OH)3(s)	mineral	Cr(OH)3	crystalline form by ageing; the amorphous one is the fresh precipitate
+CrO3	reagent-only	CrO3	chromium trioxide, only dissolves (to chromic acid)
+Periclase	reagent-only	MgO	magnesium oxide powder (burnt magnesium); slakes to the hydroxide
+Lime	reagent-only	CaO	quicklime; slakes to calcium hydroxide
+Ba(OH)2:8H2O	precipitate	Ba(OH)2:8H2O	stocked barium hydroxide; crystallises on cooling
+Al2O3	reagent-only	Al2O3	alumina powder; product of the thermite reaction
+CoFe2O4	mineral	CoFe2O4	high-temperature spinel
+Hercynite	mineral	FeAl2O4	high-temperature spinel
+Cr2O3	reagent-only	Cr2O3	green chromium(III) oxide powder
+Spinel	mineral	MgAl2O4	high-temperature spinel
+Magnesioferrite	mineral	MgFe2O4	high-temperature spinel
+FeCr2O4	mineral	FeCr2O4	chromite, geological
+MgCr2O4	mineral	MgCr2O4	high-temperature spinel
+CoF2	mineral	CoF2	not a school reagent
+CrF3	mineral	CrF3	not a school reagent
+MgF2	precipitate	MgF2	white magnesium fluoride
+SnCl2(s)	reagent-only	SnCl2	anhydrous tin(II) chloride, only dissolves
+CoCl2	reagent-only	CoCl2	blue anhydrous cobalt chloride (humidity indicator), from heating the hexahydrate
+CoCl2:6H2O	precipitate	CoCl2:6H2O	pink cobalt chloride, stocked; the hydrate that crystallises
+CrCl3	mineral	CrCl3	the anhydrous chloride neither dissolves nor forms in water at a useful rate
+SnBr2(s)	mineral	SnBr2	not stocked
+SnBr4	mineral	SnBr4	not stocked
+Cu2(OH)3Br	mineral	Cu2(OH)3Br	basic bromide
+CrBr3	mineral	CrBr3	not stocked
+CrI3	mineral	CrI3	not stocked
+Pb10(OH)6O(CO3)6	mineral	Pb10(OH)6O(CO3)6	plumbonacrite, corrosion product
+CoCO3(s)	precipitate	CoCO3	pink-violet cobalt carbonate precipitate
+Co(BO2)2	mineral	Co(BO2)2	not a bench compound
+SnSO4	mineral	SnSO4	not stocked at school
+Sn(SO4)2	mineral	Sn(SO4)2	not stocked
+CoSO4(s)	mineral	CoSO4	anhydrous salt, not stocked
+CoSO4:6H2O	reagent-only	CoSO4:6H2O	stocked cobalt sulfate, only dissolves
+Fe2(SO4)3	reagent-only	Fe2(SO4)3	stocked iron(III) sulfate, only dissolves
+(NH4)2CrO4	mineral	(NH4)2CrO4	soluble chromate, not stocked
+PbCrO4	precipitate	PbCrO4	chrome yellow, the lead and chromate test
+CuCrO4	mineral	CuCrO4	the neutral chromate does not form cleanly from solution
+Ag2CrO4	precipitate	Ag2CrO4	brick-red silver chromate (Mohr titration)
+MgCrO4	mineral	MgCrO4	very soluble
+CaCrO4	mineral	CaCrO4	fairly soluble, not a bench precipitate
+SrCrO4	precipitate	SrCrO4	yellow strontium chromate of qualitative analysis
+BaCrO4	precipitate	BaCrO4	yellow barium chromate
+Li2CrO4	mineral	Li2CrO4	very soluble, not stocked
+Na2CrO4	reagent-only	Na2CrO4	stocked soluble chromate, only dissolves
+Na2Cr2O7	reagent-only	Na2Cr2O7	stocked soluble dichromate, only dissolves
+K2CrO4	precipitate	K2CrO4	stocked potassium chromate; crystallises on evaporation
+K2Cr2O7	precipitate	K2Cr2O7	stocked potassium dichromate; crystallises readily on cooling
+CoHPO4(s)	precipitate	CoHPO4	cobalt hydrogenphosphate precipitate
+Co3(PO4)2	precipitate	Co3(PO4)2	violet cobalt phosphate precipitate
+Mg3(PO4)2	precipitate	Mg3(PO4)2	white magnesium phosphate precipitate from alkaline solution
+MgHPO4:3H2O	precipitate	MgHPO4:3H2O	the magnesium phosphate that precipitates from neutral solution
+CaHPO4:2H2O	precipitate	CaHPO4:2H2O	brushite, the calcium phosphate that precipitates from neutral or weakly acid solution
+CaHPO4(s)	mineral	CaHPO4	anhydrous monetite forms only hot; brushite is the bench phase
+Ca3(PO4)2(beta)	precipitate	Ca3(PO4)2	stands for the white calcium phosphate of the textbook (the fresh precipitate is amorphous tricalcium phosphate); chosen instead of hydroxyapatite
+Ca4H(PO4)3:3H2O	mineral	Ca4H(PO4)3:3H2O	octacalcium phosphate, an intermediate of slow ageing
+SrHPO4(s)	precipitate	SrHPO4	strontium hydrogenphosphate precipitate
+BaHPO4	precipitate	BaHPO4	white barium hydrogenphosphate precipitate
+I2(s)	precipitate	I2	iodine; separates when more iodine is formed than dissolves; also stocked
+Whewellite	precipitate	CaC2O4:H2O	white calcium oxalate, the calcium test
+AgSCN	precipitate	AgSCN	white silver thiocyanate (Volhard titration)
+BaSO3	precipitate	BaSO3	white barium sulfite, dissolves in acid
+CaSO3:0.5H2O	precipitate	CaSO3:0.5H2O	white calcium sulfite (sulfur dioxide into limewater)
+Ag2SO3	precipitate	Ag2SO3	white silver sulfite
+AgIO3	precipitate	AgIO3	white silver iodate
+Ba(IO3)2:H2O	precipitate	Ba(IO3)2:H2O	white barium iodate
+Pb(IO3)2	precipitate	Pb(IO3)2	white lead iodate
+AgBrO3	precipitate	AgBrO3	white silver bromate, sparingly soluble

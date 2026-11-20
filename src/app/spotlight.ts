@@ -16,7 +16,7 @@ export function uiTargets(): Record<string, UiTarget> {
     menu: d('file', tl('文件菜单（新建、打开、保存、分享链接、导出）')),
     templates: d('templates', tl('模板库')),
     problems: d('problems', tl('题目库')),
-    teach: d('teach', tl('“教学”菜单（受力分析图、纸带、v–t 面积、班级预测统计）')),
+    teach: d('teach', tl('“教学”菜单（受力分析图、纸带、班级预测统计、课堂投影）')),
     search: d('search', tl('全局搜索（Ctrl+K）')),
     share: d('file', tl('文件菜单里的“分享链接”')),
     undo: d('undo', tl('撤销')),
@@ -31,11 +31,13 @@ export function uiTargets(): Record<string, UiTarget> {
     'copilot-input': d('copilot-input', tl('Copilot 输入框（提问或粘贴题目）')),
     'copilot-send': d('copilot-send', tl('Copilot 的发送按钮')),
     'copilot-build': d('copilot-build', tl('“生成仿真场景”按钮（把这道题搭进引擎并验证答案）')),
-    'page-home': d('page-home', tl('导航栏的“首页”')),
-    'page-studio': d('page-studio', tl('导航栏的“工作台”')),
-    'page-lab': d('page-lab', tl('导航栏的“实验室”')),
-    'page-library': d('page-library', tl('导航栏的“资源库”（模板、题目、易错概念、模型、课程对照、手册）')),
-    'page-classroom': d('page-classroom', tl('导航栏的“课堂”（课堂实验、活动、预测统计）')),
+    // 26.64 (D240): the five panels of the rail; the mark opens the home page; the classroom is a section of the library
+    'page-home': d('page-home', tl('导航栏顶部的标志（首页）')),
+    'page-studio': d('page-studio', tl('导航栏的“运动”')),
+    'page-lab': d('page-lab', tl('导航栏的“物理实验”')),
+    'page-chem': d('page-chem', tl('导航栏的“化学实验”')),
+    'page-library': d('page-library', tl('导航栏的“资源库”（模板、题目、课堂、元素与物质、手册）')),
+    'page-classroom': d('page-library', tl('导航栏的“资源库”（课堂分区在里面）')),
     'page-monitor': d('page-monitor', tl('导航栏的“监视”')),
     'page-settings': d('page-settings', tl('导航栏的“设置”')),
     tools: d('tools', tl('画布左侧的工具条（选择、平移、常用工具、吸附）')),
@@ -69,16 +71,22 @@ export function uiTargets(): Record<string, UiTarget> {
   }
 }
 
+/** Targets that are inside a second-level layer (26.64, D243): the `data-ui` of the control that opens the layer. */
+const ONE_LEVEL_DOWN: Record<string, string> = { problems: 'studio-more', view: 'studio-more', teach: 'studio-more', compute: 'studio-more', sidebar: 'studio-more', objects: 'palette' }
+
 export const spotlight = reactive({ key: '' as string, selector: '', title: '', text: '', seq: 0 })
 
 /** Point at a part of the interface; false when it is not on screen. */
 export function pointTo(key: string, note: string): boolean {
   const t = uiTargets()[key]
   if (!t) return false
-  const el = document.querySelector(t.selector) as HTMLElement | null
-  if (!el || !el.getClientRects().length) return false
+  const shown = (sel: string) => { const e = document.querySelector(sel) as HTMLElement | null; return e && e.getClientRects().length ? e : null }
+  // 26.64 (D245): what moved one level down is pointed at through the control that opens it
+  const selector = shown(t.selector) ? t.selector : ONE_LEVEL_DOWN[key] ? `[data-ui="${ONE_LEVEL_DOWN[key]}"]` : t.selector
+  const el = shown(selector)
+  if (!el) return false
   spotlight.key = key
-  spotlight.selector = t.selector
+  spotlight.selector = selector
   spotlight.title = t.name
   spotlight.text = note
   spotlight.seq++

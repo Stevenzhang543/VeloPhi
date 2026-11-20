@@ -1,12 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
-<defs>
-<linearGradient id="bg" x1="0.1" y1="0" x2="0.9" y2="1"><stop offset="0" stop-color="#6366f1"/><stop offset="0.55" stop-color="#3730a3"/><stop offset="1" stop-color="#0f0c33"/></linearGradient>
-<radialGradient id="hi" cx="0.22" cy="0.1" r="0.8"><stop offset="0" stop-color="#ffffff" stop-opacity="0.2"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></radialGradient>
-<radialGradient id="glow"><stop offset="0" stop-color="#fbbf24" stop-opacity="0.6"/><stop offset="1" stop-color="#fbbf24" stop-opacity="0"/></radialGradient>
-</defs>
-<rect x="40" y="40" width="944" height="944" rx="212" fill="url(#bg)"/>
-<rect x="40" y="40" width="944" height="944" rx="212" fill="url(#hi)"/>
-<ellipse cx="512" cy="520" rx="300" ry="210" fill="none" stroke="#ffffff" stroke-opacity="0.5" stroke-width="22"/>
-<line x1="512" y1="160" x2="512" y2="880" stroke="#ffffff" stroke-opacity="0.5" stroke-width="22" stroke-linecap="round"/>
-<circle cx="512.0" cy="198.0" r="34" fill="#ffffff" fill-opacity="0.45"/><circle cx="512.0" cy="312.0" r="44" fill="#ffffff" fill-opacity="0.65"/><circle cx="512.0" cy="502.0" r="54" fill="#ffffff" fill-opacity="0.85"/><circle cx="512.0" cy="768.0" r="121" fill="url(#glow)"/><circle cx="512.0" cy="768.0" r="70" fill="#fbbf24"/>
+<!-- 26.65 (D296): flat graphite ground, no gradient and no glow -->
+<rect x="40" y="40" width="944" height="944" rx="212" fill="#1c2230"/>
+<ellipse cx="512" cy="520" rx="300" ry="210" fill="none" stroke="#ffffff" stroke-opacity="0.62" stroke-width="22"/>
+<line x1="512" y1="160" x2="512" y2="880" stroke="#ffffff" stroke-opacity="0.62" stroke-width="22" stroke-linecap="round"/>
+<circle cx="512.0" cy="198.0" r="34" fill="#ffffff" fill-opacity="0.45"/><circle cx="512.0" cy="312.0" r="44" fill="#ffffff" fill-opacity="0.65"/><circle cx="512.0" cy="502.0" r="54" fill="#ffffff" fill-opacity="0.85"/><circle cx="512.0" cy="768.0" r="70" fill="#f2a900"/>
 </svg>

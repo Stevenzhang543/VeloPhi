@@ -6,20 +6,24 @@
  * `DrawInput.style` (projector mode). Optional layers let `renderFrame` put purely visual effects (motion
  * blur, trails, particles) underneath or on top of the bodies.
  */
-import { tl, listSep, paren } from '../i18n'
+import { tl, listSep, paren, semiSep } from '../i18n'
 import type { BodyModel, System } from '../engine/model'
+import type { ChangeDetail } from '../engine/types'
 import type { Recording } from '../engine/recording'
 import type { ForceKind, FrameView, Pose } from '../engine/views'
 import { positions, vectorScalesOf } from '../engine/views'
 import type { EngineSession } from '../engine/session'
 import type { AnnotationDef } from '../core/scene/types'
 import type { UnitChoice } from '../units/units'
+import { numberStyle, withDecimal } from '../units/units'
 import type { RenderStyle } from './style'
 import { FONT, MONO, beginRender, currentStyle, disp, font, fpx, lw, q, tickText, unit } from './style'
 import { drawAnnotations } from './annotations'
 import { drawChargeSign, drawFieldMap, drawUniformFields, fieldLegend, frameSources, visibleFieldMap } from './fields'
 import { drawRailLoops, drawRegions } from './regions'
 import type { Highlight } from '../formula/panel'
+import type { Box } from './labels'
+import { LabelLayer, besideCandidates, haloText, liftContrast, nearestPoint, overlaps, tickSide } from './labels'
 
 /** View of the world: centre (m), zoom (px/m) and canvas size (CSS px). */
 export interface Camera { cx: number; cy: number; ppm: number; width: number; height: number }
@@ -42,6 +46,12 @@ export interface Palette {
   spark?: string; dust?: string; note?: string
   /** Electric and magnetic forces, field lines and charge signs (26.54; optional for palettes made elsewhere). */
   electric?: string; magnetic?: string; positive?: string; negative?: string
+  /**
+   * 26.65 (D7): field lines of the charges, the faint lines of a uniform field, equipotentials, and the ink a body's
+   * trajectory is mixed towards when its own colour is too close to the canvas (tokens.css `--canvas-…`, see
+   * CANVAS_TOKENS); the opacity of trajectories and the contrast they keep at least. Optional for palettes made elsewhere.
+   */
+  fieldLine?: string; fieldFaint?: string; equipotential?: string; traceInk?: string; traceAlpha?: number; traceMin?: number
 }
 
 /** Palette of the light theme. */
@@ -50,7 +60,8 @@ export const LIGHT: Palette = {
   velocity: '#16a34a', acceleration: '#ea580c', gravity: '#7c3aed', normal: '#2563eb', friction: '#dc2626', tension: '#0891b2', spring: '#ca8a04', applied: '#db2777',
   staticFill: '#d7dbe2', staticStroke: '#6b7280', rope: '#44403c', label: '#1c1c1e', labelBg: 'rgba(255,255,255,0.92)',
   spark: '#f59e0b', dust: '#8b8378', note: '#c2410c',
-  electric: '#0f766e', magnetic: '#a16207', positive: '#dc2626', negative: '#2563eb'
+  electric: '#0f766e', magnetic: '#a16207', positive: '#dc2626', negative: '#2563eb',
+  fieldLine: '#0f766e', fieldFaint: 'rgba(15, 118, 110, 0.34)', equipotential: 'rgba(60, 60, 67, 0.58)', traceInk: '#1c1c1e', traceAlpha: 0.55, traceMin: 1.8
 }
 /** Palette of the dark theme. */
 export const DARK: Palette = {
@@ -58,24 +69,53 @@ export const DARK: Palette = {
   velocity: '#4ade80', acceleration: '#fb923c', gravity: '#a78bfa', normal: '#60a5fa', friction: '#f87171', tension: '#22d3ee', spring: '#facc15', applied: '#f472b6',
   staticFill: '#2c2f36', staticStroke: '#8b93a1', rope: '#d6d3d1', label: '#f5f5f7', labelBg: 'rgba(28,28,31,0.92)',
   spark: '#fcd34d', dust: '#b8b0a4', note: '#fdba74',
-  electric: '#2dd4bf', magnetic: '#fbbf24', positive: '#f87171', negative: '#60a5fa'
+  electric: '#2dd4bf', magnetic: '#fbbf24', positive: '#f87171', negative: '#60a5fa',
+  fieldLine: '#5eead4', fieldFaint: 'rgba(94, 234, 212, 0.36)', equipotential: 'rgba(235, 235, 245, 0.42)', traceInk: '#f5f5f7', traceAlpha: 0.85, traceMin: 3
 }
+
+/**
+ * 26.65 (D7): the palette fields that are canvas tokens of src/app/tokens.css. The values written above are the same
+ * (tests/render/canvas2665.test.ts compares them); in the app `applyCanvasTokens` reads the shown theme's values, so
+ * tokens.css stays the one place they are decided. Exports and workers without a document use the values above.
+ */
+export const CANVAS_TOKENS = { fieldLine: '--canvas-field-line', fieldFaint: '--canvas-field-faint', equipotential: '--canvas-equipotential', traceInk: '--canvas-trajectory-ink' } as const
 
 /** Base colours, kept to switch back from the colour-vision palette (26.58, D139). */
 const LIGHT_BASE: Palette = { ...LIGHT }
 const DARK_BASE: Palette = { ...DARK }
+let colourVision = false
 /**
  * Vector and charge colours of the colour-vision-friendly palette (from the Okabe–Ito and Tol sets): chosen by search so
  * that the seven colours of a free-body diagram stay apart (CIEDE2000 ≥ 13.9 light / 15.4 dark) for normal vision,
  * protanopia, deuteranopia and tritanopia, with 3:1 contrast on the canvas; every arrow still carries its letter.
  */
-const CVD_LIGHT: Partial<Palette> = { velocity: '#117733', acceleration: '#0077BB', gravity: '#5D3A9B', normal: '#009988', friction: '#EE3377', tension: '#882255', spring: '#B88A00', applied: '#000000', positive: '#EE3377', negative: '#0077BB', electric: '#009988', magnetic: '#B88A00' }
-const CVD_DARK: Partial<Palette> = { velocity: '#9FD3F5', acceleration: '#FFB000', gravity: '#AA4499', normal: '#648FFF', friction: '#EE7733', tension: '#EEDD88', spring: '#b0b0b0', applied: '#f0f0f0', positive: '#EE7733', negative: '#648FFF', electric: '#9FD3F5', magnetic: '#EEDD88' }
+const CVD_LIGHT: Partial<Palette> = { velocity: '#117733', acceleration: '#0077BB', gravity: '#5D3A9B', normal: '#009988', friction: '#EE3377', tension: '#882255', spring: '#B88A00', applied: '#000000', positive: '#EE3377', negative: '#0077BB', electric: '#009988', magnetic: '#B88A00', fieldLine: '#009988', fieldFaint: 'rgba(0, 153, 136, 0.34)' }
+const CVD_DARK: Partial<Palette> = { velocity: '#9FD3F5', acceleration: '#FFB000', gravity: '#AA4499', normal: '#648FFF', friction: '#EE7733', tension: '#EEDD88', spring: '#b0b0b0', applied: '#f0f0f0', positive: '#EE7733', negative: '#648FFF', electric: '#9FD3F5', magnetic: '#EEDD88', fieldLine: '#9FD3F5', fieldFaint: 'rgba(159, 211, 245, 0.36)' }
 
 /** Switch the canvas palettes (changed in place: every drawing picks them up). */
 export function setColourVision(on: boolean) {
+  colourVision = on
   Object.assign(LIGHT, LIGHT_BASE, on ? CVD_LIGHT : {})
   Object.assign(DARK, DARK_BASE, on ? CVD_DARK : {})
+}
+
+/**
+ * 26.65 (D7): take the canvas tokens of the theme that is shown (`read` returns a custom property of the document
+ * root, '' when it is not defined: the value of the palette is kept). The colour-vision palette keeps its own colours.
+ */
+export function applyCanvasTokens(dark: boolean, read: (name: string) => string) {
+  const base = dark ? DARK_BASE : LIGHT_BASE, live = dark ? DARK : LIGHT, cvd = dark ? CVD_DARK : CVD_LIGHT
+  for (const [key, name] of Object.entries(CANVAS_TOKENS) as Array<[keyof typeof CANVAS_TOKENS, string]>) {
+    const v = read(name).trim()
+    if (!v) continue
+    base[key] = v
+    if (!(colourVision && cvd[key] !== undefined)) live[key] = v
+  }
+}
+
+/** Colour of a body's trajectory on this palette (D7): its own colour, mixed towards the ink when too faint. */
+export function trajectoryColour(colour: string, P: Palette): string {
+  return P.traceInk && P.traceMin ? liftContrast(colour, P.bg, P.traceInk, P.traceMin, P.traceAlpha ?? 0.55) : colour
 }
 
 /** What the canvas shows (the overlay toggles). */
@@ -156,38 +196,96 @@ export function minorGridStep(ppm: number): number { return niceStep(ppm, 24) }
  * a static camera redrew some hundred lines and labels on every frame). The key holds the camera, the canvas size
  * and transform, the colours, the style factors, the length unit and the state of the web fonts.
  */
-let gridCache: { key: string; canvas: HTMLCanvasElement | OffscreenCanvas } | null = null
+let gridCache: { key: string; canvas: HTMLCanvasElement | OffscreenCanvas; texts: AxisText[] } | null = null
 
 /**
  * 26.60 (D205): the strip of the canvas covered by floating controls at its bottom (the timeline bar), in CSS px. The
- * scale bar and the notes at the bottom left are drawn above it.
+ * scale bar and the notes at the bottom left are drawn above it; 26.65 (D4): so are the tick numbers and axis names
+ * pinned to the bottom edge, and the labels keep off it.
  */
 let bottomInset = 0
 /** The same at the left edge (the floating tool strip): the scale bar starts right of it. */
 let leftInset = 0
-export function setBottomInset(px: number, left = 0) { bottomInset = Number.isFinite(px) ? Math.max(0, px) : 0; leftInset = Number.isFinite(left) ? Math.max(0, left) : 0 }
+/** 26.65 (D5): the width at the top right taken by a floating button (the studio's "fit view"): the field legend stays left of it. */
+let topRightInset = 0
+export function setBottomInset(px: number, left = 0, topRight = 0) {
+  bottomInset = Number.isFinite(px) ? Math.max(0, px) : 0
+  leftInset = Number.isFinite(left) ? Math.max(0, left) : 0
+  topRightInset = Number.isFinite(topRight) ? Math.max(0, topRight) : 0
+}
 export function getBottomInset(): number { return bottomInset }
 
-function drawGrid(ctx: CanvasRenderingContext2D, cam: Camera, P: Palette, axes: boolean, grid: boolean) {
-  if (!axes && !grid) return
+/**
+ * A number or name of the axes (26.65, D1, D4, D6): measured with the grid (cached with it) but drawn after the bodies,
+ * with a halo, where the label placement leaves room. (x, y) is the start of the baseline; `alt` the same text on the
+ * other side of its axis (absent when the axis is off screen and the text is pinned to the edge).
+ */
+export interface AxisText { text: string; x: number; y: number; w: number; size: number; kind: 'tick' | 'name'; alt: [number, number] | null }
+
+/** Box of a text of width w and font size `size` with its baseline starting at (x, y) (the halo included). */
+export function textBoxAt(x: number, y: number, w: number, size: number): Box { return { x: x - 2, y: y - size, w: w + 4, h: size + 3 } }
+
+function drawGrid(ctx: CanvasRenderingContext2D, cam: Camera, P: Palette, axes: boolean, grid: boolean): AxisText[] {
+  if (!axes && !grid) return []
   const m = typeof ctx.getTransform === 'function' ? ctx.getTransform() : null
   const target = ctx.canvas as HTMLCanvasElement | OffscreenCanvas | undefined
-  if (!m || m.b !== 0 || m.c !== 0 || !target || (typeof OffscreenCanvas === 'undefined' && typeof document === 'undefined')) { paintGrid(ctx, cam, P, axes, grid); return }
+  if (!m || m.b !== 0 || m.c !== 0 || !target || (typeof OffscreenCanvas === 'undefined' && typeof document === 'undefined')) { paintGrid(ctx, cam, P, axes, grid); return axes ? axisTexts(ctx, cam) : [] }
   const st = currentStyle()
   const fonts = typeof document !== 'undefined' && document.fonts ? `${document.fonts.status}${document.fonts.size}` : ''
-  const key = [cam.cx, cam.cy, cam.ppm, cam.width, cam.height, target.width, target.height, m.a, m.d, m.e, m.f, P.bg, P.gridMinor, P.gridMajor, P.text2, axes, grid, st.font, st.line, unit('m'), disp(1, 'm'), fonts, bottomInset, leftInset].join('|')
+  const key = [cam.cx, cam.cy, cam.ppm, cam.width, cam.height, target.width, target.height, m.a, m.d, m.e, m.f, P.bg, P.gridMinor, P.gridMajor, P.text2, axes, grid, st.font, st.line, unit('m'), disp(1, 'm'), fonts, bottomInset, leftInset, FONT, numberStyle.decimal].join('|')
   if (!gridCache || gridCache.key !== key) {
     const c = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(target.width, target.height) : Object.assign(document.createElement('canvas'), { width: target.width, height: target.height })
     const g = c.getContext('2d') as CanvasRenderingContext2D | null
-    if (!g) { paintGrid(ctx, cam, P, axes, grid); return }
+    if (!g) { paintGrid(ctx, cam, P, axes, grid); return axes ? axisTexts(ctx, cam) : [] }
     g.setTransform(m.a, 0, 0, m.d, m.e, m.f)
     paintGrid(g, cam, P, axes, grid)
-    gridCache = { key, canvas: c }
+    gridCache = { key, canvas: c, texts: axes ? axisTexts(g, cam) : [] }
   }
   ctx.save()
   ctx.setTransform(1, 0, 0, 1, 0, 0)
   ctx.drawImage(gridCache.canvas as CanvasImageSource, 0, 0)
   ctx.restore()
+  return gridCache.texts
+}
+
+/**
+ * The axis names, the origin and the tick numbers at the major lines (in the display length unit), every other one
+ * when they would crowd. Pinned to the edge when their axis is off screen; at the bottom above the floating timeline.
+ */
+function axisTexts(ctx: CanvasRenderingContext2D, cam: Camera): AxisText[] {
+  const out: AxisText[] = []
+  const major = minorGridStep(cam.ppm) * 5
+  const topLeft = toWorld(cam, 0, 0), br = toWorld(cam, cam.width, cam.height)
+  const lu = unit('m')
+  const [ox, oy] = toScreen(cam, 0, 0)
+  const s11 = fpx(11), s10 = fpx(10)
+  // lowest baseline: above the floating timeline (D4)
+  const floor = Math.max(fpx(12), cam.height - 30 - bottomInset)
+  const xOn = oy >= fpx(12) && oy <= floor, yOn = ox >= 4 && ox <= cam.width - 40
+  ctx.font = font(11)
+  const xName = `x / ${lu}`, yName = `y / ${lu}`
+  const xw = ctx.measureText(xName).width, yw = ctx.measureText(yName).width, ow = ctx.measureText('O').width
+  out.push({ text: xName, x: cam.width - xw - 6, y: Math.max(fpx(12), Math.min(floor, oy - 4)), w: xw, size: s11, kind: 'name', alt: xOn ? [cam.width - xw - 6, oy + fpx(12)] : null })
+  out.push({ text: yName, x: Math.max(4, Math.min(cam.width - 50, ox + 4)), y: fpx(12), w: yw, size: s11, kind: 'name', alt: yOn ? [ox - 4 - yw, fpx(12)] : null })
+  if (xOn && yOn) out.push({ text: 'O', x: ox + 3, y: oy + fpx(12), w: ow, size: s11, kind: 'name', alt: [ox - 3 - ow, oy - 4] })
+  ctx.font = font(10, MONO)
+  const ly = Math.max(fpx(12), Math.min(floor, oy + fpx(12)))
+  const every = major * cam.ppm < fpx(10) * 7 ? 2 : 1
+  for (let x = Math.ceil(topLeft.x / major) * major; x <= br.x; x += major) {
+    if (Math.abs(x) < major * 1e-6 || (Math.round(x / major) % every) !== 0) continue
+    const [sx] = toScreen(cam, x, 0)
+    const s = withDecimal(tickText(disp(x, 'm'))), w = ctx.measureText(s).width
+    out.push({ text: s, x: sx + 3, y: ly, w, size: s10, kind: 'tick', alt: xOn ? [sx + 3, oy - 4] : null })
+  }
+  const lx = Math.max(4, Math.min(cam.width - 40, ox + 4))
+  for (let y = Math.ceil(br.y / major) * major; y <= topLeft.y; y += major) {
+    if (Math.abs(y) < major * 1e-6 || (Math.round(y / major) % every) !== 0) continue
+    const [, sy] = toScreen(cam, 0, y)
+    if (sy < fpx(20) || sy > cam.height - 24 - bottomInset) continue
+    const s = withDecimal(tickText(disp(y, 'm'))), w = ctx.measureText(s).width
+    out.push({ text: s, x: lx, y: sy - 3, w, size: s10, kind: 'tick', alt: yOn ? [ox - 4 - w, sy - 3] : null })
+  }
+  return out
 }
 
 function paintGrid(ctx: CanvasRenderingContext2D, cam: Camera, P: Palette, axes: boolean, grid: boolean) {
@@ -203,43 +301,17 @@ function paintGrid(ctx: CanvasRenderingContext2D, cam: Camera, P: Palette, axes:
       ctx.stroke()
     }
   }
-  const lu = unit('m')
   if (axes) {
+    // 26.65 (D3): the axes are lighter than the strokes of the scene (a rope hanging from the origin is drawn over
+    // them with a halo, so it is not read as part of the axis); their numbers are drawn with the labels
     const [ox, oy] = toScreen(cam, 0, 0)
+    ctx.save()
     ctx.strokeStyle = P.text2
+    ctx.globalAlpha = 0.7
     ctx.lineWidth = lw(1)
     ctx.setLineDash([4, 4])
     ctx.beginPath(); ctx.moveTo(0, oy); ctx.lineTo(cam.width, oy); ctx.moveTo(ox, 0); ctx.lineTo(ox, cam.height); ctx.stroke()
-    ctx.setLineDash([])
-    ctx.fillStyle = P.text2
-    ctx.font = font(11)
-    const xName = `x / ${lu}`, yName = `y / ${lu}`
-    ctx.fillText(xName, cam.width - ctx.measureText(xName).width - 6, Math.max(fpx(12), Math.min(cam.height - 30, oy - 4)))
-    ctx.fillText(yName, Math.max(4, Math.min(cam.width - 50, ox + 4)), fpx(12))
-    ctx.fillText('O', ox + 3, oy + fpx(12))
-    // Tick labels at the major lines, in the display length unit; pinned to the edge when the axis is off screen
-    ctx.font = font(10, MONO)
-    const ly = Math.max(fpx(12), Math.min(cam.height - 30, oy + fpx(12)))
-    // Label every major line, or every other one when they would crowd
-    const every = major * cam.ppm < fpx(10) * 7 ? 2 : 1
-    // 26.60: no tick label under the axis name at the right end
-    ctx.font = font(11)
-    const nameLeft = cam.width - ctx.measureText(xName).width - 10
-    ctx.font = font(10, MONO)
-    for (let x = Math.ceil(topLeft.x / major) * major; x <= br.x; x += major) {
-      if (Math.abs(x) < major * 1e-6 || (Math.round(x / major) % every) !== 0) continue
-      const [sx] = toScreen(cam, x, 0)
-      const s = tickText(disp(x, 'm'))
-      if (Math.abs(ly - Math.max(fpx(12), Math.min(cam.height - 30, oy - 4))) < fpx(14) && sx + 3 + ctx.measureText(s).width > nameLeft) continue
-      ctx.fillText(s, sx + 3, ly)
-    }
-    const lx = Math.max(4, Math.min(cam.width - 40, ox + 4))
-    for (let y = Math.ceil(br.y / major) * major; y <= topLeft.y; y += major) {
-      if (Math.abs(y) < major * 1e-6 || (Math.round(y / major) % every) !== 0) continue
-      const [, sy] = toScreen(cam, 0, y)
-      if (sy < fpx(20) || sy > cam.height - 24) continue
-      ctx.fillText(tickText(disp(y, 'm')), lx, sy - 3)
-    }
+    ctx.restore()
   }
 }
 
@@ -247,13 +319,21 @@ function paintGrid(ctx: CanvasRenderingContext2D, cam: Camera, P: Palette, axes:
  * The scale bar at the bottom left (26.60: drawn over the scene with a backing, above the floating controls — under
  * the scene a ground or an incline hid its label).
  */
+function scaleBarBox(ctx: CanvasRenderingContext2D, cam: Camera): Box {
+  const len = minorGridStep(cam.ppm) * 5 * cam.ppm
+  const by = cam.height - 14 - bottomInset, bx = 14 + leftInset
+  ctx.font = font(11, MONO)
+  const tw = ctx.measureText(`${withDecimal(tickText(disp(minorGridStep(cam.ppm) * 5, 'm')))} ${unit('m')}`).width
+  return { x: bx - 6, y: by - 10, w: len + tw + 18, h: 20 }
+}
+
 function drawScaleBar(ctx: CanvasRenderingContext2D, cam: Camera, P: Palette) {
   const bar = minorGridStep(cam.ppm) * 5
   const len = bar * cam.ppm
   const by = cam.height - 14 - bottomInset, bx = 14 + leftInset
   ctx.save()
   ctx.font = font(11, MONO)
-  const text = `${tickText(disp(bar, 'm'))} ${unit('m')}`
+  const text = `${withDecimal(tickText(disp(bar, 'm')))} ${unit('m')}`
   const tw = ctx.measureText(text).width
   ctx.fillStyle = P.labelBg
   ctx.globalAlpha = 0.85
@@ -318,6 +398,8 @@ function bodyTop(b: BodyModel, pose: Pose): number {
 let hatchCache: { color: string; pattern: CanvasPattern | null } | null = null
 function hatch(ctx: CanvasRenderingContext2D, P: Palette): CanvasPattern | string {
   if (hatchCache && hatchCache.color === P.staticStroke + P.staticFill) return hatchCache.pattern ?? P.staticFill
+  // without a document (a worker, the tests) the fixed bodies are filled plainly
+  if (typeof document === 'undefined') return P.staticFill
   const c = document.createElement('canvas')
   c.width = c.height = 10
   const g = c.getContext('2d')!
@@ -430,6 +512,84 @@ export function bodyBox(b: BodyModel, pose: Pose, cam: Camera): LabelBox {
   if (!Number.isFinite(x0)) add(0, 0)
   const [sx0, sy0] = toScreen(cam, x0, y1), [sx1, sy1] = toScreen(cam, x1, y0)
   return { x: sx0, y: sy0, w: sx1 - sx0, h: sy1 - sy0 }
+}
+
+/**
+ * A polygon (screen points, x and y interleaved) and a box share some area (pure; 26.65): an edge crosses the box, or
+ * the box lies inside the polygon. Used to keep labels off fixed bodies by their real outline (the box of an incline
+ * would cover all the air above its slope).
+ */
+export function boxTouchesPolygon(b: Box, poly: ArrayLike<number>): boolean {
+  const n = poly.length >> 1
+  if (n < 2) return false
+  const x0 = b.x, y0 = b.y, x1 = b.x + b.w, y1 = b.y + b.h
+  for (let i = 0; i < n; i++) {
+    const ax = poly[2 * i], ay = poly[2 * i + 1], j = (i + 1) % n, bx = poly[2 * j], by = poly[2 * j + 1]
+    // Liang–Barsky: does the edge a→b enter the box?
+    const dx = bx - ax, dy = by - ay
+    lbT0 = 0; lbT1 = 1
+    if (lbClip(-dx, ax - x0) && lbClip(dx, x1 - ax) && lbClip(-dy, ay - y0) && lbClip(dy, y1 - ay) && lbT0 < lbT1) return true
+  }
+  // no edge crosses: the box is either outside or wholly inside (even–odd test of its centre)
+  const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2
+  let inside = false
+  for (let i = 0, j = n - 1; i < n; j = i++) {
+    const xi = poly[2 * i], yi = poly[2 * i + 1], xj = poly[2 * j], yj = poly[2 * j + 1]
+    if ((yi > cy) !== (yj > cy) && cx < ((xj - xi) * (cy - yi)) / (yj - yi) + xi) inside = !inside
+  }
+  return inside
+}
+
+let lbT0 = 0, lbT1 = 1
+/** One boundary of the Liang–Barsky clip (narrows [lbT0, lbT1]; false: the segment misses the box). */
+function lbClip(p: number, q: number): boolean {
+  // an edge running along the border of the box only touches it
+  if (p === 0) return q > 0
+  const r = q / p
+  if (p < 0) { if (r > lbT1) return false; if (r > lbT0) lbT0 = r } else { if (r < lbT0) return false; if (r < lbT1) lbT1 = r }
+  return true
+}
+
+/** Screen outline of a part of a fixed body (26.65): a polygon or a circle, with its box. */
+interface FixedShape { box: Box; poly: Float64Array | null; cx: number; cy: number; r: number }
+
+/** The outlines of the fixed bodies of a frame on screen (the labels keep off them where they can). */
+function fixedShapes(model: System['model'], poses: Pose[], cam: Camera): FixedShape[] {
+  const out: FixedShape[] = []
+  for (const b of model.bodies) {
+    if (b.dynamic) continue
+    const pose = poses[b.global]
+    const loops = b.shape.kind === 'circle' ? [{ kind: 'circle' as const, center: { x: 0, y: 0 }, radius: b.shape.radius }] : b.shape.kind === 'polygon' ? [{ kind: 'polygon' as const, verts: b.shape.verts }] : b.shape.outline
+    for (const loop of loops) {
+      if (loop.kind === 'circle') {
+        const [sx, sy] = toScreen(cam, pose.x + pose.c * loop.center.x - pose.s * loop.center.y, pose.y + pose.s * loop.center.x + pose.c * loop.center.y)
+        const r = loop.radius * cam.ppm
+        out.push({ box: { x: sx - r, y: sy - r, w: 2 * r, h: 2 * r }, poly: null, cx: sx, cy: sy, r })
+        continue
+      }
+      const poly = new Float64Array(2 * loop.verts.length)
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
+      loop.verts.forEach((v, i) => {
+        const [sx, sy] = toScreen(cam, pose.x + pose.c * v.x - pose.s * v.y, pose.y + pose.s * v.x + pose.c * v.y)
+        poly[2 * i] = sx; poly[2 * i + 1] = sy
+        x0 = Math.min(x0, sx); x1 = Math.max(x1, sx); y0 = Math.min(y0, sy); y1 = Math.max(y1, sy)
+      })
+      out.push({ box: { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }, poly, cx: 0, cy: 0, r: 0 })
+    }
+  }
+  return out
+}
+
+/** A box shares area with one of the fixed outlines. */
+function touchesFixed(b: Box, shapes: FixedShape[]): boolean {
+  for (const s of shapes) {
+    if (!overlaps(b, s.box)) continue
+    if (!s.poly) {
+      const px = Math.max(b.x, Math.min(s.cx, b.x + b.w)), py = Math.max(b.y, Math.min(s.cy, b.y + b.h))
+      if ((px - s.cx) ** 2 + (py - s.cy) ** 2 < s.r * s.r) return true
+    } else if (boxTouchesPolygon(b, s.poly)) return true
+  }
+  return false
 }
 
 function drawSpring(ctx: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number, color: string, ppm: number) {
@@ -567,6 +727,31 @@ export function sumContactPoints<T extends { x: number; y: number; fx: number; f
   return out
 }
 
+type RopeModel = System['model']['ropes'][number]
+type RopeView = FrameView['ropes'][number]
+/** The path of a rope that is not broken (straight runs and the arcs around pulleys, or the sag of a slack rope). */
+function ropePath(ctx: CanvasRenderingContext2D, cam: Camera, r: RopeModel, path: RopeView) {
+  const pts = path.points
+  if (!path.taut && r.length - path.length > 1e-6 && r.pulleys.length === 0 && pts.length >= 4) {
+    // Slack rope: a sagging curve whose arc is about the rope length (visual only)
+    const [x0, y0] = toScreen(cam, pts[0], pts[1]), [x1, y1] = toScreen(cam, pts[2], pts[3])
+    const sag = Math.sqrt(Math.max(0, (r.length * r.length - path.length * path.length))) * 0.5 * cam.ppm
+    ctx.moveTo(x0, y0)
+    ctx.quadraticCurveTo((x0 + x1) / 2, Math.max(y0, y1) + sag, x1, y1)
+    return
+  }
+  for (let i = 0; i + 3 < pts.length; i += 4) {
+    const [x0, y0] = toScreen(cam, pts[i], pts[i + 1]), [x1, y1] = toScreen(cam, pts[i + 2], pts[i + 3])
+    ctx.moveTo(x0, y0); ctx.lineTo(x1, y1)
+  }
+  for (let i = 0; i + 5 < path.arcs.length; i += 6) {
+    const ax = path.arcs[i], ay = path.arcs[i + 1], ar = path.arcs[i + 2], from = path.arcs[i + 3], to = path.arcs[i + 4], wrap = path.arcs[i + 5]
+    const [sx, sy] = toScreen(cam, ax, ay)
+    ctx.moveTo(sx + Math.cos(-from) * ar * cam.ppm, sy + Math.sin(-from) * ar * cam.ppm)
+    ctx.arc(sx, sy, ar * cam.ppm, -from, -to, wrap < 0)
+  }
+}
+
 // Static bodies first, then dynamic ones, in scene order (cached per model: no per-frame sort)
 const drawOrderCache = new WeakMap<object, BodyModel[]>()
 function drawOrder(model: System['model']): BodyModel[] {
@@ -582,10 +767,33 @@ export function drawScene(ctx: CanvasRenderingContext2D, cam: Camera, input: Dra
   const model = sys.model
   ctx.fillStyle = P.bg
   ctx.fillRect(0, 0, cam.width, cam.height)
-  drawGrid(ctx, cam, P, options.axes, options.grid)
+  const axisList = drawGrid(ctx, cam, P, options.axes, options.grid)
   const poses = view.poses
-  // 26.55 (D90–D92): field regions, liquids and rail loops under everything else
-  if (model.settings.regions?.length) drawRegions(ctx, cam, model.settings, input.time + (model.settings.startTime ?? 0), P, input.digits, input.editing ? input.selectedRegion ?? null : null)
+  // 26.65 (D3): ropes and rods clear a thin halo in the canvas colour from the grid and the axes, so a rope hanging
+  // along an axis or a grid line reads as a rope (regions, fields, trajectories, effects and bodies are drawn over the
+  // halo, the connectors themselves later)
+  if (options.axes || options.grid) {
+    ctx.save()
+    ctx.strokeStyle = P.bg
+    ctx.lineCap = 'round'
+    model.ropes.forEach((r, k) => {
+      const path = view.ropes[k]
+      if (!path || path.broken) return
+      ctx.lineWidth = lw(1.6) + 4
+      ctx.beginPath(); ropePath(ctx, cam, r, path); ctx.stroke()
+    })
+    ctx.lineWidth = lw(4) + 4
+    const rods = view.anchors.rods
+    model.rods.forEach((_, i) => {
+      const [x0, y0] = toScreen(cam, rods[4 * i], rods[4 * i + 1]), [x1, y1] = toScreen(cam, rods[4 * i + 2], rods[4 * i + 3])
+      ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke()
+    })
+    ctx.restore()
+  }
+  // 26.55 (D90–D92): field regions, liquids and rail loops under everything else; 26.65: their labels and the surface
+  // of a liquid are kept free of other labels
+  regionMarks.length = 0
+  if (model.settings.regions?.length) drawRegions(ctx, cam, model.settings, input.time + (model.settings.startTime ?? 0), P, input.digits, input.editing ? input.selectedRegion ?? null : null, regionMarks)
   if (model.settings.railLoops?.length) drawRailLoops(ctx, cam, model.settings, id => model.byId.get(id)?.def.position ?? null, P, input.digits)
   // 26.54 (D78–D79): uniform fields, then the field lines and equipotentials of the charges (computed by the core)
   if (options.fields !== false) drawUniformFields(ctx, cam, model.settings, P)
@@ -607,8 +815,9 @@ export function drawScene(ctx: CanvasRenderingContext2D, cam: Camera, input: Dra
       if (!tr) continue
       const upto = trajectoryUpTo(input.trajectories, input.frame)
       if (upto < 2) continue
-      ctx.strokeStyle = b.def.color
-      ctx.globalAlpha = 0.55
+      // 26.65 (D7): the body's colour, lifted when it would be too faint on this canvas (a dark red on the dark theme)
+      ctx.strokeStyle = trajectoryColour(b.def.color, P)
+      ctx.globalAlpha = P.traceAlpha ?? 0.55
       ctx.lineWidth = lw(1.6)
       ctx.setLineDash([2, 3])
       ctx.beginPath()
@@ -728,39 +937,22 @@ export function drawScene(ctx: CanvasRenderingContext2D, cam: Camera, input: Dra
   // Connectors
   model.ropes.forEach((r, k) => {
     const path = view.ropes[k]
-    const taut = path.taut
-    const slack = r.length - path.length
     const lit = !!hl && hl.connectors.includes('rope')
     ctx.strokeStyle = r.id === input.selectedId || lit ? P.accent : P.rope
     ctx.lineWidth = lw(r.id === input.selectedId || lit ? 2.6 : 1.6)
     ctx.save()
     if (lit) { ctx.shadowColor = P.accent; ctx.shadowBlur = 10 }
     ctx.beginPath()
-    const pts: Array<[number, number]> = []
-    for (let i = 0; i + 1 < path.points.length; i += 2) pts.push(toScreen(cam, path.points[i], path.points[i + 1]))
     if (path.broken) {
       // 26.63 (D231): a broken rope hangs from each end as a short frayed piece (visual only)
       const stub = Math.min(r.length * 0.35 * cam.ppm, 46)
       ctx.setLineDash([lw(5), lw(3)])
-      for (const [x, y] of [pts[0], pts[pts.length - 1]]) {
+      const n = path.points.length
+      for (const [x, y] of [toScreen(cam, path.points[0], path.points[1]), toScreen(cam, path.points[n - 2], path.points[n - 1])]) {
         ctx.moveTo(x, y); ctx.lineTo(x, y + stub)
         ctx.moveTo(x - lw(3), y + stub + lw(4)); ctx.lineTo(x, y + stub); ctx.lineTo(x + lw(3), y + stub + lw(4))
       }
-    } else if (!taut && slack > 1e-6 && r.pulleys.length === 0) {
-      // Slack rope: a sagging curve whose arc is about the rope length (visual only)
-      const [x0, y0] = pts[0], [x1, y1] = pts[1]
-      const sag = Math.sqrt(Math.max(0, (r.length * r.length - path.length * path.length))) * 0.5 * cam.ppm
-      ctx.moveTo(x0, y0)
-      ctx.quadraticCurveTo((x0 + x1) / 2, Math.max(y0, y1) + sag, x1, y1)
-    } else {
-      for (let i = 0; i + 1 < pts.length; i += 2) { ctx.moveTo(pts[i][0], pts[i][1]); ctx.lineTo(pts[i + 1][0], pts[i + 1][1]) }
-      for (let i = 0; i + 5 < path.arcs.length; i += 6) {
-        const ax = path.arcs[i], ay = path.arcs[i + 1], ar = path.arcs[i + 2], from = path.arcs[i + 3], to = path.arcs[i + 4], wrap = path.arcs[i + 5]
-        const [sx, sy] = toScreen(cam, ax, ay)
-        ctx.moveTo(sx + Math.cos(-from) * ar * cam.ppm, sy + Math.sin(-from) * ar * cam.ppm)
-        ctx.arc(sx, sy, ar * cam.ppm, -from, -to, wrap < 0)
-      }
-    }
+    } else ropePath(ctx, cam, r, path)
     ctx.stroke()
     ctx.restore()
   })
@@ -905,23 +1097,9 @@ export function drawScene(ctx: CanvasRenderingContext2D, cam: Camera, input: Dra
   }
 
   // Vectors (their value labels avoid each other, 26.53; 26.54, D88: the labels are drawn after all arrows, so no
-  // arrow covers a label drawn before it)
-  const valueFont = font(11, MONO)
-  const forceLabels: LabelBox[] = []
+  // arrow covers a label drawn before it; 26.65: they are placed with the other labels below)
   const pendingTags: Array<[number, number, string, string, [number, number] | undefined]> = []
   const later = (x: number, y: number, text: string, color: string, anchor?: [number, number]) => { pendingTags.push([x, y, text, color, anchor]) }
-  // 26.57 (D119): the moving bodies and their names are obstacles for the value labels
-  const obstacles: LabelBox[] = input.editing ? [] : model.dynamic.map(b => bodyBox(b, poses[b.global], cam))
-  if (options.names && !input.editing) {
-    ctx.font = font(12)
-    for (const b of model.dynamic) {
-      if (!inFocus(b.id)) continue
-      const pose = poses[b.global]
-      const [sx] = toScreen(cam, pose.x, pose.y), [, ty] = toScreen(cam, pose.x, bodyTop(b, pose))
-      const w = ctx.measureText(b.name).width
-      obstacles.push({ x: sx - w / 2 - 2, y: ty - 6 - fpx(12), w: w + 4, h: fpx(12) + 4 })
-    }
-  }
   for (const b of model.dynamic) {
     const pose = poses[b.global]
     const [sx, sy] = toScreen(cam, pose.x, pose.y)
@@ -970,7 +1148,6 @@ export function drawScene(ctx: CanvasRenderingContext2D, cam: Camera, input: Dra
     }
   }
   forceHits.set(ctx.canvas, arrowsDrawn)
-  for (const [x, y, text, color, anchor] of pendingTags) placeTag(ctx, forceLabels, x, y, text, color, P, valueFont, { anchor, obstacles })
   // 26.53 (D72): the angle of a surface (θ of an incline) at the body's main contact
   if (hl && hl.angle.length && view.forces.size) {
     for (const b of model.dynamic) {
@@ -1003,30 +1180,96 @@ export function drawScene(ctx: CanvasRenderingContext2D, cam: Camera, input: Dra
     }
   }
 
-  // Names
+  // 26.54: values of the uniform fields (26.65, D5: left of a floating button at the top right)
+  const legend = options.fields !== false && (model.settings.electric || model.settings.magnetic) ? fieldLegend(ctx, cam, model.settings, P, (v, u) => q(v, u, input.digits), topRightInset) : null
+  if (options.axes || options.grid) drawScaleBar(ctx, cam, P)
+
+  // ---- 26.65 (D1, D2, D5, D6): every label of the frame in one placement, in priority order ----
+  // names → axis names → vector values → key moments → tick numbers; nothing placed covers what was placed before,
+  // the moving bodies and pulleys are kept free, the fixed bodies (by their outline) wherever a candidate allows
+  const layer = frameLabels
+  layer.reset(cam.width, Math.max(1, cam.height - bottomInset), leftInset)
+  for (const b of model.dynamic) layer.obstacle(bodyBox(b, poses[b.global], cam))
+  model.pulleys.forEach((p, pi) => {
+    const [sx, sy] = toScreen(cam, view.pulleys[2 * pi], view.pulleys[2 * pi + 1]), r = Math.max(3, p.radius * cam.ppm) + 2
+    layer.obstacle({ x: sx - r, y: sy - r, w: 2 * r, h: 2 * r })
+  })
+  if (options.axes || options.grid) layer.obstacle(scaleBarBox(ctx, cam))
+  if (legend) layer.obstacle(legend)
+  for (const m of regionMarks) layer.obstacle(m)
+  const fixed = fixedShapes(model, poses, cam)
+  layer.softTest = fixed.length ? b => touchesFixed(b, fixed) : null
+  // Key moments: dots, rings and the solver note now; their labels are placed below
+  const moments = options.labels && input.rec && !input.editing ? keyMoments(ctx, cam, input, layer) : null
+  if (!moments) labelHits.delete(ctx.canvas)
+
+  // Everything is placed first and drawn afterwards: leader lines and stems under all texts
+  const out = frameTexts
+  out.length = 0
+  // Names (a halo in the canvas colour keeps lines and grid from cutting the glyphs)
   if (options.names) {
-    ctx.font = font(12)
-    ctx.fillStyle = P.text2
+    const fs = fpx(12), nameFont = font(12)
+    ctx.font = nameFont
     for (const b of model.dynamic) {
       if (!inFocus(b.id)) continue
       const pose = poses[b.global]
-      const top = bodyTop(b, pose)
-      const [sx] = toScreen(cam, pose.x, pose.y)
-      const [, ty] = toScreen(cam, pose.x, top)
+      const bb = bodyBox(b, pose, cam)
+      const [sx] = toScreen(cam, pose.x, pose.y), [, ty] = toScreen(cam, pose.x, bodyTop(b, pose))
       const w = ctx.measureText(b.name).width
-      ctx.fillText(b.name, sx - w / 2, ty - 6)
+      const box = textBoxAt(sx - w / 2, ty - 6, w, fs)
+      const cy = bb.y + bb.h / 2 - box.h / 2
+      const p = layer.place({ ...box, anchor: [sx, ty], candidates: [[0, 0], [0, -(box.h + 1)], [0, bb.y + bb.h + 4 - box.y], [bb.x + bb.w + 4 - box.x, cy - box.y], [bb.x - 4 - box.w - box.x, cy - box.y], [0, -2 * (box.h + 1)], [0, bb.y + bb.h + box.h + 5 - box.y]] })
+      if (p.leader) leader(ctx, sx, ty, p, P.text2)
+      out.push({ text: b.name, x: p.x + 2, y: p.y + fs, color: P.text2, font: nameFont, tag: false })
     }
   }
-
-  // Key moments
-  if (options.labels && input.rec && !input.editing) drawKeyMoments(ctx, cam, input)
-  else labelHits.delete(ctx.canvas)
+  // Axis names and the origin
+  const axisFont = font(11), tickFont = font(10, MONO)
+  const covered = (b: Box) => touchesFixed(b, fixed) || regionMarks.some(m => overlaps(b, m))
+  const axisAt = (t: AxisText): [number, number] => {
+    if (!t.alt) return [t.x, t.y]
+    const a = textBoxAt(t.x, t.y, t.w, t.size), o = textBoxAt(t.alt[0], t.alt[1], t.w, t.size)
+    return tickSide(a, o, covered) === 'other' ? t.alt : [t.x, t.y]
+  }
+  for (const t of axisList) {
+    if (t.kind !== 'name') continue
+    const [x, y] = axisAt(t)
+    const box = textBoxAt(x, y, t.w, t.size)
+    const p = layer.place({ ...box, candidates: t.alt ? [[0, 0], [t.alt[0] - x, t.alt[1] - y]] : undefined })
+    out.push({ text: t.text, x: p.x + 2, y: p.y + t.size, color: P.text2, font: axisFont, tag: false })
+  }
+  // Vector values, on their backing, with a leader line when moved away from the arrow's tip
+  {
+    const valueFont = font(11, MONO), vs = fpx(11)
+    ctx.font = valueFont
+    for (const [x, y, text, color, anchor] of pendingTags) {
+      const tw = ctx.measureText(text).width
+      const box: Box = { x: x - 3, y: y - vs, w: tw + 6, h: vs + 4 }
+      const ax = anchor ? anchor[0] : x
+      const p = layer.place({ ...box, anchor: anchor ?? null, candidates: besideCandidates(box.h, 2 * (ax - x) - box.w) })
+      if (p.leader && anchor) leader(ctx, anchor[0], anchor[1], p, color)
+      out.push({ text, x: p.x + 3, y: p.y + vs, color, font: valueFont, tag: true })
+    }
+  }
+  // Key-moment labels on their stems
+  if (moments) placeKeyMoments(ctx, moments, layer, P, out)
+  // Tick numbers: on the side of their axis that nothing fixed covers; on the other side (with their halo over the
+  // fixed body) when a label or a moving body takes that place; left out when both are taken
+  for (const t of axisList) {
+    if (t.kind !== 'tick') continue
+    const [x, y] = axisAt(t)
+    const other = t.alt && (t.alt[0] !== x || t.alt[1] !== y) ? t.alt : [t.x, t.y]
+    const p = layer.place({ ...textBoxAt(x, y, t.w, t.size), optional: true, candidates: t.alt ? [[0, 0], [other[0] - x, other[1] - y]] : undefined })
+    if (p.shown) out.push({ text: t.text, x: p.x + 2, y: p.y + t.size, color: P.text2, font: tickFont, tag: false })
+  }
+  // the texts, over every line: a halo in the canvas colour, or the rounded backing of a value
+  for (const t of out) {
+    if (t.tag) tag(ctx, t.x, t.y, t.text, t.color, P, t.font)
+    else { ctx.font = t.font; haloText(ctx, t.text, t.x, t.y, t.color, P.bg) }
+  }
 
   // Teaching annotations
   if (input.annotations && input.annotations.length) drawAnnotations(ctx, cam, input.annotations, P, input.digits, input.selectedAnnotation ?? null)
-  if (options.axes || options.grid) drawScaleBar(ctx, cam, P)
-  // 26.54: values of the uniform fields
-  if (options.fields !== false && (model.settings.electric || model.settings.magnetic)) fieldLegend(ctx, cam, model.settings, P, (v, u) => q(v, u, input.digits))
 
   // Pending connector preview
   if (input.pending) {
@@ -1141,11 +1384,40 @@ export function eventLabelAt(canvas: object, sx: number, sy: number): number | n
   return null
 }
 
-function drawKeyMoments(ctx: CanvasRenderingContext2D, cam: Camera, input: DrawInput) {
+/**
+ * 26.65 (D16): the text of a key moment, one clause per contact pair, rope or other subject — "地面–小球 接触；圆弧轨道–
+ * 小球 分离  t = 0.5197 s" (it used to name the pair of the first change only and list every change after it, so a ball
+ * that touched the ground while leaving the track read as touching and leaving the ground). Pure but for the language.
+ */
+export function momentText(changes: ReadonlyArray<Pick<ChangeDetail, 'type' | 'subject' | 'bodies' | 'kink' | 'impulse' | 'tangentImpulse'>>, nameOf: (id: string) => string, t: number, digits: number): string {
+  const groups: Array<{ key: string; who: string; what: string[]; detail: string }> = []
+  for (const ch of changes) {
+    if (ch.type === 'timestep') continue
+    const key = ch.subject || ch.bodies.join('|')
+    let g = groups.find(x => x.key === key)
+    if (!g) { g = { key, who: ch.bodies.map(nameOf).join('–'), what: [], detail: '' }; groups.push(g) }
+    const what = eventLabel(ch)
+    if (!g.what.includes(what)) g.what.push(what)
+    if (!g.detail) g.detail = impactDetail(ch, digits)
+  }
+  return `${groups.map(g => `${g.who} ${g.what.join(listSep())}${g.detail ? paren(g.detail) : ''}`).join(semiSep())}  t = ${q(t, 's', digits)}`
+}
+
+/** A key-moment label waiting for its place: the event's index, its point on screen and its text. */
+interface MomentLabel { event: number; sx: number; sy: number; text: string }
+
+/**
+ * Key moments up to the shown time: the dots and rings are drawn now (and the solver note, kept free of labels), the
+ * labels of the newest KEY_LABELS are returned to be placed with the other labels.
+ */
+function keyMoments(ctx: CanvasRenderingContext2D, cam: Camera, input: DrawInput, layer: LabelLayer): MomentLabel[] {
   const rec = input.rec!
   const P = input.palette
   const hits: LabelHit[] = []
   labelHits.set(ctx.canvas, hits)
+  const out: MomentLabel[] = []
+  const model = rec.system.model
+  const nameOf = (id: string) => model.byId.get(id)?.name ?? model.ropes.find(r => r.id === id)?.name ?? id
   // Events up to the current time (binary search; events are sorted by time)
   let lo = 0, hi = rec.events.length
   while (lo < hi) { const mid = (lo + hi) >> 1; if (rec.events[mid].t > input.time + 1e-12) hi = mid; else lo = mid + 1 }
@@ -1160,7 +1432,13 @@ function drawKeyMoments(ctx: CanvasRenderingContext2D, cam: Camera, input: DrawI
     const c = e.changes[0]
     if (c.type === 'timestep') {
       // A solver change has no place in the scene: one note above the scale bar
-      if (!solverNote) { solverNote = true; tag(ctx, 12, cam.height - 34 - bottomInset, tl('t = {0} 起{1}', [q(e.t, 's', input.digits), eventLabel(c)]), P.friction, P, font(11)) }
+      if (!solverNote) {
+        solverNote = true
+        const note = tl('t = {0} 起{1}', [q(e.t, 's', input.digits), eventLabel(c)]), f11 = font(11)
+        tag(ctx, 12, cam.height - 34 - bottomInset, note, P.friction, P, f11)
+        ctx.font = f11
+        layer.obstacle({ x: 9, y: cam.height - 34 - bottomInset - fpx(11), w: ctx.measureText(note).width + 6, h: fpx(11) + 4 })
+      }
       continue
     }
     const body = rec.system.model.byId.get(c.bodies.find(id => rec.system.model.byId.get(id)?.dynamic) ?? '')
@@ -1188,22 +1466,63 @@ function drawKeyMoments(ctx: CanvasRenderingContext2D, cam: Camera, input: DrawI
     ctx.fillStyle = P.accent
     ctx.beginPath(); ctx.arc(sx, sy, 3.5, 0, Math.PI * 2); ctx.fill()
     hits.push({ x: sx - 6, y: sy - 6, w: 12, h: 12, event: i })
+    // the dot is kept free of other labels
+    layer.obstacle({ x: sx - 4, y: sy - 4, w: 8, h: 8 })
     if (labelled >= KEY_LABELS) continue
-    ctx.strokeStyle = P.accent
-    ctx.lineWidth = lw(1)
-    const ly = sy - 30 - (labelled % 4) * fpx(20)
-    ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx, ly + 4); ctx.stroke()
-    const who = c.bodies.map(id => rec.system.model.byId.get(id)?.name ?? rec.system.model.ropes.find(r => r.id === id)?.name ?? id).join('–')
-    const what = e.changes.filter(ch => ch.type !== 'timestep').map(eventLabel).filter((v, i2, a) => a.indexOf(v) === i2).join(listSep())
-    const detail = impactDetail(c, input.digits)
-    const text = `${who} ${what}${detail ? paren(detail) : ''}  t = ${q(e.t, 's', input.digits)}`
-    const f11 = font(11)
-    tag(ctx, sx + 3, ly, text, P.accent, P, f11)
-    const fh = parseFloat(/(\d+(?:\.\d+)?)px/.exec(f11)?.[1] ?? '11')
-    hits.push({ x: sx, y: ly - fh, w: ctx.measureText(text).width + 6, h: fh + 4, event: i })
+    out.push({ event: i, sx, sy, text: momentText(e.changes, nameOf, e.t, input.digits) })
     labelled++
   }
+  return out
 }
+
+/**
+ * Place and draw the key-moment labels (newest first): on a stem above the point, higher or to the left of the stem
+ * when that place is taken, below the point as a last resort.
+ */
+function placeKeyMoments(ctx: CanvasRenderingContext2D, list: MomentLabel[], layer: LabelLayer, P: Palette, out: FrameText[]) {
+  const f11 = font(11), fh = fpx(11)
+  const hits = labelHits.get(ctx.canvas)
+  ctx.font = f11
+  for (const m of list) {
+    const tw = ctx.measureText(m.text).width
+    // `tag` at (sx + 3, sy − 30) draws its backing from (sx, sy − 30 − fh)
+    const box: Box = { x: m.sx, y: m.sy - 30 - fh, w: tw + 6, h: fh + 4 }
+    const cands: Array<[number, number]> = []
+    for (let k = 0; k < 6; k++) { cands.push([0, -k * fpx(20)]); cands.push([-box.w, -k * fpx(20)]) }
+    cands.push([0, 30 + fh + 14], [-box.w, 30 + fh + 14])
+    const p = layer.place({ ...box, candidates: cands })
+    // the stem from the point to the nearest corner of the label
+    const [ex, ey] = nearestPoint(p, m.sx, m.sy)
+    ctx.save()
+    ctx.strokeStyle = P.accent
+    ctx.lineWidth = lw(1)
+    ctx.beginPath(); ctx.moveTo(m.sx, m.sy); ctx.lineTo(ex, ey); ctx.stroke()
+    ctx.restore()
+    out.push({ text: m.text, x: p.x + 3, y: p.y + fh, color: P.accent, font: f11, tag: true })
+    hits?.push({ x: p.x, y: p.y, w: p.w, h: p.h, event: m.event })
+  }
+}
+
+/** A text of the label pass waiting to be drawn (after every line): with a halo, or on a backing (`tag`). */
+interface FrameText { text: string; x: number; y: number; color: string; font: string; tag: boolean }
+/** The texts of the frame being drawn (reused). */
+const frameTexts: FrameText[] = []
+
+/** A thin line from an anchor to the nearest point of a label that had to move away from it. */
+function leader(ctx: CanvasRenderingContext2D, ax: number, ay: number, b: Box, color: string) {
+  const [bx, by] = nearestPoint(b, ax, ay)
+  ctx.save()
+  ctx.strokeStyle = color
+  ctx.globalAlpha = 0.55
+  ctx.lineWidth = 1
+  ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke()
+  ctx.restore()
+}
+
+/** The label layer of the frame being drawn (reused: its arrays only grow). */
+const frameLabels = new LabelLayer()
+/** Boxes of the region labels and liquid surfaces of the frame (filled by drawRegions). */
+const regionMarks: Box[] = []
 
 // ---- Per-recording caches ----
 

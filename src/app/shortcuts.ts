@@ -3,6 +3,7 @@
  * Shown on the settings page and in the about dialog; keep in step with the handlers.
  */
 import { trDeep } from '../i18n'
+import type { ShownPage } from './store'
 /** One shortcut: alternative key combinations and what they do. */
 export interface Shortcut { keys: string[][]; text: string }
 /** A titled group of shortcuts. */
@@ -11,6 +12,20 @@ export interface ShortcutGroup { title: string; items: Shortcut[] }
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
 /** "Ctrl" on Windows and Linux, "⌘" on macOS. */
 export const MOD = isMac ? '⌘' : 'Ctrl'
+
+/**
+ * The panels of the rail, top to bottom, with the digit of their Alt shortcut (26.64, D240); Alt+0 is the home page.
+ * The rail, the phone drawer, the home page's jump blocks and the key handler of App.vue all read this list.
+ */
+export const PANEL_KEYS: ReadonlyArray<{ page: ShownPage; digit: number }> = [
+  { page: 'studio', digit: 1 }, { page: 'lab', digit: 2 }, { page: 'chem', digit: 3 }, { page: 'library', digit: 4 }, { page: 'monitor', digit: 5 }
+]
+/** The page an Alt+digit shortcut opens (KeyboardEvent.code), or null. */
+export function pageOfKey(code: string): ShownPage | null {
+  if (code === 'Digit0') return 'home'
+  const m = /^Digit([1-9])$/.exec(code)
+  return m ? PANEL_KEYS.find(p => p.digit === Number(m[1]))?.page ?? null : null
+}
 
 /** Every shortcut, grouped as on the settings page. */
 export const SHORTCUTS: ShortcutGroup[] = trDeep([
@@ -64,13 +79,14 @@ export const SHORTCUTS: ShortcutGroup[] = trDeep([
     { keys: [[MOD, 'Alt', '1'], [MOD, 'Alt', '2'], [MOD, 'Alt', '3'], [MOD, 'Alt', '4']], text: '侧栏：属性 / 分析 / 题目 / AI' },
     { keys: [['?']], text: '快捷键一览' }
   ] },
-  { title: '页面', items: [
-    { keys: [['Alt', '1']], text: '首页' },
-    { keys: [['Alt', '2']], text: '工作台' },
-    { keys: [['Alt', '3']], text: '实验室' },
+  // 26.64 (D240): the five panels in rail order, home, the settings (the Alt+1…6 of 26.63 changed meaning)
+  { title: '面板', items: [
+    { keys: [['Alt', '1']], text: '运动' },
+    { keys: [['Alt', '2']], text: '物理实验' },
+    { keys: [['Alt', '3']], text: '化学实验' },
     { keys: [['Alt', '4']], text: '资源库' },
-    { keys: [['Alt', '5']], text: '课堂' },
-    { keys: [['Alt', '6']], text: '渲染与监视' },
+    { keys: [['Alt', '5']], text: '监视' },
+    { keys: [['Alt', '0']], text: '首页' },
     { keys: [[MOD, ',']], text: '设置' }
   ] },
   { title: '触屏', items: [

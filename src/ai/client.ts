@@ -40,7 +40,7 @@ export interface ChatOptions { signal?: AbortSignal; timeoutMs?: number }
  * connections to the JSON protocol for good; those learnt values are dropped.
  */
 const CAPS_KEY = 'velophi.ai.caps.v2'
-type Caps = { noTools?: boolean; noJsonFormat?: boolean; maxCompletionTokens?: boolean; noTemperature?: boolean; noThinking?: boolean; noJsonSchema?: boolean }
+type Caps = { noTools?: boolean; noJsonFormat?: boolean; maxCompletionTokens?: boolean; noTemperature?: boolean; noThinking?: boolean; noJsonSchema?: boolean; noStrictTools?: boolean }
 try { localStorage.removeItem('velophi.ai.caps') } catch { /* ignore */ }
 let caps: Record<string, Caps> = {}
 try { caps = JSON.parse(localStorage.getItem(CAPS_KEY) ?? '{}') as Record<string, Caps> } catch { caps = {} }
@@ -60,7 +60,8 @@ function learn(c: Caps) {
 export function knownCapabilities(): Capabilities {
   const c = settings.ai.connection
   if (c === 'anthropic') return ANTHROPIC
-  if (c === 'official') return account.ai?.provider === 'deepseek' || /deepseek/i.test(account.ai?.model ?? '') ? capabilitiesOf('https://api.deepseek.com', account.ai?.model ?? '') : GENERIC
+  // 26.64 (D283): the official server says whether it passes strict function calls on (an older one drops `strict`)
+  if (c === 'official') return { ...(account.ai?.provider === 'deepseek' || /deepseek/i.test(account.ai?.model ?? '') ? capabilitiesOf('https://api.deepseek.com', account.ai?.model ?? '') : GENERIC), strictTools: account.ai?.strictTools === true }
   return capabilitiesOf(settings.ai.openai.baseUrl, settings.ai.openai.model)
 }
 /** The capabilities in effect: known for the kind of service, minus what this connection refused. */
@@ -72,9 +73,12 @@ function effective(): Caps {
     noJsonSchema: learnt.noJsonSchema ?? !known.jsonSchema,
     maxCompletionTokens: learnt.maxCompletionTokens ?? known.maxCompletionTokens,
     noTemperature: learnt.noTemperature ?? !known.temperature,
-    noThinking: learnt.noThinking
+    noThinking: learnt.noThinking,
+    noStrictTools: learnt.noStrictTools ?? !known.strictTools
   }
 }
+/** Whether a function call can be made in strict mode on this connection (26.64, D283): the sketch builder asks. */
+export function aiStrictTools(): boolean { const c = effective(); return !c.noTools && !c.noStrictTools }
 /** Whether a request with an image may also ask for an output format on this connection. */
 export function aiFormatWithImage(): boolean { return knownCapabilities().formatWithImage }
 
@@ -184,7 +188,8 @@ export function wireRequest(req: ChatRequest, flavor: AiFlavor = aiFlavor()): Re
   })
   const body: Record<string, unknown> = { messages }
   if (req.tools?.length) {
-    body.tools = req.tools
+    // `strict` goes out only where the connection has strict function calls
+    body.tools = cap.noStrictTools ? req.tools.map(t => (t.function.strict === undefined ? t : { type: t.type, function: { name: t.function.name, description: t.function.description, parameters: t.function.parameters } })) : req.tools
     // Thinking mode refuses "required" and named tool choices
     if (req.tool_choice !== undefined) body.tool_choice = on && req.tool_choice !== 'none' ? 'auto' : req.tool_choice
   }
@@ -362,6 +367,8 @@ async function sendLearning(request: ChatRequest, opts: ChatOptions): Promise<Ch
       if (/max_completion_tokens/.test(detail) && !effective().maxCompletionTokens) { learn({ maxCompletionTokens: true }); continue }
       if (/temperature/.test(detail) && !effective().noTemperature) { learn({ noTemperature: true }); continue }
       if (/thinking|reasoning_effort/.test(detail) && !effective().noThinking) { learn({ noThinking: true }); continue }
+      // 26.64: strict mode refused (a provider address without it): the same call without `strict`, remembered
+      if (req.tools?.some(t => t.function.strict) && !effective().noStrictTools && /strict/.test(detail)) { learn({ noStrictTools: true }); continue }
       if (req.tools?.length && /tool|function/.test(detail)) { learn({ noTools: true }); return fromJsonProtocol(await send(toJsonProtocol(req), opts)) }
       // a strict schema refused: fall back to the JSON-object mode first, to no format only after that
       if (req.response_format?.type === 'json_schema' && !effective().noJsonSchema && /schema|response_format|json/.test(detail)) { learn({ noJsonSchema: true }); continue }

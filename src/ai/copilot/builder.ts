@@ -1,8 +1,17 @@
 /**
- * The scene builder (26.60, D204): one request whose answer is exactly one JSON object (the scene file and the
- * questions, simPrompt.ts), parsed leniently (a code block, text around it, trailing commas), checked, placed and
- * loaded by applyAiScene; what is wrong goes back for a corrected object, at most three tries in all. The chat
- * Copilot reaches it through the build_scene tool, the user through "生成仿真场景" under the answer to a problem.
+ * The scene builder. The chat Copilot reaches it through the build_scene tool, the user through "生成仿真场景" under the
+ * answer to a problem.
+ *
+ * 26.64 (D279–D284): a scene is built from a SKETCH — the model writes a few lines of reading notes, then submits the
+ * relations and given values of the problem (a function call, strict where the connection has it; else a JSON-mode
+ * answer the app validates); the app compiles the sketch (every coordinate is computed here, sketch/compile.ts), runs
+ * the validation ladder L0–L4 (sketch/check.ts), sends findings back for a patch (at most two rounds), falls back to
+ * the closest template with parameters, and otherwise says plainly what could not be placed. A scene that fails the
+ * geometry or the trial run is never loaded.
+ *
+ * The builder of 26.60 (D204) — one request whose answer is the whole scene file with coordinates (simPrompt.ts,
+ * simScene.ts), corrected at most twice — is kept for this version behind Settings › 账号与 AI › 搭场景的方式, so the
+ * two can be compared; it also still does "change the current scene", which a sketch cannot express.
  */
 import { tl } from '../../i18n'
 import { DATA_RULE } from '../import/prompts'
@@ -16,13 +25,19 @@ import { ToolError } from './tools'
 import { AiError } from '../types'
 import type { SceneCard } from './simTools'
 import { logEvent } from '../../app/trialLog'
+import { settings } from '../../app/settings'
+import { aiStrictTools } from '../client'
+import { loadPreparedScene } from './simTools'
+import { buildFromProblem } from '../sketch/pipeline'
+import { assumptionLines, contractLines, failureLines, failureText } from '../sketch/messages'
 
 /** Most tries of one build (the first answer and two corrections). */
 export const BUILD_TRIES = 3
 
 export type BuildResult =
-  | { ok: true; card: SceneCard; result: Record<string, unknown>; tries: number; assumptions: string[] }
-  | { ok: false; errors: string[]; tries: number; raw: string; refused?: string }
+  | { ok: true; card: SceneCard; result: Record<string, unknown>; tries: number; assumptions: string[]; via?: 'sketch' | 'template' }
+  /** `message` (the sketch builder): the whole failure in the user's language — what could not be placed, what was. */
+  | { ok: false; errors: string[]; tries: number; raw: string; refused?: string; message?: string }
 
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v)
 
@@ -38,8 +53,40 @@ export function jsonOf(text: string): Record<string, unknown> | null { return ex
 /** Most continuations of one cut-off answer. */
 const CONTINUATIONS = 2
 
-/** Build a scene with the builder and load it; `onStatus` reports the steps. */
-export async function buildScene(ask: BuildAsk, opts: { signal?: AbortSignal; onStatus?: (s: string) => void; title?: string; think?: boolean } = {}): Promise<BuildResult> {
+interface BuildOptions { signal?: AbortSignal; onStatus?: (s: string) => void; title?: string; think?: boolean }
+
+/** Build a scene and load it; `onStatus` reports the steps. */
+export async function buildScene(ask: BuildAsk, opts: BuildOptions = {}): Promise<BuildResult> {
+  // changing the current scene works on its file: that stays with the scene-file builder
+  if (settings.ai.sceneBuilder === 'legacy' || ask.current !== undefined) return buildSceneFile(ask, opts)
+  return buildSceneSketch(ask, opts)
+}
+
+/** 26.64: reading notes → sketch → compile → ladder → patches → template → honest failure (sketch/pipeline.ts). */
+async function buildSceneSketch(ask: BuildAsk, opts: BuildOptions): Promise<BuildResult> {
+  const problem = (ask.problem ?? ask.request ?? '').trim()
+  const o = await buildFromProblem({ problem, solution: ask.solution }, {
+    ask: req => chat(req, { signal: opts.signal }), strict: aiStrictTools(), think: opts.think, onStatus: opts.onStatus
+  })
+  const tries = 1 + o.repairs + (o.fallback ? 1 : 0)
+  const last = o.rounds[o.rounds.length - 1]
+  const log = (ok: boolean) => logEvent('copilot.build', { ok, tries, builder: 'sketch', via: o.via ?? '', requests: o.requests, levels: last ? Object.entries(last.levels).map(([k, v]) => `${k}${v === true ? '+' : v === false ? '-' : '?'}`).join('') : '' })
+  if (o.refused !== undefined) { log(false); return { ok: false, errors: [], tries, raw: '', refused: o.refused } }
+  const l = o.ladder
+  if (!o.ok || !l?.scene) {
+    log(false)
+    const shown = o.sketchLadder ?? l
+    return { ok: false, errors: shown ? failureLines(shown) : [tl('模型没有给出可用的草图')], tries, raw: o.notes, message: shown ? failureText(shown) : tl('模型没有给出可用的草图') }
+  }
+  opts.onStatus?.(tl('检查并载入场景'))
+  const title = l.sketch?.title || opts.title || l.scene.name
+  const r = await loadPreparedScene({ ok: true, scene: l.scene, questions: l.questions, notes: [], warnings: contractLines(l), title, stem: ask.problem ?? '' }, { title, stem: ask.problem, signal: opts.signal, route: o.via === 'template' ? 'copilot-template' : 'copilot-sketch' })
+  log(true)
+  return { ok: true, card: r.card, result: r.result, tries, assumptions: assumptionLines(l.assumptions), via: o.via ?? 'sketch' }
+}
+
+/** The builder of 26.60 (D204): the model writes the scene file; corrected at most twice. */
+async function buildSceneFile(ask: BuildAsk, opts: BuildOptions): Promise<BuildResult> {
   const messages: ChatMessage[] = [{ role: 'system', content: builderSystem() + DATA_RULE }, { role: 'user', content: builderAsk(ask) }]
   let errors: string[] = []
   let raw = ''

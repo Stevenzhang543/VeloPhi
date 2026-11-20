@@ -93,8 +93,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2c754d6c33795a1c324727428e5a7dedb5b06195f9890bdbcba760d3e246563"
 
 [[package]]
+name = "velophi-chem"
+version = "26.65.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "velophi-core",
+]
+
+[[package]]
 name = "velophi-cli"
-version = "26.63.0"
+version = "26.65.0"
 dependencies = [
  "serde_json",
  "velophi-core",
@@ -102,7 +111,7 @@ dependencies = [
 
 [[package]]
 name = "velophi-core"
-version = "26.63.0"
+version = "26.65.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -110,7 +119,7 @@ dependencies = [
 
 [[package]]
 name = "velophi-native"
-version = "26.63.0"
+version = "26.65.0"
 dependencies = [
  "serde_json",
  "velophi-core",
@@ -118,9 +127,10 @@ dependencies = [
 
 [[package]]
 name = "velophi-wasm"
-version = "26.63.0"
+version = "26.65.0"
 dependencies = [
  "serde_json",
+ "velophi-chem",
  "velophi-core",
 ]
 

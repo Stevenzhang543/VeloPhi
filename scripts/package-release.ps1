@@ -1,9 +1,9 @@
-# Packages a finished build into releases\v26.63 (no rebuild). Run from the repository root.
-# Never deletes: an existing releases\v26.63 is moved aside to .cache\superseded-<time> first.
+# Packages a finished build into releases\v26.65 (no rebuild). Run from the repository root.
+# Never deletes: an existing releases\v26.65 is moved aside to .cache\superseded-<time> first.
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
-$Version = '26.63'
-$Full = '26.63.0'
+$Version = '26.65'
+$Full = '26.65.0'
 $Root = (Get-Location).Path
 $Out = Join-Path $Root "releases\v$Version"
 $Ev = Join-Path $Root ".cache\evidence-$Version"
@@ -47,6 +47,18 @@ $alog = Get-ChildItem (Join-Path $Root '.cache') -Filter "android-$Version*.log"
   Where-Object { $_.Name -notmatch '-try' } | Sort-Object LastWriteTime -Descending | Select-Object -First 1
 if ($alog) { Copy-Item $alog.FullName (Join-Path $Ev "android-$Version.log") }
 
+# Linux (26.65, D298): deb, rpm and AppImage, built in WSL (VeloPhi-Build-2204, Ubuntu 22.04) by
+# scripts\linux\build-linux.sh into .cache\linux-<version>; its evidence is already in .cache\evidence-<version>\linux
+$linux = Join-Path $Root ".cache\linux-$Version"
+$linuxFiles = @("VeloPhi-v$Version-linux-amd64.deb", "VeloPhi-v$Version-linux-x86_64.rpm", "VeloPhi-v$Version-linux-x86_64.AppImage")
+foreach ($n in $linuxFiles) {
+  $f = Join-Path $linux $n
+  if (-not (Test-Path $f)) { Fail "missing $f (run scripts\linux\build-linux.sh in WSL VeloPhi-Build-2204)" }
+  Copy-Item $f (Join-Path $Out $n)
+}
+$linuxSums = Join-Path $Ev 'linux\linux-sha256.txt'
+if (-not (Test-Path $linuxSums)) { Fail "missing $linuxSums (the evidence of scripts\linux\build-linux.sh)" }
+
 # Web package: the built front end + hosting notes
 $web = Join-Path $Stage 'web'
 New-Item -ItemType Directory -Force -Path $web | Out-Null
@@ -85,6 +97,9 @@ $info = [ordered]@{
   product = 'VeloPhi'; version = $Full; builtAt = (Get-Date).ToString('s')
   node = (node --version); rustc = (rustc --version); os = [System.Environment]::OSVersion.VersionString
   webview2 = (Get-ItemProperty 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}' -ErrorAction SilentlyContinue).pv
+  # 26.65: the Linux packages (built on Ubuntu 22.04; the WebKitGTK and GTK the AppImage carries)
+  linuxGlibcFloor = (Get-Content (Join-Path $Ev 'linux\glibc-floor.txt') -ErrorAction SilentlyContinue | Select-Object -First 1)
+  linuxBuildPackages = @(Get-Content (Join-Path $Ev 'linux\webkit-gtk-versions.txt') -ErrorAction SilentlyContinue)
 }
 $info | ConvertTo-Json | Set-Content -Encoding UTF8 (Join-Path $Ev 'build-info.json')
 if (Test-Path (Join-Path $Root 'docs\reports')) {
@@ -106,11 +121,17 @@ $lines = Get-ChildItem $Out -File | Where-Object { $_.Name -ne 'SHA256SUMS.txt' 
 }
 Set-Content -Encoding ASCII -Path (Join-Path $Out 'SHA256SUMS.txt') -Value $lines
 
+# The Linux files are the ones the Linux build hashed (nothing changed them on the way to Windows)
+foreach ($l in (Get-Content $linuxSums)) {
+  if ($l.Trim() -and -not ($lines -contains $l.Trim())) { Fail "SHA256SUMS.txt does not have the line of the Linux build: $l" }
+}
+
 # The expected file set
 $expected = @(
   'README.md', 'RELEASE_NOTES.md', 'SHA256SUMS.txt', 'THIRD_PARTY_NOTICES.md',
   "VeloPhi-v$Version-release-evidence.zip", "VeloPhi-v$Version-source.zip", "VeloPhi-v$Version-web.zip",
-  "VeloPhi-v$Version-windows-x64-portable.exe", "VeloPhi-v$Version-windows-x64-setup.exe", "VeloPhi-v$Version-android.apk"
+  "VeloPhi-v$Version-windows-x64-portable.exe", "VeloPhi-v$Version-windows-x64-setup.exe", "VeloPhi-v$Version-android.apk",
+  "VeloPhi-v$Version-linux-amd64.deb", "VeloPhi-v$Version-linux-x86_64.rpm", "VeloPhi-v$Version-linux-x86_64.AppImage"
 ) | Sort-Object
 $actual = Get-ChildItem $Out -File | ForEach-Object Name | Sort-Object
 if (Compare-Object $expected $actual) { Fail ("file set differs: " + ((Compare-Object $expected $actual | ForEach-Object { $_.SideIndicator + $_.InputObject }) -join ', ')) }

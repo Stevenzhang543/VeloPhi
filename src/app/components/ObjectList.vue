@@ -46,7 +46,7 @@ const connText = (k: string) => ({ rope: tl('绳'), rod: tl('杆'), spring: tl('
 .item.on { background: var(--accent-soft); color: var(--accent); }
 .swatch { width: 12px; height: 12px; border-radius: 3px; border: 1.5px solid; flex: 0 0 auto; }
 .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.charge { font-weight: 700; }
+.charge { font-weight: var(--weight-strong); }
 .charge.pos { color: #dc2626; }
 .charge.neg { color: #2563eb; }
 .empty { color: var(--text-3); font-size: var(--type-small); padding: 8px; }

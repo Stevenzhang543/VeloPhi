@@ -1,0 +1,45 @@
+# The acid-base indicators of scripts/chem/supplement_indicators.dat: the ids their forms get in aqueous.json once the
+# compositions are in the LIGAND table of build_aqueous.py, the colour of each form and, where known, the wavelength
+# of its absorption maximum in water. For the colour engineer (section spectra of the catalogue).
+#
+#   species id | indicator | form | colour of the solution | λmax / nm | pKa of the step to the next line | transition range
+#
+# λmax: typical literature values (R. W. Sabnis, Handbook of Acid-Base Indicators, CRC Press 2007; E. Bishop (ed.),
+# Indicators, Pergamon 1972), typed by hand from memory, good to about ±5 nm, to be checked before a spectrum is drawn
+# from them; "-" = not known to me well enough to write down. Molar absorptivities are not given: of the order of
+# 2e4 to 5e4 L/(mol·cm) at the maximum for the coloured forms. A colourless form absorbs only in the ultraviolet.
+# The forms of one indicator are listed from the most acid to the most basic.
+
+H2(Phph)   | phenolphthalein   | acid (lactone)        | colourless  | -   | 9.05 | 8.2-10.0
+H(Phph)-   | phenolphthalein   | intermediate          | colourless  | -   | 9.50 | 8.2-10.0
+Phph-2     | phenolphthalein   | base (master species) | pink        | 552 |      |
+H(Thph)    | thymolphthalein   | acid                  | colourless  | -   | 9.9  | 9.3-10.5
+Thph-      | thymolphthalein   | base (master species) | blue        | 595 |      |
+H(Meor)    | methyl orange     | acid                  | red         | 507 | 3.46 | 3.1-4.4
+Meor-      | methyl orange     | base (master species) | yellow      | 464 |      |
+H(Mered)   | methyl red        | acid                  | red         | 520 | 5.00 | 4.4-6.2
+Mered-     | methyl red        | base (master species) | yellow      | 430 |      |
+H(Btb)-    | bromothymol blue  | acid                  | yellow      | 432 | 7.30 | 6.0-7.6
+Btb-2      | bromothymol blue  | base (master species) | blue        | 616 |      |
+H(Bcg)-    | bromocresol green | acid                  | yellow      | 444 | 4.90 | 3.8-5.4
+Bcg-2      | bromocresol green | base (master species) | blue        | 617 |      |
+H(Phred)-  | phenol red        | acid                  | yellow      | 432 | 8.00 | 6.8-8.4
+Phred-2    | phenol red        | base (master species) | red         | 558 |      |
+H2(Thyb)   | thymol blue       | strongly acid         | red         | 544 | 1.65 | 1.2-2.8
+H(Thyb)-   | thymol blue       | intermediate          | yellow      | 432 | 9.20 | 8.0-9.6
+Thyb-2     | thymol blue       | base (master species) | blue        | 596 |      |
+H(Litmus)  | litmus            | acid                  | red         | -   | 6.5  | 5.0-8.0
+Litmus-    | litmus            | base (master species) | blue        | -   |      |
+H(Alyr)-   | alizarin yellow R | acid                  | yellow      | -   | 11.2 | 10.1-12.0
+Alyr-2     | alizarin yellow R | base (master species) | red         | -   |      |
+H(Congo)-  | congo red         | acid                  | blue-violet | -   | 4.1  | 3.0-5.0
+Congo-2    | congo red         | base (master species) | red         | 498 |      |
+
+# The mixed colour between two forms follows from the equilibrium (the amounts of both forms) and Beer's law; green for
+# bromothymol blue at pH 7, orange for methyl orange at pH 3.5 to 4 and purple for litmus near pH 6.5 need no species.
+#
+# The universal indicator is a reagent, not a species: Yamada's recipe (header of supplement_indicators.dat) holds
+# thymol blue, methyl red, bromothymol blue and phenolphthalein; its colour is the sum of their absorbances.
+#
+# Two colours of the experiments have no species yet (asked of the network's owner, not defined here):
+#   the blue of starch with iodine (starch + triiodide), and the violet of phenol with iron(III).

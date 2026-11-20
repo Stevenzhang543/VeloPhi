@@ -7,7 +7,7 @@
  */
 import { tl } from '../../../src/i18n'
 import type { Recording, Segment, SimEvent } from '../core/solver/simulation'
-import { exactStateAt, ledgerAt } from '../core/solver/simulation'
+import { atSampleEnd, exactStateAt, frameImpactLoss, ledgerAt } from '../core/solver/simulation'
 import type { Mode, System, UnitMode } from '../core/solver/dynamics'
 import { AUX_BELT, AUX_FIXED, AUX_WORK, kineticEnergy } from '../core/solver/dynamics'
 import type { BodyModel, Model } from '../core/solver/model'
@@ -70,17 +70,41 @@ function runs(rec: Recording, sig: (seg: Segment) => string | null): Run[] {
   return out
 }
 
-/** The segment containing time t (the later one at a boundary). */
+/** The segment containing time t (the later one at a boundary; the earlier one at the end of a sampled phase, 26.65 P7). */
 export function segmentAt(rec: Recording, t: number): Segment {
+  const before = atSampleEnd(t)
   let seg = rec.segments[0]
-  for (const s of rec.segments) if (s.t0 <= t) seg = s
+  rec.segments.forEach((s, i) => { if (s.t0 <= t && !(before && i > 0 && s.t0 >= t - 1e-12)) seg = s })
   return seg
+}
+
+/** Frame index of time t (session.rs `frame_at`). */
+function frameAt(rec: Recording, t: number): number {
+  const n = rec.frameCount
+  let k = Math.min(n - 1, Math.max(0, Math.floor(t / rec.dt)))
+  if (k + 1 < n && (k + 1) * rec.dt <= t) k += 1
+  while (k > 0 && k * rec.dt > t) k -= 1
+  return k
+}
+
+/** 26.65 (P6): cumulative impact loss at t of a time-stepping segment — the frames' values, linear in between. */
+function reducedLoss(rec: Recording, t: number): number {
+  const fc = rec.frameCount
+  if (fc === 0) return 0
+  const k = Math.min(frameAt(rec, t), fc - 1)
+  const tk = k * rec.dt
+  const lk = frameImpactLoss(rec, k)
+  if (t <= tk || k + 1 >= fc) return lk
+  const l1 = frameImpactLoss(rec, k + 1)
+  return lk + (t - tk) / rec.dt * (l1 - lk)
 }
 
 /** Observation at time t (exact state, mode of the segment containing t). */
 export function observeAt(rec: Recording, t: number): ObservationContext {
   const seg = segmentAt(rec, t)
-  return makeContextFor(rec, exactStateAt(rec, t), seg.mode, seg.impactLoss, t)
+  // 26.65 (P6): a time-stepping segment accumulates its impact loss step by step
+  const loss = seg.reduced ? reducedLoss(rec, t) : seg.impactLoss
+  return makeContextFor(rec, exactStateAt(rec, t), seg.mode, loss, t)
 }
 
 function closedUnits(mode: Mode, id: string): UnitMode[] {
@@ -172,11 +196,17 @@ function surfaceSituations(rec: Recording, out: Situation[]) {
   for (const b of model.dynamic) {
     if (!noConnectors(attached(model, b.id))) continue
     const rolling = b.shape.kind === 'circle' && b.invInertia > 0
+    // 26.65 (M6): pairs this body separated from at an event; a segment starting then still lists them as open
+    const seps = rec.events.flatMap(e => e.changes.filter(c => c.type === 'separate' && c.bodies.includes(b.id)).map(c => ({ t: e.t, key: c.subject })))
     const list = runs(rec, seg => {
       const us = closedUnits(seg.mode, b.id)
-      if (us.length !== 1 || touchingUnits(seg.mode, b.id).length !== 1) return null
+      const touching = touchingUnits(seg.mode, b.id)
+      const leaving = touching.filter(u => u.points.length === 0 && seps.some(x => Math.abs(x.t - seg.t0) <= 1e-12 && x.key === u.pair.key)).length
+      if (us.length !== 1 || touching.length - leaving !== 1) return null
       const u = us[0], other = otherBody(u, b.id)
       if (other.dynamic) return null
+      // 26.65 (P10): a point of the body on a sharp corner of the support is no surface contact
+      if ([...u.points, u.ref].some(f => f.kind === 'pp' && ((f.B.body.id === other.id && f.B.radius <= 0) || (f.A.body.id === other.id && f.A.radius <= 0)))) return null
       const geo = unitGeometry(sys, seg.X0, u, b.id)
       if (geo.ny <= 1e-9) return null
       // 26.52 (D59): the rolling formulas assume no rolling resistance
@@ -206,7 +236,7 @@ function surfaceSituations(rec: Recording, out: Situation[]) {
       if (rolling) {
         const I = b.inertia, rr = (b.shape as { radius: number }).radius
         out.push({
-          key: `rolling:${b.id}:${r.t0}`, type: 'rolling', title: tl('{0} 在{1}上{2}', [b.name, other.name, status === 'stick' ? tl('纯滚动') : tl('边滚边滑')]),
+          key: `rolling:${b.id}:${r.t0}`, type: 'rolling', title: tl('{0}在{1}上{2}', [b.name, other.name, status === 'stick' ? tl('纯滚动') : tl('边滚边滑')]),
           t0: r.t0, t1: r.t1, bodies: [b.id, other.id],
           sample: t => {
             const o = observeAt(rec, t)
@@ -235,7 +265,7 @@ function surfaceSituations(rec: Recording, out: Situation[]) {
       }
       const type = flat ? 'flat' : 'incline'
       const tag = status === 'stick' ? tl('相对静止') : status === 'up' ? tl('相对上滑') : status === 'smooth' ? tl('光滑滑动') : tl('相对下滑')
-      const title = flat ? tl('{0} 在{1}上{2}', [b.name, other.name, status === 'stick' ? tl('相对静止') : tl('滑动')]) : tl('{0} 在{1}上（{2}）', [b.name, other.name, tag])
+      const title = flat ? tl('{0}在{1}上{2}', [b.name, other.name, status === 'stick' ? tl('相对静止') : tl('滑动')]) : tl('{0}在{1}上（{2}）', [b.name, other.name, tag])
       // Theoretical acceleration along downhill for v = v0 + at
       const aTh = flat
         ? (status === 'stick' ? 0 : -Math.sign(v0 - geo.u || 1) * mat.muK * g)
@@ -318,7 +348,8 @@ function boardBlockSituations(rec: Recording, out: Situation[]) {
         const sa = bodyVel(sys, seg0.X0, A), sb = bodyVel(sys, seg0.X0, B)
         const sigma = Math.sign(sa.vx - sb.vx) || 1
         const v1 = sa.vx * sigma, v2 = sb.vx * sigma
-        const boardMoves = ground.friction === 'slide'
+        // 26.65 (P1): a smooth floor lets the board slide too
+        const boardMoves = ground.friction === 'slide' || ground.friction === 'none'
         const a2 = boardMoves ? (mu1 * A.mass * g - mu2 * (A.mass + B.mass) * g) / B.mass : 0
         const endEvent = eventAt(rec, r.t1)
         const endsAtCommon = !!endEvent?.changes.some(c => c.subject === ua.pair.key && c.type === 'stick')
@@ -326,7 +357,7 @@ function boardBlockSituations(rec: Recording, out: Situation[]) {
         const aux0 = pairAux(sys, seg0.X0, A.id, B.id)
         if (ua.friction === 'slide') {
           out.push({
-            key: `bb:${A.id}:${B.id}:${r.t0}`, type: 'board-block', title: tl('{0} 在{1}上滑动（板块模型）', [A.name, B.name]), t0: r.t0, t1: r.t1, bodies: [A.id, B.id, S.id],
+            key: `bb:${A.id}:${B.id}:${r.t0}`, type: 'board-block', title: tl('{0}在{1}上滑动（板块模型）', [A.name, B.name]), t0: r.t0, t1: r.t1, bodies: [A.id, B.id, S.id],
             sample: t => {
               const o = observeAt(rec, t)
               return {
@@ -352,7 +383,8 @@ function boardBlockSituations(rec: Recording, out: Situation[]) {
               }
             }
           })
-        } else if (ua.friction === 'stick') {
+        } else if (ua.friction === 'stick' && ground.friction !== 'stick') {
+          // 26.65 (M8): both at rest on the floor is not "moving together"
           out.push({
             key: `bt:${A.id}:${B.id}:${r.t0}`, type: 'board-together', title: tl('{0}与{1}共速后一起运动', [A.name, B.name]), t0: r.t0, t1: r.t1, bodies: [A.id, B.id, S.id],
             sample: t => {
@@ -366,7 +398,7 @@ function boardBlockSituations(rec: Recording, out: Situation[]) {
                 measures: { aMag: M(Math.abs(o.sol.acc[3 * A.index]), 'm/s²', tl('整体加速度大小')), f: M(c.f, 'N', tl('{0}受到的静摩擦力', [A.name])) },
                 conditions: [
                   cond('together', tl('物块与木板相对静止'), true, tl('需 μ₂ ≤ μ₁（本例 {0} ≤ {1}）', [mu2, mu1])),
-                  cond('groundSliding', tl('{0}相对{1}滑动', [B.name, S.name]), ground.friction === 'slide', ground.friction === 'slide' ? '' : tl('整体已静止'))
+                  cond('groundSliding', tl('{0}相对{1}滑动', [B.name, S.name]), ground.friction !== 'stick', ground.friction !== 'stick' ? '' : tl('整体已静止'))
                 ]
               }
             }
@@ -536,7 +568,7 @@ function projectileSituations(rec: Recording, out: Situation[]) {
         return apex
       }
       out.push({
-        key: `proj:${b.id}:${r.t0}`, type: 'projectile', title: tl('{0} 的抛体运动', [b.name]), t0: r.t0, t1: r.t1, bodies: [b.id],
+        key: `proj:${b.id}:${r.t0}`, type: 'projectile', title: tl('{0}的抛体运动', [b.name]), t0: r.t0, t1: r.t1, bodies: [b.id],
         sample: t => {
           const st = bodyVel(sys, exactStateAt(rec, t), b)
           const ap = findApex()
@@ -626,7 +658,7 @@ function pendulumSituations(rec: Recording, out: Situation[]) {
       const deg = theta0 / DEG
       const small: Condition = { id: 'smallAngle', label: tl('小角度近似（θ₀ ≤ 5°）'), status: deg <= 5 ? 'ok' : deg <= 10 ? 'approx' : 'fail', detail: `θ₀ = ${deg.toPrecision(4)}°` }
       out.push({
-        key: `pend:${b.id}:${r.t0}`, type: 'pendulum', title: tl('{0} 的单摆运动', [b.name]), t0: r.t0, t1: r.t1, bodies: [b.id],
+        key: `pend:${b.id}:${r.t0}`, type: 'pendulum', title: tl('{0}的单摆运动', [b.name]), t0: r.t0, t1: r.t1, bodies: [b.id],
         sample: () => {
           const m = measure()
           return {
@@ -697,7 +729,7 @@ function springSituations(rec: Recording, out: Situation[]) {
       }
       if (!oneDim) continue
       out.push({
-        key: `spring:${b.id}:${r.t0}`, type: 'spring', title: tl('{0} 的简谐振动', [b.name]), t0: r.t0, t1: r.t1, bodies: [b.id],
+        key: `spring:${b.id}:${r.t0}`, type: 'spring', title: tl('{0}的简谐振动', [b.name]), t0: r.t0, t1: r.t1, bodies: [b.id],
         sample: () => {
           const m = measure()
           return {
@@ -743,7 +775,7 @@ function rotationSituations(rec: Recording, out: Situation[]) {
         return cache
       }
       out.push({
-        key: `rot:${b.id}:${r.t0}`, type: 'rotation', title: tl('{0} 绕固定轴转动', [b.name]), t0: r.t0, t1: r.t1, bodies: [b.id],
+        key: `rot:${b.id}:${r.t0}`, type: 'rotation', title: tl('{0}绕固定轴转动', [b.name]), t0: r.t0, t1: r.t1, bodies: [b.id],
         sample: t => {
           const o = observeAt(rec, t)
           const phi = atan2(o.X[3 * b.index] - piv.x, -(o.X[3 * b.index + 1] - piv.y))
@@ -841,7 +873,11 @@ function conservationSituations(rec: Recording, out: Situation[]) {
     key: 'energy', type: 'energy', title: tl('能量账本'), t0: 0, t1: T, bodies: [],
     sample: t => {
       const o = observeAt(rec, t)
-      return { vars: { E0: V(balance0, 'J', 'E_0', tl('初始总能量')) }, measures: { balance: M(ledgerBalance(rec, o), 'J', tl('当前账本合计')) }, conditions: [] }
+      // 26.65 (P12): the size of the ledger's terms sets the absolute limit of the card (E₀ = 0 is common)
+      const l = ledgerAt(rec, o.X, o.impactLoss)
+      let scale = 0
+      for (const v of [l.kinetic, l.gravity, l.spring, l.field, 0, l.frictionHeat, l.appliedWork, l.damping, l.beltWork, l.impactLoss, balance0]) if (Number.isFinite(v)) scale = Math.max(scale, Math.abs(v))
+      return { vars: { E0: V(balance0, 'J', 'E_0', tl('初始总能量')), Escale: V(scale, 'J', 'E_{\\max}', tl('账本中最大的一项（判定的尺度）')) }, measures: { balance: M(ledgerBalance(rec, o), 'J', tl('当前账本合计')) }, conditions: [] }
     }
   })
   const gv = model.settings.gravity
@@ -902,7 +938,8 @@ export function recognizePhases(rec: Recording): Situation[] {
   variableForceSituations(rec, out)
   // 26.51: graded formula library (D44) and the physics of D50/D51
   situations2651(rec, out)
-  return out
+  // 26.65 (P11): phases of zero length are dropped (event instants are kept)
+  return out.filter(s => s.tEvent !== undefined || s.t1 - s.t0 >= 1e-9)
 }
 
 // ---- 26.49 models ----
@@ -994,7 +1031,7 @@ function verticalCircleSituations(rec: Recording, out: Situation[]) {
       })
       if (isRope) {
         out.push({
-          key: `vcr:${b.id}:${r.t0}`, type: 'vcircle-rope', title: tl('{0} 在竖直面内的圆周运动（绳）', [b.name]), t0: r.t0, t1: r.t1, bodies: [b.id],
+          key: `vcr:${b.id}:${r.t0}`, type: 'vcircle-rope', title: tl('{0}在竖直面内的圆周运动（绳）', [b.name]), t0: r.t0, t1: r.t1, bodies: [b.id],
           sample: () => {
             const m = measure()
             const crit = Math.sqrt(5 * g * L)
@@ -1019,7 +1056,7 @@ function verticalCircleSituations(rec: Recording, out: Situation[]) {
         })
       } else {
         out.push({
-          key: `vcd:${b.id}:${r.t0}`, type: 'vcircle-rod', title: tl('{0} 在竖直面内的圆周运动（杆）', [b.name]), t0: r.t0, t1: r.t1, bodies: [b.id],
+          key: `vcd:${b.id}:${r.t0}`, type: 'vcircle-rod', title: tl('{0}在竖直面内的圆周运动（杆）', [b.name]), t0: r.t0, t1: r.t1, bodies: [b.id],
           sample: () => {
             const m = measure()
             return {
@@ -1270,7 +1307,7 @@ function rollSlipSituations(rec: Recording, out: Situation[]) {
       const heat0 = pairAux(sys, X0, b.id, other.id).heat
       const uniform = Math.abs(b.inertia - 0.5 * b.mass * rr * rr) <= 1e-12 * b.inertia
       out.push({
-        key: `rs:${b.id}:${r.t0}`, type: 'roll-slip', title: tl('{0} 在{1}上边滚边滑', [b.name, other.name]), t0: r.t0, t1: r.t1, bodies: [b.id, other.id],
+        key: `rs:${b.id}:${r.t0}`, type: 'roll-slip', title: tl('{0}在{1}上边滚边滑', [b.name, other.name]), t0: r.t0, t1: r.t1, bodies: [b.id, other.id],
         sample: t => {
           const o = observeAt(rec, t)
           return {
@@ -1348,7 +1385,7 @@ function variableForceSituations(rec: Recording, out: Situation[]) {
       const breaks = rec.events.filter(e => e.t > r.t0 && e.t < r.t1 && e.changes.some(c => c.type === 'switch' && c.subject === f.id)).map(e => e.t)
       const W0 = X0[sys.auxBase + AUX_WORK]
       out.push({
-        key: `vf:${fi}:${r.t0}`, type: 'var-force', title: tl('{0} 受变力 {1} 作用', [b.name, f.name]), t0: r.t0, t1: r.t1, bodies: [b.id],
+        key: `vf:${fi}:${r.t0}`, type: 'var-force', title: tl('{0}受变力 {1} 作用', [b.name, f.name]), t0: r.t0, t1: r.t1, bodies: [b.id],
         sample: t => {
           const X = exactStateAt(rec, t)
           const J = timeOnly ? integrate(Fx, r.t0, t, breaks) : Number.NaN

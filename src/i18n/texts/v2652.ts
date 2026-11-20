@@ -172,7 +172,6 @@ export const TEXTS_2652: Record<string, readonly [string, string]> = {
   '相对差 {0}': ['Relative difference {0}', 'Relative Abweichung {0}'],
   '点位由记录的精确状态生成（不是帧间插值）。速度单位 m/s；加速度为负表示减速（沿纸带方向）。仿真平均加速度 = 该段时间内速度的变化 ÷ 时间。': ['The dots come from exact recorded states (not interpolated between frames). Velocities in m/s; a negative acceleration means slowing down (along the tape). Simulated average acceleration = change of velocity over the span ÷ time.', 'Die Punkte stammen aus exakten Zuständen der Aufzeichnung (nicht zwischen Bildern interpoliert). Geschwindigkeiten in m/s; eine negative Beschleunigung bedeutet Abbremsen (längs des Streifens). Mittlere Beschleunigung der Simulation = Geschwindigkeitsänderung im Zeitraum ÷ Zeit.'],
   '在速度曲线上按住 Shift 拖动，选出时间段即可求面积（位移）': ['Hold Shift and drag across the velocity curve to get the area (the displacement) over that span', 'Mit gedrückter Umschalttaste über die Geschwindigkeitskurve ziehen, um die Fläche (die Verschiebung) zu erhalten'],
-  '按教材章节的内置题目、导入题目包、用当前场景出题': ['Built-in problems by textbook chapter, problem files, writing a problem for this scene', 'Eingebaute Aufgaben nach Kapiteln, Aufgabendateien, eigene Aufgabe zu dieser Szene'],
   '受力分析图…': ['Free-body diagram…', 'Kräfteplan…'],
   '打点计时器纸带…': ['Ticker tape…', 'Papierstreifen…'],
   'v–t 图面积': ['Area under v–t', 'Fläche unter v–t'],

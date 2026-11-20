@@ -62,10 +62,10 @@ const open = ref<string | null>(null)
 .chips { display: flex; gap: 6px; flex-wrap: wrap; margin: 14px 0 12px; }
 .case { display: flex; flex-direction: column; gap: 8px; }
 .case h3 { margin: 0; font-size: var(--type-body); }
-.belief, .more p { margin: 0; line-height: 1.55; color: var(--text-2); font-size: var(--type-small); }
+.belief, .more p { margin: 0; line-height: var(--line-para); color: var(--text-2); font-size: var(--type-small); }
 .more { display: flex; flex-direction: column; gap: 6px; }
 .more p.small { display: flex; gap: 6px; align-items: baseline; }
-.tag { display: inline-block; margin-right: 6px; padding: 0 6px; border-radius: 5px; background: var(--warning-soft); color: var(--warning); font-size: var(--type-tiny); font-weight: 650; }
+.tag { display: inline-block; margin-right: 6px; padding: 0 6px; border-radius: 5px; background: var(--warning-soft); color: var(--warning); font-size: var(--type-tiny); font-weight: var(--weight-strong); }
 .tag.ok { background: var(--success-soft); color: var(--success); }
 .acts { display: flex; align-items: center; gap: 6px; margin-top: auto; padding-top: 2px; flex-wrap: wrap; }
 @media (max-width: 760px) { .cases { padding: 12px 10px 24px; } .head { flex-direction: column; align-items: stretch; } .find { width: auto; } }

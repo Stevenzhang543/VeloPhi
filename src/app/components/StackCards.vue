@@ -36,7 +36,7 @@ const bodyId = `stack-${Math.random().toString(36).slice(2, 9)}`
 .stack { border-radius: var(--radius-group); background: var(--group); margin: 0 0 8px; overflow-anchor: auto; }
 .stack-head { width: 100%; display: flex; align-items: center; gap: 8px; min-height: calc(34px * var(--zoom)); padding: 4px 10px; border: 0; background: transparent; cursor: pointer; text-align: left; border-radius: var(--radius-group); }
 .stack-head:hover { background: var(--hover); }
-.chev { display: inline-block; transition: transform var(--dur-2) var(--ease-out); color: var(--text-3); font-size: 11px; }
+.chev { display: inline-block; transition: transform var(--dur-2) var(--ease-out); color: var(--text-3); font-size: var(--type-tiny); }
 .open .chev { transform: rotate(90deg); }
 .stack-title { font-weight: 600; }
 .stack-count { background: var(--fill); border-radius: 999px; padding: 0 7px; color: var(--text-2); }

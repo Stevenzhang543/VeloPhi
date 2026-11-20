@@ -239,7 +239,7 @@ export async function initHost(preferWasm = false): Promise<SimHost> {
         api.invoke<{ core: string; abi: number; threads: number }>('engine_info'),
         new Promise<null>(resolve => setTimeout(() => resolve(null), 4000))
       ])
-      if (engineInfo && engineInfo.abi === 2) return (chosen = nativeHost(api))
+      if (engineInfo && engineInfo.abi === 3) return (chosen = nativeHost(api))
     } catch { /* No native engine: WebAssembly */ }
   }
   return (chosen = typeof Worker !== 'undefined' ? workerHost : mainThreadHost)

@@ -1,0 +1,3 @@
+# Shell scripts run in WSL/Linux: always LF, whatever core.autocrlf says (a CR makes bash fail with $'\r').
+*.sh text eol=lf
+*.json text eol=lf

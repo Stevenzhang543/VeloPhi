@@ -1,0 +1,23 @@
+{
+  "about": "Hand-entered supplement to NUBASE2020 for scripts/chem/build_nuclides.py: the fraction of one decay mode of a parent that feeds an isomer of the daughter. NUBASE2020 lists decay modes of the parent only, not which state of the daughter is fed; without an entry here every decay leads to the daughter's ground state. Each entry names its source and the day it was read. Entries are added only for values read from a source, never from memory.",
+  "sources": [
+    {
+      "id": "iaea-decaychain-doc",
+      "citation": "IAEA Nuclear Data Section, decay-chain API (test version), documentation with worked example for Mo-99; numerical data from ENSDF (E. Browne, J.K. Tuli, Nuclear Data Sheets 145 (2017) 25 for A = 99)",
+      "url": "https://iaea-nds.github.io/decaychain",
+      "read": "2026-11-14",
+      "quote": "decay_br gives the probability of this parent-daughter decay per one decay of the parent"
+    },
+    {
+      "id": "ccri-webinar-2024-cs137",
+      "citation": "S. Leblond, 'Nuclear data evaluation for radionuclide metrology', CCRI webinar 2024-12-05 (BIPM), table 'Latest 137Cs decay data evaluations': ENSDF (E. Browne, J.K. Tuli, 2007) I_beta(11/2-) = 94.7 (2) %; DDEP (R.G. Helmer, V.P. Chechev, 2006) 94.36 (28) %",
+      "url": "https://www.bipm.org/documents/20126/267637902/DDEP+evaluation+of+Cs-137/b7ed4b11-3a88-cd3b-3c40-b5674f406fb8",
+      "read": "2026-11-14",
+      "quote": "ENSDF E. Browne and J.K. Tuli (2007) ... 94.7 (2)"
+    }
+  ],
+  "feeding": [
+    { "parent": "Mo-99", "mode": "B-", "to": "Tc-99m", "fraction": 0.8778, "source": "iaea-decaychain-doc", "note": "rows 99MO_0 -> 99TC_2 (decay_br 0.877800) and 99MO_0 -> 99TC_0 (0.122200) of the example" },
+    { "parent": "Cs-137", "mode": "B-", "to": "Ba-137m", "fraction": 0.947, "source": "ccri-webinar-2024-cs137", "note": "the ENSDF value, the evaluation NUBASE2020 follows; the beta branch to the 11/2- level is the isomer at 661.659 keV" }
+  ]
+}

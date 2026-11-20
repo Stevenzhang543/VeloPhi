@@ -17,7 +17,9 @@ import { aiLabel } from '../client'
 import type { Tool } from './tools'
 import type { CheckedQuestion } from '../import/contract'
 import { compactSceneDoc, prepareAiScene } from './simScene'
+import type { PreparedScene } from './simScene'
 import type { JsonSchema, ToolDef } from '../types'
+import { CHEM_TOOLS } from './chemTools'
 
 /** What one scene build shows in the conversation (the scene card). */
 export interface SceneCard {
@@ -56,11 +58,19 @@ const shortTitle = (s: string) => (s.length > 40 ? `${s.slice(0, 38)}…` : s)
 export async function applyAiScene(raw: unknown, questions: unknown, meta: { title?: string; stem?: string; signal?: AbortSignal } = {}): Promise<{ ok: true; card: SceneCard; result: Record<string, unknown> } | { ok: false; errors: string[]; notes: string[] }> {
   const prep = prepareAiScene(raw, questions)
   if (!prep.ok) return { ok: false, errors: prep.errors.slice(0, 14), notes: prep.notes.slice(0, 8) }
+  return loadPreparedScene(prep, meta)
+}
+
+/**
+ * Load a scene that is already checked (26.64: the sketch builder compiles and checks its scenes itself, D280–D281;
+ * a template instance keeps its template link). `route` is recorded in the scene (`extra.ai.route`).
+ */
+export async function loadPreparedScene(prep: Extract<PreparedScene, { ok: true }>, meta: { title?: string; stem?: string; signal?: AbortSignal; route?: string } = {}): Promise<{ ok: true; card: SceneCard; result: Record<string, unknown> }> {
   await confirmReplace()
   const scene = prep.scene
   const title = shortTitle((meta.title || prep.title || scene.name || tl('AI 场景')).trim())
   if (!scene.name || scene.name === 'AI 场景') scene.name = title
-  scene.extra = { ...(scene.extra ?? {}), ai: { route: 'copilot-sim', summary: title, connection: aiLabel(), at: new Date().toISOString() } }
+  scene.extra = { ...(scene.extra ?? {}), ai: { route: meta.route ?? 'copilot-sim', summary: title, connection: aiLabel(), at: new Date().toISOString() } }
   let problemId: string | undefined
   if (prep.questions.length) {
     const problem: Problem = {
@@ -132,7 +142,8 @@ const SHARED = ['get_app_state', 'get_scene_summary', 'read_results', 'read_quan
 
 /** The Copilot's tools. */
 export function copilotTools(): Tool[] {
-  return [...SCENE_TOOLS, ...SHARED.map(n => TOOLS.find(t => t.name === n)).filter((t): t is Tool => !!t)]
+  // 26.64 (D286): the chemistry bench and the encyclopedia
+  return [...SCENE_TOOLS, ...SHARED.map(n => TOOLS.find(t => t.name === n)).filter((t): t is Tool => !!t), ...CHEM_TOOLS]
 }
 
 export function copilotToolDefs(): ToolDef[] {

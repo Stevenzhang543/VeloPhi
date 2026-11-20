@@ -30,10 +30,8 @@ export const TEXTS_2660: Record<string, readonly [string, string]> = {
   // Studio shell (D205)
   "时间轴": ["Timeline", "Zeitleiste"],
   "从“模板”开始，或用工具搭建场景。": ["Start from “Templates”, or build a scene with the tools.", "Mit „Vorlagen“ beginnen oder eine Szene mit den Werkzeugen aufbauen."],
-  "所选物体的参数；未选择时是场景设置（重力、时长、计算方式）": ["The parameters of the selected body; with nothing selected, the scene settings (gravity, duration, computation)", "Die Parameter des ausgewählten Körpers; ohne Auswahl die Szeneneinstellungen (Schwerkraft, Dauer, Berechnung)"],
   "公式对照、监视读数、预测": ["Formulas side by side, watched readings, predictions", "Formelvergleich, beobachtete Messwerte, Vorhersagen"],
   "作答与揭晓、任务（已知、所求与核对）": ["Answering and revealing, task (given, wanted and check)", "Antworten und Auflösen, Aufgabe (gegeben, gesucht und Prüfung)"],
-  "Copilot：讲题、生成仿真场景、替你操作": ["Copilot: explains problems, generates simulation scenes, operates the app for you", "Copilot: erklärt Aufgaben, erzeugt Simulationsszenen, bedient die App für dich"],
   "侧栏": ["Sidebar", "Seitenleiste"],
   "拖动调整侧栏宽度": ["Drag to change the width of the sidebar", "Ziehen, um die Breite der Seitenleiste zu ändern"],
   "收起侧栏": ["Collapse the sidebar", "Seitenleiste einklappen"],
@@ -44,35 +42,28 @@ export const TEXTS_2660: Record<string, readonly [string, string]> = {
   "提示：选中工具后在画布上单击放置，拖动可拉出大小；Esc 回到选择。": ["Tip: pick a tool, then click on the canvas to place it, or drag to set its size; Esc goes back to selecting.", "Tipp: Werkzeug wählen, dann auf die Zeichenfläche klicken, um es zu platzieren, oder ziehen, um die Größe festzulegen; Esc kehrt zur Auswahl zurück."],
   "全部工具（物体、轨道、连接、力与场、编辑、标注）": ["All tools (bodies, tracks, connections, forces and fields, editing, annotations)", "Alle Werkzeuge (Körper, Bahnen, Verbindungen, Kräfte und Felder, Bearbeiten, Beschriftungen)"],
   "全部工具": ["All tools", "Alle Werkzeuge"],
-  "对象列表（{0}）": ["Object list ({0})", "Objektliste ({0})"],
   "对象列表": ["Object list", "Objektliste"],
-  "物体吸附：靠近其他物体时吸到刚好接触、边缘对齐；按住 Alt 临时关闭": ["Object snapping: near other bodies, a body snaps to exact contact with edges lined up; hold Alt to turn it off for a moment", "Objektfang: In der Nähe anderer Körper rastet ein Körper in genaue Berührung mit bündigen Kanten ein; Alt gedrückt halten, um ihn kurz auszuschalten"],
-  "网格吸附：物体的边、角或圆弧端点对齐网格；接触吸附仍然有效；按住 Alt 临时关闭": ["Grid snapping: an edge, corner or arc end of the body goes onto the grid; contact snapping still applies; hold Alt to turn it off for a moment", "Rasterfang: Eine Kante, Ecke oder ein Bogenende des Körpers kommt aufs Raster; der Berührungsfang gilt weiterhin; Alt gedrückt halten, um ihn kurz auszuschalten"],
   "只留选择、平移与工具箱": ["Keep only select, pan and the toolbox", "Nur Auswahl, Verschieben und den Werkzeugkasten zeigen"],
   "显示常用工具与吸附开关": ["Show the common tools and the snapping switches", "Häufige Werkzeuge und die Fangschalter zeigen"],
   "收起工具条": ["Collapse the tool strip", "Werkzeugleiste einklappen"],
   "展开工具条": ["Expand the tool strip", "Werkzeugleiste ausklappen"],
   "模板库…": ["Template library…", "Vorlagenbibliothek…"],
   "题目库…": ["Problem bank…", "Aufgabensammlung…"],
-  "工作模式": ["Studio mode", "Arbeitsmodus"],
-  "画面上显示的内容、深浅色外观": ["What the canvas shows, light or dark appearance", "Was die Zeichenfläche zeigt, helles oder dunkles Erscheinungsbild"],
-  "恢复本模式的默认布局": ["Restore the default layout of this mode", "Standardlayout dieses Modus wiederherstellen"],
   "重算": ["Recompute", "Neu berechnen"],
   "计算设置（场景）": ["Computation settings (scene)", "Berechnungseinstellungen (Szene)"],
-  "Copilot：讲题、生成仿真场景、替你操作（{0}+I）": ["Copilot: explains problems, generates simulation scenes, operates the app for you ({0}+I)", "Copilot: erklärt Aufgaben, erzeugt Simulationsszenen, bedient die App für dich ({0}+I)"],
+  "Copilot：讲题、搭场景（{0}+I）": ["Copilot: explains problems, builds scenes ({0}+I)", "Copilot: erklärt Aufgaben, baut Szenen ({0}+I)"],
   "放置物体与连接件，修改属性": ["Place bodies and connectors, change properties", "Körper und Verbindungen platzieren, Eigenschaften ändern"],
   "播放、看曲线与事件": ["Play, look at curves and events", "Abspielen, Kurven und Ereignisse ansehen"],
-  "公式对照、监视读数、题目与预测": ["Formulas side by side, watched readings, problems and predictions", "Formelvergleich, beobachtete Messwerte, Aufgaben und Vorhersagen"],
+  "公式对照、读数、题目与预测": ["Formulas side by side, readings, problems, predictions", "Formelvergleich, Messwerte, Aufgaben, Vorhersagen"],
 
   // Phone (D206)
   "主要功能": ["Main functions", "Hauptfunktionen"],
 
   // Computation status (D203)
-  "已算至 {0} {1} · 播放时继续": ["Computed to {0} {1} · continues during playback", "Berechnet bis {0} {1} · geht beim Abspielen weiter"],
   "计算中 · {0} {1}": ["Computing · {0} {1}", "Berechnung läuft · {0} {1}"],
   "静止：没有物体会运动": ["At rest: nothing will move", "In Ruhe: nichts wird sich bewegen"],
-  "已静止 · 共 {0} {1}": ["At rest · {0} {1} in all", "In Ruhe · insgesamt {0} {1}"],
-  "已到终止条件 · {0} {1}": ["Stop condition reached · {0} {1}", "Abbruchbedingung erreicht · {0} {1}"],
+  "已静止 · 共 {0} {1}": ["At rest · {0} {1}", "In Ruhe · {0} {1}"],
+  "已到终止条件 · {0} {1}": ["Stopped as set · {0} {1}", "Endbedingung · {0} {1}"],
   "已停止于 {0} {1}": ["Stopped at {0} {1}", "Angehalten bei {0} {1}"],
   "共 {0} {1}": ["{0} {1} in all", "Insgesamt {0} {1}"],
   "物体仍在运动：计算领先播放位置足够远后暂歇，播放前进或拖到后面时继续": ["Bodies are still moving: the computation rests once it is far enough ahead of playback and continues when playback moves on or you drag further ahead", "Körper bewegen sich noch: Die Berechnung pausiert, sobald sie weit genug vor der Wiedergabe ist, und läuft weiter, wenn die Wiedergabe fortschreitet oder du weiter nach vorn ziehst"],
@@ -90,10 +81,6 @@ export const TEXTS_2660: Record<string, readonly [string, string]> = {
   "撤回一点": ["Remove the last point", "Letzten Punkt entfernen"],
 
   // Tour (D205/D206)
-  "画布左侧的工具条：选一个工具，在画布上单击放置物体（物块、小球、斜面、绳、弹簧……），拖拽可拉出大小；“全部工具”里还有轨道、连接、力与场。": ["The tool strip at the left of the canvas: pick a tool and click on the canvas to place a body (block, ball, incline, rope, spring…), or drag to set its size; “All tools” also has tracks, connections, forces and fields.", "Die Werkzeugleiste links an der Zeichenfläche: Werkzeug wählen und auf die Zeichenfläche klicken, um einen Körper zu platzieren (Klotz, Kugel, schiefe Ebene, Seil, Feder …), oder ziehen, um die Größe festzulegen; unter „Alle Werkzeuge“ gibt es außerdem Bahnen, Verbindungen, Kräfte und Felder."],
-  "空格播放 / 暂停，拖动时间轴到任意时刻；菱形是碰撞、开始滑动等事件。只要物体还在运动就会一直算下去。点“曲线”展开曲线与事件。": ["Space plays or pauses; drag the timeline to any moment; the diamonds are events such as collisions or the start of sliding. The computation goes on as long as anything moves. Click “Charts” to show the charts and events.", "Leertaste spielt ab oder pausiert; die Zeitleiste lässt sich zu jedem Zeitpunkt ziehen; die Rauten sind Ereignisse wie Stöße oder der Beginn des Gleitens. Gerechnet wird, solange sich etwas bewegt. „Diagramme“ zeigt Diagramme und Ereignisse."],
-  "工具、属性、分析（公式、曲线、事件、题目）与 AI 都从底部打开，面板可以拖到三分之一、三分之二或全屏，向下拖关闭。中间的按钮运行或播放。": ["Tools, properties, analysis (formulas, curves, events, problems) and AI all open from the bottom; a panel can be dragged to a third, two thirds or the full screen, and dragged down to close. The button in the middle runs or plays.", "Werkzeuge, Eigenschaften, Analyse (Formeln, Kurven, Ereignisse, Aufgaben) und KI öffnen sich von unten; ein Bereich lässt sich auf ein Drittel, zwei Drittel oder den ganzen Bildschirm ziehen und nach unten ziehen zum Schließen. Die Taste in der Mitte startet oder spielt ab."],
-  "右侧一个侧栏，四页：属性、分析（公式与仿真并排对照、监视读数）、题目、AI（Copilot 讲题并生成仿真场景）。顶部的“搭建 / 仿真 / 分析”切换常用的布局。": ["One sidebar on the right with four tabs: properties, analysis (formulas next to the simulation, watched readings), problems, and AI (Copilot explains problems and generates simulation scenes). “Build / Simulation / Analysis” at the top switches between the usual layouts.", "Eine Seitenleiste rechts mit vier Tabs: Eigenschaften, Analyse (Formeln neben der Simulation, beobachtete Messwerte), Aufgaben und KI (Copilot erklärt Aufgaben und erzeugt Simulationsszenen). „Aufbauen / Simulation / Analyse“ oben wechselt zwischen den üblichen Layouts."],
 
   // Help spotlights
   "运行 / 重新计算": ["Run / recompute", "Starten / neu berechnen"],

@@ -1,185 +1,42 @@
 /*
- * VeloPhi design tokens, version 3 (26.63, D232 "Workbench 3"): a tool-like shell — a navigation rail, a context bar
- * and a status bar around the work area; three elevation levels (flat chrome, raised panels, floating layers); tighter
- * concentric radii (controls 8, panels 12, floating layers 16); hairline borders instead of heavy shadows; one focus
- * ring; motion tokens for press, hover, toggle, enter and exit. Derived from the Nova_A token set (4 pt grid, concentric radii, system font stack
- * with bundled OFL fallbacks; nothing Apple-proprietary is bundled). Light is the default theme because
- * classrooms project on white boards; dark is chosen in the settings or follows the system.
+ * VeloPhi global styles on design system v4 (26.64, D252–D258; docs/design/DESIGN_SYSTEM.md). The tokens are in
+ * tokens.css; this file holds the shared parts built from them: controls, panels, menus, dialogs, messages, the
+ * material of floating controls, the pages' common classes and the instrument lines (scale ticks). No colour and no
+ * radius is written here or in a component — only tokens (scripts/token-lint.mjs).
  *
- * Effects are opt-in classes on <html> set by appearance.ts from the settings:
- *   fx-glass (translucent panes + pointer highlight), fx-high (real backdrop blur on the panes), fx-ambient
- *   (soft moving background), fx-smooth (continuous background motion), fx-calm (reduced motion: no
- *   animations), fx-still (background paused: calm or hidden window), fx-off (effects off), projector (large,
- *   high contrast).
+ * Material (D255): content is solid (.pane, pages, lists, long text); floating controls are glass (.glass-float, .menu,
+ * .toast, the command palette, bars and docks over a canvas); modal layers are solid over a dimmed page (.dialog).
+ * Glass is one recipe — fill, backdrop filter, edge, top highlight — whose values come from the tier the user chose
+ * (classes glass-clear / glass-tinted / glass-solid on <html>, appearance.ts). Glass never contains glass, a screen
+ * shows at most four glass layers, and blur is never animated: layers enter with opacity and transform only.
+ *
+ * Other classes on <html>: fx-calm (reduced motion: no transitions or animations), fx-off (canvas effects off),
+ * projector, contrast-more, density-compact, palette-cvd; fx-glass is kept as "the tier is not solid" for the
+ * components that still key on it.
  */
-:root {
-  --font-ui: "Segoe UI Variable Text", "Segoe UI", -apple-system, BlinkMacSystemFont, "Noto Sans SC Variable", "Microsoft YaHei UI", system-ui, sans-serif;
-  --font-mono: "JetBrains Mono Variable", "Cascadia Code", ui-monospace, Consolas, monospace;
-  --ui-scale: 1;
-  --proj-scale: 1;
-  --zoom: calc(var(--ui-scale) * var(--proj-scale));
-  /* 26.57 (D120, manual §4.1–4.2): the default reading density — body 14 px, common controls 32 px; “紧凑” keeps the
-     sizes of 26.56 (.density-compact below) and “课堂投影” scales the default up (projector) */
-  --type-display: calc(22px * var(--zoom));
-  --type-title: calc(15.5px * var(--zoom));
-  --type-body: calc(14px * var(--zoom));
-  --type-small: calc(12.5px * var(--zoom));
-  --type-tiny: calc(11.5px * var(--zoom));
-  --control-sm: calc(28px * var(--zoom));
-  --tab-h: calc(26px * var(--zoom));
-  --menu-row: calc(32px * var(--zoom));
-  --line-body: 1.5;
-  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 20px; --space-6: 24px;
-  /* 26.59 (D155): concentric radii — controls 10, panels 16, floating layers 20, pills 999; rows inside a control 8 */
-  --radius-control: 8px; --radius-panel: 12px; --radius-float: 16px;
-  --radius-pane: var(--radius-panel); --radius-group: 10px; --radius-row: 7px; --radius-pill: 999px;
-  /* 26.63: the shell — navigation rail, context bar, status bar */
-  --rail-w: calc(64px * var(--zoom)); --bar-h: calc(48px * var(--zoom)); --status-h: calc(26px * var(--zoom));
-  --control-h: calc(32px * var(--zoom));
-  --left-w: calc(216px * var(--zoom));
-  /* Motion tokens (26.52, D57): press, hover/switch, open/dialog; reduced motion shortens them all (fx-calm) */
-  --dur-1: 90ms; --dur-2: 160ms; --dur-3: 240ms;
-  /* 26.59 (D156, glass handbook): press 80, release 150, hover 120, toggle 180, enter 220 / exit 150, panel 280 */
-  --dur-press: 80ms; --dur-release: 150ms; --dur-hover: 120ms; --dur-toggle: 180ms;
-  --dur-enter: 220ms; --dur-exit: 150ms; --dur-panel: 280ms;
-  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
-  --ease-in: cubic-bezier(0.4, 0, 1, 1);
-  --ease-spring: cubic-bezier(0.3, 1.25, 0.5, 1);
-  --press-scale: 0.97;
-
-  --bg: #f1f2f5;
-  --chrome: #e8eaef;
-  --border: rgba(60, 60, 67, 0.13);
-  --ring: rgba(10, 108, 255, 0.34);
-  --accent-strong: #0057d9;
-  --elev-1: 0 0 0 1px var(--border), 0 1px 2px rgba(15, 23, 42, 0.04);
-  --elev-2: 0 0 0 1px var(--border), 0 4px 14px rgba(15, 23, 42, 0.08);
-  --elev-3: 0 0 0 1px var(--border), 0 14px 44px rgba(15, 23, 42, 0.18), 0 2px 6px rgba(15, 23, 42, 0.08);
-  --pane: #ffffff;
-  --pane-bg: var(--pane);
-  --group: #f5f6f8;
-  --group-solid: #f5f6f8;
-  --fill: rgba(60, 60, 67, 0.08);
-  --fill-strong: rgba(60, 60, 67, 0.14);
-  --hover: rgba(60, 60, 67, 0.06);
-  --text: #1c1c1e;
-  --text-2: rgba(60, 60, 67, 0.78);
-  --text-3: rgba(60, 60, 67, 0.55);
-  --separator: rgba(60, 60, 67, 0.16);
-  --accent: #0a6cff;
-  --accent-soft: rgba(10, 108, 255, 0.12);
-  --on-accent: #ffffff;
-  --success: #1f9d55;
-  --success-soft: rgba(31, 157, 85, 0.12);
-  --warning: #c77700;
-  --warning-soft: rgba(199, 119, 0, 0.13);
-  --danger: #d92d20;
-  --danger-soft: rgba(217, 45, 32, 0.12);
-  --canvas-bg: #fbfbfd;
-  --grid-minor: rgba(60, 60, 67, 0.06);
-  --grid-major: rgba(60, 60, 67, 0.14);
-  --shadow: var(--elev-1);
-  --shadow-pop: var(--elev-3);
-
-  /* Glass */
-  /* 26.59 (D158): white 82 %, blur 16–20 px, saturation 115 % (was 68 %, 22 px, 180 %) */
-  --glass-pane: rgba(255, 255, 255, 0.82);
-  --glass-group: rgba(246, 247, 250, 0.8);
-  --glass-pop: rgba(255, 255, 255, 0.84);
-  --glass-rim: rgba(255, 255, 255, 0.7);
-  --glass-blur: 20px;
-  --glass-blur-small: 16px;
-  --glass-sat: 1.15;
-  --specular: rgba(255, 255, 255, 0.75);
-  --sheen: rgba(255, 255, 255, 0.45);
-  --amb-1: rgba(122, 170, 255, 0.55);
-  --amb-2: rgba(196, 160, 255, 0.42);
-  --amb-3: rgba(110, 222, 200, 0.40);
-  --amb-4: rgba(255, 196, 150, 0.30);
-  color-scheme: light;
-}
-
-/* 26.60 r2: Android draws with its own fonts (Roboto and Noto Sans CJK, chosen by the page language); the bundled
-   variable fonts are not loaded there (platform/device.ts) */
-:root.sysfont {
-  --font-ui: system-ui, "Roboto", "Noto Sans CJK SC", sans-serif;
-  --font-mono: ui-monospace, "Droid Sans Mono", monospace;
-}
-
-:root[data-theme="dark"] {
-  --bg: #101114;
-  --chrome: #0a0b0d;
-  --border: rgba(235, 235, 245, 0.12);
-  --ring: rgba(59, 139, 255, 0.45);
-  --accent-strong: #6aa6ff;
-  --elev-1: 0 0 0 1px var(--border), 0 1px 2px rgba(0, 0, 0, 0.4);
-  --elev-2: 0 0 0 1px var(--border), 0 6px 20px rgba(0, 0, 0, 0.4);
-  --elev-3: 0 0 0 1px var(--border), 0 18px 54px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.4);
-  --pane: #1b1c20;
-  --group: #242428;
-  --group-solid: #242428;
-  --fill: rgba(235, 235, 245, 0.10);
-  --fill-strong: rgba(235, 235, 245, 0.16);
-  --hover: rgba(235, 235, 245, 0.07);
-  --text: #f5f5f7;
-  --text-2: rgba(235, 235, 245, 0.75);
-  --text-3: rgba(235, 235, 245, 0.5);
-  --separator: rgba(235, 235, 245, 0.14);
-  --accent: #3b8bff;
-  --accent-soft: rgba(59, 139, 255, 0.18);
-  --success: #34c76b;
-  --success-soft: rgba(52, 199, 107, 0.16);
-  --warning: #f0a33a;
-  --warning-soft: rgba(240, 163, 58, 0.16);
-  --danger: #ff5a4f;
-  --danger-soft: rgba(255, 90, 79, 0.16);
-  --canvas-bg: #141518;
-  --grid-minor: rgba(235, 235, 245, 0.05);
-  --grid-major: rgba(235, 235, 245, 0.12);
-  --shadow: var(--elev-1);
-  --shadow-pop: var(--elev-3);
-
-  --glass-pane: rgba(30, 30, 34, 0.78);
-  --glass-group: rgba(52, 52, 58, 0.74);
-  --glass-pop: rgba(36, 36, 40, 0.82);
-  --glass-rim: rgba(255, 255, 255, 0.09);
-  --specular: rgba(255, 255, 255, 0.10);
-  --sheen: rgba(255, 255, 255, 0.05);
-  --amb-1: rgba(48, 92, 210, 0.42);
-  --amb-2: rgba(120, 70, 210, 0.34);
-  --amb-3: rgba(20, 140, 140, 0.30);
-  --amb-4: rgba(200, 90, 60, 0.16);
-  color-scheme: dark;
-}
-
-/* Projector: larger type, stronger text and lines, no translucency */
-/* “紧凑” density: the sizes of 26.56 */
-:root.density-compact {
-  --type-title: calc(15px * var(--zoom)); --type-body: calc(13px * var(--zoom)); --type-small: calc(12px * var(--zoom)); --type-tiny: calc(11px * var(--zoom));
-  --control-h: calc(28px * var(--zoom)); --control-sm: calc(26px * var(--zoom)); --tab-h: calc(24px * var(--zoom)); --menu-row: calc(30px * var(--zoom)); --line-body: 1.4;
-}
-:root.projector { --proj-scale: 1.18; --text-2: rgba(0, 0, 0, 0.86); --text-3: rgba(0, 0, 0, 0.68); --separator: rgba(0, 0, 0, 0.26); --border: rgba(0, 0, 0, 0.3); --fill: rgba(0, 0, 0, 0.09); --fill-strong: rgba(0, 0, 0, 0.16); --bg: #e6e8ec; --chrome: #d9dce2; }
-:root.projector[data-theme="dark"] { --text-2: rgba(255, 255, 255, 0.9); --text-3: rgba(255, 255, 255, 0.72); --separator: rgba(255, 255, 255, 0.26); --border: rgba(255, 255, 255, 0.3); --fill: rgba(255, 255, 255, 0.14); --fill-strong: rgba(255, 255, 255, 0.22); --bg: #000; --chrome: #000; }
-:root.projector .pane { box-shadow: 0 0 0 1.5px var(--separator); }
-:root.projector .badge { font-weight: 700; }
+@import './tokens.css';
 
 * { box-sizing: border-box; }
 html, body, #app { margin: 0; height: 100%; }
-/* The interface paints its own background so the opening reveal (D54) shows it inside the growing circle */
+/* The interface paints its own ground so the opening reveal (D54) shows it inside the growing circle */
 #app { background: var(--bg); }
 body {
   font-family: var(--font-ui);
   font-size: var(--type-body);
+  font-weight: var(--weight-regular);
   line-height: var(--line-body);
   color: var(--text);
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
 }
-.mono, .num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+/* Quantities (D254): the text face with tabular figures, so digits keep their place while a value changes. The
+   monospace face is for code and JSON only (.code). */
+.mono, .num { font-family: var(--font-ui); font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
+.code, pre, code { font-family: var(--font-code); }
 
 button, input, select, textarea { font: inherit; color: inherit; }
-:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--radius-row); }
 .btn:focus-visible, .field:focus-visible { border-radius: var(--radius-control); }
 
 .btn {
@@ -188,26 +45,26 @@ button, input, select, textarea { font: inherit; color: inherit; }
   border: 0;
   border-radius: var(--radius-control);
   background: var(--pane);
-  box-shadow: inset 0 0 0 1px var(--border), 0 1px 1px rgba(15, 23, 42, 0.03);
+  box-shadow: inset 0 0 0 1px var(--border);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: 6px;
   white-space: nowrap;
   font-size: var(--type-body);
-  font-weight: 500;
-  /* 26.59 (D156): release 150 ms with the out curve; the press itself is 80 ms (below) */
-  transition: background var(--dur-hover) ease, transform var(--dur-release) var(--ease-out), box-shadow var(--dur-release) ease, color var(--dur-hover) ease;
+  font-weight: var(--weight-medium);
+  transition: background var(--dur-fast) ease, transform var(--dur-release) var(--ease-out), box-shadow var(--dur-fast) ease, color var(--dur-fast) ease;
 }
-.btn:hover { background: var(--group); box-shadow: inset 0 0 0 1px var(--separator), 0 1px 2px rgba(15, 23, 42, 0.06); }
+.btn:hover { background: var(--group); box-shadow: inset 0 0 0 1px var(--separator); }
 .btn:active { transform: scale(var(--press-scale)); transition-duration: var(--dur-press); }
 .btn:disabled { opacity: 0.45; cursor: default; transform: none; }
-.btn.primary { background: var(--accent); color: var(--on-accent); font-weight: 600; box-shadow: 0 1px 2px rgba(10, 108, 255, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2); }
-.btn.primary:hover { background: var(--accent); filter: brightness(1.08); box-shadow: 0 2px 8px rgba(10, 108, 255, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.2); }
-/* 26.63: tonal (accent on a soft ground), large, and block buttons */
-.btn.tonal { background: var(--accent-soft); color: var(--accent); box-shadow: none; font-weight: 600; }
-.btn.tonal:hover { background: color-mix(in srgb, var(--accent) 18%, transparent); box-shadow: none; }
-.btn.lg { height: calc(40px * var(--zoom)); padding: 0 16px; border-radius: 10px; font-size: var(--type-body); }
+/* One primary button on a screen (D243) */
+.btn.primary { background: var(--accent); color: var(--on-accent); font-weight: var(--weight-strong); box-shadow: none; }
+.btn.primary:hover { background: var(--accent-strong); box-shadow: none; }
+/* Tonal (accent on a soft ground), large, and block buttons */
+.btn.tonal { background: var(--accent-soft); color: var(--accent); box-shadow: none; font-weight: var(--weight-strong); }
+.btn.tonal:hover { background: var(--accent-press); box-shadow: none; }
+.btn.lg { height: var(--control-lg); padding: 0 16px; font-size: var(--type-body); }
 .btn.block { width: 100%; justify-content: center; }
 /* 26.56 hand check: the accent outline vanished on accent buttons */
 .btn.primary:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
@@ -226,7 +83,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   border-radius: var(--radius-control);
   background: var(--fill);
   padding: 0 8px;
-  transition: border-color var(--dur-hover) ease, background var(--dur-hover) ease, box-shadow var(--dur-hover) ease;
+  transition: border-color var(--dur-fast) ease, background var(--dur-fast) ease, box-shadow var(--dur-fast) ease;
   min-width: 0;
   outline: none;
   font-size: var(--type-body);
@@ -238,10 +95,11 @@ button, input, select, textarea { font: inherit; color: inherit; }
 select.field { padding-right: 4px; }
 textarea.field { height: auto; padding: 6px 8px; resize: vertical; line-height: 1.45; }
 
+/* Content panels are solid */
 .pane {
-  background: var(--pane-bg);
-  border-radius: var(--radius-pane);
-  box-shadow: var(--shadow);
+  background: var(--pane);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--elev-1);
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -252,57 +110,58 @@ textarea.field { height: auto; padding: 6px 8px; resize: vertical; line-height: 
   align-items: center;
   gap: var(--space-2);
   padding: 10px 12px 6px;
-  font-weight: 600;
-  font-size: var(--type-title);
+  font-weight: var(--weight-title);
+  font-size: var(--type-panel);
+  line-height: var(--line-tight);
+  letter-spacing: var(--track-display);
 }
 .pane-body { flex: 1; overflow: auto; padding: 4px 12px 12px; min-height: 0; }
 
-.group { background: var(--group); border-radius: var(--radius-group); padding: 6px 10px; margin-bottom: 10px; }
-.group-title { font-size: var(--type-small); color: var(--text-3); font-weight: 600; margin: 10px 2px 4px; text-transform: none; display: flex; align-items: center; gap: 6px; }
+/* 26.65 (D295, D296): a group is a small title and the space around it — no tinted ground, no lines between rows
+   (the readout tables keep their lines: they help the eye along a row) */
+.group { background: none; border-radius: 0; padding: 0; margin-bottom: var(--space-5); }
+.group-title { font-size: var(--type-small); color: var(--text-2); font-weight: var(--weight-strong); margin: 0 0 var(--space-2); text-transform: none; display: flex; align-items: center; gap: 6px; }
 .row { display: flex; align-items: center; gap: var(--space-2); min-height: calc(32px * var(--zoom)); }
-.row + .row { border-top: 1px solid var(--separator); }
-.row > label { flex: 0 0 auto; width: calc(104px * var(--zoom)); color: var(--text-2); font-size: var(--type-small); overflow-wrap: anywhere; hyphens: auto; }
+.row > label { flex: 0 0 auto; width: calc(104px * var(--zoom)); color: var(--text-2); font-size: var(--type-small); overflow-wrap: break-word; hyphens: auto; line-height: var(--line-tight); }
 .row > .grow { flex: 1; min-width: 0; }
 
-.tabs { display: flex; gap: 2px; padding: 2px; background: var(--fill); border-radius: var(--radius-row); }
-.tabs button { flex: 1 1 0; min-width: 0; padding: 0 4px; height: var(--tab-h); border: 0; background: transparent; border-radius: 6px; cursor: pointer; font-size: var(--type-small); color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: background 140ms ease, color 140ms ease; }
+.tabs { display: flex; gap: 2px; padding: 2px; background: var(--fill); border-radius: var(--radius-control); }
+.tabs button { flex: 1 1 0; min-width: 0; padding: 0 4px; height: var(--tab-h); border: 0; background: transparent; border-radius: var(--radius-row); cursor: pointer; font-size: var(--type-small); color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: background var(--dur-fast) ease, color var(--dur-fast) ease; }
 .tabs button:hover { color: var(--text); }
-.tabs button.on { background: var(--pane); color: var(--text); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12), 0 0 0 0.5px rgba(0, 0, 0, 0.04); font-weight: 600; }
+.tabs button.on { background: var(--raised); color: var(--text); box-shadow: var(--elev-1); font-weight: var(--weight-strong); }
 
-/* Segmented control (page switcher, theme, quality) */
-.segmented { display: inline-flex; gap: 2px; padding: 2px; background: var(--fill); border-radius: 9px; }
-.segmented button { height: var(--control-sm); padding: 0 12px; border: 0; background: transparent; border-radius: 7px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: var(--type-small); color: var(--text-2); white-space: nowrap; transition: background 160ms ease, color 160ms ease, box-shadow 160ms ease; }
+/* Segmented control (theme, material, density) */
+.segmented { display: inline-flex; gap: 2px; padding: 2px; background: var(--fill); border-radius: var(--radius-control); }
+.segmented button { height: var(--control-sm); padding: 0 12px; border: 0; background: transparent; border-radius: var(--radius-row); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: var(--type-small); color: var(--text-2); white-space: nowrap; transition: background var(--dur-fast) ease, color var(--dur-fast) ease, box-shadow var(--dur-fast) ease; }
 .segmented button:hover { color: var(--text); }
-.segmented button.on { background: var(--pane); color: var(--text); font-weight: 600; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.14), 0 0 0 0.5px rgba(0, 0, 0, 0.05); }
-:root[data-theme="dark"] .segmented button.on, :root[data-theme="dark"] .tabs button.on { background: #3a3a3f; }
-/* Sliding selection pill (26.52, D57; see app/slideIndicator.ts) */
+.segmented button.on { background: var(--raised); color: var(--text); font-weight: var(--weight-strong); box-shadow: var(--elev-1); }
+/* Sliding selection (26.52, D57; see app/slideIndicator.ts) */
 .has-ind { position: relative; isolation: isolate; }
 .has-ind::before {
   content: ''; position: absolute; left: 0; top: 0; z-index: 0; pointer-events: none;
   width: var(--ind-w, 0); height: var(--ind-h, 0); transform: translate(var(--ind-x, 0), var(--ind-y, 0)); opacity: var(--ind-o, 0);
-  border-radius: 7px; background: var(--pane); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.14), 0 0 0 0.5px rgba(0, 0, 0, 0.05);
+  border-radius: var(--radius-row); background: var(--raised); box-shadow: var(--elev-1);
 }
-.tabs.has-ind::before { border-radius: 6px; }
-:root[data-theme="dark"] .has-ind::before { background: #3a3a3f; }
-.has-ind.ind-ready::before { transition: transform var(--dur-3) var(--ease-out), width var(--dur-3) var(--ease-out), opacity var(--dur-2) ease; }
+.has-ind.ind-ready::before { transition: transform var(--dur-enter) var(--ease-out), width var(--dur-enter) var(--ease-out), opacity var(--dur-fast) ease; }
 .has-ind > button { position: relative; z-index: 1; }
 .has-ind > button.on { background: transparent !important; box-shadow: none !important; }
 
-/* iOS-style switch on a checkbox */
-input[type="checkbox"].switch { appearance: none; -webkit-appearance: none; width: 34px; height: 20px; border-radius: 999px; background: var(--fill-strong); position: relative; cursor: pointer; flex: 0 0 auto; margin: 0; transition: background 160ms ease; }
-input[type="checkbox"].switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3); transition: transform 180ms var(--ease-out); }
-input[type="checkbox"].switch:checked { background: var(--success); }
-input[type="checkbox"].switch:checked::after { transform: translateX(14px); }
+/* Switch on a checkbox */
+input[type="checkbox"].switch { appearance: none; -webkit-appearance: none; width: 34px; height: 20px; border-radius: var(--radius-pill); background: var(--fill-strong); position: relative; cursor: pointer; flex: 0 0 auto; margin: 0; transition: background var(--dur-fast) ease; }
+input[type="checkbox"].switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: var(--radius-round); background: var(--knob); box-shadow: 0 1px 3px var(--ink-shadow-strong); transition: transform var(--dur-fast) var(--ease-out); }
+input[type="checkbox"].switch:checked { background: var(--accent); }
+input[type="checkbox"].switch:checked::after { transform: translateX(14px); background: var(--on-accent); }
 input[type="checkbox"].switch:disabled { opacity: 0.45; cursor: default; }
 input[type="range"] { accent-color: var(--accent); }
 
-.badge { display: inline-flex; align-items: center; height: 20px; padding: 0 7px; border-radius: var(--radius-pill); font-size: var(--type-tiny); font-weight: 600; background: var(--fill); color: var(--text-2); white-space: nowrap; }
+.badge { display: inline-flex; align-items: center; height: 20px; padding: 0 7px; border-radius: var(--radius-pill); font-size: var(--type-tiny); font-weight: var(--weight-strong); background: var(--fill); color: var(--text-2); white-space: nowrap; }
 .badge.ok { background: var(--success-soft); color: var(--success); }
 .badge.warn { background: var(--warning-soft); color: var(--warning); }
 .badge.bad { background: var(--danger-soft); color: var(--danger); }
 .badge.info { background: var(--accent-soft); color: var(--accent); }
+:root.projector .badge { font-weight: var(--weight-strong); }
 
-kbd { font-family: var(--font-mono); font-size: var(--type-tiny); background: var(--fill); border-radius: 5px; padding: 1px 6px; margin: 0 1px; box-shadow: inset 0 -1px 0 var(--separator); white-space: nowrap; }
+kbd { font-family: var(--font-ui); font-variant-numeric: tabular-nums; font-size: var(--type-tiny); color: var(--text-2); background: var(--fill); border-radius: var(--radius-row); padding: 1px 6px; margin: 0 1px; box-shadow: inset 0 -1px 0 var(--separator); white-space: nowrap; }
 
 .muted { color: var(--text-3); }
 .small { font-size: var(--type-small); }
@@ -315,143 +174,87 @@ kbd { font-family: var(--font-mono); font-size: var(--type-tiny); background: va
 .check { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; font-size: var(--type-small); }
 .check input { accent-color: var(--accent); }
 
+/* ---- Material: glass for floating controls (D255) ---- */
+.glass, .glass-float, .menu, .toast {
+  background: var(--glass-fill);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+  /* 26.65 (D296): a shadow and one edge — the inner highlight along the top is gone in every tier except "clear",
+     where it is the edge of a pane of glass */
+  box-shadow: var(--elev-float), 0 0 0 1px var(--glass-edge);
+}
+:root.glass-clear :is(.glass, .glass-float, .menu, .toast) { box-shadow: var(--elev-float), 0 0 0 1px var(--glass-edge), inset 0 1px 0 var(--glass-spec); }
+/* Glass never contains glass: a layer inside another takes the solid surface (and a backdrop filter inside a
+   filtered parent would not see the page anyway) */
+:is(.glass, .glass-float, .menu, .toast) :is(.glass, .glass-float, .menu, .toast) {
+  background: var(--pane);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: var(--elev-3);
+}
+/* Layers enter with opacity and transform, from where they were opened; the blur itself never animates */
+.menu, .glass-float.enter, .toast, .dialog { transition: opacity var(--dur-enter) var(--ease-out), transform var(--dur-enter) var(--ease-out); }
+@starting-style {
+  .menu, .glass-float.enter { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  .dialog { opacity: 0; transform: translateY(8px) scale(0.98); }
+  .toast { opacity: 0; transform: translate(-50%, 10px); }
+}
+
 /* Menus and popovers */
-.menu { position: absolute; z-index: 8000; min-width: 220px; padding: 5px; border-radius: 12px; background: var(--pane); box-shadow: var(--shadow-pop), 0 0 0 0.5px var(--separator); display: flex; flex-direction: column; gap: 1px; animation: pop-in 140ms var(--ease-out); }
-.menu > button, .menu > label, .menu .menu-col > button { display: flex; align-items: center; gap: 8px; height: var(--menu-row); padding: 0 10px; border: 0; border-radius: 7px; background: transparent; cursor: pointer; text-align: left; font-size: var(--type-body); white-space: nowrap; }
-.menu > button:hover, .menu > label:hover, .menu .menu-col > button:hover:not(:disabled) { background: var(--accent); color: var(--on-accent); }
+.menu { position: absolute; z-index: 8000; min-width: 220px; padding: 5px; border-radius: var(--radius-float); display: flex; flex-direction: column; gap: 1px; }
+.menu > button, .menu > label, .menu .menu-col > button { display: flex; align-items: center; gap: 8px; height: var(--menu-row); padding: 0 10px; border: 0; border-radius: var(--radius-control); background: transparent; cursor: pointer; text-align: left; font-size: var(--type-body); white-space: nowrap; }
+/* A menu row is highlighted softly (an accent block is loud next to the canvas) */
+.menu > button:hover, .menu > label:hover, .menu .menu-col > button:hover:not(:disabled) { background: var(--accent-soft); color: var(--accent-strong); }
+.menu > button:active:not(:disabled), .menu .menu-col > button:active:not(:disabled) { background: var(--accent-press); }
 .menu > button:hover .muted, .menu > label:hover .muted { color: inherit; opacity: 0.8; }
 .menu > button:disabled, .menu .menu-col > button:disabled { opacity: 0.45; cursor: default; background: transparent; color: inherit; }
 .menu .sep { height: 1px; background: var(--separator); margin: 4px 6px; }
-.menu .menu-title { font-size: var(--type-tiny); color: var(--text-3); font-weight: 600; padding: 4px 10px 2px; }
+.menu .menu-title { font-size: var(--type-tiny); color: var(--text-2); font-weight: var(--weight-strong); padding: 4px 10px 2px; }
+/* Things done a hundred times a day (a shortcut, a selection, undo) do not animate; where they need a sign that
+   they happened, the thing flashes once in the accent colour (D256): add .flash, remove it on animationend */
+.flash { animation: accent-flash var(--dur-flash) ease-out; }
+@keyframes accent-flash { from { box-shadow: inset 0 0 0 999px var(--accent-press); } to { box-shadow: inset 0 0 0 999px transparent; } }
+/* Keyframes kept for the components that name them (opacity and transform only, no overshoot) */
 @keyframes pop-in { from { opacity: 0; transform: translateY(-4px) scale(0.98); } to { opacity: 1; transform: none; } }
-/* 26.63: a menu row is highlighted softly (the accent block was loud next to the canvas) */
-.menu > button:hover, .menu > label:hover, .menu .menu-col > button:hover:not(:disabled) { background: var(--accent-soft); color: var(--accent-strong); }
-.menu > button:active:not(:disabled), .menu .menu-col > button:active:not(:disabled) { background: color-mix(in srgb, var(--accent) 20%, transparent); }
-
-.dialog-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.32); display: flex; align-items: center; justify-content: center; z-index: 9000; animation: fade-in 140ms ease; }
-.dialog { background: var(--pane); border-radius: var(--radius-float); box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); width: min(880px, calc(100vw - 48px)); max-height: calc(100vh - 48px); display: flex; flex-direction: column; overflow: hidden; animation: dialog-in var(--dur-3) var(--ease-spring); }
-@keyframes dialog-in { from { opacity: 0; transform: translateY(8px) scale(0.965); } to { opacity: 1; transform: none; } }
-.dialog-header { display: flex; align-items: center; padding: 16px 20px 8px; font-size: calc(17px * var(--zoom)); font-weight: 600; gap: 8px; }
-.dialog-body { padding: 8px 20px 16px; overflow: auto; }
-.dialog-footer { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 20px 16px; border-top: 1px solid var(--separator); }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 
+/* ---- Material: modal layers are solid over a dimmed page ---- */
+.dialog-backdrop { position: fixed; inset: 0; background: var(--scrim); display: flex; align-items: center; justify-content: center; z-index: 9000; animation: fade-in var(--dur-exit) ease; }
+.dialog { background: var(--pane); border-radius: var(--radius-float); box-shadow: var(--elev-3); width: min(880px, calc(100vw - 48px)); max-height: calc(100vh - 48px); display: flex; flex-direction: column; overflow: hidden; }
+.dialog-header { display: flex; align-items: center; padding: 16px 20px 8px; font-size: var(--type-panel); line-height: var(--line-tight); font-weight: var(--weight-title); gap: 8px; }
+.dialog-body { padding: 8px 20px 16px; overflow: auto; }
+.dialog-footer { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 20px 16px; border-top: 1px solid var(--separator); }
+
 /* 26.63 (D233): messages sit above the status bar, with an icon that says what kind they are */
-.toast { position: fixed; bottom: calc(var(--status-h) + 18px); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; background: var(--pane); color: var(--text); padding: 9px 12px 9px 10px; border-radius: 12px; box-shadow: var(--elev-3); z-index: 9500; font-size: var(--type-small); max-width: min(70vw, 640px); animation: toast-in var(--dur-3) var(--ease-spring); }
-.toast .toast-ico { flex: 0 0 auto; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: var(--success-soft); color: var(--success); }
+.toast { position: fixed; bottom: calc(var(--status-h) + 18px); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; color: var(--text); padding: 9px 12px 9px 10px; border-radius: var(--radius-float); z-index: 9500; font-size: var(--type-small); max-width: min(70vw, 640px); }
+.toast .toast-ico { flex: 0 0 auto; width: 22px; height: 22px; border-radius: var(--radius-round); display: grid; place-items: center; background: var(--success-soft); color: var(--success); }
 .toast.error .toast-ico { background: var(--danger-soft); color: var(--danger); }
-.toast .toast-text { min-width: 0; overflow-wrap: anywhere; }
-@keyframes toast-in { from { opacity: 0; transform: translate(-50%, 14px) scale(0.96); } to { opacity: 1; transform: translate(-50%, 0); } }
-.toast.error { box-shadow: var(--elev-3), inset 3px 0 0 var(--danger); }
+.toast .toast-text { min-width: 0; overflow-wrap: break-word; }
+.toast.error { box-shadow: var(--elev-float), 0 0 0 1px var(--glass-edge), inset 3px 0 0 var(--danger); }
+.toast-x { margin-left: 2px; border: 0; background: transparent; color: inherit; font: inherit; font-size: var(--type-subtitle); line-height: 1; cursor: pointer; min-width: var(--hit-min); min-height: var(--hit-min); border-radius: var(--radius-control); }
+.toast-x:hover { background: var(--hover); }
+.toast-act { margin-left: 6px; border: 0; background: var(--accent-soft); color: var(--accent); font: inherit; font-weight: var(--weight-strong); cursor: pointer; min-height: 26px; padding: 0 10px; border-radius: var(--radius-control); }
+.toast-act:hover { background: var(--accent-press); }
 
 /* Progress bar */
-.progress { height: 4px; border-radius: 999px; background: var(--fill); overflow: hidden; }
+.progress { height: 4px; border-radius: var(--radius-pill); background: var(--fill); overflow: hidden; }
 .progress > i { display: block; height: 100%; width: 100%; background: var(--accent); transform-origin: left; transition: transform 200ms linear; border-radius: inherit; }
 
 /* Pages and tab panels: shown, hidden (rendering skipped, layout kept), or laid out invisibly once after mount */
 .is-off { content-visibility: hidden; visibility: hidden; pointer-events: none; }
 .is-warming { visibility: hidden; pointer-events: none; }
-/* Page switch: ≤ 180 ms, opacity and transform only */
-.page.is-on { animation: page-in 170ms var(--ease-out); }
-@keyframes page-in { from { opacity: 0; transform: translateY(6px) scale(0.996); } to { opacity: 1; transform: none; } }
-:root.fx-calm .page.is-on, :root.fx-off .page.is-on { animation: none; }
-/* Reduced motion: no transitions or animations at all (the ambient background stays, motionless) */
+/* Switching panels happens dozens of times a day: 120 ms, opacity only (D256) */
+.page.is-on { animation: fade-in var(--dur-fast) ease; }
+:root.fx-calm .page.is-on { animation: none; }
+/* Reduced motion: no transitions or animations at all; colour and opacity changes still happen, at once */
 :root.fx-calm *, :root.fx-calm *::before, :root.fx-calm *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
-:root.fx-calm .ambient i { animation: none !important; }
 
 ::-webkit-scrollbar { width: 10px; height: 10px; }
-::-webkit-scrollbar-thumb { background: var(--fill-strong); border-radius: 10px; border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb { background: var(--fill-strong); border-radius: var(--radius-pill); border: 2px solid transparent; background-clip: padding-box; }
 ::-webkit-scrollbar-track { background: transparent; }
 
-/* ---- Dynamic glass ---- */
-/* Standard quality: translucent panes over the (already soft) ambient background, no backdrop filter on the large
-   panes, so page and tab switches never re-blur the screen. High quality adds the real backdrop blur and saturation.
-   Menus, dialogs and toasts always blur what is behind them (small, short-lived, and over content). */
-/* 26.59 (D158, glass handbook §05): glass only on function layers (menus, dialogs, toasts, the import bar, Copilot,
-   popovers, .glass); the content panels — left, right, bottom, settings, monitor — are solid, so text, formulas and
-   data never sit on a moving, blurred background. */
-:root.fx-glass .pane { box-shadow: var(--shadow), inset 0 0 0 0.5px var(--glass-rim); }
-:root.fx-glass .glass {
-  position: relative;
-  isolation: isolate;
-  box-shadow: var(--shadow), inset 0 0 0 0.5px var(--glass-rim), inset 0 1px 0 var(--glass-rim);
-}
-:root.fx-glass .glass { background: var(--glass-pane); }
-:root.fx-glass.fx-high .glass {
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
-}
-/* Pointer-following specular highlight: a soft disc on its own layer, moved by transform only (no repaint),
-   under the content of the pane (negative z-index inside the isolated pane) */
-:root.fx-glass .glass::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 560px;
-  height: 560px;
-  margin: -280px 0 0 -280px;
-  border-radius: 50%;
-  pointer-events: none;
-  z-index: -1;
-  background: radial-gradient(closest-side, var(--specular), transparent);
-  transform: translate3d(var(--hx, -2000px), var(--hy, -2000px), 0);
-  opacity: var(--hl, 0);
-  transition: opacity 420ms ease;
-  will-change: transform;
-}
-/* 26.57 (D120, manual §4.1): the reading panels (the right panel, the bottom panel, anything marked .reading) keep a
-   stable opaque ground under formulas and explanations; glass stays on navigation, menus and pop-ups */
-:root.fx-glass .pane.right, :root.fx-glass .pane.bottom, :root.fx-glass .reading { --pane-bg: var(--pane); --group: var(--group-solid); background: var(--pane); }
-:root.fx-glass.fx-high .pane.right, :root.fx-glass.fx-high .pane.bottom, :root.fx-glass.fx-high .reading { -webkit-backdrop-filter: none; backdrop-filter: none; }
-:root.fx-glass .pane.right::before, :root.fx-glass .pane.bottom::before, :root.fx-glass .reading::before, :root.fx-glass .pane.right::after, :root.fx-glass .pane.bottom::after, :root.fx-glass .reading::after { display: none; }
-/* Static sheen along the top edge */
-:root.fx-glass .glass::after {
-  content: '';
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 64px;
-  border-radius: inherit;
-  pointer-events: none;
-  z-index: -1;
-  background: linear-gradient(180deg, var(--sheen), transparent);
-}
-:root.fx-glass .menu { background: var(--glass-pop); -webkit-backdrop-filter: blur(var(--glass-blur-small)) saturate(var(--glass-sat)); backdrop-filter: blur(var(--glass-blur-small)) saturate(var(--glass-sat)); box-shadow: var(--shadow-pop), inset 0 0 0 0.5px var(--glass-rim); }
-:root.fx-glass .dialog { background: var(--glass-pop); -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat)); backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat)); box-shadow: 0 24px 70px rgba(0, 0, 0, 0.3), inset 0 0 0 0.5px var(--glass-rim); }
-:root.fx-glass .dialog-backdrop { background: rgba(0, 0, 0, 0.22); }
-
-
-/* 26.59 (D158): floating function layers — the problem import bar, the Copilot panel, popovers. Solid by default
-   (effects off, reduced transparency, no backdrop-filter support); frosted glass with fx-glass. The material is on
-   the element's own background; text never sits under a filter. */
-.glass-float {
-  background: var(--pane);
-  border: 1px solid var(--separator);
-  box-shadow: var(--shadow-float, 0 8px 28px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.08));
-}
-@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  :root.fx-glass .glass-float {
-    background: var(--glass-pop);
-    border-color: transparent;
-    -webkit-backdrop-filter: blur(var(--glass-blur-float, 20px)) saturate(var(--glass-sat));
-    backdrop-filter: blur(var(--glass-blur-float, 20px)) saturate(var(--glass-sat));
-    box-shadow: var(--shadow-float, 0 8px 28px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.08)), inset 0 0 0 0.5px var(--glass-rim), inset 0 1px 0 var(--glass-rim);
-  }
-}
-
-/* ---- Ambient background ---- */
-.ambient { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; display: none; contain: strict; }
-:root.fx-ambient .ambient { display: block; }
-.ambient i { position: absolute; width: 72vmax; height: 72vmax; border-radius: 50%; will-change: transform; animation: amb-drift-a 56s steps(140) infinite alternate; }
-.ambient i:nth-child(1) { background: radial-gradient(closest-side, var(--amb-1), transparent); top: -30vmax; left: -18vmax; }
-.ambient i:nth-child(2) { background: radial-gradient(closest-side, var(--amb-2), transparent); top: -20vmax; right: -26vmax; animation-name: amb-drift-b; animation-duration: 64s; }
-.ambient i:nth-child(3) { background: radial-gradient(closest-side, var(--amb-3), transparent); bottom: -36vmax; left: 12vmax; animation-name: amb-drift-c; animation-duration: 72s; }
-.ambient i:nth-child(4) { background: radial-gradient(closest-side, var(--amb-4), transparent); bottom: -30vmax; right: -10vmax; width: 56vmax; height: 56vmax; animation-name: amb-drift-b; animation-duration: 80s; animation-direction: alternate-reverse; }
-:root.fx-smooth .ambient i { animation-timing-function: ease-in-out; }
-:root.fx-still .ambient i { animation-play-state: paused; }
-@keyframes amb-drift-a { from { transform: translate3d(0, 0, 0) scale(1); } to { transform: translate3d(22vmax, 12vmax, 0) scale(1.18); } }
-@keyframes amb-drift-b { from { transform: translate3d(0, 0, 0) scale(1.1); } to { transform: translate3d(-20vmax, 16vmax, 0) scale(0.92); } }
-@keyframes amb-drift-c { from { transform: translate3d(0, 0, 0) scale(0.95); } to { transform: translate3d(16vmax, -14vmax, 0) scale(1.15); } }
+/* The reading panels (the right panel, the bottom panel, anything marked .reading) are content: always solid */
+.reading { background: var(--pane); }
 
 /* 26.55 (D43): text only for screen readers (live announcements) */
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
@@ -461,59 +264,58 @@ kbd { font-family: var(--font-mono); font-size: var(--type-tiny); background: va
 
 /* 26.59 (D160, WCAG 2.5.8): every pointer target at least 24 × 24 CSS px; on touch screens (and the Android app)
    44 × 44. Small visual marks keep their look and get a transparent hit area (.hit). */
-.btn.icon { min-width: 24px; min-height: 24px; }
+.btn.icon { min-width: var(--hit-min); min-height: var(--hit-min); }
 .hit { position: relative; }
-.hit::after { content: ''; position: absolute; left: 50%; top: 50%; width: max(100%, 24px); height: max(100%, 24px); transform: translate(-50%, -50%); }
+.hit::after { content: ''; position: absolute; left: 50%; top: 50%; width: max(100%, var(--hit-min)); height: max(100%, var(--hit-min)); transform: translate(-50%, -50%); }
 @media (pointer: coarse) {
-  .btn, .field, .nav-item, .tabs button, .segmented button { min-height: 44px; }
-  .btn.icon { min-width: 44px; }
-  .hit::after { width: max(100%, 44px); height: max(100%, 44px); }
-  input[type="checkbox"], input[type="radio"] { min-width: 24px; min-height: 24px; }
+  .btn, .field, .nav-item, .tabs button, .segmented button { min-height: var(--touch-min); }
+  .btn.icon { min-width: var(--touch-min); }
+  .hit::after { width: max(100%, var(--touch-min)); height: max(100%, var(--touch-min)); }
+  input[type="checkbox"], input[type="radio"] { min-width: var(--hit-min); min-height: var(--hit-min); }
 }
 /* Disabled controls say why in their title; a disabled button does not shrink on press */
 .btn:disabled:active { transform: none; }
-.toast-x { margin-left: 2px; color: var(--text-3); border: 0; background: transparent; color: inherit; font: inherit; font-size: 16px; line-height: 1; cursor: pointer; min-width: 24px; min-height: 24px; border-radius: 6px; }
-.toast-x:hover { background: var(--hover); }
-.toast-act { margin-left: 6px; border: 0; background: var(--accent-soft); color: var(--accent); font: inherit; font-weight: 600; cursor: pointer; min-height: 26px; padding: 0 10px; border-radius: 8px; }
-.toast-act:hover { background: color-mix(in srgb, var(--accent) 20%, transparent); }
 
-/* ================= Workbench 3 (26.63, D232–D233) ================= */
+/* ---- Pages (home, library, settings): a title and a scrolling body on the paper ground ---- */
 
-/* Cards: a surface that holds one thing to open; hoverable ones lift a little and show the focus ring */
+/* A surface that holds one thing to open. Flat: a hairline and the panel radius; hover changes the ground, not the height */
 .card { background: var(--pane); border-radius: var(--radius-panel); box-shadow: var(--elev-1); padding: 14px 16px; text-align: left; }
-button.card, a.card, .card.hoverable { border: 0; font: inherit; color: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; width: 100%; transition: box-shadow var(--dur-hover) ease, transform var(--dur-release) var(--ease-out), background var(--dur-hover) ease; }
-button.card:hover, a.card:hover, .card.hoverable:hover { box-shadow: var(--elev-2); transform: translateY(-1px); }
-button.card:active, a.card:active, .card.hoverable:active { transform: translateY(0) scale(0.995); transition-duration: var(--dur-press); }
+button.card, a.card, .card.hoverable { border: 0; font: inherit; color: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; width: 100%; transition: box-shadow var(--dur-fast) ease, transform var(--dur-release) var(--ease-out), background var(--dur-fast) ease; }
+button.card:hover, a.card:hover, .card.hoverable:hover { box-shadow: var(--elev-2); }
+button.card:active, a.card:active, .card.hoverable:active { transform: scale(var(--press-scale)); transition-duration: var(--dur-press); }
 button.card:focus-visible, a.card:focus-visible { border-radius: var(--radius-panel); }
-.card-title { font-weight: 600; font-size: var(--type-body); display: flex; align-items: center; gap: 8px; }
+.card-title { font-weight: var(--weight-strong); font-size: var(--type-body); display: flex; align-items: center; gap: 8px; }
 .card-text { display: block; color: var(--text-2); font-size: var(--type-small); margin-top: 4px; line-height: 1.45; }
-.card-ico { flex: 0 0 auto; width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); }
+.card-ico { flex: 0 0 auto; width: 32px; height: 32px; border-radius: var(--radius-control); display: grid; place-items: center; background: var(--fill); color: var(--text-2); }
 .card-ico.green { background: var(--success-soft); color: var(--success); }
 .card-ico.amber { background: var(--warning-soft); color: var(--warning); }
-.card-ico.violet { background: rgba(124, 77, 255, 0.13); color: #6d43e6; }
-:root[data-theme="dark"] .card-ico.violet { background: rgba(150, 120, 255, 0.2); color: #b39dff; }
 
-/* Chips: small choices in a row (filters, quick actions) */
-.chip { display: inline-flex; align-items: center; gap: 6px; height: calc(28px * var(--zoom)); padding: 0 11px; border: 0; border-radius: 999px; background: var(--fill); color: var(--text-2); font: inherit; font-size: var(--type-small); cursor: pointer; white-space: nowrap; transition: background var(--dur-hover) ease, color var(--dur-hover) ease; }
+/* Chips: small choices in a row (filters) */
+.chip { display: inline-flex; align-items: center; gap: 6px; height: var(--control-sm); padding: 0 11px; border: 0; border-radius: var(--radius-pill); background: var(--fill); color: var(--text-2); font: inherit; font-size: var(--type-small); cursor: pointer; white-space: nowrap; transition: background var(--dur-fast) ease, color var(--dur-fast) ease; }
 .chip:hover { background: var(--fill-strong); color: var(--text); }
-.chip.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.chip.on { background: var(--accent-soft); color: var(--accent); font-weight: var(--weight-strong); }
 
-/* A page of the app (home, library, classroom): a header and a scrolling body on the chrome ground */
 .page-shell { display: flex; flex-direction: column; min-height: 0; min-width: 0; height: 100%; }
 .page-scroll { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
 .page-inner { max-width: 1120px; margin: 0 auto; padding: 28px 28px 48px; }
-.page-title { font-size: calc(26px * var(--zoom)); font-weight: 700; letter-spacing: -0.01em; line-height: 1.2; margin: 0; }
+/* Hierarchy comes from size and weight, not from frames (D254): the page title is at least twice the body */
+.page-title { font-size: var(--type-page); font-weight: var(--weight-strong); letter-spacing: var(--track-display); line-height: var(--line-tight); margin: 0; }
+/* 26.65 (D294): no lone character on the last line of a paragraph or a short label (Chinese wraps between any two
+   characters, so "近代物理" left "理" alone); browsers without text-wrap ignore it */
+html { text-wrap: pretty; }
+/* 26.65 (D294): real subscripts in interface texts (Rich.vue); line-height 0 keeps them from opening the line */
+sub.rich-sub { font-size: 0.74em; vertical-align: -0.24em; line-height: 0; }
 .page-sub { color: var(--text-2); margin: 6px 0 0; max-width: 68ch; }
-.section-title { font-size: var(--type-title); font-weight: 650; margin: 28px 0 10px; display: flex; align-items: center; gap: 8px; }
-.section-title .more { margin-left: auto; font-weight: 500; }
+.section-title { font-size: var(--type-panel); font-weight: var(--weight-title); line-height: var(--line-tight); margin: 28px 0 10px; display: flex; align-items: baseline; gap: 10px; }
+.section-title .more { margin-left: auto; font-weight: var(--weight-medium); align-self: center; }
 .grid-cards { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(232px, 1fr)); }
 .grid-cards.wide { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
-@media (max-width: 760px) { .page-inner { padding: 16px 14px 32px; } .page-title { font-size: calc(21px * var(--zoom)); } .grid-cards, .grid-cards.wide { grid-template-columns: 1fr; } }
+@media (max-width: 760px) { .page-inner { padding: 16px 14px 32px; } .page-title { font-size: var(--type-display); } .grid-cards, .grid-cards.wide { grid-template-columns: 1fr; } }
 
 /* A dialog component shown inside a page (the library): no backdrop, no frame, no close button, no focus trap */
 .embed-host { position: relative; min-height: 0; min-width: 0; height: 100%; display: flex; }
 .embed-host > .dialog-backdrop { position: static; inset: auto; background: none !important; flex: 1; min-width: 0; min-height: 0; display: flex; align-items: stretch; animation: none; z-index: auto; }
-.embed-host > .dialog-backdrop > .dialog { width: 100% !important; max-width: none !important; height: 100% !important; max-height: none !important; border-radius: var(--radius-panel); box-shadow: var(--elev-1) !important; background: var(--pane) !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; animation: none; }
+.embed-host > .dialog-backdrop > .dialog { width: 100% !important; max-width: none !important; height: 100% !important; max-height: none !important; border-radius: var(--radius-panel); box-shadow: var(--elev-1) !important; background: var(--pane) !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; transition: none; }
 .embed-host > .dialog-backdrop > .dialog > .dialog-header > .btn.icon.ghost:last-child { display: none; }
 .embed-host > .dialog-backdrop > .dialog > .dialog-body { flex: 1 1 0; min-height: 0 !important; height: auto !important; max-height: none !important; }
 .embed-host > .dialog-backdrop > .dialog > .dialog-body > * { min-height: 0 !important; max-height: none !important; }
@@ -521,15 +323,35 @@ button.card:focus-visible, a.card:focus-visible { border-radius: var(--radius-pa
 .embed-host .embed-hide { display: none !important; }
 
 /* Tooltip layer (app/tooltip.ts): one element, placed next to the control the pointer rests on */
-.tip { position: fixed; z-index: 9800; max-width: 320px; padding: 6px 9px; border-radius: 8px; background: #1d1f24; color: #f5f6f8; font-size: var(--type-tiny); line-height: 1.4; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.28); pointer-events: none; opacity: 0; transform: translateY(2px); transition: opacity 110ms ease, transform 110ms var(--ease-out); white-space: pre-line; overflow-wrap: anywhere; }
-.tip.on { opacity: 1; transform: none; }
-.tip kbd { background: rgba(255, 255, 255, 0.16); color: inherit; box-shadow: none; margin-left: 6px; }
-:root[data-theme="dark"] .tip { background: #f1f2f5; color: #17181b; }
-:root[data-theme="dark"] .tip kbd { background: rgba(0, 0, 0, 0.12); }
+.tip { position: fixed; z-index: 9800; max-width: 320px; padding: 6px 9px; border-radius: var(--radius-control); background: var(--tip-bg); color: var(--tip-text); font-size: var(--type-tiny); line-height: 1.4; box-shadow: var(--elev-float); pointer-events: none; opacity: 0; transition: opacity var(--dur-exit) var(--ease-in); white-space: pre-line; overflow-wrap: break-word; }
+.tip.on { opacity: 1; transition: opacity var(--dur-fast) var(--ease-out); }
+.tip kbd { background: var(--tip-key); color: inherit; box-shadow: none; margin-left: 6px; }
 
-/* Empty states: what is missing and what to do about it */
+/* Empty states: what is missing and the one thing to do about it; the drawing takes the panel's colour */
 .empty-state { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 36px 16px; color: var(--text-2); text-align: center; }
-.empty-state .card-ico { width: 44px; height: 44px; border-radius: 12px; }
+.empty-state .card-ico { width: 44px; height: 44px; }
+.empty-state .empty-title { font-size: var(--type-panel); font-weight: var(--weight-title); color: var(--text); line-height: var(--line-tight); margin: 0; }
+.empty-state .empty-art { color: var(--panel, var(--text-3)); }
 
-/* Press feedback on anything marked .pressable (cards of the home page, rail items) */
-@media (hover: hover) { .lift { transition: transform var(--dur-release) var(--ease-out), box-shadow var(--dur-hover) ease; } .lift:hover { transform: translateY(-1px); } }
+/* ---- Instrument lines (D257): the ticks of a scale instead of a grey rule ---- */
+.tick-rule {
+  display: block; border: 0; margin: 0; height: var(--tick-h-major); flex: 0 0 auto;
+  background:
+    linear-gradient(var(--tick-minor), var(--tick-minor)) left top / 100% 1px no-repeat,
+    repeating-linear-gradient(90deg, var(--tick) 0, var(--tick) 1px, transparent 1px, transparent calc(var(--tick-step) * var(--tick-major))) left top / 100% var(--tick-h-major) no-repeat,
+    repeating-linear-gradient(90deg, var(--tick-minor) 0, var(--tick-minor) 1px, transparent 1px, transparent var(--tick-step)) left top / 100% var(--tick-h) no-repeat;
+}
+.tick-rule.up { transform: scaleY(-1); }
+.tick-rule.v {
+  width: var(--tick-h-major); height: auto; align-self: stretch;
+  background:
+    linear-gradient(var(--tick-minor), var(--tick-minor)) left top / 1px 100% no-repeat,
+    repeating-linear-gradient(180deg, var(--tick) 0, var(--tick) 1px, transparent 1px, transparent calc(var(--tick-step) * var(--tick-major))) left top / var(--tick-h-major) 100% no-repeat,
+    repeating-linear-gradient(180deg, var(--tick-minor) 0, var(--tick-minor) 1px, transparent 1px, transparent var(--tick-step)) left top / var(--tick-h) 100% no-repeat;
+}
+/* The accent line of a stage, in the colour of its panel (D240) */
+.panel-motion { --panel: var(--panel-motion); }
+.panel-physics { --panel: var(--panel-physics); }
+.panel-chem { --panel: var(--panel-chem); }
+.panel-library { --panel: var(--panel-library); }
+.panel-monitor { --panel: var(--panel-monitor); }

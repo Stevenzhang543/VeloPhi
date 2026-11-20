@@ -1,6 +1,7 @@
 //! Formula cards (port of src/formula/match.ts): for a moment t, the situations active at t, every formula of each
 //! evaluated with the situation's variables and compared with the simulated measurement.
-//!   exact formulas    relative error ≤ 1e-6 (energy ledger 1e-8), or absolute ≤ 1e-9 × max(1, |theory|) → match,
+//!   exact formulas    relative error ≤ 1e-6 (energy ledger 1e-8), or absolute ≤ 1e-9 × max(1, |theory|, the largest
+//!                     value of the expression's evaluation, the ledger's largest term) → match (26.65: P12),
 //!                     otherwise deviate
 //!   approximations    graded by their approximation condition: approx-ok / approx / approx-invalid
 //!   conditions fail   → not-applicable;  no measurement → no-measure
@@ -229,7 +230,19 @@ pub fn evaluate_card(f: &FormulaDef, sit: &Situation, sample: &Sample, with_trac
     } else {
         let rel = if f.situation == "energy" { ENERGY_REL } else { EXACT_REL };
         let th = theory.unwrap_or(f64::NAN);
-        let ok = rel_error.unwrap_or(1.0) <= rel || abs_error.unwrap_or(1.0).abs() <= EXACT_ABS * js_max(1.0, th.abs());
+        // 26.65 (P12): the energy ledger's absolute limit scales with its largest term (`Escale`), not with E₀ alone
+        let scale = js_max(1.0, js_max(th.abs(), if f.situation == "energy" { sample.var("Escale").map(|v| v.value).filter(|v| v.is_finite()).unwrap_or(0.0) } else { 0.0 }));
+        let mut ok = rel_error.unwrap_or(1.0) <= rel || abs_error.unwrap_or(1.0).abs() <= EXACT_ABS * scale;
+        // 26.65 (P12): a theory that is a difference of large terms (Q = Fs − ½m(v² − v₀²) with B = 0) carries their
+        // rounding; the absolute limit then scales with the largest value met while evaluating the expression
+        if !ok {
+            if let Ok(node) = &f.node {
+                if let Ok(tr) = evaluate_trace(node, &lookup) {
+                    let big = tr.iter().filter(|v| v.is_finite()).fold(0.0f64, |a, v| a.max(v.abs()));
+                    ok = abs_error.unwrap_or(1.0).abs() <= EXACT_ABS * js_max(scale, big);
+                }
+            }
+        }
         verdict = if ok { Verdict::Match } else { Verdict::Deviate };
         if !ok {
             let causes: Vec<Text> = match &f.causes {

@@ -1,0 +1,39 @@
+{
+ "id": "02-incline-wrong-unit",
+ "origin": "handwritten",
+ "note": "Typical mistake: a wrong unit — the mass is written in newtons. L1 names the row; the patch sets the unit.",
+ "problem": "质量 2 kg 的物块从倾角 30° 的固定斜面顶端由静止下滑，物块与斜面间的动摩擦因数 μ = 0.2，g 取 10 m/s²。求 1 s 末的速度和下滑的加速度。",
+ "strict": true,
+ "answers": [
+  {
+   "step": "notes",
+   "raw": "对象：固定斜面 slope（倾角 30°，高端在左）；物块 A。\n关系：A 在 slope 上，位于顶端，静止释放。\n已知：质量 2 kg；倾角 30°；μ = 0.2（A 与 slope）；g = 10 m/s²。斜面长度未给。\n所求：1 s 末的速度；加速度。\n模板 incline 也能表达，这里按草图写。"
+  },
+  {
+   "step": "sketch",
+   "raw": "{\"version\":2,\"route\":\"sketch\",\"title\":\"斜面上的物块\",\"reason\":\"\",\"templateId\":\"\",\"templateParams\":[],\"gravity\":\"down\",\"movingBodies\":1,\"surfaces\":[{\"id\":\"slope\",\"name\":\"斜面\",\"type\":\"incline\",\"side\":\"left\",\"span\":\"\",\"at\":\"\"}],\"bodies\":[{\"id\":\"A\",\"name\":\"物块\",\"type\":\"block\",\"place\":\"on\",\"ref\":\"slope\",\"at\":\"top\",\"ref2\":\"\",\"moves\":\"rest\",\"side\":\"\",\"points\":[]}],\"pulleys\":[],\"connectors\":[],\"values\":[{\"of\":\"A\",\"quantity\":\"mass\",\"value\":2,\"unit\":\"N\",\"quote\":\"质量 2 kg 的物块\"},{\"of\":\"slope\",\"quantity\":\"angle\",\"value\":30,\"unit\":\"°\",\"quote\":\"倾角 30°\"},{\"of\":\"A|slope\",\"quantity\":\"mu\",\"value\":0.2,\"unit\":\"\",\"quote\":\"μ = 0.2\"},{\"of\":\"world\",\"quantity\":\"g\",\"value\":10,\"unit\":\"m/s²\",\"quote\":\"g 取 10 m/s²\"}],\"expect\":[{\"of\":\"A\",\"state\":\"moves\"}],\"questions\":[{\"prompt\":\"1 s 末的速度\",\"unit\":\"m/s\",\"kind\":\"quantity\",\"id\":\"A.v\",\"t\":1,\"event\":\"\",\"side\":\"\",\"body\":\"\",\"which\":\"\"},{\"prompt\":\"下滑的加速度\",\"unit\":\"m/s²\",\"kind\":\"quantity\",\"id\":\"A.a\",\"t\":0.5,\"event\":\"\",\"side\":\"\",\"body\":\"\",\"which\":\"\"}]}"
+  },
+  {
+   "step": "patch",
+   "raw": "{\"patch\":[{\"op\":\"set\",\"path\":\"values[0].unit\",\"value\":\"\\\"kg\\\"\"}]}"
+  }
+ ],
+ "expect": {
+  "ok": true,
+  "via": "sketch",
+  "repairs": 1,
+  "requests": 3,
+  "rounds": [
+   [
+    "L1.dimension",
+    "L4.quoteUnit"
+   ],
+   []
+  ],
+  "rejected": 0,
+  "answers": [
+   3.267949192431123,
+   3.267949192431123
+  ]
+ }
+}

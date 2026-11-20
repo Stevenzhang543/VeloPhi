@@ -1,26 +1,28 @@
 /*
- * Opening screen (manual 26.52, D54): linked from index.html, so it is painted with the first frame, before any
- * script or font loads. The interface mounts underneath, clipped to nothing; app/opening.ts then reveals it with a
- * circle that grows from the centre of the screen and removes the splash layer. Reduced motion: a short fade.
+ * Opening screen (manual 26.52, D54; 26.65, D293): linked from index.html, so it is painted with the first frame,
+ * before any script or font loads. 26.65: it follows the system's light or dark appearance (a light interface no
+ * longer starts with a dark screen), and the interface appears with a short fade instead of a circle that grew from
+ * the centre — the start is meant to be quick and quiet, straight into the home page.
  *
  * Kept out of index.html on purpose: an inline <style> there makes Tauri add its hash to the CSP's style-src, which
  * switches 'unsafe-inline' off and blocks every inline style attribute (KaTeX positions and colours its formulas
  * with them). tests/version.test.ts checks that index.html has no inline <style>.
  */
-html.booting, html.booting body { background: #0d0f14; }
+html.booting, html.booting body { background: #f3f5f8; }
 #app { position: relative; z-index: 1; }
-html.booting #app { clip-path: circle(0% at 50% 50%); }
-html.revealing #app { animation: vp-reveal 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
-html.revealing.fx-calm #app { animation: vp-fade 150ms ease-out both; }
-@keyframes vp-reveal { from { clip-path: circle(0% at 50% 50%); } to { clip-path: circle(72% at 50% 50%); } }
-@keyframes vp-fade { from { clip-path: circle(72% at 50% 50%); opacity: 0; } to { clip-path: circle(72% at 50% 50%); opacity: 1; } }
-#vp-splash { position: fixed; inset: 0; z-index: 0; display: grid; place-items: center; background: #0d0f14; color: #e8e9f2; font: 600 15px/1 "Segoe UI", system-ui, sans-serif; letter-spacing: 0.02em; }
-#vp-splash .mark { display: grid; justify-items: center; gap: 14px; animation: vp-in 360ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
-#vp-splash .name b { color: #fbbf24; font-weight: 600; }
-html.revealing #vp-splash .mark { animation: vp-out 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
-@keyframes vp-in { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: none; } }
-@keyframes vp-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: scale(1.35); } }
+html.booting #app { opacity: 0; }
+html.revealing #app { animation: vp-fade 140ms ease-out both; }
+@keyframes vp-fade { from { opacity: 0; } to { opacity: 1; } }
+#vp-splash { position: fixed; inset: 0; z-index: 0; display: grid; place-items: center; background: #f3f5f8; color: #161b24; font: 600 15px/1 "Segoe UI", system-ui, sans-serif; letter-spacing: 0.02em; }
+#vp-splash .mark { display: grid; justify-items: center; gap: 14px; opacity: 0; animation: vp-in 200ms ease-out 250ms both; }
+#vp-splash .name b { color: #b7791f; font-weight: 600; }
+html.revealing #vp-splash .mark { animation: none; opacity: 0; }
+@keyframes vp-in { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-color-scheme: dark) {
+  html.booting, html.booting body, #vp-splash { background: #0d0f14; color: #e8e9f2; }
+  #vp-splash .name b { color: #fbbf24; }
+}
 @media (prefers-reduced-motion: reduce) {
-  html.revealing #app { animation: vp-fade 150ms ease-out both; }
-  #vp-splash .mark, html.revealing #vp-splash .mark { animation: none; }
+  html.revealing #app { animation: vp-fade 100ms linear both; }
+  #vp-splash .mark { animation: none; opacity: 1; }
 }

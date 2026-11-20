@@ -5,6 +5,7 @@
  * distance of the ball from A.
  */
 import { tl } from '../i18n'
+import { stopAfter } from './bounds'
 import type { Scene } from '../core/scene/types'
 import { DEG, cos, sin, tan } from '../core/math/dmath'
 import { addBody, addGround, addIncline, defaultGravity, emptyScene, onIncline } from '../core/scene/build'
@@ -27,6 +28,8 @@ function projectileSlope(v: Record<string, number>): Scene {
   addIncline(s, { id: 'slope', name: tl('斜面'), angle: th, base, x0: 0, y0: -H, material: { muS: 0.3, muK: 0.3, restitution: 0 } })
   addBody(s, { id: 'ball', name: tl('小球'), kind: 'particle', role: 'ball', shape: { type: 'circle', radius: r }, position: { x: 0, y: r + 1e-3 }, velocity: { x: v.v0, y: 0 }, mass: v.m })
   s.settings.gravity = { x: 0, y: -v.g }
+  // 26.65 (M1): the run ends 0.6 s after the first separation — the ball leaves the slope
+  stopAfter(s, 0.6)
   s.settings.legacyDuration = Math.min(60, tFly * 1.4 + 0.3)
   s.settings.energyZeroY = r
   // AB: from A to the point of the ball nearest the incline (centre minus r along the incline's normal)
@@ -51,6 +54,8 @@ function arcSlide(v: Record<string, number>): Scene {
   addBody(s, { id: 'ball', name: tl('小球'), kind: 'particle', role: 'ball', shape: { type: 'circle', radius: r }, position: { x: -(R - r), y: R }, mass: v.m, material: SMOOTH })
   s.settings.gravity = { x: 0, y: -v.g }
   s.settings.energyZeroY = r
+  // 26.65 (M1): the run ends 1.8 s after the first separation — the ball leaves the arc onto the floor; the run ends near the end of the floor
+  stopAfter(s, 1.8)
   s.settings.legacyDuration = Math.min(30, 2.2 * Math.sqrt(R / Math.max(v.g, 0.1)) + 1)
   s.view = { center: { x: R * 0.8, y: R * 0.5 }, pixelsPerMeter: Math.max(20, Math.min(300, 380 / R)) }
   s.watch = ['ball.v', 'ball.vx', 'ball.y', 'ball.ek']
@@ -83,6 +88,8 @@ function humpBridge(v: Record<string, number>): Scene {
   addBody(s, { id: 'car', name: tl('小车'), kind: 'particle', role: 'block', shape: { type: 'circle', radius: r }, position: { x: 0, y: R + r }, velocity: { x: v.v0, y: 0 }, mass: v.m, material: SMOOTH })
   s.settings.gravity = { x: 0, y: -v.g }
   s.settings.energyZeroY = ends + r
+  // 26.65 (M1): the run ends 2.7 s after the first separation — the car leaves the bridge; the run ends near the end of the road
+  stopAfter(s, 2.7)
   s.settings.legacyDuration = 3
   s.view = { center: { x: R * 0.6, y: R * 0.7 }, pixelsPerMeter: Math.max(10, Math.min(200, 300 / R)) }
   s.watch = ['car.v', 'car.vx', 'car.vy', 'car.y']
@@ -122,6 +129,8 @@ function hoopDisc(v: Record<string, number>): Scene {
   addBody(s, { id: 'disc', name: tl('圆柱'), role: 'wheel', shape: { type: 'circle', radius: r }, position: disc.position, mass: 1, material: mat })
   addBody(s, { id: 'hoop', name: tl('圆环'), role: 'wheel', shape: arcDeg(r - t, t, 0, 360), position: hoop.position, mass: 1, material: mat, color: '#f59e0b' })
   s.settings.gravity = { x: 0, y: -v.g }
+  // 26.65 (M1): the run ends 1.8 s after the first separation — the cylinder reaches the floor; the run ends near the end of the floor
+  stopAfter(s, 1.8)
   s.settings.legacyDuration = 3
   s.view = { center: { x: base * 0.6, y: base * tan(th) * 0.4 }, pixelsPerMeter: Math.max(20, Math.min(200, 520 / (base + 2))) }
   s.watch = ['disc.v', 'hoop.v', 'disc.x', 'hoop.x']

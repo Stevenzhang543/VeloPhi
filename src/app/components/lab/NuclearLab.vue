@@ -10,6 +10,7 @@ import { tl } from '../../../i18n'
 import type { ReactionParticle } from '../../../engine/labs'
 import { binding, decayChain, reaction, particleProcess } from '../../../engine/labs'
 import { labState } from '../../lab/state'
+import { openNuclide, openNuclideId } from '../../nuclideLink'
 import NumField from '../NumField.vue'
 import LabChart from './LabChart.vue'
 import LabFormula from './LabFormula.vue'
@@ -114,6 +115,7 @@ const showMass = ref(true)
           </select>
           <label class="ctl"><input v-model="S.activity" type="checkbox" />{{ tl('画活度 A = λN') }}</label>
           <label class="ctl"><input v-model="S.log" type="checkbox" />{{ tl('对数坐标') }}</label>
+          <button class="btn ghost small" data-ui="nuclear-real-chain" :title="tl('用 NUBASE2020 的半衰期与分支比算真实核素的衰变链')" @click="openNuclideId(S.chain === 'radon' ? 'Rn-222' : 'U-238', { chain: true })">{{ tl('真实的链') }}</button>
         </template>
         <template v-if="S.part === 'reaction'">
           <select v-model="S.reactionId" class="field small" :aria-label="tl('核反应')">
@@ -168,6 +170,7 @@ const showMass = ref(true)
             <template v-if="showMass"><span>{{ tl('原子质量') }}</span><b>{{ picked.mass?.toFixed(6) }} u</b></template>
             <span>{{ tl('数据') }}</span><b>{{ picked.measured ? tl('实测（AME2020）') : tl('半经验公式估计') }}</b>
           </div>
+          <button v-if="picked?.measured" class="btn ghost small" data-ui="nuclear-open-nuclide" @click="picked && openNuclide(picked.Z, picked.A)">{{ tl('核素页') }}</button>
           <p class="tiny muted lab-note">{{ tl('比结合能越大，原子核越稳定。铁、镍附近最大，所以轻核聚变和重核裂变都放出能量。') }}</p>
         </section>
       </template>
@@ -206,7 +209,7 @@ const showMass = ref(true)
 .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; }
 .eq { display: grid; place-items: center; gap: 12px; padding: 40px 10px; text-align: center; }
 .eq-text { font-size: 28px; font-family: var(--mono, monospace); }
-.eq-q { font-size: 22px; font-weight: 650; }
+.eq-q { font-size: 22px; font-weight: var(--weight-strong); }
 .eq-q.exo { color: var(--success); }
 .warn { color: var(--warning); }
 .bad { color: var(--danger, #dc2626); }

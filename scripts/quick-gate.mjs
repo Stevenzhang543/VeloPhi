@@ -5,6 +5,9 @@
  * streaming, the Copilot loop), the Rust core tests, and the four interface regressions when a build is present.
  * Each step prints its time; a summary goes to .cache/gate/report.json. The full release gate stays scripts/release.cmd.
  *
+ * 26.64 adds the gates of design system v4: scripts/token-lint.mjs and scripts/contrast-check.mjs always, and
+ * scripts/glass-contrast.mjs with the interface regressions when a build is present.
+ *
  * Usage: node scripts/quick-gate.mjs [--no-ui] [--no-rust]
  */
 import { spawnSync } from 'node:child_process'
@@ -20,15 +23,30 @@ const FOCUSED = [
   'tests/ai/undo2661.test.ts', 'tests/ai/looseJson2661.test.ts', 'tests/ai/builder2661.test.ts', 'tests/ai/verify2661.test.ts',
   'tests/app/runIdentity2661.test.ts', 'tests/app/repro2661.test.ts', 'tests/reference2661.test.ts', 'tests/events2661.test.ts',
   'tests/teaching/lessons2661.test.ts', 'tests/teaching/problems2661.test.ts', 'tests/research2661.test.ts',
-  'tests/formats2655.test.ts', 'tests/app/streaming.test.ts', 'tests/app/progressive.test.ts', 'tests/ai/copilot2659.test.ts', 'tests/ai/sim2659.test.ts', 'tests/ai/aiScene2660.test.ts', 'tests/i18n.test.ts'
+  'tests/formats2655.test.ts', 'tests/app/streaming.test.ts', 'tests/app/progressive.test.ts', 'tests/ai/copilot2659.test.ts', 'tests/ai/sim2659.test.ts', 'tests/ai/aiScene2660.test.ts', 'tests/i18n.test.ts',
+  // 26.64: the five-panel shell, the feature inventory (nothing of 26.63 is lost) and the home page's pendulum wave
+  'tests/shell', 'tests/shell2663.test.ts',
+  // 26.64 (D248–D251): the walkthrough's record, version rule and engine
+  'tests/app/onboarding2664.test.ts'
 ]
 
 const steps = [
   { name: 'typecheck', cmd: npx, args: ['vue-tsc', '--noEmit'] },
   { name: 'focused tests', cmd: npx, args: ['vitest', 'run', ...FOCUSED] }
 ]
+// 26.64 (D253, D255, D246): the design system's own gates — no literal colours or radii outside the tokens, the token
+// list of the design file is the one of tokens.css, and every registered text / ground pair has its contrast
+steps.push(
+  { name: 'token lint', cmd: 'node', args: [join('scripts', 'token-lint.mjs')] },
+  { name: 'contrast of the tokens', cmd: 'node', args: [join('scripts', 'contrast-check.mjs')] },
+  // 26.64 (D247): label and tooltip lengths in the three languages, the three words the copy never uses
+  { name: 'copy lint', cmd: 'node', args: [join('scripts', 'copy-lint.mjs')] }
+)
 if (!args.has('--no-rust')) steps.push({ name: 'rust core', cmd: 'cargo', args: ['test', '--release', '-p', 'velophi-core', '-q'], cwd: join(repo, 'engine') })
 if (!args.has('--no-ui') && existsSync(join(repo, 'dist', 'index.html'))) steps.push({ name: 'interface regressions', cmd: process.execPath, args: [join(repo, 'scripts', 'ui-regressions.mjs')] })
+
+// 26.64 (D255): text on glass against its real backdrop, in the built app (Chromium, like the regressions)
+if (!args.has('--no-ui') && existsSync(join(repo, 'dist', 'index.html'))) steps.push({ name: 'contrast on glass', cmd: 'node', args: [join('scripts', 'glass-contrast.mjs')] })
 
 const report = { started: new Date().toISOString(), host: `${process.platform} ${process.arch} node ${process.version}`, steps: [] }
 let failed = 0

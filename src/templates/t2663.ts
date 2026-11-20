@@ -13,6 +13,7 @@
  *  - two-blocks-push: F pushes A, A pushes B on a smooth floor — the contact force is F·m_B/(m_A + m_B).
  */
 import { tl } from '../i18n'
+import { stopAfter } from './bounds'
 import type { ForceDef, RopeDef, Scene } from '../core/scene/types'
 import { addBody, addConnector, addGround, anchor, defaultGravity, emptyScene } from '../core/scene/build'
 import type { TemplateInfo, TemplateParam } from './index'
@@ -32,6 +33,8 @@ function ropeBreakPendulum(v: Record<string, number>): Scene {
   const bob = addBody(s, { id: 'bob', name: tl('小球'), kind: 'particle', role: 'ball', shape: { type: 'circle', radius: r }, position: { x: pivot.x + L * Math.sin(th), y: pivot.y - L * Math.cos(th) }, mass: v.m, material: SMOOTH })
   addConnector<RopeDef>(s, { id: 'rope', name: tl('摆线'), type: 'rope', a: anchor(null, pivot), b: anchor(bob), pulleys: [], length: null, maxTension: v.Tmax })
   s.settings.gravity = { x: 0, y: -v.g }
+  // 26.65 (M1): the run ends 0.4 s after the first separation — the bob slides off the end of the ground
+  stopAfter(s, 0.4)
   s.settings.legacyDuration = 3
   s.settings.energyZeroY = r
   s.view = { center: { x: -0.4, y: v.H / 2 + 0.1 }, pixelsPerMeter: Math.max(40, Math.min(220, 520 / Math.max(v.H + 0.6, 1))) }
@@ -67,6 +70,8 @@ function dropVsThrow(v: Record<string, number>): Scene {
   addBody(s, { id: 'B', name: tl('小球B'), kind: 'particle', role: 'ball', shape: { type: 'circle', radius: r }, position: { x: 0, y: v.h + r }, velocity: { x: v.v0, y: 0 }, mass: v.m, material: SMOOTH, color: '#2563eb' })
   s.settings.gravity = { x: 0, y: -v.g }
   const t = Math.sqrt(2 * v.h / Math.max(v.g, 1e-3))
+  // 26.65 (M1): the run ends 0.4 s after the first separation — the thrown ball leaves the end of the ground
+  stopAfter(s, 0.4)
   s.settings.legacyDuration = Math.min(60, t + 0.4)
   s.settings.energyZeroY = r
   const reach = v.v0 * t
@@ -104,7 +109,8 @@ function monkeyHunter(v: Record<string, number>): Scene {
   s.contactPairs.push({ a: 'bullet', b: 'monkey', muS: 0, muK: 0, restitution: 0 })
   s.settings.gravity = { x: 0, y: -v.g }
   s.settings.legacyDuration = Math.min(30, dist / Math.max(v.v0, 1e-3) + 0.5)
-  s.settings.stopAt = null
+  // 26.65 (M1): the run ends 1.2 s after the first separation — the bullet and the monkey fall to the ground after the hit
+  stopAfter(s, 1.2)
   s.view = { center: { x: v.d / 2, y: v.h / 2 - 0.2 }, pixelsPerMeter: Math.max(10, Math.min(200, Math.min(900 / Math.max(v.d + 2, 1), 460 / Math.max(v.h + 1.4, 1)))) }
   s.watch = ['bullet.y', 'monkey.y', 'bullet.x']
   return s
@@ -119,6 +125,8 @@ function rampPull(v: Record<string, number>): Scene {
   addConnector<ForceDef>(s, { id: 'pull', name: tl('拉力'), type: 'force', a: anchor(blk), force: { x: 0, y: 0 }, expr: { x: `${v.k}*t`, y: '0' } })
   s.settings.gravity = { x: 0, y: -v.g }
   const t1 = v.muS * v.m * v.g / Math.max(v.k, 1e-6)
+  // 26.65 (M1): the run ends 0.4 s after the first separation — the block is pulled off the end of the floor
+  stopAfter(s, 0.4)
   s.settings.legacyDuration = Math.min(120, t1 * 1.6 + 0.5)
   s.view = { center: { x: 1.2, y: 0.5 }, pixelsPerMeter: 130 }
   s.watch = ['pull.F', 'contact.block|ground.f', 'block.ax', 'block.vx']
@@ -136,6 +144,8 @@ function twoBlocksPush(v: Record<string, number>): Scene {
   s.contactPairs.push({ a: 'A', b: 'B', muS: 0, muK: 0, restitution: 0 })
   addConnector<ForceDef>(s, { id: 'push', name: tl('推力 F'), type: 'force', a: anchor(A, { x: -w / 2, y: 0 }), force: { x: v.F, y: 0 } })
   s.settings.gravity = { x: 0, y: -v.g }
+  // 26.65 (M1): the run ends 0.4 s after the first separation — the blocks are pushed off the end of the floor
+  stopAfter(s, 0.4)
   s.settings.legacyDuration = 2
   s.view = { center: { x: 2, y: 0.6 }, pixelsPerMeter: 120 }
   s.watch = ['A.ax', 'B.ax', 'contact.A|B.N', 'A.vx']

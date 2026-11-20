@@ -4,11 +4,12 @@
  * gives the common temperature, the time constant and both temperature curves (`heatMix`); this component shows the
  * curves, the heat released and absorbed (Q放 = Q吸), and the weighted-mean formula.
  */
-import { computed } from 'vue'
-import { tl } from '../../../i18n'
+import { computed, watch } from 'vue'
+import { paren, tl } from '../../../i18n'
 import { fmtQ } from '../../settings'
 import { heatMix } from '../../../engine/labs'
 import { labState } from '../../lab/state'
+import { clampToPhase, outsidePhase, phaseRange } from '../../../render/labLimits'
 import NumField from '../NumField.vue'
 import LabFormula from './LabFormula.vue'
 import LabChart from './LabChart.vue'
@@ -29,12 +30,22 @@ const curves = computed(() => {
   if (c) for (let i = 0; i + 2 < c.length; i += 3) { ts.push(c[i]); a.push(c[i + 1]); b.push(c[i + 2]) }
   return { ts, a, b }
 })
+// 26.65 (M9): melting and boiling are not modelled, so each body starts in the range where its substance keeps the
+// state its specific heat belongs to (water 0–100 °C, ice below 0 °C …); a change of substance brings it into range
+watch(() => [S.a.mat, S.b.mat], () => { S.a.t = clampToPhase(S.a.mat, S.a.t); S.b.t = clampToPhase(S.b.mat, S.b.t) }, { immediate: true })
+/** The common temperature lies where a body would have to melt or boil: said, since the result then does not hold. */
+const phaseWarning = computed(() => {
+  const r = R.value
+  if (!r) return ''
+  const out = [S.a.mat, S.b.mat].filter((m, i, all) => all.indexOf(m) === i && outsidePhase(m, r.tEq))
+  return out.length ? tl('共同温度 {0} °C 超出了{1}保持原物态的范围：实际会熔化或沸腾，而本实验不计物态变化，所以这个结果在实际中不成立。', [r.tEq.toFixed(2), out.map(nameOf).join(tl('、'))]) : ''
+})
 </script>
 
 <template>
   <div class="lab-shell">
     <div class="lab-stage">
-      <div class="lab-bar"><span class="small muted">{{ tl('两个物体接触，热量从高温物体传给低温物体，直到温度相同（不计热损失）') }}</span></div>
+      <div class="lab-bar"><span class="small muted">{{ tl('两个物体接触，热量从高温物体传给低温物体，直到温度相同（不计热损失）') }}</span><span class="small muted">{{ tl('不计熔化、沸腾等物态变化：初温限于所选物质保持原物态的范围') }}</span></div>
       <div class="lab-canvas chart-only">
         <LabChart v-if="R" :series="[{ x: curves.ts, y: curves.a, color: '#ef4444', label: nameOf(S.a.mat) }, { x: curves.ts, y: curves.b, color: '#0a6cff', label: nameOf(S.b.mat) }]" :markers="[{ y: R.tEq, label: tl('共同温度 {0} °C', [R.tEq.toFixed(2)]) }, { x: R.tau, label: 'τ' }]" :x-label="tl('t（s）')" :y-label="tl('温度（°C）')" :height="520" />
       </div>
@@ -44,9 +55,10 @@ const curves = computed(() => {
         <div class="lab-btitle"><span class="dot" :class="key" />{{ key === 'a' ? tl('物体 1') : tl('物体 2') }}</div>
         <div class="lab-fields">
           <label>{{ tl('物质') }}</label>
-          <select v-model="side.mat" class="field small"><option v-for="m in MATERIALS" :key="m.id" :value="m.id">{{ m.name }}（c = {{ m.c }}）</option></select>
+          <select v-model="side.mat" class="field small"><option v-for="m in MATERIALS" :key="m.id" :value="m.id">{{ m.name }}{{ paren(`c = ${m.c} J/(kg·°C)`) }}</option></select>
           <label>{{ tl('质量 m') }}</label><NumField :model-value="side.m" unit="kg" :min="0.001" @update:model-value="v => (side.m = v)" />
-          <label>{{ tl('初温') }}</label><NumField :model-value="side.t" label="°C" @update:model-value="v => (side.t = v)" />
+          <label>{{ tl('初温') }}</label><NumField :model-value="side.t" label="°C" :min="phaseRange(side.mat).min" :max="phaseRange(side.mat).max" @update:model-value="v => (side.t = v)" />
+          <span /><span class="tiny muted">{{ tl('允许 {0} … {1} °C', [phaseRange(side.mat).min, phaseRange(side.mat).max]) }}</span>
         </div>
       </section>
       <section class="lab-block">
@@ -58,6 +70,7 @@ const curves = computed(() => {
           <span>{{ tl('传递的热量') }}</span><b>{{ fmtQ(Math.abs(R.heat), 'J', 4) }}</b>
           <span>{{ tl('时间常数 τ') }}</span><b>{{ fmtQ(R.tau, 's', 4) }}</b>
         </div>
+        <p v-if="phaseWarning" class="tiny phase-warn">{{ phaseWarning }}</p>
         <LabFormula :title="tl('热平衡方程（Q放 = Q吸）')" tex="t = \dfrac{c_1m_1t_1 + c_2m_2t_2}{c_1m_1 + c_2m_2}" expr="(c1*m1*t1 + c2*m2*t2)/(c1*m1 + c2*m2)" :vars="[{ name: 'c1', symbol: 'c_1', value: cOf(S.a.mat), unit: '' }, { name: 'm1', symbol: 'm_1', value: S.a.m, unit: 'kg' }, { name: 't1', symbol: 't_1', value: S.a.t, unit: '' }, { name: 'c2', symbol: 'c_2', value: cOf(S.b.mat), unit: '' }, { name: 'm2', symbol: 'm_2', value: S.b.m, unit: 'kg' }, { name: 't2', symbol: 't_2', value: S.b.t, unit: '' }]" unit="" lhs="t\,(^\circ C)" :result="R.tEq" />
         <LabFormula :title="tl('放出的热量')" tex="Q = c_1m_1(t_1 - t)" expr="c1*m1*(t1 - t)" :vars="[{ name: 'c1', symbol: 'c_1', value: cOf(S.a.mat), unit: '' }, { name: 'm1', symbol: 'm_1', value: S.a.m, unit: 'kg' }, { name: 't1', symbol: 't_1', value: S.a.t, unit: '' }, { name: 't', symbol: 't', value: R.tEq, unit: '' }]" unit="J" lhs="Q" :result="R.heat" />
       </section>
@@ -71,6 +84,7 @@ const curves = computed(() => {
 
 <style scoped>
 .chart-only { padding: 12px; }
+.phase-warn { margin: 0 0 8px; line-height: 1.45; color: var(--warning); }
 .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
 .dot.a { background: #ef4444; }
 .dot.b { background: #0a6cff; }

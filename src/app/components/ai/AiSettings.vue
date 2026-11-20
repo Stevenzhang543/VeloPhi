@@ -171,6 +171,10 @@ const usage = computed(() => account.ai?.usage && account.ai.limits ? account.ai
       <div class="srow"><div class="sl"><b>{{ tl('Copilot 操作软件') }}</b><span>{{ tl('直接执行：Copilot 可以替你载入例题、改参数、播放，每一步都能撤销；每次先问我：执行前先确认。') }}</span></div>
         <div class="segmented" role="radiogroup"><button role="radio" :aria-checked="ai.copilotMode === 'act'" :class="{ on: ai.copilotMode === 'act' }" @click="ai.copilotMode = 'act'">{{ tl('直接执行') }}</button><button role="radio" :aria-checked="ai.copilotMode === 'ask'" :class="{ on: ai.copilotMode === 'ask' }" @click="ai.copilotMode = 'ask'">{{ tl('每次先问我') }}</button></div>
       </div>
+      <!-- 26.64 (D283): the sketch builder is the default; the scene-file builder of 26.60 stays one version for comparison -->
+      <div class="srow"><div class="sl"><b>{{ tl('搭场景的方式') }}</b><span>{{ tl('草图：模型只写物体之间的关系和题目给出的量，坐标由 App 计算并逐级检查。场景文件：26.60 的做法，模型直接写出带坐标的场景文件；保留这一版用于对照。') }}</span></div>
+        <div class="segmented" role="radiogroup" :aria-label="tl('搭场景的方式')" data-ui="ai-scene-builder"><button role="radio" :aria-checked="ai.sceneBuilder === 'sketch'" :class="{ on: ai.sceneBuilder === 'sketch' }" @click="ai.sceneBuilder = 'sketch'">{{ tl('草图（默认）') }}</button><button role="radio" :aria-checked="ai.sceneBuilder === 'legacy'" :class="{ on: ai.sceneBuilder === 'legacy' }" @click="ai.sceneBuilder = 'legacy'">{{ tl('场景文件（旧）') }}</button></div>
+      </div>
       <div class="srow"><div class="sl"><b>{{ tl('学习模式') }}</b><span>{{ tl('Copilot 先给思路提示，学生给出自己的答案后再对照仿真结果。') }}</span></div><input v-model="ai.learningMode" type="checkbox" class="switch"></div>
       <div class="srow"><div class="sl"><b>{{ tl('向 AI 发送当前场景摘要') }}</b><span>{{ tl('物体、参数与结果的简表，帮助 Copilot 回答“现在这个场景”的问题。不发送文件路径与账号信息。') }}</span></div><input v-model="ai.shareScene" type="checkbox" class="switch"></div>
     </div>
@@ -209,7 +213,7 @@ const usage = computed(() => account.ai?.usage && account.ai.limits ? account.ai
 .srow + .srow { border-top: 1px solid var(--separator); }
 .srow.chips { justify-content: flex-start; gap: 6px; flex-wrap: wrap; min-height: 36px; }
 .log { padding: 10px 14px; }
-.disclose { margin: 8px 0 6px; padding-left: 18px; line-height: 1.6; color: var(--text-2); }
+.disclose { margin: 8px 0 6px; padding-left: 18px; line-height: var(--line-para); color: var(--text-2); }
 .log summary { cursor: pointer; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
 .log-row { border-top: 1px solid var(--separator); padding: 6px 0; display: grid; gap: 4px; }
 .log-head { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: var(--type-tiny); color: var(--text-2); }
@@ -223,7 +227,7 @@ const usage = computed(() => account.ai?.usage && account.ai.limits ? account.ai
 .badge { font-size: var(--type-tiny); padding: 1px 6px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
 .btns { display: flex; flex-wrap: wrap; gap: 6px; }
 .device { display: grid; gap: 8px; padding: 10px 12px; }
-.code { font-family: var(--font-mono); font-size: 1.6em; letter-spacing: 0.12em; font-weight: 700; }
+.code { font-family: var(--font-mono); font-size: 1.6em; letter-spacing: 0.12em; font-weight: var(--weight-strong); }
 .pw { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; align-items: end; padding: 4px 12px 10px; }
 .pw label { display: grid; gap: 4px; font-size: var(--type-small); color: var(--text-2); }
 .err { color: var(--danger); margin: 0 12px; font-size: var(--type-small); }

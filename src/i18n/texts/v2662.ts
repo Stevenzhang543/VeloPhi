@@ -5,7 +5,7 @@
 export const TEXTS_2662: Record<string, readonly [string, string]> = {
   // arc tracks (Rust core, formula/situations2662.rs)
   "轨迹半径（圆心到物体中心）": ["Path radius (centre to the body's centre)", "Bahnradius (Mittelpunkt bis Körpermitte)"],
-  "{0} 沿圆轨道内侧运动": ["{0} moves along the inside of a circular track", "{0} bewegt sich an der Innenseite einer Kreisbahn"],
+  "{0}沿圆轨道内侧运动": ["{0} moves along the inside of a circular track", "{0} bewegt sich an der Innenseite einer Kreisbahn"],
   "本段起点的位置角（自最低点）": ["Angle at the start of this phase (from the lowest point)", "Winkel am Anfang dieses Abschnitts (vom tiefsten Punkt)"],
   "脱离处的位置角（仿真）": ["Angle where it leaves (simulation)", "Winkel beim Ablösen (Simulation)"],
   "最低点轨道的支持力": ["Normal force of the track at the lowest point", "Normalkraft der Bahn im tiefsten Punkt"],
@@ -15,7 +15,7 @@ export const TEXTS_2662: Record<string, readonly [string, string]> = {
   "能通过最高点（v₀ ≥ √(5gρ) = {0} m/s）": ["Passes the highest point (v₀ ≥ √(5gρ) = {0} m/s)", "Erreicht den höchsten Punkt (v₀ ≥ √(5gρ) = {0} m/s)"],
   "在上半圆脱离轨道（√(2gρ) < v₀ < √(5gρ)）": ["Leaves the track in the upper half (√(2gρ) < v₀ < √(5gρ))", "Löst sich in der oberen Hälfte von der Bahn (√(2gρ) < v₀ < √(5gρ))"],
   "记录内没有脱离轨道": ["It does not leave the track in the recording", "Löst sich in der Aufzeichnung nicht von der Bahn"],
-  "{0} 沿圆弧外侧运动": ["{0} moves along the outside of a circular arc", "{0} bewegt sich an der Außenseite eines Kreisbogens"],
+  "{0}沿圆弧外侧运动": ["{0} moves along the outside of a circular arc", "{0} bewegt sich an der Außenseite eines Kreisbogens"],
   "最高点速率（由本段机械能推算）": ["Speed at the highest point (from this phase's mechanical energy)", "Geschwindigkeit im höchsten Punkt (aus der mechanischen Energie dieses Abschnitts)"],
   "本段起点的位置角（自最高点）": ["Angle at the start of this phase (from the highest point)", "Winkel am Anfang dieses Abschnitts (vom höchsten Punkt)"],
   "在最高点就离开的临界速率": ["Critical speed for leaving right at the top", "Grenzgeschwindigkeit für das Ablösen schon im höchsten Punkt"],

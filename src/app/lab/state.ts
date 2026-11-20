@@ -69,6 +69,9 @@ export function labState<T extends object>(id: string, defaults: () => T): T {
   return store[id] as T
 }
 
+/** The state of an experiment as it is now, without creating it (26.64: the walkthrough reads the circuit's switch). */
+export function peekLab<T extends object>(id: string): T | null { return (store[id] as T | undefined) ?? null }
+
 /** Back to the defaults of an experiment. */
 export function resetLab(id: string) {
   const d = defaultsOf.get(id)

@@ -164,7 +164,8 @@ fn frame_value(s: &mut Session, component: i64, id: &str, k: u64, obs_cache: &mu
     let meta = s.meta.clone();
     let customs = s.customs().to_vec();
     let mode = s.segments[*seg].mode.clone();
-    let obs = Observation::new(&sys, &meta, &customs, x, &mode, *loss, Some(k as f64 * s.dt))?;
+    let acc = crate::observe::soft_acceleration(s, k as f64 * s.dt)?;
+    let obs = Observation::new(&sys, &meta, &customs, x, &mode, *loss, Some(k as f64 * s.dt))?.with_acc(acc);
     Ok(obs.value(id))
 }
 

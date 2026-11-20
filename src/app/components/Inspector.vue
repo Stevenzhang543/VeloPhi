@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import Note from './Note.vue'
+import Rich from './Rich.vue'
 /**
  * Property inspector of the selected body, pulley or connector. Every number is entered and shown in the
  * display units of the settings (the scene stays SI). Forces can be constant or given as expressions F(t, state)
@@ -9,7 +11,6 @@ import { vSlideIndicator } from '../slideIndicator'
 import { computed, ref, watch } from 'vue'
 import { state, edit } from '../store'
 import NumField from './NumField.vue'
-import TemplateParams from './TemplateParams.vue'
 import Icon from './Icon.vue'
 import Section from './Section.vue'
 import type { BodyDef, CentralDef, ConnectorDef, ForceDef, PulleyDef, Scene, ShapePart, SliderDef } from '../../core/scene/types'
@@ -266,10 +267,8 @@ function setPulleyBody(bodyId: string) {
 
 <template>
   <div class="inspector">
-    <TemplateParams />
-    <div v-if="!state.selection" class="empty">
-      {{ tl('在画布上选择一个物体或连接件以编辑其参数。') }}<br />{{ tl('未选择时可在“场景”页修改重力、时间步长与精度。') }}
-    </div>
+    <!-- 26.65 (D292): the way back to the scene; the scene itself is ScenePanel.vue -->
+    <button v-if="state.selection" type="button" class="crumb" data-ui="inspect-scene" :title="tl('回到整个场景')" @click="state.selection = null; state.rightTab = 'inspect'">‹ {{ tl('场景') }}</button>
 
     <!-- ---- Body ---- -->
     <template v-if="body">
@@ -296,11 +295,11 @@ function setPulleyBody(bodyId: string) {
           <div class="row"><label>{{ tl('厚度') }}</label><NumField class="grow" :model-value="body.shape.thickness" unit="m" :min="1e-3" @update:model-value="v => setArc('thickness', v)" /></div>
           <div class="row"><label>{{ tl('起始角') }}</label><NumField class="grow" :model-value="body.shape.start" unit="rad" @update:model-value="v => setArc('start', v)" /></div>
           <div class="row"><label>{{ tl('圆心角') }}</label><NumField class="grow" :model-value="body.shape.sweep" unit="rad" :min="1e-3" :max="2 * Math.PI" @update:model-value="v => setArc('sweep', v)" /></div>
-          <div class="tiny muted note">{{ tl('圆弧的内侧（凹面）和外侧（凸面）都是精确的圆，由物理核心精确计算接触：小球在圆弧槽、竖直圆轨道或拱形桥上的运动与教材结果一致。从起始角开始逆时针转过圆心角（0° 指向右，90° 指向上）。') }}</div>
+          <Note>{{ tl('圆弧的内侧（凹面）和外侧（凸面）都是精确的圆，由物理核心精确计算接触：小球在圆弧槽、竖直圆轨道或拱形桥上的运动与教材结果一致。从起始角开始逆时针转过圆心角（0° 指向右，90° 指向上）。') }}</Note>
         </template>
         <template v-if="body.shape.type === 'compound'">
           <div class="row"><label>{{ tl('组成部分') }}</label><span class="grow small"><b>{{ body.shape.parts.length }}</b> {{ tl('个') }}<span class="muted">{{ partSummary(body.shape.parts) }}</span></span></div>
-          <div class="tiny muted note">{{ tl('复合体是一个刚体：各部分密度相同，质量按面积分配，质心与转动惯量由各部分合成（平行轴定理）；部分之间不碰撞。') }}</div>
+          <Note>{{ tl('复合体是一个刚体：各部分密度相同，质量按面积分配，质心与转动惯量由各部分合成（平行轴定理）；部分之间不碰撞。') }}</Note>
           <div class="row"><span class="grow" /><button class="btn small" @click="explode"><Icon name="compound" :size="14" />{{ tl('拆分为独立物体') }}</button></div>
         </template>
         <div v-if="body.shape.type === 'circle'" class="row"><label>{{ tl('半径 r') }}</label><NumField class="grow" :model-value="body.shape.radius" unit="m" :min="body.kind === 'particle' ? 0 : 1e-4" @update:model-value="v => setBody(b => { if (b.shape.type === 'circle') b.shape.radius = b.kind === 'particle' ? Math.max(0, v) : Math.max(1e-4, v) })" /></div>
@@ -319,7 +318,7 @@ function setPulleyBody(bodyId: string) {
           <div class="row"><label>{{ tl('角度 θ') }}</label><NumField class="grow" :model-value="body.angle" unit="rad" @update:model-value="v => setBody(b => { b.angle = v })" /></div>
           <template v-if="body.kind !== 'static'">
             <div class="row"><label>{{ tl('初速度 vₓ') }}</label><NumField class="grow" :model-value="body.velocity.x" unit="m/s" @update:model-value="v => setBody(b => { b.velocity.x = v })" /></div>
-            <div class="row"><label>{{ tl('初速度 v_y') }}</label><NumField class="grow" :model-value="body.velocity.y" unit="m/s" @update:model-value="v => setBody(b => { b.velocity.y = v })" /></div>
+            <div class="row"><label><Rich :text="tl('初速度 v_y')" /></label><NumField class="grow" :model-value="body.velocity.y" unit="m/s" @update:model-value="v => setBody(b => { b.velocity.y = v })" /></div>
             <div class="row"><label>{{ tl('速率 / 方向') }}</label>
               <NumField class="grow" :model-value="speed" unit="m/s" :min="0" @update:model-value="setSpeed" />
               <NumField class="grow" :model-value="direction" unit="rad" @update:model-value="setDirection" />
@@ -354,7 +353,7 @@ function setPulleyBody(bodyId: string) {
             <template v-if="body.drag">
               <div class="row"><label>{{ tl('线性系数 b') }}</label><NumField class="grow" :model-value="body.drag.linear" unit="N·s/m" :min="0" @update:model-value="v => setBody(b => { if (b.drag) b.drag.linear = v })" /></div>
               <div class="row"><label>{{ tl('平方系数 c') }}</label><NumField class="grow" :model-value="body.drag.quadratic" unit="N·s²/m²" :min="0" @update:model-value="v => setBody(b => { if (b.drag) b.drag.quadratic = v })" /></div>
-              <div class="tiny muted note">{{ terminalText }}</div>
+              <Note>{{ terminalText }}</Note>
             </template>
           </div>
         </Section>
@@ -364,7 +363,7 @@ function setPulleyBody(bodyId: string) {
         <Section id="inspect.gravMass" :title="tl('引力质量')">
           <div class="group">
             <div class="row"><label>{{ tl('质量 M') }}</label><NumField class="grow" :model-value="body.mass" unit="kg" :min="0" @update:model-value="v => setBody(b => { b.mass = v })" /></div>
-            <div class="tiny muted note">{{ tl('固定物体不动，但以这个质量吸引其他物体（如恒星、行星）。') }}</div>
+            <Note>{{ tl('固定物体不动，但以这个质量吸引其他物体（如恒星、行星）。') }}</Note>
           </div>
         </Section>
       </template>
@@ -373,7 +372,7 @@ function setPulleyBody(bodyId: string) {
       <Section id="inspect.charge" :title="tl('电荷')" :open="!!body.charge || hasFields" :count="body.charge ? fmtQ(body.charge, 'C') : null">
         <div class="group">
           <div class="row"><label>{{ tl('电荷量 q') }}</label><NumField class="grow" :model-value="body.charge ?? 0" unit="C" @update:model-value="v => setBody(b => { if (v !== 0) b.charge = v; else delete b.charge })" /></div>
-          <div class="tiny muted note">{{ body.kind === 'static' ? tl('固定物体的电荷是不动的点电荷，对其他带电体有库仑力（需在“场景”中打开库仑力）。') : tl('电荷集中在质心。电场力 qE、洛伦兹力 qv×B 与库仑力在“场景”页设置。') }}</div>
+          <Note>{{ body.kind === 'static' ? tl('固定物体的电荷是不动的点电荷，对其他带电体有库仑力（需在“场景”中打开库仑力）。') : tl('电荷集中在质心。电场力 qE、洛伦兹力 qv×B 与库仑力在“场景”页设置。') }}</Note>
         </div>
       </Section>
 
@@ -388,9 +387,9 @@ function setPulleyBody(bodyId: string) {
           <div class="row"><label>{{ tl('静摩擦因数 μs') }}</label><NumField class="grow" :model-value="body.material.muS" :min="0" :step="0.05" @update:model-value="v => setBody(b => { b.material.muS = v })" /></div>
           <div class="row"><label>{{ tl('动摩擦因数 μk') }}</label><NumField class="grow" :model-value="body.material.muK" :min="0" :step="0.05" @update:model-value="v => setBody(b => { b.material.muK = v })" /></div>
           <div class="row"><label>{{ tl('恢复系数 e') }}</label><NumField class="grow" :model-value="body.material.restitution" :min="0" :max="1" :step="0.05" @update:model-value="v => setBody(b => { b.material.restitution = v })" /></div>
-          <div class="row" :title="tl('滚动阻力系数：滚动时受阻力偶 M = C_rr·N·r（r 为滚动物体的半径）；接触时取两物体中较大的值')"><label>{{ tl('滚动阻力 C_rr') }}</label><NumField class="grow" :model-value="body.material.rolling ?? 0" :min="0" :max="1" :step="0.005" @update:model-value="v => setBody(b => { if (v > 0) b.material.rolling = v; else delete b.material.rolling })" /></div>
+          <div class="row" :title="tl('滚动阻力系数：滚动时受阻力偶 M = C_rr·N·r（r 为滚动物体的半径）；接触时取两物体中较大的值')"><label><Rich :text="tl('滚动阻力 C_rr')" /></label><NumField class="grow" :model-value="body.material.rolling ?? 0" :min="0" :max="1" :step="0.005" @update:model-value="v => setBody(b => { if (v > 0) b.material.rolling = v; else delete b.material.rolling })" /></div>
           <div v-if="body.kind === 'static'" class="row"><label>{{ tl('传送带速度 u') }}</label><NumField class="grow" :model-value="body.beltSpeed" unit="m/s" @update:model-value="v => setBody(b => { b.beltSpeed = v })" /></div>
-          <div class="tiny muted note">{{ tl('两物体接触时摩擦因数与恢复系数取两者中较小的值，滚动阻力取较大的值；需要单独指定时在下方“接触对”中设置。') }}<template v-if="body.kind === 'static'">{{ tl('传送带：u > 0 时表面顺时针运行（上表面向右）。') }}</template></div>
+          <Note>{{ tl('两物体接触时摩擦因数与恢复系数取两者中较小的值，滚动阻力取较大的值；需要单独指定时在下方“接触对”中设置。') }}<template v-if="body.kind === 'static'">{{ tl('传送带：u > 0 时表面顺时针运行（上表面向右）。') }}</template></Note>
         </div>
       </Section>
 
@@ -446,8 +445,8 @@ function setPulleyBody(bodyId: string) {
         <div class="row"><label>{{ pulley.body ? tl('轴心 x（物体坐标）') : tl('轴心 x') }}</label><NumField class="grow" :model-value="pulley.position.x" unit="m" @update:model-value="v => setPulley(p => { p.position.x = v })" /></div>
         <div class="row"><label>{{ pulley.body ? tl('轴心 y（物体坐标）') : tl('轴心 y') }}</label><NumField class="grow" :model-value="pulley.position.y" unit="m" @update:model-value="v => setPulley(p => { p.position.y = v })" /></div>
         <div class="row"><label>{{ tl('半径') }}</label><NumField class="grow" :model-value="pulley.radius" unit="m" :min="0" @update:model-value="v => setPulley(p => { p.radius = v })" /></div>
-        <div v-if="pulley.body" class="tiny muted note">{{ tl('动滑轮：轮轴随 {0} 运动，坐标相对该物体的质心（随物体转动）。轮本身无质量，需要质量时设置在所在物体上；绳在轮上不打滑也不受摩擦。', [bodyName(pulley.body)]) }}</div>
-        <div v-else class="tiny muted note">{{ tl('定滑轮：轻质、光滑、轴固定；绳在轮上不打滑也不受摩擦。') }}</div>
+        <Note v-if="pulley.body">{{ tl('动滑轮：轮轴随 {0} 运动，坐标相对该物体的质心（随物体转动）。轮本身无质量，需要质量时设置在所在物体上；绳在轮上不打滑也不受摩擦。', [bodyName(pulley.body)]) }}</Note>
+        <Note v-else>{{ tl('定滑轮：轻质、光滑、轴固定；绳在轮上不打滑也不受摩擦。') }}</Note>
       </div>
       <div class="actions"><button class="btn danger" @click="remove"><Icon name="trash" :size="14" />{{ tl('删除') }}</button></div>
     </template>
@@ -498,33 +497,33 @@ function setPulleyBody(bodyId: string) {
         <div class="row"><label>{{ tl('阻尼 c') }}</label><NumField class="grow" :model-value="conn.damping" unit="N·s/m" :min="0" @update:model-value="v => setConn(c => { if (c.type === 'spring') c.damping = v })" /></div>
         <div class="row"><label>{{ tl('非线性 k₃') }}</label><NumField class="grow" :model-value="conn.cubic ?? 0" unit="N/m³" @update:model-value="v => setConn(c => { if (c.type === 'spring') { if (v === 0) delete c.cubic; else c.cubic = v } })" /></div>
         <div class="row"><label>{{ tl('不粘连') }}</label><label class="check grow"><input type="checkbox" :checked="!!conn.pushOnly" @change="setConn(c => { if (c.type === 'spring') { if (($event.target as HTMLInputElement).checked) c.pushOnly = true; else delete c.pushOnly } })" />{{ tl('只推不拉：恢复原长时与 B 端的物体分离') }}</label></div>
-        <div class="tiny muted note">{{ tl('弹力 F = −kx − k₃x³ − cv（x 为形变量，v 为伸长速度）；k₃ = 0 时就是胡克弹簧。弹性势能 ½kx² + ¼k₃x⁴。') }}</div>
+        <Note>{{ tl('弹力 F = −kx − k₃x³ − cv（x 为形变量，v 为伸长速度）；k₃ = 0 时就是胡克弹簧。弹性势能 ½kx² + ¼k₃x⁴。') }}</Note>
       </div>
       <div v-if="conn.type === 'damper'" class="group">
         <div class="row"><label>{{ tl('阻尼系数 c') }}</label><NumField class="grow" :model-value="conn.damping" unit="N·s/m" :min="0" @update:model-value="v => setConn(c => { if (c.type === 'damper') c.damping = v })" /></div>
-        <div class="tiny muted note">{{ tl('阻尼器只产生与两端相对速度成正比的阻力 F = −cv，没有弹力；消耗的能量计入能量账本的“阻尼耗散”。') }}</div>
+        <Note>{{ tl('阻尼器只产生与两端相对速度成正比的阻力 F = −cv，没有弹力；消耗的能量计入能量账本的“阻尼耗散”。') }}</Note>
       </div>
       <div v-if="conn.type === 'weld'" class="group">
-        <div class="tiny muted note">{{ tl('焊接点两侧的物体保持开始时的相对位置和相对角度，像一个刚体一样运动；连到世界时物体被固定。') }}</div>
+        <Note>{{ tl('焊接点两侧的物体保持开始时的相对位置和相对角度，像一个刚体一样运动；连到世界时物体被固定。') }}</Note>
       </div>
       <div v-if="conn.type === 'slider'" class="group">
         <div class="row"><label>{{ tl('滑动方向') }}</label><NumField class="grow" :model-value="Math.atan2(conn.axis.y, conn.axis.x)" unit="rad" @update:model-value="v => setConn(c => { if (c.type === 'slider') c.axis = { x: Number(Math.cos(v).toPrecision(12)), y: Number(Math.sin(v).toPrecision(12)) } })" /></div>
         <div class="row"><label>{{ tl('允许转动') }}</label><label class="check grow"><input type="checkbox" :checked="!!conn.free" @change="setConn(c => { if (c.type === 'slider') { if (($event.target as HTMLInputElement).checked) c.free = true; else delete c.free } })" />{{ tl('B 可以绕滑块转动') }}</label></div>
-        <div class="tiny muted note">{{ tl('B 端只能沿过 A 端的直线移动；方向角相对 A 物体（连到世界时相对水平向右）测量。') }}</div>
+        <Note>{{ tl('B 端只能沿过 A 端的直线移动；方向角相对 A 物体（连到世界时相对水平向右）测量。') }}</Note>
         <div class="row"><label>{{ tl('限位') }}</label><label class="check grow"><input type="checkbox" :checked="!!slider?.limits" @change="toggleLimits(($event.target as HTMLInputElement).checked)" />{{ tl('B 沿滑轨的位移 s 有上下限') }}</label></div>
         <template v-if="slider?.limits">
-          <div class="row"><label>{{ tl('下限 s_min') }}</label>
+          <div class="row"><label><Rich :text="tl('下限 s_min')" /></label>
             <input type="checkbox" class="side-check" :checked="slider.limits.min !== null" :title="tl('有下限')" @change="toggleLimitSide('min', ($event.target as HTMLInputElement).checked)" />
             <NumField v-if="slider.limits.min !== null" class="grow" :model-value="slider.limits.min" unit="m" @update:model-value="v => setLimit('min', v)" />
             <span v-else class="grow small muted">{{ tl('不限') }}</span>
           </div>
-          <div class="row"><label>{{ tl('上限 s_max') }}</label>
+          <div class="row"><label><Rich :text="tl('上限 s_max')" /></label>
             <input type="checkbox" class="side-check" :checked="slider.limits.max !== null" :title="tl('有上限')" @change="toggleLimitSide('max', ($event.target as HTMLInputElement).checked)" />
             <NumField v-if="slider.limits.max !== null" class="grow" :model-value="slider.limits.max" unit="m" @update:model-value="v => setLimit('max', v)" />
             <span v-else class="grow small muted">{{ tl('不限') }}</span>
           </div>
           <div class="row"><label>{{ tl('限位恢复系数') }}</label><NumField class="grow" :model-value="slider.limits.restitution" :min="0" :max="1" :step="0.05" @update:model-value="v => setSlider(c => { if (c.limits) c.limits.restitution = v })" /></div>
-          <div class="tiny muted note">{{ tl('s 从 A 端量到 B 端、沿滑动方向为正。到达限位时若还有速度就发生碰撞（反弹速度为碰前的 e 倍，e = 0 时停在限位上）；压在限位上时限位给 B 向内的支持力。') }}</div>
+          <Note>{{ tl('s 从 A 端量到 B 端、沿滑动方向为正。到达限位时若还有速度就发生碰撞（反弹速度为碰前的 e 倍，e = 0 时停在限位上）；压在限位上时限位给 B 向内的支持力。') }}</Note>
         </template>
       </div>
       <div v-if="conn.type === 'motor'" class="group">
@@ -540,11 +539,11 @@ function setPulleyBody(bodyId: string) {
           <div v-if="conn.maxTorque !== undefined && conn.maxTorque !== null" class="row"><label>τ_max</label><NumField class="grow" :model-value="conn.maxTorque" unit="N·m" :min="1e-9" @update:model-value="v => setConn(c => { if (c.type === 'motor') c.maxTorque = v })" /></div>
         </template>
         <div v-else class="row"><label>{{ tl('力矩 M') }}</label><NumField class="grow" :model-value="conn.torque" unit="N·m" @update:model-value="v => setConn(c => { if (c.type === 'motor') c.torque = v })" /></div>
-        <div class="tiny muted note">{{ conn.mode === 'speed' ? ((conn.maxTorque ?? null) !== null ? tl('B 相对 A 以恒定角速度转动（逆时针为正）。所需力矩不超过上限时保持转速；超过时“打滑”，以最大力矩驱动，直到转速重新回到设定值。马达做的功计入能量账本。') : tl('B 相对 A 以恒定角速度转动（逆时针为正）；开始时转速立即达到设定值。马达做的功计入能量账本。')) : tl('马达对 B 施加恒定力矩，对 A 施加等大反向的力矩（逆时针为正）；做的功计入能量账本。') }}</div>
+        <Note>{{ conn.mode === 'speed' ? ((conn.maxTorque ?? null) !== null ? tl('B 相对 A 以恒定角速度转动（逆时针为正）。所需力矩不超过上限时保持转速；超过时“打滑”，以最大力矩驱动，直到转速重新回到设定值。马达做的功计入能量账本。') : tl('B 相对 A 以恒定角速度转动（逆时针为正）；开始时转速立即达到设定值。马达做的功计入能量账本。')) : tl('马达对 B 施加恒定力矩，对 A 施加等大反向的力矩（逆时针为正）；做的功计入能量账本。') }}</Note>
       </div>
       <div v-if="conn.type === 'gear'" class="group">
         <div class="row"><label>{{ tl('传动比 r') }}</label><NumField class="grow" :model-value="conn.ratio" @update:model-value="v => { if (v !== 0) setConn(c => { if (c.type === 'gear') c.ratio = v }) }" /></div>
-        <div class="tiny muted note">{{ tl('约束 ω_A + r·ω_B = 0。外啮合齿轮取 r = r_B / r_A（转向相反）；开口皮带取 r = −r_B / r_A（转向相同）。') }}</div>
+        <Note><Rich :text="tl('约束 ω_A + r·ω_B = 0。外啮合齿轮取 r = r_B / r_A（转向相反）；开口皮带取 r = −r_B / r_A（转向相同）。')" /></Note>
       </div>
       <div v-if="central" class="group">
         <div class="row"><label>{{ tl('规律') }}</label>
@@ -560,7 +559,7 @@ function setPulleyBody(bodyId: string) {
           <label v-for="b in centralTargets" :key="b.id" class="check small"><input type="checkbox" :checked="central.targets.includes(b.id)" @change="toggleTarget(b.id, ($event.target as HTMLInputElement).checked)" />{{ b.name }}</label>
           <span v-if="!centralTargets.length" class="small muted">{{ tl('场景中还没有运动物体') }}</span>
         </div>
-        <div class="tiny muted note">{{ tl('力沿中心与质心的连线，大小 F = k·rⁿ：k > 0 指向中心（引力），k < 0 背离中心（斥力）。物体与中心的距离小于物体自身大小时，力线性减小到 0。势能 k·rⁿ⁺¹/(n+1)（n = −1 时 k·ln r）计入机械能。') }}</div>
+        <Note>{{ tl('力沿中心与质心的连线，大小 F = k·rⁿ：k > 0 指向中心（引力），k < 0 背离中心（斥力）。物体与中心的距离小于物体自身大小时，力线性减小到 0。势能 k·rⁿ⁺¹/(n+1)（n = −1 时 k·ln r）计入机械能。') }}</Note>
       </div>
       <div v-if="force" class="group">
         <div class="row"><label>{{ tl('力的形式') }}</label>
@@ -572,7 +571,7 @@ function setPulleyBody(bodyId: string) {
         <template v-if="!force.expr">
           <div class="row"><label>Fₓ</label><NumField class="grow" :model-value="force.force.x" unit="N" @update:model-value="v => setForce(c => { c.force.x = v })" /></div>
           <div class="row"><label>F_y</label><NumField class="grow" :model-value="force.force.y" unit="N" @update:model-value="v => setForce(c => { c.force.y = v })" /></div>
-          <div class="tiny muted note">{{ tl('恒力：大小和方向（世界坐标）不变，作用点随物体运动。') }}</div>
+          <Note>{{ tl('恒力：大小和方向（世界坐标）不变，作用点随物体运动。') }}</Note>
         </template>
         <template v-else>
           <div v-for="axis in (['x', 'y'] as const)" :key="axis" class="expr-row">
@@ -584,7 +583,7 @@ function setPulleyBody(bodyId: string) {
             </div>
             <div v-if="!exprCheck[axis].ok" class="expr-msg small">{{ exprCheck[axis].message }}</div>
           </div>
-          <div class="tiny muted note">{{ tl('表达式始终按国际单位制求值：t 以 s、x 以 m、v 以 m/s 计，结果为 N，与显示单位无关。修改后按 Enter 或离开输入框生效。') }}</div>
+          <Note>{{ tl('表达式始终按国际单位制求值：t 以 s、x 以 m、v 以 m/s 计，结果为 N，与显示单位无关。修改后按 Enter 或离开输入框生效。') }}</Note>
           <button class="btn ghost small help-toggle" :aria-expanded="showHelp" @click="showHelp = !showHelp"><Icon name="info" :size="14" />{{ showHelp ? tl('收起') : tl('可用变量、函数与示例') }}</button>
           <div v-if="showHelp" class="expr-help small">
             <div class="help-title">{{ tl('变量（国际单位）') }}</div>
@@ -604,7 +603,9 @@ function setPulleyBody(bodyId: string) {
 </template>
 
 <style scoped>
-.inspector { padding-top: 4px; }
+.inspector { padding-top: 0; }
+.crumb { display: inline-flex; align-items: center; gap: 4px; height: 26px; margin: 0 0 var(--space-2) -6px; padding: 0 6px; border: 0; border-radius: var(--radius-row); background: none; color: var(--text-2); font: inherit; font-size: var(--type-small); cursor: pointer; }
+.crumb:hover { background: var(--hover); color: var(--text); }
 .note { padding: 6px 2px 4px; line-height: 1.45; }
 .weight { flex: 0 0 auto; color: var(--text-2); background: var(--fill); border-radius: 6px; padding: 2px 6px; white-space: nowrap; }
 .pair { padding: 6px 0; border-bottom: 1px solid var(--separator); }

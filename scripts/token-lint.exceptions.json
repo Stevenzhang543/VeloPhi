@@ -1,0 +1,365 @@
+{
+ "note": "Registered exceptions of scripts/token-lint.mjs: the most literal colours (hex, rgb) and px radii each file may still contain. Lower a number when literals are removed; never raise one without a reason written in docs/design/DESIGN_SYSTEM.md §11.",
+ "files": {
+  "src/app/components/ActivityRunner.vue": {
+   "hex": 3,
+   "rgb": 0,
+   "radius": 2
+  },
+  "src/app/components/AnnotationTextInput.vue": {
+   "hex": 0,
+   "rgb": 0,
+   "radius": 1
+  },
+  "src/app/components/AppLogo.vue": {
+   "hex": 6,
+   "rgb": 0,
+   "radius": 0
+  },
+  "src/app/components/BottomSheet.vue": {
+   "hex": 0,
+   "rgb": 1,
+   "radius": 2
+  },
+  "src/app/components/CaseIndex.vue": {
+   "hex": 0,
+   "rgb": 0,
+   "radius": 1
+  },
+  "src/app/components/ChartPanel.vue": {
+   "hex": 2,
+   "rgb": 4,
+   "radius": 3
+  },
+  "src/app/components/ContextMenu.vue": {
+   "hex": 1,
+   "rgb": 1,
+   "radius": 2
+  },
+  "src/app/components/CoursewareDialog.vue": {
+   "hex": 0,
+   "rgb": 0,
+   "radius": 2
+  },
+  "src/app/components/CurriculumDialog.vue": {
+   "hex": 0,
+   "rgb": 0,
+   "radius": 4
+  },
+  "src/app/components/DetailPanel.vue": {
+   "hex": 0,
+   "rgb": 1,
+   "radius": 0
+  },
+  "src/app/components/EnergyBars.vue": {
+   "hex": 8,
+   "rgb": 0,
+   "radius": 2
+  },
+  "src/app/components/ExportDialog.vue": {
+   "hex": 0,
+   "rgb": 0,
+   "radius": 1
+  },
+  "src/app/components/FbdDialog.vue": {
+   "hex": 3,
+   "rgb": 0,
+   "radius": 0
+  },
+  "src/app/components/FormulaPanel.vue": {
+   "hex": 2,
+   "rgb": 1,
+   "radius": 14
+  },
+  "src/app/components/FormulaTrack.vue": {
+   "hex": 8,
+   "rgb": 0,
+   "radius": 2
+  },
+  "src/app/components/HandbookView.vue": {
+   "hex": 0,
+   "rgb": 0,
+   "radius": 4
+  },
+  "src/app/components/Inspector.vue": {
+   "hex": 0,
+   "rgb": 0,
+   "radius": 3
+  },
+  "src/app/components/LearningPath.vue": {
+   "hex": 1,
+   "rgb": 0,
+   "radius": 7
+  },
+  "src/app/components/LessonBar.vue": {
+   "hex": 3,
+   "rgb": 0,
+   "radius": 0
+  },
+  "src/app/components/MeasuredDialog.vue": {
+   "hex": 1,
+   "rgb": 0,
+   "radius": 0
+  },
+  "src/app/components/MetricTile.vue": {
+   "hex": 0,
+   "rgb": 0,
+   "radius": 1
+  },
+  "src/app/components/MonitorPage.vue": {
+   "hex": 8,
+   "rgb": 0,
+   "radius": 2
+  },
+  "src/app/components/NumField.vue": {
+   "hex": 0,
+   "rgb": 0,
+   "radius": 1
+  },
+  "src/app/components/ObjectList.vue": {
+   "hex": 2,
+   "rgb": 0,
+   "radius": 1
+  },
+  "src/app/components/PhasePlot.vue": {
+   "hex": 3,
+   "rgb": 0,
+   "radius": 0
+  },
+  "src/app/components/PhoneNav.vue": {
+   "hex": 0,
+   "rgb": 0,
+   "radius": 1
+  },
+  "src/app/components/PredictionPanel.vue": {
+   "hex": 1,
+   "rgb": 0,
+   "radius": 1
+  },
+  "src/app/components/ProblemGallery.vue": {
+   "hex": 0,
+   "rgb": 1,
+   "radius": 4
+  },
+  "src/app/components/ProblemPanel.vue": {
+   "hex": 0,
+   "rgb": 0,
+   "radius": 4
+  },
+  "src/app/components/RegionsSection.vue": {
+   "hex": 5,
+   "rgb": 0,
+   "radius": 3
+  },
+  "src/app/components/ReportDialog.vue": {
+   "hex": 1,
+   "rgb": 0,
+   "radius": 0
+  },
+  "src/app/components/Section.vue": {
+   "hex": 0,
+   "rgb": 0,
+   "radius": 1
+  },
+  "src/app/components/SolverCompareDialog.vue": {
+   "hex": 1,
+   "rgb": 0,
+   "radius": 0
+  },
+  "src/app/components/StackCards.vue": {
+   "hex": 0,
+   "rgb": 0,
+   "radius": 1
+  },
+  "src/app/components/SweepDialog.vue": {
+   "hex": 3,
+   "rgb": 0,
+   "radius": 1
+  },
+  "src/app/components/TallyBar.vue": {
+   "hex": 1,
+   "rgb": 0,
+   "radius": 4
+  },
+  "src/app/components/TapeDialog.vue": {
+   "hex": 2,
+   "rgb": 0,
+   "radius": 0
+  },
+  "src/app/components/TemplateGallery.vue": {
+   "hex": 0,
+   "rgb": 0,
+   "radius": 1
+  },
+  "src/app/components/TimeDock.vue": {
+   "hex": 0,
+   "rgb": 0,
+   "radius": 1
+  },
+  "src/app/components/Timeline.vue": {
+   "hex": 2,
+   "rgb": 2,
+   "radius": 3
+  },
+  "src/app/components/TimelineMarks.vue": {
+   "hex": 0,
+   "rgb": 0,
+   "radius": 2
+  },
+  "src/app/components/ToolPalette.vue": {
+   "hex": 0,
+   "rgb": 0,
+   "radius": 2
+  },
+  "src/app/components/Wordmark.vue": {
+   "hex": 3,
+   "rgb": 0,
+   "radius": 0
+  },
+  "src/app/components/ai/AiSettings.vue": {
+   "hex": 0,
+   "rgb": 0,
+   "radius": 3
+  },
+  "src/app/components/ai/AiSummary.vue": {
+   "hex": 0,
+   "rgb": 0,
+   "radius": 1
+  },
+  "src/app/components/ai/CopilotPanel.vue": {
+   "hex": 3,
+   "rgb": 0,
+   "radius": 10
+  },
+  "src/app/components/ai/ImportCard.vue": {
+   "hex": 0,
+   "rgb": 0,
+   "radius": 4
+  },
+  "src/app/components/ai/Spotlight.vue": {
+   "hex": 0,
+   "rgb": 0,
+   "radius": 2
+  },
+  "src/app/components/lab/CapacitorLab.vue": {
+   "hex": 3,
+   "rgb": 1,
+   "radius": 0
+  },
+  "src/app/components/lab/CircuitLab.vue": {
+   "hex": 12,
+   "rgb": 2,
+   "radius": 3
+  },
+  "src/app/components/lab/ComptonLab.vue": {
+   "hex": 3,
+   "rgb": 0,
+   "radius": 0
+  },
+  "src/app/components/lab/DecayLab.vue": {
+   "hex": 4,
+   "rgb": 0,
+   "radius": 0
+  },
+  "src/app/components/lab/FieldLab.vue": {
+   "hex": 5,
+   "rgb": 0,
+   "radius": 0
+  },
+  "src/app/components/lab/GasLab.vue": {
+   "hex": 6,
+   "rgb": 0,
+   "radius": 0
+  },
+  "src/app/components/lab/HeatingLab.vue": {
+   "hex": 2,
+   "rgb": 8,
+   "radius": 0
+  },
+  "src/app/components/lab/LensLab.vue": {
+   "hex": 1,
+   "rgb": 0,
+   "radius": 0
+  },
+  "src/app/components/lab/MagnetLab.vue": {
+   "hex": 6,
+   "rgb": 0,
+   "radius": 0
+  },
+  "src/app/components/lab/MixingLab.vue": {
+   "hex": 4,
+   "rgb": 0,
+   "radius": 0
+  },
+  "src/app/components/lab/NuclearLab.vue": {
+   "hex": 10,
+   "rgb": 0,
+   "radius": 0
+  },
+  "src/app/components/lab/PhotoLab.vue": {
+   "hex": 2,
+   "rgb": 0,
+   "radius": 0
+  },
+  "src/app/components/lab/QuantumConvergence.vue": {
+   "hex": 1,
+   "rgb": 0,
+   "radius": 0
+  },
+  "src/app/components/lab/QuantumLab.vue": {
+   "hex": 2,
+   "rgb": 1,
+   "radius": 0
+  },
+  "src/app/components/lab/RaysLab.vue": {
+   "hex": 5,
+   "rgb": 4,
+   "radius": 0
+  },
+  "src/app/components/lab/RelativityLab.vue": {
+   "hex": 2,
+   "rgb": 4,
+   "radius": 0
+  },
+  "src/app/components/lab/WaveOpticsLab.vue": {
+   "hex": 2,
+   "rgb": 1,
+   "radius": 0
+  },
+  "src/app/components/models/ModelCatalog.vue": {
+   "hex": 1,
+   "rgb": 0,
+   "radius": 3
+  },
+  "src/app/components/models/ModelView.vue": {
+   "hex": 8,
+   "rgb": 1,
+   "radius": 3
+  },
+  "src/app/components/models/ParamProblemPanel.vue": {
+   "hex": 1,
+   "rgb": 0,
+   "radius": 1
+  },
+  "src/app/components/task/ResultCard.vue": {
+   "hex": 0,
+   "rgb": 0,
+   "radius": 1
+  },
+  "src/app/components/task/TaskPanel.vue": {
+   "hex": 0,
+   "rgb": 0,
+   "radius": 6
+  },
+  "src/app/components/viewport/Viewport.vue": {
+   "hex": 1,
+   "rgb": 1,
+   "radius": 4
+  },
+  "src/app/opening.css": {
+   "hex": 7,
+   "rgb": 0,
+   "radius": 0
+  }
+ }
+}

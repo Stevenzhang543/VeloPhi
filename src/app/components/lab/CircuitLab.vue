@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import Rich from '../Rich.vue'
 /**
  * Circuit experiment (26.54, D80; 26.55, D89). Elements sit between two points of a grid (drag from one point to
  * another); elements meeting at a point are connected. Two ways to compute, both in the Rust core:
@@ -14,7 +15,7 @@
  * This component draws the circuit, the current (moving dots in the direction of the conventional current), lamps by
  * their power, meters with their readings, and lists every element's values with the textbook formulas.
  */
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, inject, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { tl } from '../../../i18n'
 import { state } from '../../store'
 import { fmtQ } from '../../settings'
@@ -23,6 +24,8 @@ import { FONT, MONO } from '../../../render/style'
 import type { CircuitElement, CircuitRun, CircuitSolution, ElemState } from '../../../engine/labs'
 import { circuitResistance, circuitRun, circuitSolve } from '../../../engine/labs'
 import { labRequest, labState, labTaskRequest } from '../../lab/state'
+import { addUiTestHook } from '../../uitest'
+import { LAB_INSPECTOR } from '../../lab/commands'
 import type { EditorKind, El, Pt } from '../../lab/circuitPresets'
 import { FOUR_TERMINAL, KINDS, KIND_INFO, PRESETS, PRESET_GROUPS, besides, defaultsOf, named, taskCircuit } from '../../lab/circuitPresets'
 import Icon from '../Icon.vue'
@@ -44,7 +47,53 @@ const tool = ref<ToolId>('select')
 const selected = ref<string | null>(null)
 const sel = computed(() => S.elements.find(e => e.id === selected.value) ?? null)
 const measure = ref<{ a: Pt | null; b: Pt | null }>({ a: null, b: null })
-const groups = computed(() => (['basic', 'ac', 'sensor'] as const).map(g => KINDS.filter(k => KIND_INFO[k].group === g)))
+/**
+ * 26.64 (D244): the components in six named groups instead of one row of twenty-odd icons. A group's button opens a
+ * small panel with the names; the select tool and the three components used last stay on the strip. A kind no group
+ * names lands in the last one, so the strip can never lose a component.
+ */
+type GroupId = 'source' | 'wiring' | 'load' | 'meter' | 'sensor' | 'other'
+const GROUP_KINDS: Record<GroupId, EditorKind[]> = {
+  source: ['battery', 'ac'],
+  wiring: ['wire', 'switch', 'ground'],
+  load: ['resistor', 'lamp', 'rheostat', 'capacitor', 'inductor', 'motor', 'transformer'],
+  meter: ['ammeter', 'voltmeter', 'galvanometer', 'probe'],
+  sensor: ['diode', 'thermistor', 'ldr', 'fsr'],
+  other: ['fuse', 'rcd']
+}
+const groups = computed<Array<{ id: GroupId; label: string; title: string; icon: string; kinds: EditorKind[] }>>(() => {
+  const placed = new Set(Object.values(GROUP_KINDS).flat())
+  const rest = KINDS.filter(k => !placed.has(k))
+  return [
+    { id: 'source', label: tl('电源'), title: tl('电源'), icon: 'battery', kinds: GROUP_KINDS.source },
+    { id: 'wiring', label: tl('接线'), title: tl('导线与开关'), icon: 'wire', kinds: GROUP_KINDS.wiring },
+    { id: 'load', label: tl('负载'), title: tl('负载'), icon: 'resistor', kinds: GROUP_KINDS.load },
+    { id: 'meter', label: tl('仪表'), title: tl('仪表'), icon: 'ammeter', kinds: GROUP_KINDS.meter },
+    { id: 'sensor', label: tl('传感'), title: tl('半导体与传感器'), icon: 'diode', kinds: GROUP_KINDS.sensor },
+    { id: 'other', label: tl('其他'), title: tl('其他'), icon: 'fuse', kinds: [...GROUP_KINDS.other, ...rest] }
+  ]
+})
+const openGroup = ref<GroupId | null>(null)
+const RECENT_KEY = 'velophi.lab.circuit.recent'
+function storedRecent(): EditorKind[] {
+  try {
+    const list = JSON.parse(localStorage.getItem(RECENT_KEY) ?? '[]') as unknown
+    if (Array.isArray(list)) { const ok = list.filter((k): k is EditorKind => KINDS.includes(k as EditorKind)).slice(0, 3); if (ok.length) return ok }
+  } catch { /* the default below */ }
+  return ['wire', 'resistor', 'switch']
+}
+const recent = ref<EditorKind[]>(storedRecent())
+/** Take a component as the tool (from a group's panel or from the recent ones). */
+function pickKind(k: EditorKind) {
+  tool.value = k
+  openGroup.value = null
+  if (recent.value[0] !== k && !recent.value.includes(k)) recent.value = [k, ...recent.value].slice(0, 3)
+  try { localStorage.setItem(RECENT_KEY, JSON.stringify(recent.value)) } catch { /* not remembered */ }
+}
+function pickMeasure() { tool.value = 'measure'; measure.value = { a: null, b: null }; openGroup.value = null }
+function groupOutside(e: PointerEvent) { if (openGroup.value && !(e.target as Element).closest('.grp')) openGroup.value = null }
+// the page's inspector (LabPage.vue): selecting an element shows its parameters
+const inspector = inject(LAB_INSPECTOR, null)
 
 function loadPreset(id: string) {
   const p = PRESETS[id]
@@ -422,7 +471,7 @@ function onKey(e: KeyboardEvent) {
   const t = e.target as HTMLElement
   if (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT') return
   if ((e.key === 'Delete' || e.key === 'Backspace') && selected.value) { e.preventDefault(); removeSelected() }
-  if (e.key === 'Escape') { tool.value = 'select'; drag = null; measure.value = { a: null, b: null } }
+  if (e.key === 'Escape') { tool.value = 'select'; drag = null; measure.value = { a: null, b: null }; openGroup.value = null }
   if (e.key.toLowerCase() === 'r' && selected.value && !e.ctrlKey && !e.metaKey) rotate()
   if (e.key === ' ' && S.mode === 'run') { e.preventDefault(); running.value = !running.value }
   // arrow keys move the selection (keyboard use, D43)
@@ -751,8 +800,12 @@ function loop(now: number) {
   else last = 0
   raf = requestAnimationFrame(loop)
 }
-onMounted(() => { raf = requestAnimationFrame(loop); window.addEventListener('keydown', onKey); requestAnimationFrame(fit) })
-onBeforeUnmount(() => { cancelAnimationFrame(raf); window.removeEventListener('keydown', onKey) })
+onMounted(() => {
+  // 26.64 (D251): the interface regressions click the circuit's elements where they are drawn
+  addUiTestHook('circuit', { S, at: (kind: string) => { const e = S.elements.find(x => x.kind === kind); const r = wrap.value?.getBoundingClientRect(); if (!e || !r) return null; const a = toPx(e.a), b = toPx(e.b); return { x: r.left + (a[0] + b[0]) / 2, y: r.top + (a[1] + b[1]) / 2 } } })
+  raf = requestAnimationFrame(loop); window.addEventListener('keydown', onKey); window.addEventListener('pointerdown', groupOutside); requestAnimationFrame(fit) })
+watch(selected, id => { if (id) inspector?.show('gear') })
+onBeforeUnmount(() => { cancelAnimationFrame(raf); window.removeEventListener('keydown', onKey); window.removeEventListener('pointerdown', groupOutside) })
 watch(() => props.active, on => { if (on) last = 0 })
 
 // ---- Scope ----
@@ -804,7 +857,8 @@ const selFormulas = computed<F[]>(() => {
   }
   return out
 })
-const relationText = computed(() => (sol.value?.ok ? sol.value.relations.map(r => `${r.kind === 'series' ? tl('串联') : tl('并联')}：${r.elements.map(nameOf).join(tl('、'))}`) : []))
+// 26.65 (D294): the colon and the list separator come from the language (they were written into the code)
+const relationText = computed(() => (sol.value?.ok ? sol.value.relations.map(r => tl('{0}：{1}', [r.kind === 'series' ? tl('串联') : tl('并联'), r.elements.map(nameOf).join(tl('、'))])) : []))
 const EVENT_TEXT: Record<string, string> = {
   diodeOn: tl('二极管导通'), diodeOff: tl('二极管截止'), motorStart: tl('电动机开始转动'), motorStop: tl('电动机停转'), motorReverse: tl('电动机反转'),
   fuseBlown: tl('保险丝熔断'), rcdTripped: tl('漏电保护器跳闸')
@@ -824,6 +878,9 @@ watch(() => labTaskRequest.seq, () => {
   resetRun()
   fit()
 }, { immediate: true, flush: 'post' })
+
+/** 26.65 (D290): the run controls live in the page's bar when the page offers the place (not on phones' sheets) */
+const runSlot = typeof document !== 'undefined'
 </script>
 
 <template>
@@ -831,20 +888,30 @@ watch(() => labTaskRequest.seq, () => {
     <div class="stage">
       <div class="bar" role="toolbar" :aria-label="tl('电路元件')">
         <button class="tb" :class="{ on: tool === 'select' }" :title="tl('选择元件（点开关两次可通断；Delete 删除，R 旋转，方向键移动）')" @click="tool = 'select'"><Icon name="select" :size="18" /></button>
-        <template v-for="(g, gi) in groups" :key="gi">
-          <span class="sep" />
-          <button v-for="k in g" :key="k" class="tb" :class="{ on: tool === k }" :title="tl('{0}：从一个格点拖到另一个格点', [KIND_INFO[k].label])" :aria-label="KIND_INFO[k].label" @click="tool = k"><Icon :name="KIND_INFO[k].icon" :size="18" /></button>
-        </template>
-        <button class="tb" :class="{ on: tool === 'measure' }" :title="tl('等效电阻：依次点击两个格点')" @click="tool = 'measure'; measure = { a: null, b: null }"><Icon name="ruler" :size="18" /></button>
-      </div>
-      <div class="bar">
+        <span class="sep" />
+        <div v-for="g in groups" :key="g.id" class="grp">
+          <button type="button" class="gb" :data-ui="`circuit-group-${g.id}`" :class="{ on: openGroup === g.id || g.kinds.includes(tool as EditorKind) || (g.id === 'other' && tool === 'measure') }" aria-haspopup="menu" :aria-expanded="openGroup === g.id" :title="g.title" @click="openGroup = openGroup === g.id ? null : g.id"><Icon :name="g.icon" :size="16" /><span>{{ g.label }}</span></button>
+          <div v-if="openGroup === g.id" class="gpanel pane" role="menu" :aria-label="g.title">
+            <div class="gtitle">{{ g.title }}</div>
+            <button v-for="k in g.kinds" :key="k" type="button" role="menuitemradio" :aria-checked="tool === k" :data-ui="`circuit-tool-${k}`" :class="{ on: tool === k }" :title="tl('{0}：从一个格点拖到另一个格点', [KIND_INFO[k].label])" @click="pickKind(k)"><Icon :name="KIND_INFO[k].icon" :size="18" /><span>{{ KIND_INFO[k].label }}</span></button>
+            <button v-if="g.id === 'other'" type="button" role="menuitemradio" :aria-checked="tool === 'measure'" data-ui="circuit-tool-measure" :class="{ on: tool === 'measure' }" :title="tl('等效电阻：依次点击两个格点')" @click="pickMeasure"><Icon name="ruler" :size="18" /><span>{{ tl('等效电阻') }}</span></button>
+          </div>
+        </div>
+        <span class="sep" />
+        <div class="recent" data-ui="circuit-recent" role="group" :aria-label="tl('最近使用')">
+          <button v-for="k in recent" :key="k" type="button" class="tb" :class="{ on: tool === k }" :title="tl('{0}：从一个格点拖到另一个格点', [KIND_INFO[k].label])" :aria-label="KIND_INFO[k].label" @click="pickKind(k)"><Icon :name="KIND_INFO[k].icon" :size="18" /></button>
+        </div>
+        <!-- 26.65 (D290): the presets and the run controls share the tool row (they were a second row) -->
+        <span class="bar-gap" />
         <select class="field small" :value="S.preset" :aria-label="tl('示例电路')" @change="loadPreset(($event.target as HTMLSelectElement).value)">
           <optgroup v-for="g in PRESET_GROUPS" :key="g.id" :label="g.label">
             <option v-for="id in presetIds(g.id)" :key="id" :value="id">{{ PRESETS[id].label }}</option>
           </optgroup>
         </select>
         <button class="btn ghost small" :title="tl('清空电路')" @click="S.elements = []; selected = null; resetRun()"><Icon name="trash" :size="15" /></button>
-        <span class="sep" />
+        
+        <!-- 26.65 (D290): 稳态 / 运行 and the run's controls go to the bar's run place (LabPage, #lab-run-extra) -->
+        <Teleport defer to="#lab-run-extra" :disabled="!runSlot">
         <div class="lab-seg" role="tablist">
           <button :class="{ on: S.mode === 'dc' }" :title="tl('稳态：电容器充满、电感中电流恒定之后的电压与电流')" @click="setMode('dc')">{{ tl('稳态') }}</button>
           <button :class="{ on: S.mode === 'run' }" :title="tl('随时间运行：电容充放电、自感、交流电、电动机')" @click="setMode('run')">{{ tl('运行') }}</button>
@@ -858,10 +925,11 @@ watch(() => labTaskRequest.seq, () => {
             </select>
           </label>
         </template>
+        </Teleport>
       </div>
-      <div ref="wrap" class="canvas-wrap">
+      <div ref="wrap" class="canvas-wrap" data-tour="lab-canvas">
         <canvas ref="canvas" @pointerdown="onDown" @pointermove="onMove" @pointerup="onUp" @pointercancel="onUp" @wheel="onWheel" @contextmenu.prevent />
-        <div class="hint tiny muted">{{ tool === 'select' ? tl('点选元件查看与修改；Shift 或右键拖动平移，滚轮或双指缩放') : tool === 'measure' ? tl('依次点击两个格点，求它们之间的等效电阻（电源不计入）') : tool === 'ground' ? tl('点击一个格点接地') : tl('从一个格点拖到另一个格点放置{0}；端点重合即连通', [KIND_INFO[tool as EditorKind].label]) }}</div>
+        <div v-if="tool !== 'select'" class="hint tiny muted">{{ tool === 'measure' ? tl('依次点击两个格点，求它们之间的等效电阻（电源不计入）') : tool === 'ground' ? tl('点击一个格点接地') : tl('从一个格点拖到另一个格点放置{0}；端点重合即连通', [KIND_INFO[tool as EditorKind].label]) }}</div>
       </div>
       <div v-if="S.mode === 'run'" class="scope">
         <div class="scope-head small">
@@ -879,26 +947,31 @@ watch(() => labTaskRequest.seq, () => {
         </div>
       </div>
     </div>
-    <aside class="side">
+    <aside class="side lab-side" :data-selected-kind="sel?.kind">
       <div v-if="runError" class="issue small fatal">{{ ISSUE_TEXT[runError] ?? runError }}</div>
       <div v-if="sol && sol.issues.length" class="issues">
         <div v-for="(i, k) in sol.issues" :key="k" class="issue small" :class="{ fatal: i.fatal }">
-          <b v-if="i.elements.length">{{ i.elements.map(nameOf).join(tl('、')) }}：</b>{{ ISSUE_TEXT[i.kind] }}
+          <b v-if="i.elements.length">{{ tl('{0}：', [i.elements.map(nameOf).join(tl('、'))]) }} </b>{{ ISSUE_TEXT[i.kind] }}
         </div>
       </div>
-      <section v-if="summary && S.mode === 'dc'" class="block">
+      <section v-if="summary && S.mode === 'dc'" class="block lab-block" data-tab="readings" data-tour="lab-readings">
         <div class="btitle">{{ tl('电源与外电路') }}</div>
         <div class="kv small">
-          <span>{{ tl('电动势 E') }}</span><b class="mono">{{ fmtQ(summary.E, 'V') }}</b>
-          <span>{{ tl('内阻 r') }}</span><b class="mono">{{ fmtQ(summary.r, 'Ω') }}</b>
           <span>{{ tl('干路电流 I') }}</span><b class="mono">{{ fmtQ(summary.I, 'A') }}</b>
           <span>{{ tl('路端电压 U') }}</span><b class="mono">{{ fmtQ(summary.U, 'V') }}</b>
           <span>{{ tl('外电路电阻 R') }}</span><b class="mono">{{ summary.Rext === null ? '∞' : fmtQ(summary.Rext, 'Ω') }}</b>
-          <span>{{ tl('输出功率 P出') }}</span><b class="mono">{{ fmtQ(summary.Pout, 'W') }}</b>
-          <span>{{ tl('总功率 EI') }}</span><b class="mono">{{ fmtQ(summary.Ptotal, 'W') }}</b>
+          <span><Rich :text="tl('输出功率 P出')" /></span><b class="mono">{{ fmtQ(summary.Pout, 'W') }}</b>
         </div>
+        <details class="lab-more" data-ui="circuit-all-readings">
+          <summary>{{ tl('全部读数') }}</summary>
+          <div class="kv small">
+            <span>{{ tl('电动势 E') }}</span><b class="mono">{{ fmtQ(summary.E, 'V') }}</b>
+            <span>{{ tl('内阻 r') }}</span><b class="mono">{{ fmtQ(summary.r, 'Ω') }}</b>
+            <span>{{ tl('总功率 EI') }}</span><b class="mono">{{ fmtQ(summary.Ptotal, 'W') }}</b>
+          </div>
+        </details>
       </section>
-      <section v-if="S.mode === 'run'" class="block">
+      <section v-if="S.mode === 'run'" class="block lab-block" data-tab="readings">
         <div class="btitle">{{ tl('能量（从 t = 0 起）') }}</div>
         <div class="kv small">
           <span>{{ tl('电源输出') }}</span><b class="mono">{{ fmtQ(ledger.source, 'J') }}</b>
@@ -910,15 +983,15 @@ watch(() => labTaskRequest.seq, () => {
         </div>
         <div class="tiny muted">{{ tl('计算：{0} 步，最小步长 {1}', [lastStats.steps, fmtQ(lastStats.minStep, 's', 3)]) }}</div>
       </section>
-      <section v-if="S.mode === 'run' && runEvents.length" class="block">
+      <section v-if="S.mode === 'run' && runEvents.length" class="block lab-block" data-tab="readings">
         <div class="btitle">{{ tl('事件') }}</div>
         <div v-for="(ev, k) in runEvents.slice(0, 8)" :key="k" class="small ev"><span class="mono">{{ fmtQ(ev.t, 's', 6) }}</span> {{ nameOf(ev.element) }} {{ EVENT_TEXT[ev.kind] ?? ev.kind }}</div>
       </section>
-      <section v-if="measure.a && measure.b && S.mode === 'dc'" class="block">
+      <section v-if="measure.a && measure.b && S.mode === 'dc'" class="block lab-block" data-tab="all">
         <div class="btitle">{{ tl('等效电阻') }}</div>
         <div class="small">R = <b class="mono">{{ measured === null ? tl('∞（两点之间没有通路）') : fmtQ(measured, 'Ω') }}</b></div>
       </section>
-      <section v-if="sel" class="block">
+      <section v-if="sel" class="block lab-block" data-tab="gear">
         <div class="btitle">{{ KIND_INFO[sel.kind].label }} <span class="muted">{{ label(sel) }}</span></div>
         <div class="fields">
           <template v-if="sel.kind === 'battery'">
@@ -946,7 +1019,7 @@ watch(() => labTaskRequest.seq, () => {
             <label>{{ tl('线圈电阻') }}</label><NumField :model-value="sel.r ?? 0" unit="Ω" :min="0" @update:model-value="v => (sel!.r = v)" />
           </template>
           <template v-if="sel.kind === 'ac'">
-            <label>{{ tl('峰值 U_m') }}</label><NumField :model-value="sel.E ?? 0" unit="V" @update:model-value="v => (sel!.E = v)" />
+            <label><Rich :text="tl('峰值 U_m')" /></label><NumField :model-value="sel.E ?? 0" unit="V" @update:model-value="v => (sel!.E = v)" />
             <label>{{ tl('频率 f') }}</label><NumField :model-value="sel.f ?? 0" unit="Hz" :min="0" @update:model-value="v => (sel!.f = v)" />
             <label>{{ tl('初相位') }}</label><NumField :model-value="sel.phase ?? 0" unit="rad" @update:model-value="v => (sel!.phase = v)" />
             <label>{{ tl('内阻 r') }}</label><NumField :model-value="sel.r ?? 0" unit="Ω" :min="0" @update:model-value="v => (sel!.r = v)" />
@@ -958,7 +1031,7 @@ watch(() => labTaskRequest.seq, () => {
           <template v-if="sel.kind === 'motor'">
             <label>{{ tl('用作') }}</label>
             <div class="lab-seg"><button :class="{ on: !sel.generator }" @click="sel!.generator = false">{{ tl('电动机') }}</button><button :class="{ on: sel.generator }" @click="sel!.generator = true">{{ tl('发电机') }}</button></div>
-            <label>{{ tl('线圈电阻 R_a') }}</label><NumField :model-value="sel.R ?? 0" unit="Ω" :min="0" @update:model-value="v => (sel!.R = v)" />
+            <label><Rich :text="tl('线圈电阻 R_a')" /></label><NumField :model-value="sel.R ?? 0" unit="Ω" :min="0" @update:model-value="v => (sel!.R = v)" />
             <label>{{ tl('电机常数 k') }}</label><NumField :model-value="sel.k ?? 0" unit="V·s" :min="1e-9" @update:model-value="v => (sel!.k = v)" />
             <template v-if="sel.generator"><label>{{ tl('转速 ω') }}</label><NumField :model-value="sel.omega ?? 0" unit="rad/s" @update:model-value="v => (sel!.omega = v)" /></template>
             <template v-else>
@@ -990,8 +1063,8 @@ watch(() => labTaskRequest.seq, () => {
             <label>{{ tl('压力') }}</label><input v-model.number="sel.F" type="range" min="0" max="50" step="0.1" :aria-label="tl('压力')" />
           </template>
           <template v-if="sel.kind === 'galvanometer'">
-            <label>{{ tl('内阻 R_g') }}</label><NumField :model-value="sel.r ?? 0" unit="Ω" :min="0" @update:model-value="v => (sel!.r = v)" />
-            <label>{{ tl('满偏电流 I_g') }}</label><NumField :model-value="sel.I ?? 0" unit="A" :min="1e-12" @update:model-value="v => (sel!.I = v)" />
+            <label><Rich :text="tl('内阻 R_g')" /></label><NumField :model-value="sel.r ?? 0" unit="Ω" :min="0" @update:model-value="v => (sel!.r = v)" />
+            <label><Rich :text="tl('满偏电流 I_g')" /></label><NumField :model-value="sel.I ?? 0" unit="A" :min="1e-12" @update:model-value="v => (sel!.I = v)" />
           </template>
           <template v-if="sel.kind === 'probe'">
             <label>{{ tl('通道') }}</label>
@@ -1019,17 +1092,17 @@ watch(() => labTaskRequest.seq, () => {
         </div>
         <LabFormula v-for="f in selFormulas" :key="f.title" :title="f.title" :tex="f.tex" :expr="f.expr" :vars="f.vars" :unit="f.unit" :lhs="f.lhs" :result="f.result" />
       </section>
-      <section v-if="relationText.length && S.mode === 'dc'" class="block">
+      <section v-if="relationText.length && S.mode === 'dc'" class="block lab-block" data-tab="readings">
         <div class="btitle">{{ tl('串联与并联') }}</div>
         <div v-for="t in relationText" :key="t" class="small">{{ t }}</div>
       </section>
-      <section class="block">
+      <section class="block lab-block" data-tab="display">
         <div class="btitle">{{ tl('显示') }}</div>
         <label class="check small"><input v-model="S.showValues" type="checkbox" />{{ tl('元件参数') }}</label>
         <label class="check small"><input v-model="S.flow" type="checkbox" />{{ tl('电流动画（正电荷移动方向）') }}</label>
         <label v-if="S.mode === 'dc'" class="check small"><input v-model="S.showPotential" type="checkbox" />{{ tl('按电势给导线着色（红高蓝低）') }}</label>
       </section>
-      <details class="block notes">
+      <details class="block notes lab-block" data-tab="readings">
         <summary class="small">{{ tl('原理') }}</summary>
         <p class="tiny muted">{{ tl('Rust 核心用改进节点分析求解：未知量是各节点电势和理想电源的电流，方程是每个节点的基尔霍夫电流定律和每个电源的电压关系。导线、闭合开关和理想电流表把两端合成一个节点；电容器和理想电压表中没有电流（稳态）。') }}</p>
         <p class="tiny muted">{{ tl('“运行”时，核心按梯形法对时间积分（电容、电感的伴随模型），每一步与两个半步比较来控制误差（相对 10⁻¹¹）；二极管通断、保险丝熔断、漏电保护跳闸的时刻用二分法定位。线圈中的电流被切断、电容直接接到理想电源上时，状态突变，损失的能量在“能量”中列出。') }}</p>
@@ -1039,14 +1112,27 @@ watch(() => labTaskRequest.seq, () => {
 </template>
 
 <style scoped>
-.lab-shell { display: grid; grid-template-columns: minmax(0, 1fr) calc(300px * var(--zoom)); gap: 8px; min-height: 0; height: 100%; }
 .stage { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--pane); border-radius: var(--radius-pane, 12px); overflow: hidden; }
-.bar { display: flex; align-items: center; gap: 2px; padding: 4px 8px; border-bottom: 1px solid var(--separator); flex-wrap: wrap; }
+.bar { display: flex; align-items: center; gap: 2px; padding: 6px 8px; border-bottom: 1px solid var(--separator); flex-wrap: wrap; row-gap: 4px; }
+.bar-gap { flex: 1 1 12px; min-width: 12px; }
+.bar > select.field { width: auto; flex: 0 1 auto; max-width: calc(220px * var(--zoom)); }
 .bar .ctl { display: inline-flex; align-items: center; gap: 4px; color: var(--text-2); margin-left: 6px; }
 .tb { width: 32px; height: 30px; border: 0; background: transparent; border-radius: 8px; display: grid; place-items: center; cursor: pointer; color: var(--text-2); }
 .tb:hover { background: var(--fill); }
 .tb.on { background: var(--accent); color: var(--on-accent); }
 .sep { width: 1px; height: 20px; background: var(--separator); margin: 0 4px; }
+/* 26.64 (D244): the component groups — a labelled button each, its panel with the names, the recent three */
+.grp { position: relative; }
+.gb { display: inline-flex; align-items: center; gap: 4px; height: 30px; padding: 0 8px; border: 0; background: transparent; border-radius: var(--radius-control); cursor: pointer; color: var(--text-2); font: inherit; font-size: var(--type-small); white-space: nowrap; }
+.gb:hover { background: var(--fill); color: var(--text); }
+.gb.on { background: var(--accent-soft); color: var(--accent); }
+.gpanel { position: absolute; left: 0; top: calc(100% + 6px); z-index: 12; min-width: 200px; padding: 5px; display: flex; flex-direction: column; gap: 1px; border-radius: var(--radius-float); box-shadow: var(--elev-3); }
+.gtitle { padding: 4px 10px 2px; font-size: var(--type-tiny); font-weight: var(--weight-strong); color: var(--text-2); }
+.gpanel button { display: flex; align-items: center; gap: 8px; height: var(--menu-row); padding: 0 10px; border: 0; border-radius: var(--radius-control); background: transparent; color: var(--text); font: inherit; text-align: left; white-space: nowrap; cursor: pointer; }
+.gpanel button:hover { background: var(--accent-soft); color: var(--accent-strong); }
+.gpanel button.on { color: var(--accent); font-weight: var(--weight-strong); }
+.recent { display: inline-flex; gap: 2px; }
+@media (max-width: 1100px) { .gb span { display: none; } }
 .canvas-wrap { flex: 1; min-height: 160px; position: relative; }
 canvas { position: absolute; inset: 0; touch-action: none; cursor: crosshair; }
 .hint { position: absolute; left: 10px; bottom: 6px; pointer-events: none; }
@@ -1054,7 +1140,7 @@ canvas { position: absolute; inset: 0; touch-action: none; cursor: crosshair; }
 .scope-head { display: flex; align-items: center; gap: 8px; color: var(--text-2); }
 .scope-head .grow { flex: 1; }
 .scope-head .ctl { display: inline-flex; align-items: center; gap: 4px; }
-.ch { font-size: 11px; border-radius: 999px; padding: 0 6px; }
+.ch { font-size: var(--type-tiny); border-radius: 999px; padding: 0 6px; }
 .ch1 { background: color-mix(in srgb, #d97706 18%, transparent); color: #b45309; }
 .ch2 { background: color-mix(in srgb, #0891b2 18%, transparent); color: #0e7490; }
 .chi { background: color-mix(in srgb, #7c3aed 16%, transparent); color: #6d28d9; }
@@ -1073,6 +1159,4 @@ canvas { position: absolute; inset: 0; touch-action: none; cursor: crosshair; }
 .ev { line-height: 1.6; }
 .notes summary { cursor: pointer; }
 .notes p { line-height: 1.5; }
-@media (max-width: 1100px) { .lab-shell { grid-template-columns: minmax(0, 1fr) calc(260px * var(--zoom)); } }
-@media (max-width: 760px) { .lab-shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(320px, 1fr) auto; overflow: auto; } }
 </style>

@@ -8,6 +8,7 @@
  *  - projectile-wall: a ball thrown horizontally from a table hits a wall at distance d — y = h − g d²/(2v₀²).
  */
 import { tl } from '../i18n'
+import { stopAfter } from './bounds'
 import type { Scene, SpringDef } from '../core/scene/types'
 import { addBody, addConnector, addGround, defaultGravity, emptyScene } from '../core/scene/build'
 import type { TemplateInfo, TemplateParam } from './index'
@@ -59,6 +60,8 @@ function domeSlide(v: Record<string, number>): Scene {
   addBody(s, { id: 'dome', name: tl('半球'), kind: 'static', role: 'ground', shape: { type: 'circle', radius: R }, position: { x: 0, y: 0 }, material: SMOOTH, color: '#64748b' })
   addBody(s, { id: 'p', name: tl('质点'), kind: 'particle', role: 'ball', shape: { type: 'circle', radius: 0 }, position: { x: 0, y: R }, velocity: { x: v.v0, y: 0 }, mass: v.m, material: SMOOTH })
   s.settings.gravity = { x: 0, y: -v.g }
+  // 26.65 (M1): the run ends 1.9 s after the first separation — the body leaves the dome; the run ends near the end of the floor
+  stopAfter(s, 1.9)
   s.settings.legacyDuration = 2
   s.customQuantities = [{ id: 'cos', name: tl('位置角的余弦 cos φ'), expr: `y(p) / ${R}` }]
   s.view = { center: { x: R, y: R / 2 }, pixelsPerMeter: Math.max(20, Math.min(200, 300 / R)) }

@@ -3,7 +3,7 @@
  * points; a transformer or an RCD has a second pair of terminals (c, d) beside the first. Each example may start in
  * "run" mode (time domain) with a time scale (simulated seconds per real second) and a scope span.
  */
-import { tl } from '../../i18n'
+import { tl, trDeep } from '../../i18n'
 import type { CircuitKind } from '../../engine/labs'
 
 export type Pt = [number, number]
@@ -96,15 +96,17 @@ export interface Preset {
   run?: { scale: number; span: number }
 }
 
-export const PRESET_GROUPS: Array<{ id: Preset['group']; label: string }> = [
+// 26.65 (D294): read through trDeep — this module is loaded before the interface language is set, so the German
+// interface showed the Chinese preset names (串联 in the preset list)
+export const PRESET_GROUPS: Array<{ id: Preset['group']; label: string }> = trDeep([
   { id: 'dc', label: tl('直流电路') },
   { id: 'time', label: tl('暂态') },
   { id: 'ac', label: tl('交流电与电机') },
   { id: 'home', label: tl('家庭电路') },
   { id: 'meter', label: tl('电表与传感器') }
-]
+])
 
-export const PRESETS: Record<string, Preset> = {
+export const PRESETS: Record<string, Preset> = trDeep({
   series: { label: tl('串联'), group: 'dc', build: () => [
     el('battery', [-4, 2], [-4, -2], { E: 3 }), el('wire', [-4, 2], [-2, 2]), el('switch', [-2, 2], [0, 2]), el('resistor', [0, 2], [2, 2], { R: 5 }),
     el('wire', [2, 2], [4, 2]), el('lamp', [4, 2], [4, -2]), el('ammeter', [4, -2], [0, -2]), el('wire', [0, -2], [-4, -2]),
@@ -228,7 +230,7 @@ export const PRESETS: Record<string, Preset> = {
     el('battery', [-4, 2], [-4, -2], { E: 3 }), el('fsr', [-4, 2], [0, 2], { R: 100e3, F0: 1, F: 2 }), el('resistor', [0, 2], [0, -2], { R: 10e3 }), el('wire', [0, -2], [-4, -2]),
     el('voltmeter', [2, 2], [2, -2]), el('wire', [0, 2], [2, 2]), el('wire', [0, -2], [2, -2])
   ] }
-}
+})
 
 /** Elements with ids and names (E1, R1 …). */
 /**

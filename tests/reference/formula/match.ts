@@ -11,7 +11,7 @@ import { tl, paren, semiSep, colonSep } from '../../../src/i18n'
 import type { FormulaDef } from '../../../src/formula/library'
 import { FORMULAS } from '../../../src/formula/library'
 import type { Node } from './expr'
-import { dimension, evaluate, parse, toLatex } from './expr'
+import { dimension, evaluate, evaluateMaxAbs, parse, toLatex } from './expr'
 import { dimEqual, unitDim } from '../../../src/formula/units'
 import type { Dim } from '../../../src/formula/units'
 import type { Condition, Sample, Situation } from './situations'
@@ -145,7 +145,15 @@ export function evaluateCard(f: FormulaDef, sit: Situation, sample: Sample, opts
     reason = approx ? `${approx.label}${colonSep()}${approx.detail}` : ''
   } else {
     const rel = f.situation === 'energy' ? THRESHOLDS.energyRel : THRESHOLDS.exactRel
-    const ok = (relError ?? 1) <= rel || Math.abs(absError ?? 1) <= THRESHOLDS.exactAbs * Math.max(1, Math.abs(theory))
+    // 26.65 (P12): the energy ledger's absolute limit scales with its largest term (`Escale`), not with E₀ alone
+    const es = f.situation === 'energy' && sample.vars.Escale && Number.isFinite(sample.vars.Escale.value) ? sample.vars.Escale.value : 0
+    const scale = Math.max(1, Math.max(Math.abs(theory), es))
+    let ok = (relError ?? 1) <= rel || Math.abs(absError ?? 1) <= THRESHOLDS.exactAbs * scale
+    // 26.65 (P12): a theory that is a difference of large terms carries their rounding; the absolute limit then scales
+    // with the largest value met while evaluating the expression
+    if (!ok) {
+      try { ok = Math.abs(absError ?? 1) <= THRESHOLDS.exactAbs * Math.max(scale, evaluateMaxAbs(node, vars)) } catch { /* as the Rust core: no trace, no change */ }
+    }
     verdict = ok ? 'match' : 'deviate'
     if (!ok) reason = tl('偏差超过阈值（相对 {0}）。可能原因：{1}', [rel, (f.causes ?? [tl('数值积分误差'), tl('模型假设与场景不符（请检查条件）')]).join(semiSep())])
   }

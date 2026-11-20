@@ -151,6 +151,9 @@ pub fn situations2662(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()> {
             let leave_h = leave.as_ref().map(|x| x[3 * bi + 1] - cy);
             let leave_v = leave.as_ref().map(|x| speed(x));
             let left = leave.is_some();
+            // 26.65 (P5): inside the track, "leaving" means N dropping to zero in the upper half (above the centre,
+            // which needs v₀² > 2gρ); a ball that runs off the end of a quarter arc separates without that
+            let leaves_upper = left && leave_h.is_some_and(|h| h > 1e-9 * rho) && vref2 > 2.0 * g * rho;
             let common = move || {
                 vec![
                     ("rho", var(rho, "m", "\\rho", t!("轨迹半径（圆心到物体中心）"))),
@@ -163,7 +166,7 @@ pub fn situations2662(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()> {
                 out.push(Situation {
                     key: format!("arcin:{}:{}", bid, js_num(t0)),
                     ty: "arc-inside",
-                    title: t!("{0} 沿圆轨道内侧运动", b.name.clone()),
+                    title: t!("{0}沿圆轨道内侧运动", b.name.clone()),
                     t0,
                     t1,
                     t_event: None,
@@ -189,7 +192,18 @@ pub fn situations2662(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()> {
                             ],
                             conditions: vec![
                                 cond("fullCircle", t!("能通过最高点（v₀ ≥ √(5gρ) = {0} m/s）", js_to_precision(crit, 4)), full, t!("本例 v₀ = {0} m/s", js_to_precision(vref, 4))),
-                                cond("leaves", t!("在上半圆脱离轨道（√(2gρ) < v₀ < √(5gρ)）"), left && !full, unless(left, t!("记录内没有脱离轨道"))),
+                                cond(
+                                    "leaves",
+                                    t!("在上半圆脱离轨道（√(2gρ) < v₀ < √(5gρ)）"),
+                                    leaves_upper && !full,
+                                    if !left {
+                                        t!("记录内没有脱离轨道")
+                                    } else if !leaves_upper {
+                                        t!("在轨道末端离开（不高于圆心），不是因支持力减为零而脱离")
+                                    } else {
+                                        Text::empty()
+                                    },
+                                ),
                                 cond("atBottom", t!("经过最低点"), m.0.is_some(), unless(m.0.is_some(), t!("本段未经过最低点"))),
                                 cond("reachesTop", t!("到达最高点"), m.1.is_some(), unless(m.1.is_some(), t!("本段未到达最高点"))),
                             ],
@@ -200,7 +214,7 @@ pub fn situations2662(r: &mut Rec, out: &mut Vec<Situation>) -> SimResult<()> {
                 out.push(Situation {
                     key: format!("arcout:{}:{}", bid, js_num(t0)),
                     ty: "arc-outside",
-                    title: t!("{0} 沿圆弧外侧运动", b.name.clone()),
+                    title: t!("{0}沿圆弧外侧运动", b.name.clone()),
                     t0,
                     t1,
                     t_event: None,

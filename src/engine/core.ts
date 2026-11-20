@@ -12,7 +12,7 @@ import type { Message } from '../i18n/message'
 import { MessageError, isMessage, reviveMessage } from '../i18n/message'
 
 /** ABI version this loader speaks. */
-export const ABI_VERSION = 2
+export const ABI_VERSION = 3
 
 /** The C ABI of the core (engine/ABI.md), with bytes in and bytes out. */
 export interface CoreBackend {
@@ -35,6 +35,10 @@ export interface CoreBackend {
   sessionInstall(h: number, chunk: number, bytes: Uint8Array): boolean
   sessionFree(h: number): void
   calcCall(json: Uint8Array): Uint8Array | null
+  // The chemistry bench (ABI 3, 26.64 D261): a session of its own kind
+  chemSessionCreate(json: Uint8Array): number
+  chemSessionCall(h: number, json: Uint8Array): Uint8Array | null
+  chemSessionFree(h: number): void
   // Runs (the simulation worker, the tests)
   runCreate(json: Uint8Array): number
   runInfo(h: number): Uint8Array | null
@@ -113,6 +117,10 @@ interface WasmExports {
   session_free(h: number): void
   calc_call(ptr: number, len: number): number
   calc_output(): number
+  chem_session_create(ptr: number, len: number): number
+  chem_session_call(h: number, ptr: number, len: number): number
+  chem_session_output(h: number): number
+  chem_session_free(h: number): void
   run_create(ptr: number, len: number): number
   run_info(h: number, ptr: number, len: number): number
   run_set_until(h: number, frame: number): void
@@ -208,6 +216,12 @@ class WasmBackend implements CoreBackend {
     const n = this.withInput(b, (p, l) => this.x.calc_call(p, l))
     return n > 0 ? this.copy(this.x.calc_output(), n) : null
   }
+  chemSessionCreate(json: Uint8Array) { return this.withInput(json, (p, l) => this.x.chem_session_create(p, l)) }
+  chemSessionCall(h: number, b: Uint8Array) {
+    const n = this.withInput(b, (p, l) => this.x.chem_session_call(h, p, l))
+    return n > 0 ? this.copy(this.x.chem_session_output(h), n) : null
+  }
+  chemSessionFree(h: number) { this.x.chem_session_free(h) }
   runCreate(b: Uint8Array) { return this.withInput(b, (p, l) => this.x.run_create(p, l)) }
   runInfo(h: number) { return this.take((p, l) => this.x.run_info(h, p, l)) }
   runSetUntil(h: number, f: number) { this.x.run_set_until(h, f) }

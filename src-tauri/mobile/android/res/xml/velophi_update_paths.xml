@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- VeloPhi 26.64: the one folder UpdateFileProvider may hand to the system installer (cacheDir/update, where
+     src-tauri/src/update.rs puts a verified APK). Copied into the generated project by scripts\android\build-apk.ps1. -->
+<paths>
+  <cache-path name="update" path="update/" />
+</paths>

@@ -150,6 +150,9 @@ pub struct Session {
     pub impact_warnings: Vec<(usize, Value)>,
     /// Chart envelope caches (lod.rs).
     pub lod: Option<crate::lod::LodCache>,
+    /// 26.65 (P7): while a situation is sampled, the end of its phase: states and modes at that instant are taken on the
+    /// side before the event that ends it (formula/mod.rs `sample_situation`).
+    pub sample_end: Option<f64>,
 }
 
 fn chunk_bytes(c: &FrameChunk) -> f64 {
@@ -224,6 +227,7 @@ impl Session {
             meta,
             customs: None,
             recognition: Default::default(),
+            sample_end: None,
             impact_warnings: Vec::new(),
             lod: None,
             scene,
@@ -804,7 +808,25 @@ pub fn step_to(sys: &System, mode: &crate::dynamics::Mode, x0: &[f64], h: f64, t
         _ => {
             let ctl = ErrorControl { rel_tol: st.rel_tol, abs_tol: st.abs_tol, count: 6 * n };
             let mut stages = Stages::default();
-            dopri5_step(&mut rhs, x0, h, &ctl, None, slot, &mut stages)?
+            let first = dopri5_step(&mut rhs, x0, h, &ctl, None, slot, &mut stages)?;
+            // 26.65 (P8): one unchecked step from the frame before is too coarse when the motion is fast (an orbit of
+            // a few frames per turn); when its error estimate exceeds the run's tolerance, the interval is split into
+            // 2, 4, … 1024 equal steps until every step passes (deterministic: the split depends only on the state)
+            let mut out = first;
+            let mut m = 1usize;
+            while out.err > 1.0 && m < 1024 {
+                m *= 2;
+                let hs = h / m as f64;
+                let mut x = x0.to_vec();
+                let mut worst = 0.0f64;
+                for _ in 0..m {
+                    let r = dopri5_step(&mut rhs, &x, hs, &ctl, None, slot, &mut stages)?;
+                    worst = worst.max(r.err);
+                    x = r.x;
+                }
+                out = crate::integrators::StepResult { x, err: worst, k7: None };
+            }
+            out
         }
     };
     if let Some(s) = slot {
